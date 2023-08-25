@@ -52,7 +52,10 @@ impl Widget for Label {
                 .max()
                 .unwrap_or(0);
 
-            self.unrestricted_text_size = Size { width, height };
+            self.unrestricted_text_size = Size {
+                x: width,
+                y: height,
+            };
             // TODO: error propagation?
             let mut pixmap =
                 Pixmap::new(width as u32, height as u32).expect("failed to create pixmap");

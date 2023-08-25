@@ -10,10 +10,11 @@ use winit::{
 
 use crate::{
     draw::{DrawContext, Palette},
-    WidgetContainer,
+    types::{Point, Rect, Size},
+    Widget,
 };
 
-pub fn run(mut root_widget: WidgetContainer) {
+pub fn run(mut root_widget: impl Widget + 'static) {
     let event_loop = EventLoop::new();
 
     let window = WindowBuilder::new()
@@ -62,7 +63,13 @@ pub fn run(mut root_widget: WidgetContainer) {
 
                 let mut pixmap = Pixmap::new(width, height).unwrap();
                 let mut ctx = DrawContext {
-                    self_info: &mut root_widget.info,
+                    rect: Rect {
+                        top_left: Point::default(),
+                        size: Size {
+                            x: width as i32,
+                            y: height as i32,
+                        },
+                    },
                     pixmap: &mut pixmap,
                     font_system: &mut font_system,
                     font_metrics,
@@ -71,7 +78,7 @@ pub fn run(mut root_widget: WidgetContainer) {
                 };
                 // TODO: widget should fill instead?
                 ctx.pixmap.fill(ctx.palette.background);
-                root_widget.widget.draw(&mut ctx);
+                root_widget.draw(&mut ctx);
 
                 buffer.copy_from_slice(bytemuck::cast_slice(pixmap.data()));
 
