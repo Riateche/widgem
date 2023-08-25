@@ -1,6 +1,6 @@
 use std::{
     cmp::{max, min},
-    ops::Add,
+    ops::{Add, Sub},
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -16,6 +16,16 @@ impl Add for Point {
         Self {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
+        }
+    }
+}
+impl Sub for Point {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
         }
     }
 }
@@ -47,6 +57,11 @@ impl Rect {
             x: self.top_left.x + self.size.x,
             y: self.top_left.y + self.size.y,
         }
+    }
+
+    pub fn contains(&self, pos: Point) -> bool {
+        let br = self.bottom_right();
+        self.top_left.x <= pos.x && pos.x < br.x && self.top_left.y <= pos.y && pos.y < br.y
     }
 
     pub fn intersect(&self, other: Self) -> Self {

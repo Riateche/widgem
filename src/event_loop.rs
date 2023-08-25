@@ -1,7 +1,5 @@
-use std::num::NonZeroU32;
-
 use cosmic_text::{FontSystem, SwashCache};
-use tiny_skia::{Color, Pixmap};
+use tiny_skia::Color;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -9,21 +7,21 @@ use winit::{
 };
 
 use crate::{
-    draw::{DrawContext, Palette},
-    types::{Point, Rect, Size},
+    draw::Palette,
+    window::{Window, WindowEventContext},
     Widget,
 };
 
-pub fn run(mut root_widget: impl Widget + 'static) {
+pub fn run(root_widget: impl Widget + 'static) {
     let event_loop = EventLoop::new();
 
-    let window = WindowBuilder::new()
-        .with_title("My window title")
-        .build(&event_loop)
-        .unwrap();
-
-    let context = unsafe { softbuffer::Context::new(&window) }.unwrap();
-    let mut surface = unsafe { softbuffer::Surface::new(&context, &window) }.unwrap();
+    let mut window = Window::new(
+        WindowBuilder::new()
+            .with_title("My window title")
+            .build(&event_loop)
+            .unwrap(),
+        Some(Box::new(root_widget)),
+    );
 
     // A FontSystem provides access to detected system fonts, create one per application
     let mut font_system = FontSystem::new();
@@ -42,69 +40,26 @@ pub fn run(mut root_widget: impl Widget + 'static) {
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        match event {
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                // Grab the window's client area dimensions
-                let (width, height) = {
-                    let size = window.inner_size();
-                    (size.width, size.height)
-                };
+        let mut ctx = WindowEventContext {
+            font_system: &mut font_system,
+            font_metrics,
+            swash_cache: &mut swash_cache,
+            palette: &mut palette,
+        };
 
-                // Resize surface if needed
-                surface
-                    .resize(
-                        NonZeroU32::new(width).unwrap(),
-                        NonZeroU32::new(height).unwrap(),
-                    )
-                    .unwrap();
-
-                // Draw something in the window
-                let mut buffer = surface.buffer_mut().unwrap();
-
-                let mut pixmap = Pixmap::new(width, height).unwrap();
-                let mut ctx = DrawContext {
-                    rect: Rect {
-                        top_left: Point::default(),
-                        size: Size {
-                            x: width as i32,
-                            y: height as i32,
-                        },
-                    },
-                    pixmap: &mut pixmap,
-                    font_system: &mut font_system,
-                    font_metrics,
-                    swash_cache: &mut swash_cache,
-                    palette: &mut palette,
-                };
-                // TODO: widget should fill instead?
-                ctx.pixmap.fill(ctx.palette.background);
-                root_widget.draw(&mut ctx);
-
-                buffer.copy_from_slice(bytemuck::cast_slice(pixmap.data()));
-
-                buffer.iter_mut().for_each(|pixel| {
-                    let [r, g, b, _] = pixel.to_ne_bytes();
-                    *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
-                });
-
-                //redraw(&mut buffer, width as usize, height as usize, flag);
-                buffer.present().unwrap();
+        match &event {
+            Event::RedrawRequested(window_id) if *window_id == window.inner.id() => {
+                window.handle_event(&mut ctx, event);
             }
-
             Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
                 window_id,
-            } if window_id == window.id() => {
-                *control_flow = ControlFlow::Exit;
+                event: wevent,
+            } if *window_id == window.inner.id() => {
+                if matches!(wevent, WindowEvent::CloseRequested) {
+                    *control_flow = ControlFlow::Exit;
+                }
+                window.handle_event(&mut ctx, event);
             }
-
-            Event::WindowEvent {
-                event: WindowEvent::KeyboardInput { .. },
-                window_id,
-            } if window_id == window.id() => {
-                window.request_redraw();
-            }
-
             _ => {}
         }
     });

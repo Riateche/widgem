@@ -5,6 +5,7 @@ use tiny_skia::{Color, Pixmap};
 
 use crate::{
     draw::{draw_text, unrestricted_text_size, DrawContext},
+    event::MouseInputEvent,
     types::{Point, Rect, Size},
     Widget,
 };
@@ -79,5 +80,9 @@ impl Widget for Button {
             };
             ctx.draw_pixmap(padding, pixmap.as_ref());
         }
+    }
+
+    fn mouse_input(&mut self, _event: &mut MouseInputEvent<'_>) {
+        println!("button clicked {:?}", self.text);
     }
 }
