@@ -1,7 +1,7 @@
 use salvation::{
     event_loop,
     types::{Point, Rect, Size},
-    widgets::{image::Image, label::Label, stack::Stack},
+    widgets::{button::Button, image::Image, label::Label, stack::Stack},
 };
 
 fn main() {
@@ -23,6 +23,21 @@ fn main() {
             size: Size { x: 300, y: 300 },
         },
         w2,
+    );
+
+    root.add(
+        Rect {
+            top_left: Point { x: 20, y: 200 },
+            size: Size { x: 200, y: 50 },
+        },
+        Button::new("btn1"),
+    );
+    root.add(
+        Rect {
+            top_left: Point { x: 20, y: 260 },
+            size: Size { x: 200, y: 50 },
+        },
+        Button::new("btn2"),
     );
 
     event_loop::run(root);

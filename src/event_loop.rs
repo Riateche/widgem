@@ -32,7 +32,7 @@ pub fn run(mut root_widget: impl Widget + 'static) {
     let mut swash_cache = SwashCache::new();
 
     // Text metrics indicate the font size and line height of a buffer
-    let font_metrics = cosmic_text::Metrics::new(100.0, 150.0);
+    let font_metrics = cosmic_text::Metrics::new(24.0, 30.0);
 
     let mut palette = Palette {
         foreground: Color::BLACK,
