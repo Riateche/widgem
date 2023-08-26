@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use cosmic_text::{FontSystem, SwashCache};
 use tiny_skia::Pixmap;
-use winit::event::{Event, WindowEvent};
+use winit::event::{Event, ModifiersState, WindowEvent};
 
 use crate::{
     draw::{DrawContext, Palette},
@@ -17,6 +17,7 @@ pub struct Window {
     pub surface: softbuffer::Surface,
     pub cursor_position: Option<Point>,
     pub cursor_entered: bool,
+    pub modifiers_state: ModifiersState,
     pub widget: Option<Box<dyn Widget>>,
 }
 
@@ -29,6 +30,7 @@ impl Window {
             inner,
             cursor_position: None,
             cursor_entered: false,
+            modifiers_state: ModifiersState::default(),
             widget,
         }
     }
@@ -76,6 +78,8 @@ impl Window {
 
                 buffer.copy_from_slice(bytemuck::cast_slice(pixmap.data()));
 
+                // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
+                // iterate over the pixels and shift the pixels over.
                 buffer.iter_mut().for_each(|pixel| {
                     let [r, g, b, _] = pixel.to_ne_bytes();
                     *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
@@ -101,11 +105,14 @@ impl Window {
                     };
                     self.cursor_position = Some(pos);
                 }
+                WindowEvent::ModifiersChanged(state) => {
+                    self.modifiers_state = state;
+                }
                 WindowEvent::MouseInput {
                     device_id,
                     state,
                     button,
-                    modifiers,
+                    ..
                 } => {
                     if let Some(pos) = self.cursor_position {
                         if let Some(widget) = &mut self.widget {
@@ -113,7 +120,7 @@ impl Window {
                                 device_id,
                                 state,
                                 button,
-                                modifiers,
+                                modifiers: self.modifiers_state,
                                 pos,
                                 font_metrics: ctx.font_metrics,
                                 palette: ctx.palette,
@@ -127,6 +134,10 @@ impl Window {
             },
             _ => {}
         }
+    }
+
+    pub fn set_widget<W: Widget + 'static>(&mut self, widget: Option<W>) {
+        self.widget = widget.map(|w| Box::new(w) as _);
     }
 }
 

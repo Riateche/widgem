@@ -24,7 +24,7 @@ impl Widget for Stack {
     fn draw(&mut self, ctx: &mut DrawContext<'_>) {
         for child in &mut self.children {
             let mut ctx = DrawContext {
-                rect: child.rect,
+                rect: child.rect.translate(ctx.rect.top_left).intersect(ctx.rect),
                 pixmap: ctx.pixmap,
                 font_system: ctx.font_system,
                 font_metrics: ctx.font_metrics,

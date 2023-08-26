@@ -2,6 +2,7 @@ use draw::DrawContext;
 use event::MouseInputEvent;
 use types::Rect;
 
+pub mod callback;
 pub mod draw;
 pub mod event;
 pub mod event_loop;
