@@ -1,7 +1,7 @@
 use salvation::{
     event_loop::{self, CallbackContext},
     types::{Point, Rect, Size},
-    widgets::{button::Button, image::Image, label::Label, stack::Stack},
+    widgets::{button::Button, image::Image, stack::Stack, text_input::TextInput},
     Widget,
 };
 
@@ -38,11 +38,11 @@ impl State {
             Box::new(w1),
         );
 
-        let w2 = Label::new("Hello, Rust! 🦀\n");
+        let w2 = TextInput::new("Hello, Rust! 🦀\n");
         root.add(
             Rect {
-                top_left: Point { x: 100, y: 130 },
-                size: Size { x: 300, y: 300 },
+                top_left: Point { x: 300, y: 130 },
+                size: Size { x: 300, y: 30 },
             },
             Box::new(w2),
         );

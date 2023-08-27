@@ -1,5 +1,5 @@
-use cosmic_text::{BorrowedWithFontSystem, Buffer, FontSystem, SwashCache};
-use tiny_skia::{Color, ColorU8, Paint, Pixmap, PixmapPaint, PixmapRef, Transform};
+use cosmic_text::{BorrowedWithFontSystem, Buffer, Editor, FontSystem, SwashCache};
+use tiny_skia::{Color, Paint, Pixmap, PixmapPaint, PixmapRef, Transform};
 
 use crate::types::{Point, Rect, Size};
 
@@ -71,7 +71,7 @@ pub fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -
 }
 
 pub fn draw_text(
-    buffer: &mut BorrowedWithFontSystem<'_, Buffer>,
+    buffer: &mut impl DrawableTextBuffer,
     size: Size,
     color: Color,
     swash_cache: &mut SwashCache,
@@ -79,18 +79,44 @@ pub fn draw_text(
     // TODO: empty size check
     // TODO: error propagation?
     let mut pixmap = Pixmap::new(size.x as u32, size.y as u32).expect("failed to create pixmap");
-    let pixels = pixmap.pixels_mut();
     buffer.draw(swash_cache, convert_color(color), |x, y, w, h, c| {
-        for dx in 0..w {
-            for dy in 0..h {
-                let x = x as usize + dx as usize;
-                let y = y as usize + dy as usize;
-                pixels[y * size.x as usize + x] =
-                    ColorU8::from_rgba(c.r(), c.g(), c.b(), c.a()).premultiply();
-            }
-        }
+        let color = Color::from_rgba8(c.r(), c.g(), c.b(), c.a());
+        let paint = Paint {
+            shader: tiny_skia::Shader::SolidColor(color),
+            ..Paint::default()
+        };
+        pixmap.fill_rect(
+            tiny_skia::Rect::from_xywh(x as f32, y as f32, w as f32, h as f32).unwrap(),
+            &paint,
+            Transform::default(),
+            None,
+        );
     });
     pixmap
+}
+
+pub trait DrawableTextBuffer {
+    fn draw<F>(&mut self, cache: &mut SwashCache, color: cosmic_text::Color, f: F)
+    where
+        F: FnMut(i32, i32, u32, u32, cosmic_text::Color);
+}
+
+impl DrawableTextBuffer for BorrowedWithFontSystem<'_, Buffer> {
+    fn draw<F>(&mut self, cache: &mut SwashCache, color: cosmic_text::Color, f: F)
+    where
+        F: FnMut(i32, i32, u32, u32, cosmic_text::Color),
+    {
+        self.draw(cache, color, f)
+    }
+}
+
+impl DrawableTextBuffer for BorrowedWithFontSystem<'_, Editor> {
+    fn draw<F>(&mut self, cache: &mut SwashCache, color: cosmic_text::Color, f: F)
+    where
+        F: FnMut(i32, i32, u32, u32, cosmic_text::Color),
+    {
+        self.draw(cache, color, f)
+    }
 }
 
 fn convert_color(color: Color) -> cosmic_text::Color {

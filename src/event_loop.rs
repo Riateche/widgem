@@ -98,6 +98,8 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     let mut palette = Palette {
         foreground: Color::BLACK,
         background: Color::WHITE,
+        // foreground: Color::WHITE,
+        // background: Color::BLACK,
     };
 
     let mut callback_maker = CallbackMaker::<State>::new();
@@ -108,7 +110,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     let mut state = {
         let mut ctx = CallbackContext {
             window: &mut window,
-            add_callback: Box::new(|f| { callback_maker.add(f) }),
+            add_callback: Box::new(|f| callback_maker.add(f)),
             marker: PhantomData,
             event_loop_proxy: event_loop_proxy.clone(),
         };
@@ -142,13 +144,9 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
             Event::UserEvent(event) => match event {
                 UserEvent::InvokeCallback(event) => {
                     {
-                        let add_callback_fn = Box::new(|f| {
-                            callback_maker.add(f)
-                        });
-
                         let mut ctx = CallbackContext {
                             window: &mut window,
-                            add_callback: add_callback_fn,
+                            add_callback: Box::new(|f| callback_maker.add(f)),
                             marker: PhantomData,
                             event_loop_proxy: event_loop_proxy.clone(),
                         };

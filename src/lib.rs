@@ -1,5 +1,5 @@
 use draw::DrawContext;
-use event::MouseInputEvent;
+use event::{CursorMovedEvent, MouseInputEvent};
 use types::Rect;
 
 pub mod callback;
@@ -22,6 +22,9 @@ pub struct Child {
 pub trait Widget {
     fn draw(&mut self, ctx: &mut DrawContext<'_>);
     fn mouse_input(&mut self, event: &mut MouseInputEvent<'_>) {
+        let _ = event;
+    }
+    fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
         let _ = event;
     }
 }

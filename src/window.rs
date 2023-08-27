@@ -1,12 +1,12 @@
-use std::num::NonZeroU32;
+use std::{collections::HashSet, num::NonZeroU32};
 
 use cosmic_text::{FontSystem, SwashCache};
 use tiny_skia::Pixmap;
-use winit::event::{Event, ModifiersState, WindowEvent};
+use winit::event::{ElementState, Event, ModifiersState, MouseButton, WindowEvent};
 
 use crate::{
     draw::{DrawContext, Palette},
-    event::MouseInputEvent,
+    event::{CursorMovedEvent, MouseInputEvent},
     types::{Point, Rect, Size},
     Widget,
 };
@@ -18,6 +18,7 @@ pub struct Window {
     pub cursor_position: Option<Point>,
     pub cursor_entered: bool,
     pub modifiers_state: ModifiersState,
+    pressed_mouse_buttons: HashSet<MouseButton>,
     pub widget: Option<Box<dyn Widget>>,
 }
 
@@ -31,6 +32,7 @@ impl Window {
             cursor_position: None,
             cursor_entered: false,
             modifiers_state: ModifiersState::default(),
+            pressed_mouse_buttons: HashSet::new(),
             widget,
         }
     }
@@ -97,13 +99,29 @@ impl Window {
                     self.cursor_entered = false;
                     self.cursor_position = None;
                 }
-                WindowEvent::CursorMoved { position, .. } => {
+                WindowEvent::CursorMoved {
+                    position,
+                    device_id,
+                    ..
+                } => {
                     let pos = Point {
                         // TODO: is round() fine?
                         x: position.x.round() as i32,
                         y: position.y.round() as i32,
                     };
                     self.cursor_position = Some(pos);
+                    if let Some(widget) = &mut self.widget {
+                        widget.cursor_moved(&mut CursorMovedEvent {
+                            device_id,
+                            modifiers: self.modifiers_state,
+                            pressed_mouse_buttons: &self.pressed_mouse_buttons,
+                            pos,
+                            font_system: ctx.font_system,
+                            font_metrics: ctx.font_metrics,
+                            palette: ctx.palette,
+                        });
+                        self.inner.request_redraw(); // TODO: smarter redraw
+                    }
                 }
                 WindowEvent::ModifiersChanged(state) => {
                     self.modifiers_state = state;
@@ -114,6 +132,14 @@ impl Window {
                     button,
                     ..
                 } => {
+                    match state {
+                        ElementState::Pressed => {
+                            self.pressed_mouse_buttons.insert(button);
+                        }
+                        ElementState::Released => {
+                            self.pressed_mouse_buttons.remove(&button);
+                        }
+                    }
                     if let Some(pos) = self.cursor_position {
                         if let Some(widget) = &mut self.widget {
                             widget.mouse_input(&mut MouseInputEvent {
@@ -121,10 +147,13 @@ impl Window {
                                 state,
                                 button,
                                 modifiers: self.modifiers_state,
+                                pressed_mouse_buttons: &self.pressed_mouse_buttons,
                                 pos,
+                                font_system: ctx.font_system,
                                 font_metrics: ctx.font_metrics,
                                 palette: ctx.palette,
                             });
+                            self.inner.request_redraw(); // TODO: smarter redraw
                         }
                     } else {
                         println!("warning: no cursor position in mouse input handler");

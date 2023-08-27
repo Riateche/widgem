@@ -1,4 +1,9 @@
-use crate::{draw::DrawContext, event::MouseInputEvent, types::Rect, Child, Widget};
+use crate::{
+    draw::DrawContext,
+    event::{CursorMovedEvent, MouseInputEvent},
+    types::Rect,
+    Child, Widget,
+};
 
 #[derive(Default)]
 pub struct Stack {
@@ -37,15 +42,33 @@ impl Widget for Stack {
             if child.rect.contains(event.pos) {
                 let mut event = MouseInputEvent {
                     pos: event.pos - child.rect.top_left,
-
                     device_id: event.device_id,
                     state: event.state,
                     button: event.button,
                     modifiers: event.modifiers,
+                    pressed_mouse_buttons: event.pressed_mouse_buttons,
+                    font_system: event.font_system,
                     font_metrics: event.font_metrics,
                     palette: event.palette,
                 };
                 child.widget.mouse_input(&mut event);
+            }
+        }
+    }
+
+    fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
+        for child in &mut self.children {
+            if child.rect.contains(event.pos) {
+                let mut event = CursorMovedEvent {
+                    pos: event.pos - child.rect.top_left,
+                    device_id: event.device_id,
+                    modifiers: event.modifiers,
+                    pressed_mouse_buttons: event.pressed_mouse_buttons,
+                    font_system: event.font_system,
+                    font_metrics: event.font_metrics,
+                    palette: event.palette,
+                };
+                child.widget.cursor_moved(&mut event);
             }
         }
     }
