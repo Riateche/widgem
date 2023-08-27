@@ -12,11 +12,8 @@ impl Stack {
         }
     }
 
-    pub fn add(&mut self, rect: Rect, widget: impl Widget + 'static) {
-        self.children.push(Child {
-            rect,
-            widget: Box::new(widget),
-        });
+    pub fn add(&mut self, rect: Rect, widget: Box<dyn Widget>) {
+        self.children.push(Child { rect, widget });
     }
 }
 

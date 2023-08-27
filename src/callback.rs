@@ -13,9 +13,9 @@ use crate::event_loop::{CallbackContext, InvokeCallbackEvent, UserEvent};
 
 pub type CallbackFn<State, Event> = dyn Fn(&mut State, &mut CallbackContext<State>, Event);
 pub struct Callback<Event> {
-    sender: EventLoopProxy<UserEvent>,
-    callback_id: CallbackId,
-    _marker: PhantomData<Event>,
+    pub sender: EventLoopProxy<UserEvent>,
+    pub callback_id: CallbackId,
+    pub _marker: PhantomData<Event>,
 }
 
 impl<Event: 'static> Callback<Event> {
@@ -39,41 +39,29 @@ pub struct CallbackData<State> {
 
 pub struct CallbackMaker<State> {
     next_id: CallbackId,
-    sender: EventLoopProxy<UserEvent>,
     new_callbacks: Vec<(CallbackId, CallbackData<State>)>,
 }
 
 impl<State> CallbackMaker<State> {
-    pub fn new(sender: EventLoopProxy<UserEvent>) -> Self {
+    pub fn new() -> Self {
         Self {
             next_id: CallbackId(1),
-            sender,
             new_callbacks: Vec::new(),
         }
     }
 
-    pub fn add<Event: 'static>(
-        &mut self,
-        mut callback: impl FnMut(&mut State, &mut CallbackContext<State>, Event) + 'static,
-    ) -> Callback<Event> {
+    pub fn add(&mut self, callback: Box<CallbackDataFn<State>>) -> CallbackId {
         let callback_id = self.next_id;
         self.next_id.0 += 1;
-        self.new_callbacks.push((
-            callback_id,
-            CallbackData {
-                func: Box::new(move |state, ctx, any_event| {
-                    let event = *any_event
-                        .downcast::<Event>()
-                        .expect("event downcast failed");
-                    callback(state, ctx, event);
-                }),
-            },
-        ));
-        Callback {
-            sender: self.sender.clone(),
-            callback_id,
-            _marker: PhantomData,
-        }
+        self.new_callbacks
+            .push((callback_id, CallbackData { func: callback }));
+        callback_id
+    }
+}
+
+impl<State> Default for CallbackMaker<State> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
