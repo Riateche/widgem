@@ -4,6 +4,7 @@ use cosmic_text::{Attrs, Buffer, Shaping};
 use tiny_skia::{Color, Pixmap};
 
 use crate::{
+    callback::Callback,
     draw::{draw_text, unrestricted_text_size, DrawContext},
     event::MouseInputEvent,
     types::{Point, Rect, Size},
@@ -16,6 +17,8 @@ pub struct Button {
     text_pixmap: Option<Pixmap>,
     unrestricted_text_size: Size,
     redraw_text: bool,
+    // TODO: Option inside callback
+    on_clicked: Option<Callback<String>>,
 }
 
 impl Button {
@@ -26,12 +29,17 @@ impl Button {
             text_pixmap: None,
             unrestricted_text_size: Size::default(),
             redraw_text: true,
+            on_clicked: None,
         }
     }
 
     pub fn set_text(&mut self, text: impl Display) {
         self.text = text.to_string();
         self.redraw_text = true;
+    }
+
+    pub fn on_clicked(&mut self, callback: Callback<String>) {
+        self.on_clicked = Some(callback);
     }
 }
 
@@ -83,6 +91,8 @@ impl Widget for Button {
     }
 
     fn mouse_input(&mut self, _event: &mut MouseInputEvent<'_>) {
-        println!("button clicked {:?}", self.text);
+        if let Some(on_clicked) = &self.on_clicked {
+            on_clicked.invoke(self.text.clone());
+        }
     }
 }

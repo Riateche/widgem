@@ -1,4 +1,4 @@
-use std::{any::Any, marker::PhantomData, rc::Rc};
+use std::{any::Any, collections::HashMap, marker::PhantomData};
 
 use winit::event_loop::EventLoopProxy;
 
@@ -12,29 +12,102 @@ use crate::event_loop::{CallbackContext, InvokeCallbackEvent, UserEvent};
 // }
 
 pub type CallbackFn<State, Event> = dyn Fn(&mut State, &mut CallbackContext<State>, Event);
-pub struct Callback<State: 'static, Event> {
-    func: Rc<CallbackFn<State, Event>>,
-    sender: EventLoopProxy<UserEvent<State>>,
+pub struct Callback<Event> {
+    sender: EventLoopProxy<UserEvent>,
+    callback_id: CallbackId,
     _marker: PhantomData<Event>,
 }
 
-impl<State: 'static, Event: 'static> Callback<State, Event> {
+impl<Event: 'static> Callback<Event> {
     pub fn invoke(&self, event: Event) {
-        let func = Rc::clone(&self.func);
-        let event = UserEvent::InvokeCallback(InvokeCallbackEvent(Box::new(move |state, ctx| {
-            func(state, ctx, event)
-        })));
+        let event = UserEvent::InvokeCallback(InvokeCallbackEvent {
+            callback_id: self.callback_id,
+            event: Box::new(event),
+        });
         let _ = self.sender.send_event(event);
     }
 }
 
-// struct CallbackId(u64);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct CallbackId(u64);
 
-// pub struct Callbacks<State> {
-//     next_id: CallbackId,
-//     callbacks: HashMap<CallbackId, Weak<dyn FnMut(&mut State, Box<dyn Any>)>>,
-// }
+pub type CallbackDataFn<State> = dyn FnMut(&mut State, &mut CallbackContext<State>, Box<dyn Any>);
+pub struct CallbackData<State> {
+    func: Box<CallbackDataFn<State>>,
+    // TODO: weak ref for cleanup
+}
 
-// impl<State> Callbacks<State> {
+pub struct CallbackMaker<State> {
+    next_id: CallbackId,
+    sender: EventLoopProxy<UserEvent>,
+    new_callbacks: Vec<(CallbackId, CallbackData<State>)>,
+}
 
-// }
+impl<State> CallbackMaker<State> {
+    pub fn new(sender: EventLoopProxy<UserEvent>) -> Self {
+        Self {
+            next_id: CallbackId(1),
+            sender,
+            new_callbacks: Vec::new(),
+        }
+    }
+
+    pub fn add<Event: 'static>(
+        &mut self,
+        mut callback: impl FnMut(&mut State, &mut CallbackContext<State>, Event) + 'static,
+    ) -> Callback<Event> {
+        let callback_id = self.next_id;
+        self.next_id.0 += 1;
+        self.new_callbacks.push((
+            callback_id,
+            CallbackData {
+                func: Box::new(move |state, ctx, any_event| {
+                    let event = *any_event
+                        .downcast::<Event>()
+                        .expect("event downcast failed");
+                    callback(state, ctx, event);
+                }),
+            },
+        ));
+        Callback {
+            sender: self.sender.clone(),
+            callback_id,
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub struct Callbacks<State> {
+    callbacks: HashMap<CallbackId, CallbackData<State>>,
+}
+
+impl<State> Callbacks<State> {
+    pub fn new() -> Self {
+        Self {
+            callbacks: HashMap::new(),
+        }
+    }
+
+    pub fn add_all(&mut self, maker: &mut CallbackMaker<State>) {
+        self.callbacks.extend(maker.new_callbacks.drain(..));
+    }
+
+    pub fn call(
+        &mut self,
+        state: &mut State,
+        ctx: &mut CallbackContext<State>,
+        event: InvokeCallbackEvent,
+    ) {
+        if let Some(data) = self.callbacks.get_mut(&event.callback_id) {
+            (data.func)(state, ctx, event.event);
+        } else {
+            println!("warning: unknown callback id");
+        }
+    }
+}
+
+impl<State> Default for Callbacks<State> {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use cosmic_text::{FontSystem, SwashCache};
 use tiny_skia::Color;
@@ -9,42 +9,31 @@ use winit::{
 };
 
 use crate::{
-    callback::Callback,
+    callback::{CallbackId, CallbackMaker, Callbacks},
     draw::Palette,
     window::{Window, WindowEventContext},
 };
 
 pub struct CallbackContext<'a, State> {
     pub window: &'a mut Window,
+    pub callback_maker: &'a mut CallbackMaker<State>,
     //...
     marker: PhantomData<State>,
 }
 
-impl<'a, State> CallbackContext<'a, State> {
-    pub fn callback<Event>(
-        &self,
-        func: impl Fn(&mut State, &mut CallbackContext<'_, State>, Event),
-    ) -> Callback<State, Event> {
-        todo!()
-    }
+#[derive(Debug)]
+pub struct InvokeCallbackEvent {
+    pub callback_id: CallbackId,
+    pub event: Box<dyn Any>,
 }
 
-pub struct InvokeCallbackEvent<State>(pub Box<dyn FnOnce(&mut State, &mut CallbackContext<State>)>);
-
-pub enum UserEvent<State> {
-    InvokeCallback(InvokeCallbackEvent<State>),
-}
-
-impl<State> Debug for UserEvent<State> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvokeCallback(arg0) => f.debug_tuple("InvokeCallback").finish(),
-        }
-    }
+#[derive(Debug)]
+pub enum UserEvent {
+    InvokeCallback(InvokeCallbackEvent),
 }
 
 pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) -> State) {
-    let event_loop = EventLoopBuilder::<UserEvent<State>>::with_user_event().build();
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
 
     let mut window = Window::new(
         WindowBuilder::new()
@@ -68,11 +57,16 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
         background: Color::WHITE,
     };
 
+    let mut callback_maker = CallbackMaker::<State>::new(event_loop.create_proxy());
+    let mut callbacks = Callbacks::<State>::new();
+
     let mut ctx = CallbackContext {
         window: &mut window,
+        callback_maker: &mut callback_maker,
         marker: PhantomData,
     };
     let mut state = make_state(&mut ctx);
+    callbacks.add_all(&mut callback_maker);
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -101,9 +95,11 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                 UserEvent::InvokeCallback(event) => {
                     let mut ctx = CallbackContext {
                         window: &mut window,
+                        callback_maker: &mut callback_maker,
                         marker: PhantomData,
                     };
-                    (event.0)(&mut state, &mut ctx);
+                    callbacks.call(&mut state, &mut ctx, event);
+                    callbacks.add_all(&mut callback_maker);
                 }
             },
             _ => {}
