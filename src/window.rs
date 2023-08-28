@@ -8,7 +8,8 @@ use crate::{
     draw::{DrawContext, Palette},
     event::{CursorMovedEvent, MouseInputEvent},
     types::{Point, Rect, Size},
-    Widget,
+    widgets::{mount, unmount, Widget, WidgetAddress},
+    SharedSystemData,
 };
 
 pub struct Window {
@@ -20,11 +21,23 @@ pub struct Window {
     pub modifiers_state: ModifiersState,
     pressed_mouse_buttons: HashSet<MouseButton>,
     pub widget: Option<Box<dyn Widget>>,
+    shared_system_data: SharedSystemData,
 }
 
 impl Window {
-    pub fn new(inner: winit::window::Window, widget: Option<Box<dyn Widget>>) -> Self {
+    pub fn new(
+        inner: winit::window::Window,
+        shared_system_data: SharedSystemData,
+        mut widget: Option<Box<dyn Widget>>,
+    ) -> Self {
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
+        if let Some(widget) = &mut widget {
+            mount(
+                widget.as_mut(),
+                shared_system_data.clone(),
+                WidgetAddress::window_root(inner.id()),
+            );
+        }
         Self {
             surface: unsafe { softbuffer::Surface::new(&softbuffer_context, &inner) }.unwrap(),
             softbuffer_context,
@@ -34,6 +47,7 @@ impl Window {
             modifiers_state: ModifiersState::default(),
             pressed_mouse_buttons: HashSet::new(),
             widget,
+            shared_system_data,
         }
     }
 
@@ -165,8 +179,18 @@ impl Window {
         }
     }
 
-    pub fn set_widget<W: Widget + 'static>(&mut self, widget: Option<W>) {
-        self.widget = widget.map(|w| Box::new(w) as _);
+    pub fn set_widget(&mut self, mut widget: Option<Box<dyn Widget>>) {
+        if let Some(old_widget) = &mut self.widget {
+            unmount(old_widget.as_mut());
+        }
+        if let Some(widget) = &mut widget {
+            mount(
+                widget.as_mut(),
+                self.shared_system_data.clone(),
+                WidgetAddress::window_root(self.inner.id()),
+            );
+        }
+        self.widget = widget;
     }
 }
 

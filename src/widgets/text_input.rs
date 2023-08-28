@@ -8,14 +8,16 @@ use crate::{
     draw::{draw_text, DrawContext},
     event::CursorMovedEvent,
     types::{Point, Size},
-    Widget,
 };
+
+use super::{Widget, WidgetCommon};
 
 pub struct TextInput {
     text: String,
     editor: Option<Editor>,
     pixmap: Option<Pixmap>,
     redraw_text: bool,
+    common: WidgetCommon,
 }
 
 impl TextInput {
@@ -25,6 +27,7 @@ impl TextInput {
             editor: None,
             pixmap: None,
             redraw_text: true,
+            common: WidgetCommon::new(),
         }
     }
 
@@ -97,5 +100,12 @@ impl Widget for TextInput {
                 );
             }
         }
+    }
+
+    fn common(&self) -> &WidgetCommon {
+        &self.common
+    }
+    fn common_mut(&mut self) -> &mut WidgetCommon {
+        &mut self.common
     }
 }

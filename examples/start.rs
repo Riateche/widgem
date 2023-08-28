@@ -1,8 +1,10 @@
 use salvation::{
     event_loop::{self, CallbackContext},
     types::{Point, Rect, Size},
-    widgets::{button::Button, image::Image, stack::Stack, text_input::TextInput},
-    Widget,
+    widgets::{
+        button::Button, image::Image, stack::Stack, text_input::TextInput, Widget, WidgetExt,
+        WidgetId,
+    },
 };
 
 struct AnotherState {
@@ -23,6 +25,7 @@ impl AnotherState {
 
 struct State {
     another_state: AnotherState,
+    button_id: WidgetId<Button>,
 }
 
 impl State {
@@ -48,6 +51,7 @@ impl State {
         );
 
         let mut btn1 = Button::new("btn1");
+        let button_id = btn1.id();
         btn1.on_clicked(ctx.callback(|state, ctx, event| {
             state.button_clicked2(ctx, event, 1);
         }));
@@ -82,16 +86,21 @@ impl State {
             btn3,
         );
 
-        ctx.window.set_widget(Some(root));
-        State { another_state }
+        ctx.add_window("example", Some(Box::new(root)));
+        State {
+            another_state,
+            button_id,
+        }
     }
 
     // fn button_clicked(&mut self, _ctx: &mut CallbackContext<Self>, data: String) {
     //     println!("callback! {:?}", data);
     // }
 
-    fn button_clicked2(&mut self, _ctx: &mut CallbackContext<Self>, data: String, k: u32) {
+    fn button_clicked2(&mut self, ctx: &mut CallbackContext<Self>, data: String, k: u32) {
         println!("callback! {:?}, {}", data, k);
+        let button = ctx.get_widget_by_id_mut(self.button_id).unwrap();
+        button.set_text(&format!("ok {k}"));
     }
 }
 

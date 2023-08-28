@@ -8,8 +8,9 @@ use crate::{
     draw::{draw_text, unrestricted_text_size, DrawContext},
     event::MouseInputEvent,
     types::{Point, Rect, Size},
-    Widget,
 };
+
+use super::{Widget, WidgetCommon};
 
 pub struct Button {
     text: String,
@@ -19,6 +20,7 @@ pub struct Button {
     redraw_text: bool,
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
+    common: WidgetCommon,
 }
 
 impl Button {
@@ -30,6 +32,7 @@ impl Button {
             unrestricted_text_size: Size::default(),
             redraw_text: true,
             on_clicked: None,
+            common: WidgetCommon::new(),
         }
     }
 
@@ -94,5 +97,12 @@ impl Widget for Button {
         if let Some(on_clicked) = &self.on_clicked {
             on_clicked.invoke(self.text.clone());
         }
+    }
+
+    fn common(&self) -> &WidgetCommon {
+        &self.common
+    }
+    fn common_mut(&mut self) -> &mut WidgetCommon {
+        &mut self.common
     }
 }

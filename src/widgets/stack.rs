@@ -2,27 +2,37 @@ use crate::{
     draw::DrawContext,
     event::{CursorMovedEvent, MouseInputEvent},
     types::Rect,
-    Child, Widget,
 };
 
-#[derive(Default)]
+use super::{mount, Child, Widget, WidgetCommon};
+
 pub struct Stack {
     children: Vec<Child>,
+    common: WidgetCommon,
 }
 
 impl Stack {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             children: Vec::new(),
+            common: WidgetCommon::new(),
         }
     }
 
-    pub fn add(&mut self, rect: Rect, widget: Box<dyn Widget>) {
+    pub fn add(&mut self, rect: Rect, mut widget: Box<dyn Widget>) {
+        if let (Some(system), Some(address)) = (&self.common.system, &self.common.address) {
+            mount(widget.as_mut(), system.clone(), address.clone());
+        }
         self.children.push(Child { rect, widget });
     }
 }
 
 impl Widget for Stack {
+    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Box<dyn Widget>> + '_> {
+        Box::new(self.children.iter_mut().map(|c| &mut c.widget))
+    }
+
     fn draw(&mut self, ctx: &mut DrawContext<'_>) {
         for child in &mut self.children {
             let mut ctx = DrawContext {
@@ -71,5 +81,12 @@ impl Widget for Stack {
                 child.widget.cursor_moved(&mut event);
             }
         }
+    }
+
+    fn common(&self) -> &WidgetCommon {
+        &self.common
+    }
+    fn common_mut(&mut self) -> &mut WidgetCommon {
+        &mut self.common
     }
 }

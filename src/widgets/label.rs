@@ -6,8 +6,9 @@ use tiny_skia::Pixmap;
 use crate::{
     draw::{draw_text, unrestricted_text_size, DrawContext},
     types::{Point, Size},
-    Widget,
 };
+
+use super::{Widget, WidgetCommon};
 
 pub struct Label {
     text: String,
@@ -15,6 +16,7 @@ pub struct Label {
     pixmap: Option<Pixmap>,
     unrestricted_text_size: Size,
     redraw_text: bool,
+    common: WidgetCommon,
 }
 
 impl Label {
@@ -25,6 +27,7 @@ impl Label {
             pixmap: None,
             unrestricted_text_size: Size::default(),
             redraw_text: true,
+            common: WidgetCommon::new(),
         }
     }
 
@@ -57,5 +60,12 @@ impl Widget for Label {
         if let Some(pixmap) = &self.pixmap {
             ctx.draw_pixmap(Point::default(), pixmap.as_ref());
         }
+    }
+
+    fn common(&self) -> &WidgetCommon {
+        &self.common
+    }
+    fn common_mut(&mut self) -> &mut WidgetCommon {
+        &mut self.common
     }
 }
