@@ -1,4 +1,11 @@
-use std::{any::Any, cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc};
+use std::{
+    any::Any,
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    marker::PhantomData,
+    rc::Rc,
+};
 
 use cosmic_text::{FontSystem, SwashCache};
 use tiny_skia::Color;
@@ -140,6 +147,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
 
     let shared_system_data = SharedSystemData(Rc::new(RefCell::new(SharedSystemDataInner {
         address_book: HashMap::new(),
+        widget_tree_changed_flags: HashSet::new(),
     })));
 
     let mut palette = Palette {

@@ -25,6 +25,8 @@ pub struct Button {
 
 impl Button {
     pub fn new(text: impl Display) -> Self {
+        let mut common = WidgetCommon::new();
+        common.is_focusable = true;
         Self {
             text: text.to_string(),
             buffer: None,
@@ -32,7 +34,7 @@ impl Button {
             unrestricted_text_size: Size::default(),
             redraw_text: true,
             on_clicked: None,
-            common: WidgetCommon::new(),
+            common,
         }
     }
 

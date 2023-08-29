@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
-use cosmic_text::{Attrs, Buffer, Edit, Editor, Shaping};
+use cosmic_text::{Action, Attrs, Buffer, Edit, Editor, Shaping};
 use tiny_skia::{Color, Pixmap};
-use winit::event::MouseButton;
+use winit::event::{ElementState, MouseButton};
 
 use crate::{
     draw::{draw_text, DrawContext},
-    event::CursorMovedEvent,
+    event::{CursorMovedEvent, ReceivedCharacterEvent},
     types::{Point, Size},
 };
 
@@ -22,12 +22,14 @@ pub struct TextInput {
 
 impl TextInput {
     pub fn new(text: impl Display) -> Self {
+        let mut common = WidgetCommon::new();
+        common.is_focusable = true;
         Self {
             text: text.to_string(),
             editor: None,
             pixmap: None,
             redraw_text: true,
-            common: WidgetCommon::new(),
+            common,
         }
     }
 
@@ -54,11 +56,13 @@ impl Widget for TextInput {
             })
             .borrow_with(ctx.font_system);
 
+        editor.shape_as_needed();
         if editor.buffer().redraw() {
             let size = Size {
                 x: editor.buffer().size().0.ceil() as i32,
                 y: editor.buffer().size().1.ceil() as i32,
             };
+            //println!("redraw ok2 {:?}, {}", size, editor.buffer().scroll());
             // let pixmap = draw_text(&mut editor, size, ctx.palette.foreground, ctx.swash_cache);
             let pixmap = draw_text(
                 &mut editor,
@@ -77,14 +81,16 @@ impl Widget for TextInput {
     }
 
     fn mouse_input(&mut self, event: &mut crate::event::MouseInputEvent<'_>) {
-        if let Some(editor) = &mut self.editor {
-            editor.action(
-                event.font_system,
-                cosmic_text::Action::Click {
-                    x: event.pos.x,
-                    y: event.pos.y,
-                },
-            );
+        if event.state == ElementState::Pressed {
+            if let Some(editor) = &mut self.editor {
+                editor.action(
+                    event.font_system,
+                    Action::Click {
+                        x: event.pos.x,
+                        y: event.pos.y,
+                    },
+                );
+            }
         }
     }
 
@@ -93,12 +99,33 @@ impl Widget for TextInput {
             if let Some(editor) = &mut self.editor {
                 editor.action(
                     event.font_system,
-                    cosmic_text::Action::Drag {
+                    Action::Drag {
                         x: event.pos.x,
                         y: event.pos.y,
                     },
                 );
+                println!(
+                    "ok after drag selection: {:?}, cursor: {:?}",
+                    editor.select_opt(),
+                    editor.cursor()
+                );
             }
+        }
+    }
+
+    fn received_character(&mut self, event: &mut ReceivedCharacterEvent<'_>) {
+        // println!("ok2 {:?}", event.char);
+        if let Some(editor) = &mut self.editor {
+            // println!(
+            //     "ok2.2 selection: {:?}, cursor: {:?}",
+            //     editor.select_opt(),
+            //     editor.cursor()
+            // );
+            editor.action(event.font_system, Action::Insert(event.char));
+            for line in &editor.buffer().lines {
+                println!("ok3 {:?}", line.text());
+            }
+            //editor.buffer_mut().set_redraw(true);
         }
     }
 

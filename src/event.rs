@@ -28,3 +28,13 @@ pub struct CursorMovedEvent<'a> {
     pub font_metrics: cosmic_text::Metrics,
     pub palette: &'a mut Palette,
 }
+
+pub struct ReceivedCharacterEvent<'a> {
+    // pub modifiers: ModifiersState,
+    // pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
+    pub char: char,
+
+    pub font_system: &'a mut FontSystem,
+    pub font_metrics: cosmic_text::Metrics,
+    pub palette: &'a mut Palette,
+}

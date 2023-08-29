@@ -9,7 +9,7 @@ use winit::window::WindowId;
 
 use crate::{
     draw::DrawContext,
-    event::{CursorMovedEvent, MouseInputEvent},
+    event::{CursorMovedEvent, MouseInputEvent, ReceivedCharacterEvent},
     types::Rect,
     SharedSystemData,
 };
@@ -42,6 +42,7 @@ impl<T> Copy for WidgetId<T> {}
 
 pub struct WidgetCommon {
     pub id: RawWidgetId,
+    pub is_focusable: bool,
     pub address: Option<WidgetAddress>,
     pub system: Option<SharedSystemData>,
 }
@@ -51,6 +52,7 @@ impl WidgetCommon {
     pub fn new() -> Self {
         Self {
             id: RawWidgetId::new(),
+            is_focusable: false,
             system: None,
             address: None,
         }
@@ -69,13 +71,22 @@ impl WidgetCommon {
         if old.is_some() {
             println!("warn: widget address was already registered");
         }
+        data.0
+            .borrow_mut()
+            .widget_tree_changed_flags
+            .insert(address.window_id);
         self.address = Some(address);
         self.system = Some(data);
     }
 
     pub fn unmount(&mut self) {
-        if let Some(system) = &self.system {
+        if let (Some(system), Some(address)) = (&self.system, &self.address) {
             system.0.borrow_mut().address_book.remove(&self.id);
+            system
+                .0
+                .borrow_mut()
+                .widget_tree_changed_flags
+                .insert(address.window_id);
         } else {
             println!("warn: widget was not mounted");
         }
@@ -108,7 +119,6 @@ pub fn get_widget_by_address_mut<'a>(
     root_widget: &'a mut dyn Widget,
     address: &WidgetAddress,
 ) -> Result<&'a mut dyn Widget, WidgetNotFound> {
-    println!("ok1 {:?}", address);
     if address.path.get(0).copied() != Some(root_widget.common().id) {
         return Err(WidgetNotFound);
     }
@@ -135,6 +145,9 @@ pub trait Widget: Downcast {
         let _ = event;
     }
     fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
+        let _ = event;
+    }
+    fn received_character(&mut self, event: &mut ReceivedCharacterEvent<'_>) {
         let _ = event;
     }
 }
