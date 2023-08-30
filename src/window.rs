@@ -1,7 +1,10 @@
 use std::{collections::HashSet, num::NonZeroU32};
 
 use tiny_skia::Pixmap;
-use winit::event::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent};
+use winit::{
+    dpi::PhysicalPosition,
+    event::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent},
+};
 
 use crate::{
     draw::DrawContext,
@@ -34,8 +37,8 @@ impl Window {
         shared_system_data: SharedSystemData,
         mut widget: Option<Box<dyn Widget>>,
     ) -> Self {
-        //inner.set_ime_allowed(false);
-        //inner.set_ime_position(PhysicalPosition::new(10, 10));
+        inner.set_ime_allowed(true);
+        inner.set_ime_position(PhysicalPosition::new(10, 10));
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         if let Some(widget) = &mut widget {
             mount(
@@ -115,7 +118,9 @@ impl Window {
             Event::WindowEvent { event, .. } => {
                 if matches!(
                     event,
-                    WindowEvent::Ime(_) | WindowEvent::ReceivedCharacter(_)
+                    WindowEvent::Ime(_)
+                        | WindowEvent::ReceivedCharacter(_)
+                        | WindowEvent::KeyboardInput { .. }
                 ) {
                     println!("{event:?}");
                 }

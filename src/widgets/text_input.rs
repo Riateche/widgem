@@ -160,7 +160,9 @@ impl Widget for TextInput {
 
         // println!("ok2 {:?}", event.char);
         if let Some(editor) = &mut self.editor {
-            let Some(keycode) =  event.input.virtual_keycode else { return };
+            let Some(keycode) = event.input.virtual_keycode else {
+                return;
+            };
             // TODO: different commands for macOS?
             let action = match keycode {
                 // TODO: scroll lock?
@@ -181,6 +183,7 @@ impl Widget for TextInput {
                     if !event.modifiers.shift() && editor.select_opt().is_some() {
                         editor.set_select_opt(None);
                     }
+                    println!("handle left!");
                     Action::Left
                 }
                 VirtualKeyCode::Up => Action::Up,
@@ -205,12 +208,14 @@ impl Widget for TextInput {
             //     editor.select_opt(),
             //     editor.cursor()
             // );
+            println!("before {:?}", editor.cursor());
             editor.action(&mut system.font_system, action);
-            println!("###");
-            for line in &editor.buffer().lines {
-                println!("ok1 {:?}", line.text());
-                println!("ok2 {:?}", line.text_without_ime());
-            }
+            println!("after {:?}", editor.cursor());
+            // println!("###");
+            // for line in &editor.buffer().lines {
+            //     println!("ok1 {:?}", line.text());
+            //     println!("ok2 {:?}", line.text_without_ime());
+            // }
             //editor.buffer_mut().set_redraw(true);
         }
     }
@@ -230,11 +235,11 @@ impl Widget for TextInput {
             for line in &editor.buffer().lines {
                 println!("ok3 {:?}", line.text());
             }
-            println!("###");
-            for line in &editor.buffer().lines {
-                println!("ok1 {:?}", line.text());
-                println!("ok2 {:?}", line.text_without_ime());
-            }
+            // println!("###");
+            // for line in &editor.buffer().lines {
+            //     println!("ok1 {:?}", line.text());
+            //     println!("ok2 {:?}", line.text_without_ime());
+            // }
         }
     }
 
@@ -252,21 +257,24 @@ impl Widget for TextInput {
                 Ime::Enabled => {}
                 Ime::Preedit(pretext, cursor) => {
                     // TODO: can pretext have line breaks?
+                    println!("handle ime!");
+                    println!("before {:?}", editor.cursor());
                     editor.action(
                         &mut system.font_system,
                         Action::ImeSetPretext { pretext, cursor },
                     );
+                    println!("after {:?}", editor.cursor());
                 }
                 Ime::Commit(string) => {
                     editor.action(&mut system.font_system, Action::ImeCommit(string));
                 }
                 Ime::Disabled => {}
             }
-            println!("###");
-            for line in &editor.buffer().lines {
-                println!("ok1 {:?}", line.text());
-                println!("ok2 {:?}", line.text_without_ime());
-            }
+            // println!("###");
+            // for line in &editor.buffer().lines {
+            //     println!("ok1 {:?}", line.text());
+            //     println!("ok2 {:?}", line.text_without_ime());
+            // }
         }
     }
 
