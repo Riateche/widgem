@@ -9,7 +9,9 @@ use winit::window::WindowId;
 
 use crate::{
     draw::DrawContext,
-    event::{CursorMovedEvent, MouseInputEvent, ReceivedCharacterEvent},
+    event::{
+        CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent,
+    },
     types::Rect,
     SharedSystemData,
 };
@@ -147,7 +149,13 @@ pub trait Widget: Downcast {
     fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
         let _ = event;
     }
-    fn received_character(&mut self, event: &mut ReceivedCharacterEvent<'_>) {
+    fn keyboard_input(&mut self, event: &mut KeyboardInputEvent) {
+        let _ = event;
+    }
+    fn received_character(&mut self, event: &mut ReceivedCharacterEvent) {
+        let _ = event;
+    }
+    fn ime(&mut self, event: &mut ImeEvent) {
         let _ = event;
     }
 }

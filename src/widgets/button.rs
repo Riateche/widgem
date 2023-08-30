@@ -68,10 +68,17 @@ impl Widget for Button {
             Color::from_rgba8(220, 220, 220, 255),
         );
 
+        let system = &mut *self
+            .common
+            .system
+            .as_ref()
+            .expect("cannot draw when unmounted")
+            .0
+            .borrow_mut();
         let mut buffer = self
             .buffer
-            .get_or_insert_with(|| Buffer::new(ctx.font_system, ctx.font_metrics))
-            .borrow_with(ctx.font_system);
+            .get_or_insert_with(|| Buffer::new(&mut system.font_system, system.font_metrics))
+            .borrow_with(&mut system.font_system);
 
         if self.redraw_text {
             buffer.set_text(&self.text, Attrs::new(), Shaping::Advanced);
@@ -79,8 +86,8 @@ impl Widget for Button {
             let pixmap = draw_text(
                 &mut buffer,
                 self.unrestricted_text_size,
-                ctx.palette.foreground,
-                ctx.swash_cache,
+                system.palette.foreground,
+                &mut system.swash_cache,
             );
             self.text_pixmap = Some(pixmap);
             self.redraw_text = false;

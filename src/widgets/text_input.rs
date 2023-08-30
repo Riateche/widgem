@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
-use cosmic_text::{Action, Attrs, Buffer, Edit, Editor, Shaping};
-use tiny_skia::{Color, Pixmap};
-use winit::event::{ElementState, MouseButton};
+use cosmic_text::{Action, Attrs, Buffer, Edit, Editor, Shaping, Wrap};
+use tiny_skia::Pixmap;
+use winit::event::{ElementState, Ime, MouseButton, VirtualKeyCode};
 
 use crate::{
     draw::{draw_text, DrawContext},
-    event::{CursorMovedEvent, ReceivedCharacterEvent},
+    event::{CursorMovedEvent, ImeEvent, KeyboardInputEvent, ReceivedCharacterEvent},
     types::{Point, Size},
 };
 
@@ -35,26 +35,42 @@ impl TextInput {
 
     pub fn set_text(&mut self, text: impl Display) {
         self.text = text.to_string();
+        // TODO: update buffer
+        // TODO: replace line breaks to avoid multiple lines in buffer
         self.redraw_text = true;
     }
 }
 
 impl Widget for TextInput {
     fn draw(&mut self, ctx: &mut DrawContext<'_>) {
+        let system = &mut *self
+            .common
+            .system
+            .as_ref()
+            .expect("cannot draw when unmounted")
+            .0
+            .borrow_mut();
+
         let mut editor = self
             .editor
             .get_or_insert_with(|| {
-                let mut editor = Editor::new(Buffer::new(ctx.font_system, ctx.font_metrics));
+                let mut editor =
+                    Editor::new(Buffer::new(&mut system.font_system, system.font_metrics));
+                editor
+                    .buffer_mut()
+                    .set_wrap(&mut system.font_system, Wrap::None);
                 editor.buffer_mut().set_text(
-                    ctx.font_system,
+                    &mut system.font_system,
                     &self.text,
                     Attrs::new(),
                     Shaping::Advanced,
                 );
-                editor.buffer_mut().set_size(ctx.font_system, 300.0, 30.0);
+                editor
+                    .buffer_mut()
+                    .set_size(&mut system.font_system, 300.0, 30.0);
                 editor
             })
-            .borrow_with(ctx.font_system);
+            .borrow_with(&mut system.font_system);
 
         editor.shape_as_needed();
         if editor.buffer().redraw() {
@@ -67,8 +83,8 @@ impl Widget for TextInput {
             let pixmap = draw_text(
                 &mut editor,
                 size,
-                Color::from_rgba8(255, 0, 0, 100),
-                ctx.swash_cache,
+                system.palette.foreground,
+                &mut system.swash_cache,
             );
             self.pixmap = Some(pixmap);
             self.redraw_text = false;
@@ -81,10 +97,18 @@ impl Widget for TextInput {
     }
 
     fn mouse_input(&mut self, event: &mut crate::event::MouseInputEvent<'_>) {
+        let mut system = self
+            .common
+            .system
+            .as_ref()
+            .expect("cannot handle event when unmounted")
+            .0
+            .borrow_mut();
+
         if event.state == ElementState::Pressed {
             if let Some(editor) = &mut self.editor {
                 editor.action(
-                    event.font_system,
+                    &mut system.font_system,
                     Action::Click {
                         x: event.pos.x,
                         y: event.pos.y,
@@ -95,10 +119,18 @@ impl Widget for TextInput {
     }
 
     fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
+        let mut system = self
+            .common
+            .system
+            .as_ref()
+            .expect("cannot handle event when unmounted")
+            .0
+            .borrow_mut();
+
         if event.pressed_mouse_buttons.contains(&MouseButton::Left) {
             if let Some(editor) = &mut self.editor {
                 editor.action(
-                    event.font_system,
+                    &mut system.font_system,
                     Action::Drag {
                         x: event.pos.x,
                         y: event.pos.y,
@@ -113,19 +145,128 @@ impl Widget for TextInput {
         }
     }
 
-    fn received_character(&mut self, event: &mut ReceivedCharacterEvent<'_>) {
+    fn keyboard_input(&mut self, event: &mut KeyboardInputEvent) {
+        if event.input.state == ElementState::Released {
+            return;
+        }
+
+        let mut system = self
+            .common
+            .system
+            .as_ref()
+            .expect("cannot handle event when unmounted")
+            .0
+            .borrow_mut();
+
         // println!("ok2 {:?}", event.char);
         if let Some(editor) = &mut self.editor {
+            let Some(keycode) =  event.input.virtual_keycode else { return };
+            // TODO: different commands for macOS?
+            let action = match keycode {
+                // TODO: scroll lock?
+                VirtualKeyCode::Escape => {
+                    // TODO: cosmic-text for some reason suggests to clear selection on Escape?
+                    return;
+                }
+                VirtualKeyCode::Insert => todo!(),
+                VirtualKeyCode::Home => Action::Home,
+                VirtualKeyCode::Delete => Action::Delete,
+                VirtualKeyCode::End => Action::End,
+                VirtualKeyCode::PageDown => Action::PageDown,
+                VirtualKeyCode::PageUp => Action::PageUp,
+                VirtualKeyCode::Left => {
+                    if event.modifiers.shift() && editor.select_opt().is_none() {
+                        editor.set_select_opt(Some(editor.cursor()));
+                    }
+                    if !event.modifiers.shift() && editor.select_opt().is_some() {
+                        editor.set_select_opt(None);
+                    }
+                    Action::Left
+                }
+                VirtualKeyCode::Up => Action::Up,
+                VirtualKeyCode::Right => Action::Right,
+                VirtualKeyCode::Down => Action::Down,
+                VirtualKeyCode::Back => Action::Backspace,
+                VirtualKeyCode::Return => Action::Enter,
+                VirtualKeyCode::Caret => {
+                    // TODO: what's that?
+                    return;
+                }
+                VirtualKeyCode::Copy | VirtualKeyCode::Cut | VirtualKeyCode::Paste => {
+                    // TODO
+                    return;
+                }
+                _ => {
+                    return;
+                }
+            };
             // println!(
             //     "ok2.2 selection: {:?}, cursor: {:?}",
             //     editor.select_opt(),
             //     editor.cursor()
             // );
-            editor.action(event.font_system, Action::Insert(event.char));
+            editor.action(&mut system.font_system, action);
+            println!("###");
+            for line in &editor.buffer().lines {
+                println!("ok1 {:?}", line.text());
+                println!("ok2 {:?}", line.text_without_ime());
+            }
+            //editor.buffer_mut().set_redraw(true);
+        }
+    }
+
+    fn received_character(&mut self, event: &mut ReceivedCharacterEvent) {
+        let mut system = self
+            .common
+            .system
+            .as_ref()
+            .expect("cannot handle event when unmounted")
+            .0
+            .borrow_mut();
+
+        if let Some(editor) = &mut self.editor {
+            // TODO: replace line breaks to avoid multiple lines in buffer
+            editor.action(&mut system.font_system, Action::Insert(event.char));
             for line in &editor.buffer().lines {
                 println!("ok3 {:?}", line.text());
             }
-            //editor.buffer_mut().set_redraw(true);
+            println!("###");
+            for line in &editor.buffer().lines {
+                println!("ok1 {:?}", line.text());
+                println!("ok2 {:?}", line.text_without_ime());
+            }
+        }
+    }
+
+    fn ime(&mut self, event: &mut ImeEvent) {
+        let mut system = self
+            .common
+            .system
+            .as_ref()
+            .expect("cannot handle event when unmounted")
+            .0
+            .borrow_mut();
+
+        if let Some(editor) = &mut self.editor {
+            match event.0.clone() {
+                Ime::Enabled => {}
+                Ime::Preedit(pretext, cursor) => {
+                    // TODO: can pretext have line breaks?
+                    editor.action(
+                        &mut system.font_system,
+                        Action::ImeSetPretext { pretext, cursor },
+                    );
+                }
+                Ime::Commit(string) => {
+                    editor.action(&mut system.font_system, Action::ImeCommit(string));
+                }
+                Ime::Disabled => {}
+            }
+            println!("###");
+            for line in &editor.buffer().lines {
+                println!("ok1 {:?}", line.text());
+                println!("ok2 {:?}", line.text_without_ime());
+            }
         }
     }
 

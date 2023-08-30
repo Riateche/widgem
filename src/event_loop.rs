@@ -136,26 +136,19 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
 
     let mut windows = HashMap::new();
 
-    // A FontSystem provides access to detected system fonts, create one per application
-    let mut font_system = FontSystem::new();
-
-    // A SwashCache stores rasterized glyphs, create one per application
-    let mut swash_cache = SwashCache::new();
-
-    // Text metrics indicate the font size and line height of a buffer
-    let font_metrics = cosmic_text::Metrics::new(24.0, 30.0);
-
     let shared_system_data = SharedSystemData(Rc::new(RefCell::new(SharedSystemDataInner {
         address_book: HashMap::new(),
         widget_tree_changed_flags: HashSet::new(),
+        font_system: FontSystem::new(),
+        swash_cache: SwashCache::new(),
+        font_metrics: cosmic_text::Metrics::new(24.0, 30.0),
+        palette: Palette {
+            foreground: Color::BLACK,
+            background: Color::WHITE,
+            // foreground: Color::WHITE,
+            // background: Color::BLACK,
+        },
     })));
-
-    let mut palette = Palette {
-        foreground: Color::BLACK,
-        background: Color::WHITE,
-        // foreground: Color::WHITE,
-        // background: Color::BLACK,
-    };
 
     let mut callback_maker = CallbackMaker::<State>::new();
     let mut callbacks = Callbacks::<State>::new();
@@ -178,12 +171,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     event_loop.run(move |event, window_target, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        let mut ctx = WindowEventContext {
-            font_system: &mut font_system,
-            font_metrics,
-            swash_cache: &mut swash_cache,
-            palette: &mut palette,
-        };
+        let mut ctx = WindowEventContext {};
 
         match event {
             Event::RedrawRequested(window_id) => {

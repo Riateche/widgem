@@ -1,15 +1,13 @@
 use std::{collections::HashSet, num::NonZeroU32};
 
-use cosmic_text::{FontSystem, SwashCache};
 use tiny_skia::Pixmap;
-use winit::{
-    dpi::PhysicalPosition,
-    event::{ElementState, Event, Ime, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent},
-};
+use winit::event::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent};
 
 use crate::{
-    draw::{DrawContext, Palette},
-    event::{CursorMovedEvent, MouseInputEvent, ReceivedCharacterEvent},
+    draw::DrawContext,
+    event::{
+        CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent,
+    },
     types::{Point, Rect, Size},
     widgets::{get_widget_by_address_mut, mount, unmount, RawWidgetId, Widget, WidgetAddress},
     SharedSystemData,
@@ -63,7 +61,7 @@ impl Window {
         w
     }
 
-    pub fn handle_event(&mut self, ctx: &mut WindowEventContext<'_>, event: Event<()>) {
+    pub fn handle_event(&mut self, _ctx: &mut WindowEventContext, event: Event<()>) {
         self.check_widget_tree_change_flag();
         match event {
             Event::RedrawRequested(_) => {
@@ -94,13 +92,10 @@ impl Window {
                         },
                     },
                     pixmap: &mut pixmap,
-                    font_system: ctx.font_system,
-                    font_metrics: ctx.font_metrics,
-                    swash_cache: ctx.swash_cache,
-                    palette: ctx.palette,
                 };
-                // TODO: widget should fill instead?
-                ctx.pixmap.fill(ctx.palette.background);
+                // TODO: option to turn off background, set style
+                ctx.pixmap
+                    .fill(self.shared_system_data.0.borrow().palette.background);
                 if let Some(widget) = &mut self.widget {
                     widget.draw(&mut ctx);
                 }
@@ -150,9 +145,6 @@ impl Window {
                                 modifiers: self.modifiers_state,
                                 pressed_mouse_buttons: &self.pressed_mouse_buttons,
                                 pos,
-                                font_system: ctx.font_system,
-                                font_metrics: ctx.font_metrics,
-                                palette: ctx.palette,
                             });
                             self.inner.request_redraw(); // TODO: smarter redraw
                         }
@@ -183,9 +175,6 @@ impl Window {
                                     modifiers: self.modifiers_state,
                                     pressed_mouse_buttons: &self.pressed_mouse_buttons,
                                     pos,
-                                    font_system: ctx.font_system,
-                                    font_metrics: ctx.font_metrics,
-                                    palette: ctx.palette,
                                 });
                                 self.inner.request_redraw(); // TODO: smarter redraw
                             }
@@ -193,7 +182,38 @@ impl Window {
                             println!("warning: no cursor position in mouse input handler");
                         }
                     }
-                    WindowEvent::KeyboardInput { input, .. } => {
+                    WindowEvent::KeyboardInput {
+                        input,
+                        device_id,
+                        is_synthetic,
+                    } => {
+                        // TODO: deduplicate with ReceivedCharacter
+                        if let Some(root_widget) = &mut self.widget {
+                            if let Some(focused_widget) = self.focused_widget {
+                                let address: Option<WidgetAddress> = self
+                                    .shared_system_data
+                                    .0
+                                    .borrow()
+                                    .address_book
+                                    .get(&focused_widget)
+                                    .cloned();
+                                if let Some(address) = address {
+                                    if let Ok(widget) =
+                                        get_widget_by_address_mut(root_widget.as_mut(), &address)
+                                    {
+                                        widget.keyboard_input(&mut KeyboardInputEvent {
+                                            device_id,
+                                            input,
+                                            is_synthetic,
+                                            modifiers: self.modifiers_state,
+                                        });
+                                        self.inner.request_redraw(); // TODO: smarter redraw
+                                    }
+                                }
+                            }
+                        }
+
+                        // TODO: only if event is not accepted by a widget
                         if input.state == ElementState::Pressed {
                             if let Some(virtual_keycode) = input.virtual_keycode {
                                 if virtual_keycode == VirtualKeyCode::Tab {
@@ -205,27 +225,23 @@ impl Window {
                                 }
                             }
                         }
-                        //... dispatch to focused widget
                     }
                     WindowEvent::ReceivedCharacter(char) => {
                         if let Some(root_widget) = &mut self.widget {
                             if let Some(focused_widget) = self.focused_widget {
-                                if let Some(address) = self
+                                let address: Option<WidgetAddress> = self
                                     .shared_system_data
                                     .0
                                     .borrow()
                                     .address_book
                                     .get(&focused_widget)
-                                    .cloned()
-                                {
+                                    .cloned();
+                                if let Some(address) = address {
                                     if let Ok(widget) =
                                         get_widget_by_address_mut(root_widget.as_mut(), &address)
                                     {
                                         widget.received_character(&mut ReceivedCharacterEvent {
                                             char,
-                                            font_system: ctx.font_system,
-                                            font_metrics: ctx.font_metrics,
-                                            palette: ctx.palette,
                                         });
                                         self.inner.request_redraw(); // TODO: smarter redraw
                                     }
@@ -233,9 +249,35 @@ impl Window {
                             }
                         }
                     }
-                    WindowEvent::Ime(Ime::Enabled) => {
+                    WindowEvent::Ime(ime) => {
+                        // TODO: deduplicate with ReceivedCharacter
+                        if let Some(root_widget) = &mut self.widget {
+                            if let Some(focused_widget) = self.focused_widget {
+                                let address: Option<WidgetAddress> = self
+                                    .shared_system_data
+                                    .0
+                                    .borrow()
+                                    .address_book
+                                    .get(&focused_widget)
+                                    .cloned();
+                                if let Some(address) = address {
+                                    if let Ok(widget) =
+                                        get_widget_by_address_mut(root_widget.as_mut(), &address)
+                                    {
+                                        widget.ime(&mut ImeEvent(ime));
+                                        self.inner.request_redraw(); // TODO: smarter redraw
+                                    }
+                                }
+                            }
+                        }
                         //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
                     }
+                    // WindowEvent::Ime(Ime::Preedit(text, cursor)) => {
+                    //     //...
+                    //     if let Some((start, _end)) = cursor {
+                    //         println!("{}|{}", &text[..start], &text[start..]);
+                    //     }
+                    // }
                     _ => {}
                 }
             }
@@ -319,9 +361,4 @@ fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidge
     }
 }
 
-pub struct WindowEventContext<'a> {
-    pub font_system: &'a mut FontSystem,
-    pub font_metrics: cosmic_text::Metrics,
-    pub swash_cache: &'a mut SwashCache,
-    pub palette: &'a mut Palette,
-}
+pub struct WindowEventContext {}

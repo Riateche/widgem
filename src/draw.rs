@@ -1,4 +1,4 @@
-use cosmic_text::{BorrowedWithFontSystem, Buffer, Editor, FontSystem, SwashCache};
+use cosmic_text::{BorrowedWithFontSystem, Buffer, Editor, SwashCache};
 use tiny_skia::{Color, Paint, Pixmap, PixmapPaint, PixmapRef, Transform};
 
 use crate::types::{Point, Rect, Size};
@@ -6,10 +6,6 @@ use crate::types::{Point, Rect, Size};
 pub struct DrawContext<'a> {
     pub pixmap: &'a mut Pixmap,
     pub rect: Rect,
-    pub font_system: &'a mut FontSystem,
-    pub font_metrics: cosmic_text::Metrics,
-    pub swash_cache: &'a mut SwashCache,
-    pub palette: &'a mut Palette,
 }
 
 impl DrawContext<'_> {

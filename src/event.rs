@@ -1,40 +1,40 @@
 use std::collections::HashSet;
 
-use cosmic_text::FontSystem;
-use winit::event::{DeviceId, ElementState, ModifiersState, MouseButton};
+use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, ModifiersState, MouseButton};
 
-use crate::{draw::Palette, types::Point};
+use crate::types::Point;
 
 pub struct MouseInputEvent<'a> {
     pub device_id: DeviceId,
     pub state: ElementState,
     pub button: MouseButton,
-    pub modifiers: ModifiersState,
-    pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
     pub pos: Point,
 
-    pub font_system: &'a mut FontSystem,
-    pub font_metrics: cosmic_text::Metrics,
-    pub palette: &'a mut Palette,
+    // TODO: move to shared data
+    pub modifiers: ModifiersState,
+    pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
 }
 
 pub struct CursorMovedEvent<'a> {
     pub device_id: DeviceId,
-    pub modifiers: ModifiersState,
-    pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
     pub pos: Point,
 
-    pub font_system: &'a mut FontSystem,
-    pub font_metrics: cosmic_text::Metrics,
-    pub palette: &'a mut Palette,
+    // TODO: move to shared data
+    pub modifiers: ModifiersState,
+    pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
 }
 
-pub struct ReceivedCharacterEvent<'a> {
-    // pub modifiers: ModifiersState,
-    // pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
+pub struct KeyboardInputEvent {
+    pub device_id: DeviceId,
+    pub input: KeyboardInput,
+    pub is_synthetic: bool,
+
+    // TODO: move to shared data
+    pub modifiers: ModifiersState,
+}
+
+pub struct ReceivedCharacterEvent {
     pub char: char,
-
-    pub font_system: &'a mut FontSystem,
-    pub font_metrics: cosmic_text::Metrics,
-    pub palette: &'a mut Palette,
 }
+
+pub struct ImeEvent(pub Ime);

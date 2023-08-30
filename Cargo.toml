@@ -6,7 +6,8 @@ edition = "2021"
 [dependencies]
 tiny-skia = "0.11.1"
 png = "0.17.10"
-cosmic-text = "0.9.0"
+#cosmic-text = "0.9.0"
+cosmic-text = { path = "../cosmic-text" }
 winit = "0.28.1"
 softbuffer = "0.3.0"
 bytemuck = "1.13.1"

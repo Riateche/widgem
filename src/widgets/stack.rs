@@ -38,10 +38,6 @@ impl Widget for Stack {
             let mut ctx = DrawContext {
                 rect: child.rect.translate(ctx.rect.top_left).intersect(ctx.rect),
                 pixmap: ctx.pixmap,
-                font_system: ctx.font_system,
-                font_metrics: ctx.font_metrics,
-                swash_cache: ctx.swash_cache,
-                palette: ctx.palette,
             };
             child.widget.draw(&mut ctx);
         }
@@ -57,9 +53,6 @@ impl Widget for Stack {
                     button: event.button,
                     modifiers: event.modifiers,
                     pressed_mouse_buttons: event.pressed_mouse_buttons,
-                    font_system: event.font_system,
-                    font_metrics: event.font_metrics,
-                    palette: event.palette,
                 };
                 child.widget.mouse_input(&mut event);
             }
@@ -74,9 +67,6 @@ impl Widget for Stack {
                     device_id: event.device_id,
                     modifiers: event.modifiers,
                     pressed_mouse_buttons: event.pressed_mouse_buttons,
-                    font_system: event.font_system,
-                    font_metrics: event.font_metrics,
-                    palette: event.palette,
                 };
                 child.widget.cursor_moved(&mut event);
             }
