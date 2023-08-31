@@ -1,36 +1,23 @@
-use std::collections::HashSet;
-
-use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, ModifiersState, MouseButton};
+use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, MouseButton};
 
 use crate::types::Point;
 
-pub struct MouseInputEvent<'a> {
+pub struct MouseInputEvent {
     pub device_id: DeviceId,
     pub state: ElementState,
     pub button: MouseButton,
     pub pos: Point,
-
-    // TODO: move to shared data
-    pub modifiers: ModifiersState,
-    pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
 }
 
-pub struct CursorMovedEvent<'a> {
+pub struct CursorMovedEvent {
     pub device_id: DeviceId,
     pub pos: Point,
-
-    // TODO: move to shared data
-    pub modifiers: ModifiersState,
-    pub pressed_mouse_buttons: &'a HashSet<MouseButton>,
 }
 
 pub struct KeyboardInputEvent {
     pub device_id: DeviceId,
     pub input: KeyboardInput,
     pub is_synthetic: bool,
-
-    // TODO: move to shared data
-    pub modifiers: ModifiersState,
 }
 
 pub struct ReceivedCharacterEvent {

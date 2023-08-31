@@ -4,7 +4,7 @@ use crate::{
     types::Rect,
 };
 
-use super::{mount, Child, Widget, WidgetCommon};
+use super::{mount, Child, MountPoint, Widget, WidgetCommon};
 
 pub struct Stack {
     children: Vec<Child>,
@@ -21,8 +21,16 @@ impl Stack {
     }
 
     pub fn add(&mut self, rect: Rect, mut widget: Box<dyn Widget>) {
-        if let (Some(system), Some(address)) = (&self.common.system, &self.common.address) {
-            mount(widget.as_mut(), system.clone(), address.clone());
+        if let Some(mount_point) = &self.common.mount_point {
+            let address = mount_point.address.clone().join(widget.common().id);
+            mount(
+                widget.as_mut(),
+                MountPoint {
+                    address,
+                    system: mount_point.system.clone(),
+                    window: mount_point.window.clone(),
+                },
+            );
         }
         self.children.push(Child { rect, widget });
     }
@@ -43,7 +51,7 @@ impl Widget for Stack {
         }
     }
 
-    fn mouse_input(&mut self, event: &mut MouseInputEvent<'_>) {
+    fn mouse_input(&mut self, event: &mut MouseInputEvent) {
         for child in &mut self.children {
             if child.rect.contains(event.pos) {
                 let mut event = MouseInputEvent {
@@ -51,22 +59,18 @@ impl Widget for Stack {
                     device_id: event.device_id,
                     state: event.state,
                     button: event.button,
-                    modifiers: event.modifiers,
-                    pressed_mouse_buttons: event.pressed_mouse_buttons,
                 };
                 child.widget.mouse_input(&mut event);
             }
         }
     }
 
-    fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
+    fn cursor_moved(&mut self, event: &mut CursorMovedEvent) {
         for child in &mut self.children {
             if child.rect.contains(event.pos) {
                 let mut event = CursorMovedEvent {
                     pos: event.pos - child.rect.top_left,
                     device_id: event.device_id,
-                    modifiers: event.modifiers,
-                    pressed_mouse_buttons: event.pressed_mouse_buttons,
                 };
                 child.widget.cursor_moved(&mut event);
             }

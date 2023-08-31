@@ -13,6 +13,7 @@ use crate::{
         CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent,
     },
     types::Rect,
+    window::SharedWindowData,
     SharedSystemData,
 };
 
@@ -45,8 +46,14 @@ impl<T> Copy for WidgetId<T> {}
 pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
-    pub address: Option<WidgetAddress>,
-    pub system: Option<SharedSystemData>,
+    pub mount_point: Option<MountPoint>,
+}
+
+#[derive(Clone)]
+pub struct MountPoint {
+    pub address: WidgetAddress,
+    pub system: SharedSystemData,
+    pub window: SharedWindowData,
 }
 
 impl WidgetCommon {
@@ -55,55 +62,56 @@ impl WidgetCommon {
         Self {
             id: RawWidgetId::new(),
             is_focusable: false,
-            system: None,
-            address: None,
+            mount_point: None,
         }
     }
 
-    pub fn mount(&mut self, data: SharedSystemData, parent_address: WidgetAddress) {
-        if self.system.is_some() || self.address.is_some() {
+    //    let address = parent_address.join(self.id);
+
+    pub fn mount(&mut self, mount_point: MountPoint) {
+        if self.mount_point.is_some() {
             println!("warn: widget was already mounted");
         }
-        let address = parent_address.join(self.id);
-        let old = data
+        let old = mount_point
+            .system
             .0
             .borrow_mut()
             .address_book
-            .insert(self.id, address.clone());
+            .insert(self.id, mount_point.address.clone());
         if old.is_some() {
             println!("warn: widget address was already registered");
         }
-        data.0
-            .borrow_mut()
-            .widget_tree_changed_flags
-            .insert(address.window_id);
-        self.address = Some(address);
-        self.system = Some(data);
+        mount_point.window.0.borrow_mut().widget_tree_changed = true;
+        self.mount_point = Some(mount_point);
     }
 
     pub fn unmount(&mut self) {
-        if let (Some(system), Some(address)) = (&self.system, &self.address) {
-            system.0.borrow_mut().address_book.remove(&self.id);
-            system
+        if let Some(mount_point) = self.mount_point.take() {
+            mount_point
+                .system
                 .0
                 .borrow_mut()
-                .widget_tree_changed_flags
-                .insert(address.window_id);
+                .address_book
+                .remove(&self.id);
+            mount_point.window.0.borrow_mut().widget_tree_changed = true;
         } else {
             println!("warn: widget was not mounted");
         }
-        self.system = None;
-        self.address = None;
     }
 }
 
-pub fn mount(widget: &mut dyn Widget, data: SharedSystemData, parent_address: WidgetAddress) {
-    widget
-        .common_mut()
-        .mount(data.clone(), parent_address.clone());
-    let address = widget.common().address.clone().expect("already mounted");
+pub fn mount(widget: &mut dyn Widget, mount_point: MountPoint) {
+    widget.common_mut().mount(mount_point.clone());
     for child in widget.children_mut() {
-        mount(child.as_mut(), data.clone(), address.clone());
+        let child_address = mount_point.address.clone().join(child.common().id);
+        mount(
+            child.as_mut(),
+            MountPoint {
+                address: child_address,
+                system: mount_point.system.clone(),
+                window: mount_point.window.clone(),
+            },
+        );
     }
 }
 
@@ -143,10 +151,10 @@ pub trait Widget: Downcast {
         Box::new(iter::empty())
     }
     fn draw(&mut self, ctx: &mut DrawContext<'_>);
-    fn mouse_input(&mut self, event: &mut MouseInputEvent<'_>) {
+    fn mouse_input(&mut self, event: &mut MouseInputEvent) {
         let _ = event;
     }
-    fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
+    fn cursor_moved(&mut self, event: &mut CursorMovedEvent) {
         let _ = event;
     }
     fn keyboard_input(&mut self, event: &mut KeyboardInputEvent) {

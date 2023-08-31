@@ -1,4 +1,4 @@
-use std::{collections::HashSet, num::NonZeroU32};
+use std::{cell::RefCell, collections::HashSet, num::NonZeroU32, rc::Rc};
 
 use tiny_skia::Pixmap;
 use winit::{
@@ -12,20 +12,30 @@ use crate::{
         CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent,
     },
     types::{Point, Rect, Size},
-    widgets::{get_widget_by_address_mut, mount, unmount, RawWidgetId, Widget, WidgetAddress},
+    widgets::{
+        get_widget_by_address_mut, mount, unmount, MountPoint, RawWidgetId, Widget, WidgetAddress,
+    },
     SharedSystemData,
 };
+
+pub struct SharedWindowDataInner {
+    pub widget_tree_changed: bool,
+    pub cursor_position: Option<Point>,
+    pub cursor_entered: bool,
+    pub modifiers_state: ModifiersState,
+    pub pressed_mouse_buttons: HashSet<MouseButton>,
+}
+
+#[derive(Clone)]
+pub struct SharedWindowData(pub Rc<RefCell<SharedWindowDataInner>>);
 
 pub struct Window {
     pub inner: winit::window::Window,
     pub softbuffer_context: softbuffer::Context,
     pub surface: softbuffer::Surface,
-    pub cursor_position: Option<Point>,
-    pub cursor_entered: bool,
-    pub modifiers_state: ModifiersState,
-    pressed_mouse_buttons: HashSet<MouseButton>,
     pub widget: Option<Box<dyn Widget>>,
     shared_system_data: SharedSystemData,
+    shared_window_data: SharedWindowData,
 
     pub focusable_widgets: Vec<RawWidgetId>,
     pub focused_widget: Option<RawWidgetId>,
@@ -40,23 +50,31 @@ impl Window {
         inner.set_ime_allowed(true);
         inner.set_ime_position(PhysicalPosition::new(10, 10));
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
+        let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
+            widget_tree_changed: false,
+            cursor_position: None,
+            cursor_entered: false,
+            modifiers_state: ModifiersState::default(),
+            pressed_mouse_buttons: HashSet::new(),
+        })));
         if let Some(widget) = &mut widget {
+            let address = WidgetAddress::window_root(inner.id()).join(widget.common().id);
             mount(
                 widget.as_mut(),
-                shared_system_data.clone(),
-                WidgetAddress::window_root(inner.id()),
+                MountPoint {
+                    address,
+                    system: shared_system_data.clone(),
+                    window: shared_window_data.clone(),
+                },
             );
         }
         let mut w = Self {
             surface: unsafe { softbuffer::Surface::new(&softbuffer_context, &inner) }.unwrap(),
             softbuffer_context,
             inner,
-            cursor_position: None,
-            cursor_entered: false,
-            modifiers_state: ModifiersState::default(),
-            pressed_mouse_buttons: HashSet::new(),
             widget,
             shared_system_data,
+            shared_window_data,
             focusable_widgets: Vec::new(),
             focused_widget: None,
         };
@@ -127,11 +145,11 @@ impl Window {
                 match event {
                     // TODO: should use device id?
                     WindowEvent::CursorEntered { .. } => {
-                        self.cursor_entered = true;
+                        self.shared_window_data.0.borrow_mut().cursor_entered = true;
                     }
                     WindowEvent::CursorLeft { .. } => {
-                        self.cursor_entered = false;
-                        self.cursor_position = None;
+                        self.shared_window_data.0.borrow_mut().cursor_entered = false;
+                        self.shared_window_data.0.borrow_mut().cursor_position = None;
                     }
                     WindowEvent::CursorMoved {
                         position,
@@ -143,19 +161,14 @@ impl Window {
                             x: position.x.round() as i32,
                             y: position.y.round() as i32,
                         };
-                        self.cursor_position = Some(pos);
+                        self.shared_window_data.0.borrow_mut().cursor_position = Some(pos);
                         if let Some(widget) = &mut self.widget {
-                            widget.cursor_moved(&mut CursorMovedEvent {
-                                device_id,
-                                modifiers: self.modifiers_state,
-                                pressed_mouse_buttons: &self.pressed_mouse_buttons,
-                                pos,
-                            });
+                            widget.cursor_moved(&mut CursorMovedEvent { device_id, pos });
                             self.inner.request_redraw(); // TODO: smarter redraw
                         }
                     }
                     WindowEvent::ModifiersChanged(state) => {
-                        self.modifiers_state = state;
+                        self.shared_window_data.0.borrow_mut().modifiers_state = state;
                     }
                     WindowEvent::MouseInput {
                         device_id,
@@ -165,20 +178,27 @@ impl Window {
                     } => {
                         match state {
                             ElementState::Pressed => {
-                                self.pressed_mouse_buttons.insert(button);
+                                self.shared_window_data
+                                    .0
+                                    .borrow_mut()
+                                    .pressed_mouse_buttons
+                                    .insert(button);
                             }
                             ElementState::Released => {
-                                self.pressed_mouse_buttons.remove(&button);
+                                self.shared_window_data
+                                    .0
+                                    .borrow_mut()
+                                    .pressed_mouse_buttons
+                                    .remove(&button);
                             }
                         }
-                        if let Some(pos) = self.cursor_position {
+                        let cursor_position = self.shared_window_data.0.borrow().cursor_position;
+                        if let Some(pos) = cursor_position {
                             if let Some(widget) = &mut self.widget {
                                 widget.mouse_input(&mut MouseInputEvent {
                                     device_id,
                                     state,
                                     button,
-                                    modifiers: self.modifiers_state,
-                                    pressed_mouse_buttons: &self.pressed_mouse_buttons,
                                     pos,
                                 });
                                 self.inner.request_redraw(); // TODO: smarter redraw
@@ -210,7 +230,6 @@ impl Window {
                                             device_id,
                                             input,
                                             is_synthetic,
-                                            modifiers: self.modifiers_state,
                                         });
                                         self.inner.request_redraw(); // TODO: smarter redraw
                                     }
@@ -222,7 +241,7 @@ impl Window {
                         if input.state == ElementState::Pressed {
                             if let Some(virtual_keycode) = input.virtual_keycode {
                                 if virtual_keycode == VirtualKeyCode::Tab {
-                                    if self.modifiers_state.shift() {
+                                    if self.shared_window_data.0.borrow().modifiers_state.shift() {
                                         self.move_keyboard_focus(-1);
                                     } else {
                                         self.move_keyboard_focus(1);
@@ -317,24 +336,27 @@ impl Window {
             unmount(old_widget.as_mut());
         }
         if let Some(widget) = &mut widget {
+            let address = WidgetAddress::window_root(self.inner.id()).join(widget.common().id);
             mount(
                 widget.as_mut(),
-                self.shared_system_data.clone(),
-                WidgetAddress::window_root(self.inner.id()),
+                MountPoint {
+                    address,
+                    system: self.shared_system_data.clone(),
+                    window: self.shared_window_data.clone(),
+                },
             );
         }
         self.widget = widget;
+        self.refresh_focusable_widgets();
     }
 
     fn check_widget_tree_change_flag(&mut self) {
-        if !self
-            .shared_system_data
-            .0
-            .borrow_mut()
-            .widget_tree_changed_flags
-            .remove(&self.inner.id())
         {
-            return;
+            let mut shared = self.shared_window_data.0.borrow_mut();
+            if !shared.widget_tree_changed {
+                return;
+            }
+            shared.widget_tree_changed = false;
         }
         self.refresh_focusable_widgets();
     }

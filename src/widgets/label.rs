@@ -41,9 +41,10 @@ impl Widget for Label {
     fn draw(&mut self, ctx: &mut DrawContext<'_>) {
         let system = &mut *self
             .common
-            .system
+            .mount_point
             .as_ref()
             .expect("cannot draw when unmounted")
+            .system
             .0
             .borrow_mut();
 

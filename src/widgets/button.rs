@@ -70,9 +70,10 @@ impl Widget for Button {
 
         let system = &mut *self
             .common
-            .system
+            .mount_point
             .as_ref()
             .expect("cannot draw when unmounted")
+            .system
             .0
             .borrow_mut();
         let mut buffer = self
@@ -102,7 +103,7 @@ impl Widget for Button {
         }
     }
 
-    fn mouse_input(&mut self, _event: &mut MouseInputEvent<'_>) {
+    fn mouse_input(&mut self, _event: &mut MouseInputEvent) {
         if let Some(on_clicked) = &self.on_clicked {
             on_clicked.invoke(self.text.clone());
         }

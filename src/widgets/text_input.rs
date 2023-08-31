@@ -1,7 +1,7 @@
-use std::fmt::Display;
+use std::{f32::consts::PI, fmt::Display};
 
 use cosmic_text::{Action, Attrs, Buffer, Edit, Editor, Shaping, Wrap};
-use tiny_skia::Pixmap;
+use tiny_skia::{Color, Paint, Path, PathBuilder, Pixmap, Stroke, Transform};
 use winit::event::{ElementState, Ime, MouseButton, VirtualKeyCode};
 
 use crate::{
@@ -43,11 +43,46 @@ impl TextInput {
 
 impl Widget for TextInput {
     fn draw(&mut self, ctx: &mut DrawContext<'_>) {
+        // let mut pb = PathBuilder::new();
+        // pb.move_to(20.5, 20.5);
+        // pb.line_to(220.5, 20.5);
+        // for i in 1..=8 {
+        //     let angle2 = PI / 2.0 / 8.0 * (i as f32);
+        //     let angle1 = angle2 - PI / 16.0;
+        //     pb.quad_to(
+        //         220.5 + angle1.sin() * 50.0,
+        //         70.5 - angle1.cos() * 50.0,
+        //         220.5 + angle2.sin() * 50.0,
+        //         70.5 - angle2.cos() * 50.0,
+        //     );
+        //     // pb.line_to(220.5 + angle1.sin() * 50.0, 70.5 - angle1.cos() * 50.0);
+        //     // pb.line_to(220.5 + angle2.sin() * 50.0, 70.5 - angle2.cos() * 50.0);
+        // }
+        //pb.push_circle(x, y, r)
+
+        // let path =
+        //     PathBuilder::from_rect(tiny_skia::Rect::from_xywh(20.5, 20.5, 300.0, 40.0).unwrap());
+        // ctx.pixmap.stroke_path(
+        //     &pb.finish().unwrap(),
+        //     &Paint {
+        //         shader: tiny_skia::Shader::SolidColor(Color::from_rgba8(0, 0, 0, 255)),
+        //         ..Paint::default()
+        //     },
+        //     &Stroke {
+        //         width: 1.0,
+        //         line_join: tiny_skia::LineJoin::Round,
+        //         ..Stroke::default()
+        //     },
+        //     Transform::default(),
+        //     None,
+        // );
+
         let system = &mut *self
             .common
-            .system
+            .mount_point
             .as_ref()
             .expect("cannot draw when unmounted")
+            .system
             .0
             .borrow_mut();
 
@@ -96,12 +131,13 @@ impl Widget for TextInput {
         }
     }
 
-    fn mouse_input(&mut self, event: &mut crate::event::MouseInputEvent<'_>) {
-        let mut system = self
+    fn mouse_input(&mut self, event: &mut crate::event::MouseInputEvent) {
+        let system = &mut *self
             .common
-            .system
+            .mount_point
             .as_ref()
             .expect("cannot handle event when unmounted")
+            .system
             .0
             .borrow_mut();
 
@@ -118,16 +154,21 @@ impl Widget for TextInput {
         }
     }
 
-    fn cursor_moved(&mut self, event: &mut CursorMovedEvent<'_>) {
-        let mut system = self
+    fn cursor_moved(&mut self, event: &mut CursorMovedEvent) {
+        let mount_point = self
             .common
-            .system
+            .mount_point
             .as_ref()
-            .expect("cannot handle event when unmounted")
-            .0
-            .borrow_mut();
+            .expect("cannot handle event when unmounted");
+        let system = &mut *mount_point.system.0.borrow_mut();
 
-        if event.pressed_mouse_buttons.contains(&MouseButton::Left) {
+        if mount_point
+            .window
+            .0
+            .borrow()
+            .pressed_mouse_buttons
+            .contains(&MouseButton::Left)
+        {
             if let Some(editor) = &mut self.editor {
                 editor.action(
                     &mut system.font_system,
@@ -150,13 +191,13 @@ impl Widget for TextInput {
             return;
         }
 
-        let mut system = self
+        let mount_point = self
             .common
-            .system
+            .mount_point
             .as_ref()
-            .expect("cannot handle event when unmounted")
-            .0
-            .borrow_mut();
+            .expect("cannot handle event when unmounted");
+        let system = &mut *mount_point.system.0.borrow_mut();
+        let modifiers = mount_point.window.0.borrow().modifiers_state;
 
         // println!("ok2 {:?}", event.char);
         if let Some(editor) = &mut self.editor {
@@ -177,10 +218,10 @@ impl Widget for TextInput {
                 VirtualKeyCode::PageDown => Action::PageDown,
                 VirtualKeyCode::PageUp => Action::PageUp,
                 VirtualKeyCode::Left => {
-                    if event.modifiers.shift() && editor.select_opt().is_none() {
+                    if modifiers.shift() && editor.select_opt().is_none() {
                         editor.set_select_opt(Some(editor.cursor()));
                     }
-                    if !event.modifiers.shift() && editor.select_opt().is_some() {
+                    if !modifiers.shift() && editor.select_opt().is_some() {
                         editor.set_select_opt(None);
                     }
                     println!("handle left!");
@@ -221,11 +262,12 @@ impl Widget for TextInput {
     }
 
     fn received_character(&mut self, event: &mut ReceivedCharacterEvent) {
-        let mut system = self
+        let system = &mut *self
             .common
-            .system
+            .mount_point
             .as_ref()
             .expect("cannot handle event when unmounted")
+            .system
             .0
             .borrow_mut();
 
@@ -244,11 +286,12 @@ impl Widget for TextInput {
     }
 
     fn ime(&mut self, event: &mut ImeEvent) {
-        let mut system = self
+        let system = &mut *self
             .common
-            .system
+            .mount_point
             .as_ref()
             .expect("cannot handle event when unmounted")
+            .system
             .0
             .borrow_mut();
 
