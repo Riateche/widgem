@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashSet, num::NonZeroU32, rc::Rc};
+use std::{cell::{RefCell, Cell}, collections::HashSet, num::NonZeroU32, rc::Rc};
 
 use tiny_skia::Pixmap;
 use winit::{
@@ -39,6 +39,7 @@ pub struct Window {
 
     pub focusable_widgets: Vec<RawWidgetId>,
     pub focused_widget: Option<RawWidgetId>,
+    pub mouse_grabber_widget: Option<RawWidgetId>,
 }
 
 impl Window {
@@ -77,6 +78,7 @@ impl Window {
             shared_window_data,
             focusable_widgets: Vec::new(),
             focused_widget: None,
+            mouse_grabber_widget: None,
         };
         w.refresh_focusable_widgets();
         w
@@ -164,10 +166,29 @@ impl Window {
                             y: position.y.round() as i32,
                         };
                         self.shared_window_data.0.borrow_mut().cursor_position = Some(pos);
-                        if let Some(widget) = &mut self.widget {
-                            widget.dispatch(CursorMovedEvent { device_id, pos }.into());
-                            self.inner.request_redraw(); // TODO: smarter redraw
+                        let cursor_moved_event = CursorMovedEvent { device_id, pos }.into();
+                        if let Some(root_widget) = &mut self.widget {
+                            if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
+                                let address: Option<WidgetAddress> = self
+                                    .shared_system_data
+                                    .0
+                                    .borrow()
+                                    .address_book
+                                    .get(&mouse_grabber_widget_id)
+                                    .cloned();
+                                if let Some(address) = address {
+                                    if let Ok(mouse_grabber_widget) =
+                                        get_widget_by_address_mut(root_widget.as_mut(), &address)
+                                    {
+                                        mouse_grabber_widget.dispatch(cursor_moved_event);
+                                    }
+                                }
+                            } else {
+                                root_widget.dispatch(cursor_moved_event);
+                                
+                            }
                         }
+                        self.inner.request_redraw(); // TODO: smarter redraw
                     }
                     WindowEvent::ModifiersChanged(state) => {
                         self.shared_window_data.0.borrow_mut().modifiers_state = state;
@@ -196,13 +217,46 @@ impl Window {
                         }
                         let cursor_position = self.shared_window_data.0.borrow().cursor_position;
                         if let Some(pos) = cursor_position {
-                            if let Some(widget) = &mut self.widget {
-                                widget.dispatch(MouseInputEvent {
+                            if let Some(root_widget) = &mut self.widget {
+                                let accepted_by = Rc::new(Cell::new(None));
+                                let mouse_input_event = MouseInputEvent {
                                     device_id,
                                     state,
                                     button,
                                     pos,
-                                }.into());
+                                    accepted_by: Rc::clone(&accepted_by),
+                                }.into();
+                                if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
+                                    let address: Option<WidgetAddress> = self
+                                        .shared_system_data
+                                        .0
+                                        .borrow()
+                                        .address_book
+                                        .get(&mouse_grabber_widget_id)
+                                        .cloned();
+                                    if let Some(address) = address {
+                                        if let Ok(mouse_grabber_widget) =
+                                            get_widget_by_address_mut(root_widget.as_mut(), &address)
+                                        {
+                                            mouse_grabber_widget.dispatch(mouse_input_event);
+                                        }
+                                    }
+                                    if self.shared_window_data
+                                    .0
+                                    .borrow_mut()
+                                    .pressed_mouse_buttons
+                                    .is_empty() {
+                                        self.mouse_grabber_widget = None;
+                                    }
+                                } else {
+                                    root_widget.dispatch(mouse_input_event);
+                                    if state == ElementState::Pressed {
+                                        if let Some(accepted_by_widget_id) = accepted_by.get() {
+                                            self.mouse_grabber_widget = Some(accepted_by_widget_id);
+                                        }
+                                    }
+                                }
+                                
                                 self.inner.request_redraw(); // TODO: smarter redraw
                             }
                         } else {

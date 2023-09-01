@@ -1,6 +1,8 @@
+use std::{cell::Cell, rc::Rc};
+
 use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, MouseButton};
 
-use crate::{types::Point, draw::DrawEvent};
+use crate::{types::Point, draw::DrawEvent, widgets::RawWidgetId};
 
 use derive_more::From;
 
@@ -19,6 +21,7 @@ pub struct MouseInputEvent {
     pub state: ElementState,
     pub button: MouseButton,
     pub pos: Point,
+    pub accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
 pub struct CursorMovedEvent {

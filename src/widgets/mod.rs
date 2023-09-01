@@ -1,7 +1,7 @@
 use std::{
     iter,
     marker::PhantomData,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicU64, Ordering}, rc::Rc,
 };
 
 use downcast_rs::{impl_downcast, Downcast};
@@ -199,7 +199,18 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn dispatch(&mut self, event: Event) -> bool {
-        self.on_event(event)
+        let accepted_by = if let Event::MouseInput(mouse_input_event) = &event {
+            Some(Rc::clone(&mouse_input_event.accepted_by))
+        } else {
+            None
+        };
+        let result = self.on_event(event);
+        if let Some(accepted_by) = accepted_by{
+            if accepted_by.get().is_none() && result {
+                accepted_by.set(Some(self.common().id));
+            }
+        }
+        result
     }
 }
 
