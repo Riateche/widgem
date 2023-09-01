@@ -2,6 +2,9 @@ use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, MouseButton};
 
 use crate::{types::Point, draw::DrawEvent};
 
+use derive_more::From;
+
+#[derive(From)]
 pub enum Event {
     MouseInput(MouseInputEvent),
     CursorMoved(CursorMovedEvent),

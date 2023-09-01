@@ -13,7 +13,7 @@ use crate::{
     },
     types::{Point, Rect, Size},
     widgets::{
-        get_widget_by_address_mut, mount, unmount, MountPoint, RawWidgetId, Widget, WidgetAddress,
+        get_widget_by_address_mut, mount, unmount, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
     },
     SharedSystemData,
 };
@@ -120,7 +120,7 @@ impl Window {
                     .borrow_mut()
                     .fill(self.shared_system_data.0.borrow().palette.background);
                 if let Some(widget) = &mut self.widget {
-                    widget.on_draw(draw_event);
+                    widget.dispatch(draw_event.into());
                 }
 
                 buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
@@ -165,7 +165,7 @@ impl Window {
                         };
                         self.shared_window_data.0.borrow_mut().cursor_position = Some(pos);
                         if let Some(widget) = &mut self.widget {
-                            widget.on_cursor_moved(CursorMovedEvent { device_id, pos });
+                            widget.dispatch(CursorMovedEvent { device_id, pos }.into());
                             self.inner.request_redraw(); // TODO: smarter redraw
                         }
                     }
@@ -197,12 +197,12 @@ impl Window {
                         let cursor_position = self.shared_window_data.0.borrow().cursor_position;
                         if let Some(pos) = cursor_position {
                             if let Some(widget) = &mut self.widget {
-                                widget.on_mouse_input(MouseInputEvent {
+                                widget.dispatch(MouseInputEvent {
                                     device_id,
                                     state,
                                     button,
                                     pos,
-                                });
+                                }.into());
                                 self.inner.request_redraw(); // TODO: smarter redraw
                             }
                         } else {
@@ -228,11 +228,11 @@ impl Window {
                                     if let Ok(widget) =
                                         get_widget_by_address_mut(root_widget.as_mut(), &address)
                                     {
-                                        widget.on_keyboard_input(KeyboardInputEvent {
+                                        widget.dispatch(KeyboardInputEvent {
                                             device_id,
                                             input,
                                             is_synthetic,
-                                        });
+                                        }.into());
                                         self.inner.request_redraw(); // TODO: smarter redraw
                                     }
                                 }
@@ -266,9 +266,9 @@ impl Window {
                                     if let Ok(widget) =
                                         get_widget_by_address_mut(root_widget.as_mut(), &address)
                                     {
-                                        widget.on_received_character(ReceivedCharacterEvent {
+                                        widget.dispatch(ReceivedCharacterEvent {
                                             char,
-                                        });
+                                        }.into());
                                         self.inner.request_redraw(); // TODO: smarter redraw
                                     }
                                 }
@@ -290,7 +290,7 @@ impl Window {
                                     if let Ok(widget) =
                                         get_widget_by_address_mut(root_widget.as_mut(), &address)
                                     {
-                                        widget.on_ime(ImeEvent(ime));
+                                        widget.dispatch(ImeEvent(ime).into());
                                         self.inner.request_redraw(); // TODO: smarter redraw
                                     }
                                 }

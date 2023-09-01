@@ -6,7 +6,7 @@ use crate::{
     types::Rect,
 };
 
-use super::{mount, Child, MountPoint, Widget, WidgetCommon};
+use super::{mount, Child, MountPoint, Widget, WidgetCommon, WidgetExt};
 
 pub struct Stack {
     children: Vec<Child>,
@@ -49,7 +49,7 @@ impl Widget for Stack {
                 rect: child.rect.translate(event.rect.top_left).intersect(event.rect),
                 pixmap: Rc::clone(&event.pixmap),
             };
-            child.widget.on_draw(child_event);
+            child.widget.dispatch(child_event.into());
         }
         true
     }
@@ -63,7 +63,7 @@ impl Widget for Stack {
                     state: event.state,
                     button: event.button,
                 };
-                if child.widget.on_mouse_input(event) {
+                if child.widget.dispatch(event.into()) {
                     return true;
                 }
             }
@@ -78,7 +78,7 @@ impl Widget for Stack {
                     pos: event.pos - child.rect.top_left,
                     device_id: event.device_id,
                 };
-                if child.widget.on_cursor_moved(event) {
+                if child.widget.dispatch(event.into()) {
                     return true;
                 }
             }

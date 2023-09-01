@@ -188,11 +188,18 @@ pub trait WidgetExt {
     fn id(&self) -> WidgetId<Self>
     where
         Self: Sized;
+    fn dispatch(&mut self, event: Event) -> bool;
 }
 
-impl<W: Widget> WidgetExt for W {
-    fn id(&self) -> WidgetId<Self> {
+impl<W: Widget + ?Sized> WidgetExt for W {
+    fn id(&self) -> WidgetId<Self>
+    where
+        Self: Sized {
         WidgetId(self.common().id, PhantomData)
+    }
+
+    fn dispatch(&mut self, event: Event) -> bool {
+        self.on_event(event)
     }
 }
 
