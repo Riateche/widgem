@@ -1,5 +1,7 @@
+use std::rc::Rc;
+
 use crate::{
-    draw::DrawContext,
+    draw::DrawEvent,
     event::{CursorMovedEvent, MouseInputEvent},
     types::Rect,
 };
@@ -41,40 +43,47 @@ impl Widget for Stack {
         Box::new(self.children.iter_mut().map(|c| &mut c.widget))
     }
 
-    fn draw(&mut self, ctx: &mut DrawContext<'_>) {
+    fn on_draw(&mut self, event: DrawEvent) -> bool {
         for child in &mut self.children {
-            let mut ctx = DrawContext {
-                rect: child.rect.translate(ctx.rect.top_left).intersect(ctx.rect),
-                pixmap: ctx.pixmap,
+            let child_event = DrawEvent {
+                rect: child.rect.translate(event.rect.top_left).intersect(event.rect),
+                pixmap: Rc::clone(&event.pixmap),
             };
-            child.widget.draw(&mut ctx);
+            child.widget.on_draw(child_event);
         }
+        true
     }
 
-    fn mouse_input(&mut self, event: &mut MouseInputEvent) {
+    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         for child in &mut self.children {
             if child.rect.contains(event.pos) {
-                let mut event = MouseInputEvent {
+                let event = MouseInputEvent {
                     pos: event.pos - child.rect.top_left,
                     device_id: event.device_id,
                     state: event.state,
                     button: event.button,
                 };
-                child.widget.mouse_input(&mut event);
+                if child.widget.on_mouse_input(event) {
+                    return true;
+                }
             }
         }
+        false
     }
 
-    fn cursor_moved(&mut self, event: &mut CursorMovedEvent) {
+    fn on_cursor_moved(&mut self, event: CursorMovedEvent) -> bool {
         for child in &mut self.children {
             if child.rect.contains(event.pos) {
-                let mut event = CursorMovedEvent {
+                let event = CursorMovedEvent {
                     pos: event.pos - child.rect.top_left,
                     device_id: event.device_id,
                 };
-                child.widget.cursor_moved(&mut event);
+                if child.widget.on_cursor_moved(event) {
+                    return true;
+                }
             }
         }
+        false
     }
 
     fn common(&self) -> &WidgetCommon {

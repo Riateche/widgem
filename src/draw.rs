@@ -1,16 +1,18 @@
+use std::{rc::Rc, cell::RefCell};
+
 use cosmic_text::{BorrowedWithFontSystem, Buffer, Editor, SwashCache};
 use tiny_skia::{Color, Paint, Pixmap, PixmapPaint, PixmapRef, Transform};
 
 use crate::types::{Point, Rect, Size};
 
-pub struct DrawContext<'a> {
-    pub pixmap: &'a mut Pixmap,
+pub struct DrawEvent {
+    pub pixmap: Rc<RefCell<Pixmap>>,
     pub rect: Rect,
 }
 
-impl DrawContext<'_> {
-    pub fn draw_pixmap(&mut self, pos: Point, pixmap: PixmapRef<'_>) {
-        self.pixmap.draw_pixmap(
+impl DrawEvent {
+    pub fn draw_pixmap(&self, pos: Point, pixmap: PixmapRef<'_>) {
+        self.pixmap.borrow_mut().draw_pixmap(
             pos.x + self.rect.top_left.x,
             pos.y + self.rect.top_left.y,
             pixmap,
@@ -21,9 +23,9 @@ impl DrawContext<'_> {
         )
     }
 
-    pub fn fill_rect(&mut self, rect: Rect, color: Color) {
+    pub fn fill_rect(&self, rect: Rect, color: Color) {
         let top_left = self.rect.top_left + rect.top_left;
-        self.pixmap.fill_rect(
+        self.pixmap.borrow_mut().fill_rect(
             tiny_skia::Rect::from_xywh(
                 top_left.x as f32,
                 top_left.y as f32,

@@ -5,7 +5,7 @@ use tiny_skia::{Color, Pixmap};
 
 use crate::{
     callback::Callback,
-    draw::{draw_text, unrestricted_text_size, DrawContext},
+    draw::{draw_text, unrestricted_text_size, DrawEvent},
     event::MouseInputEvent,
     types::{Point, Rect, Size},
 };
@@ -49,20 +49,20 @@ impl Button {
 }
 
 impl Widget for Button {
-    fn draw(&mut self, ctx: &mut DrawContext<'_>) {
-        ctx.fill_rect(
+    fn on_draw(&mut self, event: DrawEvent) -> bool {
+        event.fill_rect(
             Rect {
                 top_left: Point::default(),
-                size: ctx.rect.size,
+                size: event.rect.size,
             },
             Color::from_rgba8(180, 255, 180, 255),
         );
-        ctx.fill_rect(
+        event.fill_rect(
             Rect {
                 top_left: Point { x: 3, y: 3 },
                 size: Size {
-                    x: ctx.rect.size.x - 6,
-                    y: ctx.rect.size.y - 6,
+                    x: event.rect.size.x - 6,
+                    y: event.rect.size.y - 6,
                 },
             },
             Color::from_rgba8(220, 220, 220, 255),
@@ -96,17 +96,19 @@ impl Widget for Button {
 
         if let Some(pixmap) = &self.text_pixmap {
             let padding = Point {
-                x: max(0, ctx.rect.size.x - pixmap.width() as i32) / 2,
-                y: max(0, ctx.rect.size.y - pixmap.height() as i32) / 2,
+                x: max(0, event.rect.size.x - pixmap.width() as i32) / 2,
+                y: max(0, event.rect.size.y - pixmap.height() as i32) / 2,
             };
-            ctx.draw_pixmap(padding, pixmap.as_ref());
+            event.draw_pixmap(padding, pixmap.as_ref());
         }
+        true
     }
 
-    fn mouse_input(&mut self, _event: &mut MouseInputEvent) {
+    fn on_mouse_input(&mut self, _event: MouseInputEvent) -> bool {
         if let Some(on_clicked) = &self.on_clicked {
             on_clicked.invoke(self.text.clone());
         }
+        true
     }
 
     fn common(&self) -> &WidgetCommon {

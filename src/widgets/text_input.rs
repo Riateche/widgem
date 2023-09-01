@@ -1,11 +1,11 @@
-use std::{f32::consts::PI, fmt::Display};
+use std::fmt::Display;
 
 use cosmic_text::{Action, Attrs, Buffer, Edit, Editor, Shaping, Wrap};
-use tiny_skia::{Color, Paint, Path, PathBuilder, Pixmap, Stroke, Transform};
+use tiny_skia::Pixmap;
 use winit::event::{ElementState, Ime, MouseButton, VirtualKeyCode};
 
 use crate::{
-    draw::{draw_text, DrawContext},
+    draw::{draw_text, DrawEvent},
     event::{CursorMovedEvent, ImeEvent, KeyboardInputEvent, ReceivedCharacterEvent},
     types::{Point, Size},
 };
@@ -42,7 +42,7 @@ impl TextInput {
 }
 
 impl Widget for TextInput {
-    fn draw(&mut self, ctx: &mut DrawContext<'_>) {
+    fn on_draw(&mut self, event: DrawEvent) -> bool {
         // let mut pb = PathBuilder::new();
         // pb.move_to(20.5, 20.5);
         // pb.line_to(220.5, 20.5);
@@ -127,11 +127,12 @@ impl Widget for TextInput {
         }
 
         if let Some(pixmap) = &self.pixmap {
-            ctx.draw_pixmap(Point::default(), pixmap.as_ref());
+            event.draw_pixmap(Point::default(), pixmap.as_ref());
         }
+        true
     }
 
-    fn mouse_input(&mut self, event: &mut crate::event::MouseInputEvent) {
+    fn on_mouse_input(&mut self, event: crate::event::MouseInputEvent) -> bool {
         let system = &mut *self
             .common
             .mount_point
@@ -152,9 +153,10 @@ impl Widget for TextInput {
                 );
             }
         }
+        true
     }
 
-    fn cursor_moved(&mut self, event: &mut CursorMovedEvent) {
+    fn on_cursor_moved(&mut self, event: CursorMovedEvent) -> bool {
         let mount_point = self
             .common
             .mount_point
@@ -184,11 +186,12 @@ impl Widget for TextInput {
                 );
             }
         }
+        true
     }
 
-    fn keyboard_input(&mut self, event: &mut KeyboardInputEvent) {
+    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
         if event.input.state == ElementState::Released {
-            return;
+            return true;
         }
 
         let mount_point = self
@@ -202,14 +205,14 @@ impl Widget for TextInput {
         // println!("ok2 {:?}", event.char);
         if let Some(editor) = &mut self.editor {
             let Some(keycode) = event.input.virtual_keycode else {
-                return;
+                return false;
             };
             // TODO: different commands for macOS?
             let action = match keycode {
                 // TODO: scroll lock?
                 VirtualKeyCode::Escape => {
                     // TODO: cosmic-text for some reason suggests to clear selection on Escape?
-                    return;
+                    return true;
                 }
                 VirtualKeyCode::Insert => todo!(),
                 VirtualKeyCode::Home => Action::Home,
@@ -234,14 +237,14 @@ impl Widget for TextInput {
                 VirtualKeyCode::Return => Action::Enter,
                 VirtualKeyCode::Caret => {
                     // TODO: what's that?
-                    return;
+                    return true;
                 }
                 VirtualKeyCode::Copy | VirtualKeyCode::Cut | VirtualKeyCode::Paste => {
                     // TODO
-                    return;
+                    return true;
                 }
                 _ => {
-                    return;
+                    return true;
                 }
             };
             // println!(
@@ -259,9 +262,10 @@ impl Widget for TextInput {
             // }
             //editor.buffer_mut().set_redraw(true);
         }
+        false
     }
 
-    fn received_character(&mut self, event: &mut ReceivedCharacterEvent) {
+    fn on_received_character(&mut self, event: ReceivedCharacterEvent) -> bool {
         let system = &mut *self
             .common
             .mount_point
@@ -283,9 +287,10 @@ impl Widget for TextInput {
             //     println!("ok2 {:?}", line.text_without_ime());
             // }
         }
+        true
     }
 
-    fn ime(&mut self, event: &mut ImeEvent) {
+    fn on_ime(&mut self, event: ImeEvent) -> bool {
         let system = &mut *self
             .common
             .mount_point
@@ -319,6 +324,7 @@ impl Widget for TextInput {
             //     println!("ok2 {:?}", line.text_without_ime());
             // }
         }
+        true
     }
 
     fn common(&self) -> &WidgetCommon {

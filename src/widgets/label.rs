@@ -4,7 +4,7 @@ use cosmic_text::{Attrs, Buffer, Shaping};
 use tiny_skia::Pixmap;
 
 use crate::{
-    draw::{draw_text, unrestricted_text_size, DrawContext},
+    draw::{draw_text, unrestricted_text_size, DrawEvent},
     types::{Point, Size},
 };
 
@@ -38,7 +38,7 @@ impl Label {
 }
 
 impl Widget for Label {
-    fn draw(&mut self, ctx: &mut DrawContext<'_>) {
+    fn on_draw(&mut self, event: DrawEvent) -> bool {
         let system = &mut *self
             .common
             .mount_point
@@ -67,8 +67,9 @@ impl Widget for Label {
         }
 
         if let Some(pixmap) = &self.pixmap {
-            ctx.draw_pixmap(Point::default(), pixmap.as_ref());
+            event.draw_pixmap(Point::default(), pixmap.as_ref());
         }
+        true
     }
 
     fn common(&self) -> &WidgetCommon {

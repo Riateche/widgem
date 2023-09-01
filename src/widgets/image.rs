@@ -3,7 +3,7 @@ use std::path::Path;
 use png::DecodingError;
 use tiny_skia::Pixmap;
 
-use crate::{draw::DrawContext, types::Point};
+use crate::{draw::DrawEvent, types::Point};
 
 use super::{Widget, WidgetCommon};
 
@@ -29,10 +29,11 @@ impl Image {
 }
 
 impl Widget for Image {
-    fn draw(&mut self, ctx: &mut DrawContext<'_>) {
+    fn on_draw(&mut self, event: DrawEvent) -> bool {
         if let Some(pixmap) = &self.pixmap {
-            ctx.draw_pixmap(Point::default(), pixmap.as_ref());
+            event.draw_pixmap(Point::default(), pixmap.as_ref());
         }
+        true
     }
 
     fn common(&self) -> &WidgetCommon {

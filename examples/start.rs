@@ -3,7 +3,7 @@
 use salvation::{
     event_loop::{self, CallbackContext},
     types::{Point, Rect, Size},
-    widgets::{button::Button, image::Image, stack::Stack, text_input::TextInput, Widget},
+    widgets::{button::Button, stack::Stack, text_input::TextInput, Widget},
 };
 
 struct AnotherState {

@@ -8,9 +8,9 @@ use downcast_rs::{impl_downcast, Downcast};
 use winit::window::WindowId;
 
 use crate::{
-    draw::DrawContext,
+    draw::DrawEvent,
     event::{
-        CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent,
+        CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent, Event,
     },
     types::Rect,
     window::SharedWindowData,
@@ -150,21 +150,36 @@ pub trait Widget: Downcast {
     fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Box<dyn Widget>> + '_> {
         Box::new(iter::empty())
     }
-    fn draw(&mut self, ctx: &mut DrawContext<'_>);
-    fn mouse_input(&mut self, event: &mut MouseInputEvent) {
+    fn on_draw(&mut self, ctx: DrawEvent) -> bool;
+    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         let _ = event;
+        false
     }
-    fn cursor_moved(&mut self, event: &mut CursorMovedEvent) {
+    fn on_cursor_moved(&mut self, event: CursorMovedEvent) -> bool {
         let _ = event;
+        false
     }
-    fn keyboard_input(&mut self, event: &mut KeyboardInputEvent) {
+    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
         let _ = event;
+        false
     }
-    fn received_character(&mut self, event: &mut ReceivedCharacterEvent) {
+    fn on_received_character(&mut self, event: ReceivedCharacterEvent) -> bool {
         let _ = event;
+        false
     }
-    fn ime(&mut self, event: &mut ImeEvent) {
+    fn on_ime(&mut self, event: ImeEvent) -> bool {
         let _ = event;
+        false
+    }
+    fn on_event(&mut self, event: Event) -> bool {
+        match event {
+            Event::MouseInput(e) => self.on_mouse_input(e),
+            Event::CursorMoved(e) => self.on_cursor_moved(e),
+            Event::KeyboardInput(e) => self.on_keyboard_input(e),
+            Event::ReceivedCharacter(e) => self.on_received_character(e),
+            Event::Ime(e) => self.on_ime(e),
+            Event::Draw(e) => self.on_draw(e),
+        }
     }
 }
 impl_downcast!(Widget);

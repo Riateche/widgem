@@ -7,7 +7,7 @@ use winit::{
 };
 
 use crate::{
-    draw::DrawContext,
+    draw::DrawEvent,
     event::{
         CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent,
     },
@@ -103,8 +103,9 @@ impl Window {
                 // Draw something in the window
                 let mut buffer = self.surface.buffer_mut().unwrap();
 
-                let mut pixmap = Pixmap::new(width, height).unwrap();
-                let mut ctx = DrawContext {
+                let pixmap = Pixmap::new(width, height).unwrap();
+                let pixmap = Rc::new(RefCell::new(pixmap));
+                let draw_event = DrawEvent {
                     rect: Rect {
                         top_left: Point::default(),
                         size: Size {
@@ -112,16 +113,17 @@ impl Window {
                             y: height as i32,
                         },
                     },
-                    pixmap: &mut pixmap,
+                    pixmap: Rc::clone(&pixmap),
                 };
                 // TODO: option to turn off background, set style
-                ctx.pixmap
+                draw_event.pixmap
+                    .borrow_mut()
                     .fill(self.shared_system_data.0.borrow().palette.background);
                 if let Some(widget) = &mut self.widget {
-                    widget.draw(&mut ctx);
+                    widget.on_draw(draw_event);
                 }
 
-                buffer.copy_from_slice(bytemuck::cast_slice(pixmap.data()));
+                buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
 
                 // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
                 // iterate over the pixels and shift the pixels over.
@@ -163,7 +165,7 @@ impl Window {
                         };
                         self.shared_window_data.0.borrow_mut().cursor_position = Some(pos);
                         if let Some(widget) = &mut self.widget {
-                            widget.cursor_moved(&mut CursorMovedEvent { device_id, pos });
+                            widget.on_cursor_moved(CursorMovedEvent { device_id, pos });
                             self.inner.request_redraw(); // TODO: smarter redraw
                         }
                     }
@@ -195,7 +197,7 @@ impl Window {
                         let cursor_position = self.shared_window_data.0.borrow().cursor_position;
                         if let Some(pos) = cursor_position {
                             if let Some(widget) = &mut self.widget {
-                                widget.mouse_input(&mut MouseInputEvent {
+                                widget.on_mouse_input(MouseInputEvent {
                                     device_id,
                                     state,
                                     button,
@@ -226,7 +228,7 @@ impl Window {
                                     if let Ok(widget) =
                                         get_widget_by_address_mut(root_widget.as_mut(), &address)
                                     {
-                                        widget.keyboard_input(&mut KeyboardInputEvent {
+                                        widget.on_keyboard_input(KeyboardInputEvent {
                                             device_id,
                                             input,
                                             is_synthetic,
@@ -264,7 +266,7 @@ impl Window {
                                     if let Ok(widget) =
                                         get_widget_by_address_mut(root_widget.as_mut(), &address)
                                     {
-                                        widget.received_character(&mut ReceivedCharacterEvent {
+                                        widget.on_received_character(ReceivedCharacterEvent {
                                             char,
                                         });
                                         self.inner.request_redraw(); // TODO: smarter redraw
@@ -288,7 +290,7 @@ impl Window {
                                     if let Ok(widget) =
                                         get_widget_by_address_mut(root_widget.as_mut(), &address)
                                     {
-                                        widget.ime(&mut ImeEvent(ime));
+                                        widget.on_ime(ImeEvent(ime));
                                         self.inner.request_redraw(); // TODO: smarter redraw
                                     }
                                 }

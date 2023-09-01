@@ -1,6 +1,15 @@
 use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, MouseButton};
 
-use crate::types::Point;
+use crate::{types::Point, draw::DrawEvent};
+
+pub enum Event {
+    MouseInput(MouseInputEvent),
+    CursorMoved(CursorMovedEvent),
+    KeyboardInput(KeyboardInputEvent),
+    ReceivedCharacter(ReceivedCharacterEvent),
+    Ime(ImeEvent),
+    Draw(DrawEvent),
+}
 
 pub struct MouseInputEvent {
     pub device_id: DeviceId,
