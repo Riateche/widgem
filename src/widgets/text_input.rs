@@ -42,7 +42,7 @@ impl TextInput {
 }
 
 impl Widget for TextInput {
-    fn on_draw(&mut self, event: DrawEvent) -> bool {
+    fn on_draw(&mut self, event: DrawEvent) {
         // let mut pb = PathBuilder::new();
         // pb.move_to(20.5, 20.5);
         // pb.line_to(220.5, 20.5);
@@ -129,7 +129,6 @@ impl Widget for TextInput {
         if let Some(pixmap) = &self.pixmap {
             event.draw_pixmap(Point::default(), pixmap.as_ref());
         }
-        true
     }
 
     fn on_mouse_input(&mut self, event: crate::event::MouseInputEvent) -> bool {

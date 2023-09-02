@@ -38,7 +38,7 @@ impl Label {
 }
 
 impl Widget for Label {
-    fn on_draw(&mut self, event: DrawEvent) -> bool {
+    fn on_draw(&mut self, event: DrawEvent) {
         let system = &mut *self
             .common
             .mount_point
@@ -69,7 +69,6 @@ impl Widget for Label {
         if let Some(pixmap) = &self.pixmap {
             event.draw_pixmap(Point::default(), pixmap.as_ref());
         }
-        true
     }
 
     fn common(&self) -> &WidgetCommon {

@@ -11,8 +11,8 @@ use winit::window::WindowId;
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, Event, GeometryChangedEvent, ImeEvent, KeyboardInputEvent,
-        MouseInputEvent, ReceivedCharacterEvent,
+        CursorMovedEvent, Event, GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent,
+        MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
     },
     types::Rect,
     window::SharedWindowData,
@@ -110,28 +110,6 @@ impl WidgetCommon {
     }
 }
 
-pub fn mount(widget: &mut dyn Widget, mount_point: MountPoint) {
-    widget.common_mut().mount(mount_point.clone());
-    for child in widget.children_mut() {
-        let child_address = mount_point.address.clone().join(child.common().id);
-        mount(
-            child.as_mut(),
-            MountPoint {
-                address: child_address,
-                system: mount_point.system.clone(),
-                window: mount_point.window.clone(),
-            },
-        );
-    }
-}
-
-pub fn unmount(widget: &mut dyn Widget) {
-    for child in widget.children_mut() {
-        unmount(child.as_mut());
-    }
-    widget.common_mut().unmount();
-}
-
 #[derive(Debug)]
 pub struct WidgetNotFound;
 
@@ -160,7 +138,7 @@ pub trait Widget: Downcast {
     fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Box<dyn Widget>> + '_> {
         Box::new(iter::empty())
     }
-    fn on_draw(&mut self, ctx: DrawEvent) -> bool;
+    fn on_draw(&mut self, ctx: DrawEvent);
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         let _ = event;
         false
@@ -182,9 +160,14 @@ pub trait Widget: Downcast {
         false
     }
     // TODO: we don't need accept/reject for some event types
-    fn on_geometry_changed(&mut self, event: GeometryChangedEvent) -> bool {
+    fn on_geometry_changed(&mut self, event: GeometryChangedEvent) {
         let _ = event;
-        false
+    }
+    fn on_mount(&mut self, event: MountEvent) {
+        let _ = event;
+    }
+    fn on_unmount(&mut self, event: UnmountEvent) {
+        let _ = event;
     }
     fn on_event(&mut self, event: Event) -> bool {
         match event {
@@ -193,8 +176,22 @@ pub trait Widget: Downcast {
             Event::KeyboardInput(e) => self.on_keyboard_input(e),
             Event::ReceivedCharacter(e) => self.on_received_character(e),
             Event::Ime(e) => self.on_ime(e),
-            Event::Draw(e) => self.on_draw(e),
-            Event::GeometryChanged(e) => self.on_geometry_changed(e),
+            Event::Draw(e) => {
+                self.on_draw(e);
+                true
+            }
+            Event::GeometryChanged(e) => {
+                self.on_geometry_changed(e);
+                true
+            }
+            Event::Mount(e) => {
+                self.on_mount(e);
+                true
+            }
+            Event::Unmount(e) => {
+                self.on_unmount(e);
+                true
+            }
         }
     }
     fn layout(&mut self) {}
@@ -222,8 +219,33 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         } else {
             None
         };
-        if let Event::GeometryChanged(event) = &event {
-            self.common_mut().geometry = event.new_geometry;
+        match &event {
+            Event::GeometryChanged(event) => {
+                self.common_mut().geometry = event.new_geometry;
+            }
+            Event::Mount(event) => {
+                let mount_point = event.0.clone();
+                self.common_mut().mount(mount_point.clone());
+                for child in self.children_mut() {
+                    let child_address = mount_point.address.clone().join(child.common().id);
+                    child.dispatch(
+                        MountEvent(MountPoint {
+                            address: child_address,
+                            system: mount_point.system.clone(),
+                            window: mount_point.window.clone(),
+                        })
+                        .into(),
+                    );
+                }
+            }
+            // TODO: before or after handler?
+            Event::Unmount(_event) => {
+                for child in self.children_mut() {
+                    child.dispatch(UnmountEvent.into());
+                }
+                self.common_mut().unmount();
+            }
+            _ => (),
         }
         let result = self.on_event(event);
         if let Some(accepted_by) = accepted_by {

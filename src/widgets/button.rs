@@ -49,7 +49,7 @@ impl Button {
 }
 
 impl Widget for Button {
-    fn on_draw(&mut self, event: DrawEvent) -> bool {
+    fn on_draw(&mut self, event: DrawEvent) {
         event.fill_rect(
             Rect {
                 top_left: Point::default(),
@@ -101,7 +101,6 @@ impl Widget for Button {
             };
             event.draw_pixmap(padding, pixmap.as_ref());
         }
-        true
     }
 
     fn on_mouse_input(&mut self, _event: MouseInputEvent) -> bool {

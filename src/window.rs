@@ -14,13 +14,13 @@ use winit::{
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent,
-        ReceivedCharacterEvent,
+        CursorMovedEvent, GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent,
+        MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
     },
     types::{Point, Rect, Size},
     widgets::{
-        get_widget_by_address_mut, mount, unmount, Geometry, MountPoint, RawWidgetId, Widget,
-        WidgetAddress, WidgetExt,
+        get_widget_by_address_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress,
+        WidgetExt,
     },
     SharedSystemData,
 };
@@ -67,13 +67,13 @@ impl Window {
         })));
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(inner.id()).join(widget.common().id);
-            mount(
-                widget.as_mut(),
-                MountPoint {
+            widget.dispatch(
+                MountEvent(MountPoint {
                     address,
                     system: shared_system_data.clone(),
                     window: shared_window_data.clone(),
-                },
+                })
+                .into(),
             );
         }
         let mut w = Self {
@@ -435,17 +435,17 @@ impl Window {
 
     pub fn set_widget(&mut self, mut widget: Option<Box<dyn Widget>>) {
         if let Some(old_widget) = &mut self.root_widget {
-            unmount(old_widget.as_mut());
+            old_widget.dispatch(UnmountEvent.into());
         }
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(self.inner.id()).join(widget.common().id);
-            mount(
-                widget.as_mut(),
-                MountPoint {
+            widget.dispatch(
+                MountEvent(MountPoint {
                     address,
                     system: self.shared_system_data.clone(),
                     window: self.shared_window_data.clone(),
-                },
+                })
+                .into(),
             );
         }
         self.root_widget = widget;

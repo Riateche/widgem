@@ -2,11 +2,11 @@ use std::rc::Rc;
 
 use crate::{
     draw::DrawEvent,
-    event::{CursorMovedEvent, GeometryChangedEvent, MouseInputEvent},
+    event::{CursorMovedEvent, GeometryChangedEvent, MountEvent, MouseInputEvent},
     types::Rect,
 };
 
-use super::{mount, Child, Geometry, MountPoint, Widget, WidgetCommon, WidgetExt};
+use super::{Child, Geometry, MountPoint, Widget, WidgetCommon, WidgetExt};
 
 pub struct Stack {
     children: Vec<Child>,
@@ -25,13 +25,13 @@ impl Stack {
     pub fn add(&mut self, rect: Rect, mut widget: Box<dyn Widget>) {
         if let Some(mount_point) = &self.common.mount_point {
             let address = mount_point.address.clone().join(widget.common().id);
-            mount(
-                widget.as_mut(),
-                MountPoint {
+            widget.dispatch(
+                MountEvent(MountPoint {
                     address,
                     system: mount_point.system.clone(),
                     window: mount_point.window.clone(),
-                },
+                })
+                .into(),
             );
         }
         self.children.push(Child {
@@ -46,7 +46,7 @@ impl Widget for Stack {
         Box::new(self.children.iter_mut().map(|c| &mut c.widget))
     }
 
-    fn on_draw(&mut self, event: DrawEvent) -> bool {
+    fn on_draw(&mut self, event: DrawEvent) {
         for child in &mut self.children {
             let child_event = DrawEvent {
                 rect: child
@@ -57,7 +57,6 @@ impl Widget for Stack {
             };
             child.widget.dispatch(child_event.into());
         }
-        true
     }
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {

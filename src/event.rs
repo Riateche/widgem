@@ -5,7 +5,7 @@ use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, MouseButton};
 use crate::{
     draw::DrawEvent,
     types::Point,
-    widgets::{Geometry, RawWidgetId},
+    widgets::{Geometry, MountPoint, RawWidgetId},
 };
 
 use derive_more::From;
@@ -19,6 +19,8 @@ pub enum Event {
     Ime(ImeEvent),
     Draw(DrawEvent),
     GeometryChanged(GeometryChangedEvent),
+    Mount(MountEvent),
+    Unmount(UnmountEvent),
 }
 
 pub struct MouseInputEvent {
@@ -50,3 +52,7 @@ pub struct ImeEvent(pub Ime);
 pub struct GeometryChangedEvent {
     pub new_geometry: Option<Geometry>,
 }
+
+pub struct MountEvent(pub MountPoint);
+
+pub struct UnmountEvent;
