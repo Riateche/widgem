@@ -501,6 +501,14 @@ impl Window {
             root.layout();
         }
     }
+
+    pub fn handle_request(&mut self, _ctx: &mut WindowEventContext, request: WindowRequest) {
+        match request {
+            WindowRequest::SetFocus(request) => {
+                self.set_focus(request.widget_id, request.reason);
+            }
+        }
+    }
 }
 
 // TODO: not mut
@@ -514,3 +522,14 @@ fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidge
 }
 
 pub struct WindowEventContext {}
+
+#[derive(Debug)]
+pub enum WindowRequest {
+    SetFocus(SetFocusRequest),
+}
+
+#[derive(Debug)]
+pub struct SetFocusRequest {
+    pub widget_id: RawWidgetId,
+    pub reason: FocusReason,
+}

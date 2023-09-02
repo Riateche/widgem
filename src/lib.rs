@@ -1,8 +1,12 @@
+#![allow(clippy::collapsible_if)]
+
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use cosmic_text::{FontSystem, SwashCache};
 use draw::Palette;
+use event_loop::UserEvent;
 use widgets::{RawWidgetId, WidgetAddress};
+use winit::event_loop::EventLoopProxy;
 
 pub mod callback;
 pub mod draw;
@@ -20,6 +24,7 @@ pub struct SharedSystemDataInner {
     // TODO: per-widget font metrics and palette (as part of the style)
     pub font_metrics: cosmic_text::Metrics,
     pub palette: Palette,
+    pub event_loop_proxy: EventLoopProxy<UserEvent>,
 }
 
 #[derive(Clone)]

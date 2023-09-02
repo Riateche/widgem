@@ -13,7 +13,7 @@ use crate::{
     callback::{Callback, CallbackId, CallbackMaker, Callbacks},
     draw::Palette,
     widgets::{get_widget_by_address_mut, RawWidgetId, Widget, WidgetId, WidgetNotFound},
-    window::{Window, WindowEventContext},
+    window::{Window, WindowEventContext, WindowRequest},
     SharedSystemData, SharedSystemDataInner,
 };
 
@@ -109,6 +109,7 @@ pub struct InvokeCallbackEvent {
 #[derive(Debug)]
 pub enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
+    WindowRequest(WindowId, WindowRequest),
 }
 
 scoped_thread_local!(pub static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
@@ -123,6 +124,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
         font_system: FontSystem::new(),
         swash_cache: SwashCache::new(),
         font_metrics: cosmic_text::Metrics::new(24.0, 30.0),
+        event_loop_proxy: event_loop.create_proxy(),
         palette: Palette {
             foreground: Color::BLACK,
             background: Color::WHITE,
@@ -174,7 +176,13 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                         window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
                     }
                 }
+
                 Event::UserEvent(event) => match event {
+                    UserEvent::WindowRequest(window_id, request) => {
+                        if let Some(window) = windows.get_mut(&window_id) {
+                            window.handle_request(&mut ctx, request);
+                        }
+                    }
                     UserEvent::InvokeCallback(event) => {
                         {
                             let mut ctx = CallbackContext {

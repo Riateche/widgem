@@ -6,8 +6,10 @@ use winit::event::{ElementState, Ime, MouseButton, VirtualKeyCode};
 
 use crate::{
     draw::{draw_text, DrawEvent},
-    event::{CursorMovedEvent, ImeEvent, KeyboardInputEvent, ReceivedCharacterEvent},
+    event::{CursorMovedEvent, FocusReason, ImeEvent, KeyboardInputEvent, ReceivedCharacterEvent},
+    event_loop::UserEvent,
     types::{Point, Rect, Size},
+    window::{SetFocusRequest, WindowRequest},
 };
 
 use super::{Widget, WidgetCommon};
@@ -149,24 +151,33 @@ impl Widget for TextInput {
     }
 
     fn on_mouse_input(&mut self, event: crate::event::MouseInputEvent) -> bool {
-        let system = &mut *self
+        let mount_point = self
             .common
             .mount_point
             .as_ref()
-            .expect("cannot handle event when unmounted")
-            .system
-            .0
-            .borrow_mut();
+            .expect("cannot handle event when unmounted");
+        let system = &mut *mount_point.system.0.borrow_mut();
 
         if event.state == ElementState::Pressed {
-            if let Some(editor) = &mut self.editor {
-                editor.action(
-                    &mut system.font_system,
-                    Action::Click {
-                        x: event.pos.x,
-                        y: event.pos.y,
-                    },
-                );
+            if event.button == MouseButton::Left {
+                if !self.common.is_focused {
+                    let _ = system.event_loop_proxy.send_event(UserEvent::WindowRequest(
+                        mount_point.address.window_id,
+                        WindowRequest::SetFocus(SetFocusRequest {
+                            widget_id: self.common.id,
+                            reason: FocusReason::Mouse,
+                        }),
+                    ));
+                }
+                if let Some(editor) = &mut self.editor {
+                    editor.action(
+                        &mut system.font_system,
+                        Action::Click {
+                            x: event.pos.x,
+                            y: event.pos.y,
+                        },
+                    );
+                }
             }
         }
         true
