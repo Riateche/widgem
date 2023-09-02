@@ -40,7 +40,7 @@ pub struct WidgetId<T>(pub RawWidgetId, pub PhantomData<T>);
 
 impl<T> Clone for WidgetId<T> {
     fn clone(&self) -> Self {
-        Self(self.0, self.1)
+        *self
     }
 }
 impl<T> Copy for WidgetId<T> {}

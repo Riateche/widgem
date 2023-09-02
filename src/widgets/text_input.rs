@@ -9,7 +9,7 @@ use crate::{
     event::{CursorMovedEvent, FocusReason, ImeEvent, KeyboardInputEvent, ReceivedCharacterEvent},
     event_loop::UserEvent,
     types::{Point, Rect, Size},
-    window::{SetFocusRequest, WindowRequest},
+    window::{SetFocusRequest, SetImePositionRequest, WindowRequest},
 };
 
 use super::{Widget, WidgetCommon};
@@ -79,24 +79,22 @@ impl Widget for TextInput {
         //     Transform::default(),
         //     None,
         // );
-        let Some(size) = self.common.size() else {
+        let Some(geometry) = self.common.geometry else {
             println!("warn: no geometry in draw event");
             return;
         };
 
-        let system = &mut *self
+        let mount_point = &self
             .common
             .mount_point
             .as_ref()
-            .expect("cannot draw when unmounted")
-            .system
-            .0
-            .borrow_mut();
+            .expect("cannot draw when unmounted");
+        let system = &mut *mount_point.system.0.borrow_mut();
 
         event.stroke_rect(
             Rect {
                 top_left: Point::default(),
-                size,
+                size: geometry.rect_in_window.size,
             },
             if self.common.is_focused {
                 system.palette.focused_input_border
@@ -104,6 +102,10 @@ impl Widget for TextInput {
                 system.palette.unfocused_input_border
             },
         );
+
+        // let editor_top_left = Point {
+        //     x: 10, y: 10,
+        // };
 
         let mut editor = self
             .editor
@@ -143,6 +145,19 @@ impl Widget for TextInput {
             self.pixmap = Some(pixmap);
             self.redraw_text = false;
             editor.buffer_mut().set_redraw(false);
+            if self.common.is_focused {
+                if let Some((editor_cursor_x, editor_cursor_y)) = editor.cursor_position() {
+                    // TODO: adjust for editor offset
+                    let pos = Point {
+                        x: editor_cursor_x,
+                        y: editor_cursor_y + editor.buffer().metrics().line_height.ceil() as i32,
+                    } + geometry.rect_in_window.top_left;
+                    let _ = system.event_loop_proxy.send_event(UserEvent::WindowRequest(
+                        mount_point.address.window_id,
+                        WindowRequest::SetImePosition(SetImePositionRequest(pos)),
+                    ));
+                }
+            }
         }
 
         if let Some(pixmap) = &self.pixmap {

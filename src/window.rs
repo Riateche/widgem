@@ -8,7 +8,7 @@ use std::{
 use tiny_skia::Pixmap;
 use winit::{
     dpi::PhysicalPosition,
-    event::{ElementState, Event, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent},
+    event::{ElementState, Event, Ime, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent},
 };
 
 use crate::{
@@ -46,6 +46,7 @@ pub struct Window {
     pub focusable_widgets: Vec<RawWidgetId>,
     pub focused_widget: Option<RawWidgetId>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
+    ime_position: Point,
 }
 
 impl Window {
@@ -54,8 +55,6 @@ impl Window {
         shared_system_data: SharedSystemData,
         mut widget: Option<Box<dyn Widget>>,
     ) -> Self {
-        inner.set_ime_allowed(true);
-        inner.set_ime_position(PhysicalPosition::new(10, 10));
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             widget_tree_changed: false,
@@ -85,6 +84,7 @@ impl Window {
             focusable_widgets: Vec::new(),
             focused_widget: None,
             mouse_grabber_widget: None,
+            ime_position: Point::default(),
         };
         w.widget_tree_changed();
         w
@@ -145,12 +145,7 @@ impl Window {
                 buffer.present().unwrap();
             }
             Event::WindowEvent { event, .. } => {
-                if matches!(
-                    event,
-                    WindowEvent::Ime(_)
-                        | WindowEvent::ReceivedCharacter(_)
-                        | WindowEvent::KeyboardInput { .. }
-                ) {
+                if matches!(event, WindowEvent::Ime(_)) {
                     println!("{event:?}");
                 }
                 match event {
@@ -338,6 +333,13 @@ impl Window {
                         }
                     }
                     WindowEvent::Ime(ime) => {
+                        if let Ime::Enabled = &ime {
+                            println!("reset ime position {:?}", self.ime_position);
+                            self.inner.set_ime_position(PhysicalPosition::new(
+                                self.ime_position.x,
+                                self.ime_position.y,
+                            ));
+                        }
                         // TODO: deduplicate with ReceivedCharacter
                         if let Some(root_widget) = &mut self.root_widget {
                             if let Some(focused_widget) = self.focused_widget {
@@ -507,6 +509,12 @@ impl Window {
             WindowRequest::SetFocus(request) => {
                 self.set_focus(request.widget_id, request.reason);
             }
+            WindowRequest::SetImePosition(request) => {
+                println!("set new ime position {:?}", request.0);
+                self.inner
+                    .set_ime_position(PhysicalPosition::new(request.0.x, request.0.y));
+                self.ime_position = request.0;
+            }
         }
     }
 }
@@ -526,6 +534,7 @@ pub struct WindowEventContext {}
 #[derive(Debug)]
 pub enum WindowRequest {
     SetFocus(SetFocusRequest),
+    SetImePosition(SetImePositionRequest),
 }
 
 #[derive(Debug)]
@@ -533,3 +542,6 @@ pub struct SetFocusRequest {
     pub widget_id: RawWidgetId,
     pub reason: FocusReason,
 }
+
+#[derive(Debug)]
+pub struct SetImePositionRequest(pub Point);
