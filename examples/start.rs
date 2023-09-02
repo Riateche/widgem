@@ -48,6 +48,14 @@ impl State {
             },
             Box::new(w2),
         );
+        let w3 = TextInput::new("second input");
+        root.add(
+            Rect {
+                top_left: Point { x: 300, y: 180 },
+                size: Size { x: 300, y: 30 },
+            },
+            Box::new(w3),
+        );
         /*
                 let mut btn1 = Button::new("btn1");
                 let button_id = btn1.id();

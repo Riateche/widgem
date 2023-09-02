@@ -1,7 +1,7 @@
-use std::{rc::Rc, cell::RefCell};
+use std::{cell::RefCell, rc::Rc};
 
 use cosmic_text::{BorrowedWithFontSystem, Buffer, Editor, SwashCache};
-use tiny_skia::{Color, Paint, Pixmap, PixmapPaint, PixmapRef, Transform};
+use tiny_skia::{Color, Paint, PathBuilder, Pixmap, PixmapPaint, PixmapRef, Stroke, Transform};
 
 use crate::types::{Point, Rect, Size};
 
@@ -21,6 +21,31 @@ impl DrawEvent {
             // TODO: mask?
             None,
         )
+    }
+
+    // TODO: add at least width
+    pub fn stroke_rect(&self, rect: Rect, color: Color) {
+        let top_left = self.rect.top_left + rect.top_left;
+        let path = PathBuilder::from_rect(
+            tiny_skia::Rect::from_xywh(
+                top_left.x as f32 + 0.5,
+                top_left.y as f32 + 0.5,
+                rect.size.x as f32 - 1.0,
+                rect.size.y as f32 - 1.0,
+            )
+            .unwrap(),
+        );
+        self.pixmap.borrow_mut().stroke_path(
+            &path,
+            &Paint {
+                shader: tiny_skia::Shader::SolidColor(color),
+                ..Paint::default()
+            },
+            &Stroke::default(),
+            Transform::default(),
+            // TODO: mask?
+            None,
+        );
     }
 
     pub fn fill_rect(&self, rect: Rect, color: Color) {
@@ -47,6 +72,8 @@ impl DrawEvent {
 pub struct Palette {
     pub foreground: Color,
     pub background: Color,
+    pub unfocused_input_border: Color,
+    pub focused_input_border: Color,
 }
 
 const MEASURE_MAX_SIZE: f32 = 10_000.;

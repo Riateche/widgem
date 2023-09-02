@@ -380,7 +380,7 @@ impl Window {
                 self.set_focus(self.focusable_widgets[new_index as usize], reason);
             } else {
                 println!("warn: focused widget is unknown");
-                self.focused_widget = None;
+                self.unset_focus();
             }
         } else {
             println!("warn: no focused widget");
@@ -431,7 +431,7 @@ impl Window {
         }
         if let Some(focused_widget) = &self.focused_widget {
             if !self.focusable_widgets.contains(focused_widget) {
-                self.focused_widget = None;
+                self.unset_focus();
             }
         }
         self.check_auto_focus();
@@ -456,6 +456,7 @@ impl Window {
                 println!("warn: cannot focus widget that is not focusable");
                 return;
             }
+            self.inner.set_ime_allowed(widget.common().enable_ime);
         } else {
             println!("warn: set_focus: widget not found");
         }
@@ -473,6 +474,11 @@ impl Window {
             println!("warn: set_focus: widget not found on second pass");
         }
         self.inner.request_redraw(); // TODO: smarter redraw
+    }
+
+    fn unset_focus(&mut self) {
+        self.focused_widget = None;
+        self.inner.set_ime_allowed(false);
     }
 
     fn layout(&mut self) {

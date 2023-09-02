@@ -126,6 +126,8 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
         palette: Palette {
             foreground: Color::BLACK,
             background: Color::WHITE,
+            unfocused_input_border: Color::from_rgba8(200, 200, 200, 255),
+            focused_input_border: Color::from_rgba8(100, 100, 255, 255),
             // foreground: Color::WHITE,
             // background: Color::BLACK,
         },

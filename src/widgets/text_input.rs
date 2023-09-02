@@ -7,7 +7,7 @@ use winit::event::{ElementState, Ime, MouseButton, VirtualKeyCode};
 use crate::{
     draw::{draw_text, DrawEvent},
     event::{CursorMovedEvent, ImeEvent, KeyboardInputEvent, ReceivedCharacterEvent},
-    types::{Point, Size},
+    types::{Point, Rect, Size},
 };
 
 use super::{Widget, WidgetCommon};
@@ -24,6 +24,7 @@ impl TextInput {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
+        common.enable_ime = true;
         Self {
             text: text.to_string(),
             editor: None,
@@ -76,6 +77,10 @@ impl Widget for TextInput {
         //     Transform::default(),
         //     None,
         // );
+        let Some(size) = self.common.size() else {
+            println!("warn: no geometry in draw event");
+            return;
+        };
 
         let system = &mut *self
             .common
@@ -85,6 +90,18 @@ impl Widget for TextInput {
             .system
             .0
             .borrow_mut();
+
+        event.stroke_rect(
+            Rect {
+                top_left: Point::default(),
+                size,
+            },
+            if self.common.is_focused {
+                system.palette.focused_input_border
+            } else {
+                system.palette.unfocused_input_border
+            },
+        );
 
         let mut editor = self
             .editor

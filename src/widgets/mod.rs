@@ -14,7 +14,7 @@ use crate::{
         CursorMovedEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangedEvent, ImeEvent,
         KeyboardInputEvent, MountEvent, MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
     },
-    types::Rect,
+    types::{Rect, Size},
     window::SharedWindowData,
     SharedSystemData,
 };
@@ -53,6 +53,8 @@ pub struct Geometry {
 pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
+    pub enable_ime: bool,
+    pub is_focused: bool,
     pub mount_point: Option<MountPoint>,
     // Present if the widget is mounted, not hidden, and only after layout.
     pub geometry: Option<Geometry>,
@@ -71,6 +73,8 @@ impl WidgetCommon {
         Self {
             id: RawWidgetId::new(),
             is_focusable: false,
+            is_focused: false,
+            enable_ime: false,
             mount_point: None,
             geometry: None,
         }
@@ -107,6 +111,10 @@ impl WidgetCommon {
         } else {
             println!("warn: widget was not mounted");
         }
+    }
+
+    pub fn size(&self) -> Option<Size> {
+        self.geometry.as_ref().map(|g| g.rect_in_window.size)
     }
 }
 
@@ -271,6 +279,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     child.dispatch(UnmountEvent.into());
                 }
                 self.common_mut().unmount();
+            }
+            Event::FocusIn(_) => {
+                self.common_mut().is_focused = true;
+            }
+            Event::FocusOut(_) => {
+                self.common_mut().is_focused = false;
             }
             _ => (),
         }
