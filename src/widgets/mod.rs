@@ -11,8 +11,8 @@ use winit::window::WindowId;
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, Event, GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent,
-        MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
+        CursorMovedEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangedEvent, ImeEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
     },
     types::Rect,
     window::SharedWindowData,
@@ -131,6 +131,19 @@ pub fn get_widget_by_address_mut<'a>(
     Ok(current_widget)
 }
 
+pub fn get_widget_by_id_mut(
+    root_widget: &mut dyn Widget,
+    id: RawWidgetId,
+) -> Result<&mut dyn Widget, WidgetNotFound> {
+    let mount_point = root_widget
+        .common()
+        .mount_point
+        .as_ref()
+        .ok_or(WidgetNotFound)?;
+    let address = mount_point.system.address(id).ok_or(WidgetNotFound)?;
+    get_widget_by_address_mut(root_widget, &address)
+}
+
 pub trait Widget: Downcast {
     fn common(&self) -> &WidgetCommon;
     fn common_mut(&mut self) -> &mut WidgetCommon;
@@ -169,6 +182,12 @@ pub trait Widget: Downcast {
     fn on_unmount(&mut self, event: UnmountEvent) {
         let _ = event;
     }
+    fn on_focus_in(&mut self, event: FocusInEvent) {
+        let _ = event;
+    }
+    fn on_focus_out(&mut self, event: FocusOutEvent) {
+        let _ = event;
+    }
     fn on_event(&mut self, event: Event) -> bool {
         match event {
             Event::MouseInput(e) => self.on_mouse_input(e),
@@ -190,6 +209,14 @@ pub trait Widget: Downcast {
             }
             Event::Unmount(e) => {
                 self.on_unmount(e);
+                true
+            }
+            Event::FocusIn(e) => {
+                self.on_focus_in(e);
+                true
+            }
+            Event::FocusOut(e) => {
+                self.on_focus_out(e);
                 true
             }
         }

@@ -24,3 +24,9 @@ pub struct SharedSystemDataInner {
 
 #[derive(Clone)]
 pub struct SharedSystemData(pub Rc<RefCell<SharedSystemDataInner>>);
+
+impl SharedSystemData {
+    pub fn address(&self, id: RawWidgetId) -> Option<WidgetAddress> {
+        self.0.borrow().address_book.get(&id).cloned()
+    }
+}

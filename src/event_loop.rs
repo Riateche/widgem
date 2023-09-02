@@ -90,14 +90,7 @@ impl<'a, State> CallbackContext<'a, State> {
         &mut self,
         id: RawWidgetId,
     ) -> Result<&mut dyn Widget, WidgetNotFound> {
-        let address = self
-            .shared_system_data
-            .0
-            .borrow()
-            .address_book
-            .get(&id)
-            .ok_or(WidgetNotFound)?
-            .clone();
+        let address = self.shared_system_data.address(id).ok_or(WidgetNotFound)?;
         let window = self
             .windows
             .get_mut(&address.window_id)

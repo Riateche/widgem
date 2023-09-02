@@ -14,13 +14,12 @@ use winit::{
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent,
-        MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
+        CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
     },
     types::{Point, Rect, Size},
     widgets::{
-        get_widget_by_address_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress,
-        WidgetExt,
+        get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
     },
     SharedSystemData,
 };
@@ -177,30 +176,20 @@ impl Window {
                             Some(pos_in_window);
                         if let Some(root_widget) = &mut self.root_widget {
                             if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
-                                let address: Option<WidgetAddress> = self
-                                    .shared_system_data
-                                    .0
-                                    .borrow()
-                                    .address_book
-                                    .get(&mouse_grabber_widget_id)
-                                    .cloned();
-                                if let Some(address) = address {
-                                    if let Ok(mouse_grabber_widget) =
-                                        get_widget_by_address_mut(root_widget.as_mut(), &address)
-                                    {
-                                        if let Some(geometry) =
-                                            mouse_grabber_widget.common().geometry
-                                        {
-                                            let pos_in_widget =
-                                                pos_in_window - geometry.rect_in_window.top_left;
-                                            mouse_grabber_widget.dispatch(
-                                                CursorMovedEvent {
-                                                    device_id,
-                                                    pos: pos_in_widget,
-                                                }
-                                                .into(),
-                                            );
-                                        }
+                                if let Ok(mouse_grabber_widget) = get_widget_by_id_mut(
+                                    root_widget.as_mut(),
+                                    mouse_grabber_widget_id,
+                                ) {
+                                    if let Some(geometry) = mouse_grabber_widget.common().geometry {
+                                        let pos_in_widget =
+                                            pos_in_window - geometry.rect_in_window.top_left;
+                                        mouse_grabber_widget.dispatch(
+                                            CursorMovedEvent {
+                                                device_id,
+                                                pos: pos_in_widget,
+                                            }
+                                            .into(),
+                                        );
                                     }
                                 }
                             } else {
@@ -245,34 +234,25 @@ impl Window {
                             if let Some(root_widget) = &mut self.root_widget {
                                 let accepted_by = Rc::new(Cell::new(None));
                                 if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
-                                    let address: Option<WidgetAddress> = self
-                                        .shared_system_data
-                                        .0
-                                        .borrow()
-                                        .address_book
-                                        .get(&mouse_grabber_widget_id)
-                                        .cloned();
-                                    if let Some(address) = address {
-                                        if let Ok(mouse_grabber_widget) = get_widget_by_address_mut(
-                                            root_widget.as_mut(),
-                                            &address,
-                                        ) {
-                                            if let Some(geometry) =
-                                                mouse_grabber_widget.common().geometry
-                                            {
-                                                let pos_in_widget = pos_in_window
-                                                    - geometry.rect_in_window.top_left;
-                                                mouse_grabber_widget.dispatch(
-                                                    MouseInputEvent {
-                                                        device_id,
-                                                        state,
-                                                        button,
-                                                        pos: pos_in_widget,
-                                                        accepted_by: Rc::clone(&accepted_by),
-                                                    }
-                                                    .into(),
-                                                );
-                                            }
+                                    if let Ok(mouse_grabber_widget) = get_widget_by_id_mut(
+                                        root_widget.as_mut(),
+                                        mouse_grabber_widget_id,
+                                    ) {
+                                        if let Some(geometry) =
+                                            mouse_grabber_widget.common().geometry
+                                        {
+                                            let pos_in_widget =
+                                                pos_in_window - geometry.rect_in_window.top_left;
+                                            mouse_grabber_widget.dispatch(
+                                                MouseInputEvent {
+                                                    device_id,
+                                                    state,
+                                                    button,
+                                                    pos: pos_in_widget,
+                                                    accepted_by: Rc::clone(&accepted_by),
+                                                }
+                                                .into(),
+                                            );
                                         }
                                     }
                                     if self
@@ -316,27 +296,18 @@ impl Window {
                         // TODO: deduplicate with ReceivedCharacter
                         if let Some(root_widget) = &mut self.root_widget {
                             if let Some(focused_widget) = self.focused_widget {
-                                let address: Option<WidgetAddress> = self
-                                    .shared_system_data
-                                    .0
-                                    .borrow()
-                                    .address_book
-                                    .get(&focused_widget)
-                                    .cloned();
-                                if let Some(address) = address {
-                                    if let Ok(widget) =
-                                        get_widget_by_address_mut(root_widget.as_mut(), &address)
-                                    {
-                                        widget.dispatch(
-                                            KeyboardInputEvent {
-                                                device_id,
-                                                input,
-                                                is_synthetic,
-                                            }
-                                            .into(),
-                                        );
-                                        self.inner.request_redraw(); // TODO: smarter redraw
-                                    }
+                                if let Ok(widget) =
+                                    get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                                {
+                                    widget.dispatch(
+                                        KeyboardInputEvent {
+                                            device_id,
+                                            input,
+                                            is_synthetic,
+                                        }
+                                        .into(),
+                                    );
+                                    self.inner.request_redraw(); // TODO: smarter redraw
                                 }
                             }
                         }
@@ -357,20 +328,11 @@ impl Window {
                     WindowEvent::ReceivedCharacter(char) => {
                         if let Some(root_widget) = &mut self.root_widget {
                             if let Some(focused_widget) = self.focused_widget {
-                                let address: Option<WidgetAddress> = self
-                                    .shared_system_data
-                                    .0
-                                    .borrow()
-                                    .address_book
-                                    .get(&focused_widget)
-                                    .cloned();
-                                if let Some(address) = address {
-                                    if let Ok(widget) =
-                                        get_widget_by_address_mut(root_widget.as_mut(), &address)
-                                    {
-                                        widget.dispatch(ReceivedCharacterEvent { char }.into());
-                                        self.inner.request_redraw(); // TODO: smarter redraw
-                                    }
+                                if let Ok(widget) =
+                                    get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                                {
+                                    widget.dispatch(ReceivedCharacterEvent { char }.into());
+                                    self.inner.request_redraw(); // TODO: smarter redraw
                                 }
                             }
                         }
@@ -379,20 +341,11 @@ impl Window {
                         // TODO: deduplicate with ReceivedCharacter
                         if let Some(root_widget) = &mut self.root_widget {
                             if let Some(focused_widget) = self.focused_widget {
-                                let address: Option<WidgetAddress> = self
-                                    .shared_system_data
-                                    .0
-                                    .borrow()
-                                    .address_book
-                                    .get(&focused_widget)
-                                    .cloned();
-                                if let Some(address) = address {
-                                    if let Ok(widget) =
-                                        get_widget_by_address_mut(root_widget.as_mut(), &address)
-                                    {
-                                        widget.dispatch(ImeEvent(ime).into());
-                                        self.inner.request_redraw(); // TODO: smarter redraw
-                                    }
+                                if let Ok(widget) =
+                                    get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                                {
+                                    widget.dispatch(ImeEvent(ime).into());
+                                    self.inner.request_redraw(); // TODO: smarter redraw
                                 }
                             }
                         }
@@ -415,6 +368,7 @@ impl Window {
         if self.focusable_widgets.is_empty() {
             return;
         }
+        let reason = FocusReason::Tab;
         if let Some(focused_widget) = self.focused_widget {
             if let Some(index) = self
                 .focusable_widgets
@@ -423,14 +377,16 @@ impl Window {
             {
                 let new_index =
                     (index as i32 + direction).rem_euclid(self.focusable_widgets.len() as i32);
-                self.focused_widget = Some(self.focusable_widgets[new_index as usize]);
+                self.set_focus(self.focusable_widgets[new_index as usize], reason);
             } else {
                 println!("warn: focused widget is unknown");
+                self.focused_widget = None;
             }
         } else {
-            self.focused_widget = Some(self.focusable_widgets[0]);
+            println!("warn: no focused widget");
         }
         println!("new focused: {:?}", self.focused_widget);
+        self.check_auto_focus();
     }
 
     pub fn set_widget(&mut self, mut widget: Option<Box<dyn Widget>>) {
@@ -478,10 +434,45 @@ impl Window {
                 self.focused_widget = None;
             }
         }
-        if self.focused_widget.is_none() {
-            self.focused_widget = self.focusable_widgets.get(0).copied();
-        }
+        self.check_auto_focus();
         println!("new focused after refresh: {:?}", self.focused_widget);
+    }
+
+    fn check_auto_focus(&mut self) {
+        if self.focused_widget.is_none() {
+            if let Some(&id) = self.focusable_widgets.get(0) {
+                self.set_focus(id, FocusReason::Auto);
+            }
+        }
+    }
+
+    fn set_focus(&mut self, widget_id: RawWidgetId, reason: FocusReason) {
+        let Some(root_widget) = &mut self.root_widget else {
+            println!("warn: set_focus: no root widget");
+            return;
+        };
+        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+            if !widget.common().is_focusable {
+                println!("warn: cannot focus widget that is not focusable");
+                return;
+            }
+        } else {
+            println!("warn: set_focus: widget not found");
+        }
+
+        if let Some(old_widget_id) = self.focused_widget.take() {
+            if let Ok(old_widget) = get_widget_by_id_mut(root_widget.as_mut(), old_widget_id) {
+                old_widget.dispatch(FocusOutEvent.into());
+            }
+        }
+
+        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+            widget.dispatch(FocusInEvent { reason }.into());
+            self.focused_widget = Some(widget_id);
+        } else {
+            println!("warn: set_focus: widget not found on second pass");
+        }
+        self.inner.request_redraw(); // TODO: smarter redraw
     }
 
     fn layout(&mut self) {

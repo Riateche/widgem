@@ -21,6 +21,8 @@ pub enum Event {
     GeometryChanged(GeometryChangedEvent),
     Mount(MountEvent),
     Unmount(UnmountEvent),
+    FocusIn(FocusInEvent),
+    FocusOut(FocusOutEvent),
 }
 
 pub struct MouseInputEvent {
@@ -56,3 +58,16 @@ pub struct GeometryChangedEvent {
 pub struct MountEvent(pub MountPoint);
 
 pub struct UnmountEvent;
+
+pub enum FocusReason {
+    Mouse,
+    Tab,
+    /// A widget was automatically focused because there was no focused widget previously.
+    Auto,
+}
+
+pub struct FocusInEvent {
+    pub reason: FocusReason,
+}
+
+pub struct FocusOutEvent;
