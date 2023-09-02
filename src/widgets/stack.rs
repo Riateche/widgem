@@ -2,11 +2,11 @@ use std::rc::Rc;
 
 use crate::{
     draw::DrawEvent,
-    event::{CursorMovedEvent, MouseInputEvent},
+    event::{CursorMovedEvent, GeometryChangedEvent, MouseInputEvent},
     types::Rect,
 };
 
-use super::{mount, Child, MountPoint, Widget, WidgetCommon, WidgetExt};
+use super::{mount, Child, Geometry, MountPoint, Widget, WidgetCommon, WidgetExt};
 
 pub struct Stack {
     children: Vec<Child>,
@@ -34,7 +34,10 @@ impl Stack {
                 },
             );
         }
-        self.children.push(Child { rect, widget });
+        self.children.push(Child {
+            rect_in_parent: rect,
+            widget,
+        });
     }
 }
 
@@ -46,7 +49,10 @@ impl Widget for Stack {
     fn on_draw(&mut self, event: DrawEvent) -> bool {
         for child in &mut self.children {
             let child_event = DrawEvent {
-                rect: child.rect.translate(event.rect.top_left).intersect(event.rect),
+                rect: child
+                    .rect_in_parent
+                    .translate(event.rect.top_left)
+                    .intersect(event.rect),
                 pixmap: Rc::clone(&event.pixmap),
             };
             child.widget.dispatch(child_event.into());
@@ -56,9 +62,9 @@ impl Widget for Stack {
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         for child in &mut self.children {
-            if child.rect.contains(event.pos) {
+            if child.rect_in_parent.contains(event.pos) {
                 let event = MouseInputEvent {
-                    pos: event.pos - child.rect.top_left,
+                    pos: event.pos - child.rect_in_parent.top_left,
                     device_id: event.device_id,
                     state: event.state,
                     button: event.button,
@@ -74,9 +80,9 @@ impl Widget for Stack {
 
     fn on_cursor_moved(&mut self, event: CursorMovedEvent) -> bool {
         for child in &mut self.children {
-            if child.rect.contains(event.pos) {
+            if child.rect_in_parent.contains(event.pos) {
                 let event = CursorMovedEvent {
-                    pos: event.pos - child.rect.top_left,
+                    pos: event.pos - child.rect_in_parent.top_left,
                     device_id: event.device_id,
                 };
                 if child.widget.dispatch(event.into()) {
@@ -92,5 +98,21 @@ impl Widget for Stack {
     }
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
+    }
+    fn layout(&mut self) {
+        let Some(geometry) = self.common().geometry else { return };
+        for child in &mut self.children {
+            let rect = child
+                .rect_in_parent
+                .translate(geometry.rect_in_window.top_left);
+            child.widget.dispatch(
+                GeometryChangedEvent {
+                    new_geometry: Some(Geometry {
+                        rect_in_window: rect,
+                    }),
+                }
+                .into(),
+            );
+        }
     }
 }

@@ -102,7 +102,7 @@ impl<'a, State> CallbackContext<'a, State> {
             .windows
             .get_mut(&address.window_id)
             .ok_or(WidgetNotFound)?;
-        let widget = window.widget.as_mut().ok_or(WidgetNotFound)?;
+        let widget = window.root_widget.as_mut().ok_or(WidgetNotFound)?;
         get_widget_by_address_mut(widget.as_mut(), &address)
     }
 }

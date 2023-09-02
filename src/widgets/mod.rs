@@ -1,7 +1,8 @@
 use std::{
     iter,
     marker::PhantomData,
-    sync::atomic::{AtomicU64, Ordering}, rc::Rc,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use downcast_rs::{impl_downcast, Downcast};
@@ -10,7 +11,8 @@ use winit::window::WindowId;
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, ImeEvent, KeyboardInputEvent, MouseInputEvent, ReceivedCharacterEvent, Event,
+        CursorMovedEvent, Event, GeometryChangedEvent, ImeEvent, KeyboardInputEvent,
+        MouseInputEvent, ReceivedCharacterEvent,
     },
     types::Rect,
     window::SharedWindowData,
@@ -43,10 +45,17 @@ impl<T> Clone for WidgetId<T> {
 }
 impl<T> Copy for WidgetId<T> {}
 
+#[derive(Clone, Copy)]
+pub struct Geometry {
+    pub rect_in_window: Rect,
+}
+
 pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
     pub mount_point: Option<MountPoint>,
+    // Present if the widget is mounted, not hidden, and only after layout.
+    pub geometry: Option<Geometry>,
 }
 
 #[derive(Clone)]
@@ -63,6 +72,7 @@ impl WidgetCommon {
             id: RawWidgetId::new(),
             is_focusable: false,
             mount_point: None,
+            geometry: None,
         }
     }
 
@@ -171,6 +181,11 @@ pub trait Widget: Downcast {
         let _ = event;
         false
     }
+    // TODO: we don't need accept/reject for some event types
+    fn on_geometry_changed(&mut self, event: GeometryChangedEvent) -> bool {
+        let _ = event;
+        false
+    }
     fn on_event(&mut self, event: Event) -> bool {
         match event {
             Event::MouseInput(e) => self.on_mouse_input(e),
@@ -179,8 +194,10 @@ pub trait Widget: Downcast {
             Event::ReceivedCharacter(e) => self.on_received_character(e),
             Event::Ime(e) => self.on_ime(e),
             Event::Draw(e) => self.on_draw(e),
+            Event::GeometryChanged(e) => self.on_geometry_changed(e),
         }
     }
+    fn layout(&mut self) {}
 }
 impl_downcast!(Widget);
 
@@ -194,7 +211,8 @@ pub trait WidgetExt {
 impl<W: Widget + ?Sized> WidgetExt for W {
     fn id(&self) -> WidgetId<Self>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         WidgetId(self.common().id, PhantomData)
     }
 
@@ -204,8 +222,11 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         } else {
             None
         };
+        if let Event::GeometryChanged(event) = &event {
+            self.common_mut().geometry = event.new_geometry;
+        }
         let result = self.on_event(event);
-        if let Some(accepted_by) = accepted_by{
+        if let Some(accepted_by) = accepted_by {
             if accepted_by.get().is_none() && result {
                 accepted_by.set(Some(self.common().id));
             }
@@ -215,7 +236,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
 }
 
 pub struct Child {
-    pub rect: Rect,
+    pub rect_in_parent: Rect,
     pub widget: Box<dyn Widget>,
 }
 

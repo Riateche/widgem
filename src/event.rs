@@ -2,7 +2,11 @@ use std::{cell::Cell, rc::Rc};
 
 use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, MouseButton};
 
-use crate::{types::Point, draw::DrawEvent, widgets::RawWidgetId};
+use crate::{
+    draw::DrawEvent,
+    types::Point,
+    widgets::{Geometry, RawWidgetId},
+};
 
 use derive_more::From;
 
@@ -14,6 +18,7 @@ pub enum Event {
     ReceivedCharacter(ReceivedCharacterEvent),
     Ime(ImeEvent),
     Draw(DrawEvent),
+    GeometryChanged(GeometryChangedEvent),
 }
 
 pub struct MouseInputEvent {
@@ -40,3 +45,8 @@ pub struct ReceivedCharacterEvent {
 }
 
 pub struct ImeEvent(pub Ime);
+
+#[derive(Clone, Copy)]
+pub struct GeometryChangedEvent {
+    pub new_geometry: Option<Geometry>,
+}
