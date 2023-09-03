@@ -1,4 +1,4 @@
-use std::{any::Any, cell::RefCell, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc};
+use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData};
 
 use cosmic_text::{FontSystem, SwashCache};
 use scoped_tls::scoped_thread_local;
@@ -12,9 +12,9 @@ use winit::{
 use crate::{
     callback::{Callback, CallbackId, CallbackMaker, Callbacks},
     draw::Palette,
+    system::{address, SharedSystemDataInner, SYSTEM},
     widgets::{get_widget_by_address_mut, RawWidgetId, Widget, WidgetId, WidgetNotFound},
     window::{Window, WindowEventContext, WindowRequest},
-    SharedSystemData, SharedSystemDataInner,
 };
 
 type CallbackFn<State> = Box<dyn FnMut(&mut State, &mut CallbackContext<State>, Box<dyn Any>)>;
@@ -22,7 +22,6 @@ pub struct CallbackContext<'a, State> {
     pub windows: &'a mut HashMap<WindowId, Window>,
     pub add_callback: Box<dyn FnMut(CallbackFn<State>) -> CallbackId + 'a>,
     event_loop_proxy: EventLoopProxy<UserEvent>,
-    shared_system_data: &'a SharedSystemData,
     //...
     marker: PhantomData<State>,
 }
@@ -35,7 +34,6 @@ impl<'a, State> CallbackContext<'a, State> {
         let add_callback = &mut self.add_callback;
         CallbackContext {
             windows: self.windows,
-            shared_system_data: self.shared_system_data,
             event_loop_proxy: self.event_loop_proxy.clone(),
             marker: PhantomData,
             add_callback: Box::new(move |mut f| -> CallbackId {
@@ -72,7 +70,7 @@ impl<'a, State> CallbackContext<'a, State> {
     pub fn add_window(&mut self, title: &str, root_widget: Option<Box<dyn Widget>>) -> WindowId {
         let builder = WindowBuilder::new().with_title(title);
         let window = WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
-        let window = Window::new(window, self.shared_system_data.clone(), root_widget);
+        let window = Window::new(window, root_widget);
         let id = window.inner.id();
         self.windows.insert(id, window);
         id
@@ -90,7 +88,7 @@ impl<'a, State> CallbackContext<'a, State> {
         &mut self,
         id: RawWidgetId,
     ) -> Result<&mut dyn Widget, WidgetNotFound> {
-        let address = self.shared_system_data.address(id).ok_or(WidgetNotFound)?;
+        let address = address(id).ok_or(WidgetNotFound)?;
         let window = self
             .windows
             .get_mut(&address.window_id)
@@ -115,11 +113,13 @@ pub enum UserEvent {
 scoped_thread_local!(pub static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
 
 pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) -> State) {
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build().expect("Event loop creation failed");
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
+        .build()
+        .expect("Event loop creation failed");
 
     let mut windows = HashMap::new();
 
-    let shared_system_data = SharedSystemData(Rc::new(RefCell::new(SharedSystemDataInner {
+    let shared_system_data = SharedSystemDataInner {
         address_book: HashMap::new(),
         font_system: FontSystem::new(),
         swash_cache: SwashCache::new(),
@@ -133,7 +133,10 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
             // foreground: Color::WHITE,
             // background: Color::BLACK,
         },
-    })));
+    };
+    SYSTEM.with(|system| {
+        *system.0.borrow_mut() = Some(shared_system_data);
+    });
 
     let mut callback_maker = CallbackMaker::<State>::new();
     let mut callbacks = Callbacks::<State>::new();
@@ -143,7 +146,6 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     let mut state = {
         let mut ctx = CallbackContext {
             windows: &mut windows,
-            shared_system_data: &shared_system_data,
             add_callback: Box::new(|f| callback_maker.add(f)),
             marker: PhantomData,
             event_loop_proxy: event_loop_proxy.clone(),
@@ -152,54 +154,55 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     };
     callbacks.add_all(&mut callback_maker);
 
-    event_loop.run(move |event, window_target, control_flow| {
-        WINDOW_TARGET.set(window_target, || {
-            *control_flow = ControlFlow::Wait;
+    event_loop
+        .run(move |event, window_target, control_flow| {
+            WINDOW_TARGET.set(window_target, || {
+                *control_flow = ControlFlow::Wait;
 
-            let mut ctx = WindowEventContext {};
+                let mut ctx = WindowEventContext {};
 
-            match event {
-                Event::RedrawRequested(window_id) => {
-                    if let Some(window) = windows.get_mut(&window_id) {
-                        window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
-                    }
-                }
-                Event::WindowEvent {
-                    window_id,
-                    event: ref wevent,
-                } => {
-                    // TODO: smarter logic
-                    if matches!(wevent, WindowEvent::CloseRequested) {
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    if let Some(window) = windows.get_mut(&window_id) {
-                        window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
-                    }
-                }
-
-                Event::UserEvent(event) => match event {
-                    UserEvent::WindowRequest(window_id, request) => {
+                match event {
+                    Event::RedrawRequested(window_id) => {
                         if let Some(window) = windows.get_mut(&window_id) {
-                            window.handle_request(&mut ctx, request);
+                            window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
                         }
                     }
-                    UserEvent::InvokeCallback(event) => {
-                        {
-                            let mut ctx = CallbackContext {
-                                windows: &mut windows,
-                                shared_system_data: &shared_system_data,
-                                add_callback: Box::new(|f| callback_maker.add(f)),
-                                marker: PhantomData,
-                                event_loop_proxy: event_loop_proxy.clone(),
-                            };
+                    Event::WindowEvent {
+                        window_id,
+                        event: ref wevent,
+                    } => {
+                        // TODO: smarter logic
+                        if matches!(wevent, WindowEvent::CloseRequested) {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                        if let Some(window) = windows.get_mut(&window_id) {
+                            window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
+                        }
+                    }
 
-                            callbacks.call(&mut state, &mut ctx, event);
+                    Event::UserEvent(event) => match event {
+                        UserEvent::WindowRequest(window_id, request) => {
+                            if let Some(window) = windows.get_mut(&window_id) {
+                                window.handle_request(&mut ctx, request);
+                            }
                         }
-                        callbacks.add_all(&mut callback_maker);
-                    }
-                },
-                _ => {}
-            }
-        });
-    }).expect("Error while running event loop");
+                        UserEvent::InvokeCallback(event) => {
+                            {
+                                let mut ctx = CallbackContext {
+                                    windows: &mut windows,
+                                    add_callback: Box::new(|f| callback_maker.add(f)),
+                                    marker: PhantomData,
+                                    event_loop_proxy: event_loop_proxy.clone(),
+                                };
+
+                                callbacks.call(&mut state, &mut ctx, event);
+                            }
+                            callbacks.add_all(&mut callback_maker);
+                        }
+                    },
+                    _ => {}
+                }
+            });
+        })
+        .expect("Error while running event loop");
 }

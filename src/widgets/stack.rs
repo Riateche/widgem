@@ -28,7 +28,6 @@ impl Stack {
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
-                    system: mount_point.system.clone(),
                     window: mount_point.window.clone(),
                 })
                 .into(),

@@ -18,11 +18,11 @@ use crate::{
         CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
         KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent,
     },
+    system::with_system,
     types::{Point, Rect, Size},
     widgets::{
         get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
     },
-    SharedSystemData,
 };
 
 pub struct SharedWindowDataInner {
@@ -41,7 +41,6 @@ pub struct Window {
     pub softbuffer_context: softbuffer::Context,
     pub surface: softbuffer::Surface,
     pub root_widget: Option<Box<dyn Widget>>,
-    shared_system_data: SharedSystemData,
     shared_window_data: SharedWindowData,
 
     pub focusable_widgets: Vec<RawWidgetId>,
@@ -51,11 +50,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(
-        inner: winit::window::Window,
-        shared_system_data: SharedSystemData,
-        mut widget: Option<Box<dyn Widget>>,
-    ) -> Self {
+    pub fn new(inner: winit::window::Window, mut widget: Option<Box<dyn Widget>>) -> Self {
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             widget_tree_changed: false,
@@ -69,7 +64,6 @@ impl Window {
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
-                    system: shared_system_data.clone(),
                     window: shared_window_data.clone(),
                 })
                 .into(),
@@ -80,7 +74,6 @@ impl Window {
             softbuffer_context,
             inner,
             root_widget: widget,
-            shared_system_data,
             shared_window_data,
             focusable_widgets: Vec::new(),
             focused_widget: None,
@@ -125,10 +118,8 @@ impl Window {
                     pixmap: Rc::clone(&pixmap),
                 };
                 // TODO: option to turn off background, set style
-                draw_event
-                    .pixmap
-                    .borrow_mut()
-                    .fill(self.shared_system_data.0.borrow().palette.background);
+                let color = with_system(|system| system.palette.background);
+                draw_event.pixmap.borrow_mut().fill(color);
                 if let Some(widget) = &mut self.root_widget {
                     widget.dispatch(draw_event.into());
                 }
@@ -403,7 +394,6 @@ impl Window {
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
-                    system: self.shared_system_data.clone(),
                     window: self.shared_window_data.clone(),
                 })
                 .into(),

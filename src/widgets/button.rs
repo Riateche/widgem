@@ -7,6 +7,7 @@ use crate::{
     callback::Callback,
     draw::{draw_text, unrestricted_text_size, DrawEvent},
     event::MouseInputEvent,
+    system::with_system,
     types::{Point, Rect, Size},
 };
 
@@ -68,39 +69,33 @@ impl Widget for Button {
             Color::from_rgba8(220, 220, 220, 255),
         );
 
-        let system = &mut *self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot draw when unmounted")
-            .system
-            .0
-            .borrow_mut();
-        let mut buffer = self
-            .buffer
-            .get_or_insert_with(|| Buffer::new(&mut system.font_system, system.font_metrics))
-            .borrow_with(&mut system.font_system);
+        with_system(|system| {
+            let mut buffer = self
+                .buffer
+                .get_or_insert_with(|| Buffer::new(&mut system.font_system, system.font_metrics))
+                .borrow_with(&mut system.font_system);
 
-        if self.redraw_text {
-            buffer.set_text(&self.text, Attrs::new(), Shaping::Advanced);
-            self.unrestricted_text_size = unrestricted_text_size(&mut buffer);
-            let pixmap = draw_text(
-                &mut buffer,
-                self.unrestricted_text_size,
-                system.palette.foreground,
-                &mut system.swash_cache,
-            );
-            self.text_pixmap = Some(pixmap);
-            self.redraw_text = false;
-        }
+            if self.redraw_text {
+                buffer.set_text(&self.text, Attrs::new(), Shaping::Advanced);
+                self.unrestricted_text_size = unrestricted_text_size(&mut buffer);
+                let pixmap = draw_text(
+                    &mut buffer,
+                    self.unrestricted_text_size,
+                    system.palette.foreground,
+                    &mut system.swash_cache,
+                );
+                self.text_pixmap = Some(pixmap);
+                self.redraw_text = false;
+            }
 
-        if let Some(pixmap) = &self.text_pixmap {
-            let padding = Point {
-                x: max(0, event.rect.size.x - pixmap.width() as i32) / 2,
-                y: max(0, event.rect.size.y - pixmap.height() as i32) / 2,
-            };
-            event.draw_pixmap(padding, pixmap.as_ref());
-        }
+            if let Some(pixmap) = &self.text_pixmap {
+                let padding = Point {
+                    x: max(0, event.rect.size.x - pixmap.width() as i32) / 2,
+                    y: max(0, event.rect.size.y - pixmap.height() as i32) / 2,
+                };
+                event.draw_pixmap(padding, pixmap.as_ref());
+            }
+        });
     }
 
     fn on_mouse_input(&mut self, _event: MouseInputEvent) -> bool {

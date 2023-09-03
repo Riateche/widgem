@@ -1,37 +1,11 @@
 #![allow(clippy::collapsible_if)]
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
-use cosmic_text::{FontSystem, SwashCache};
-use draw::Palette;
-use event_loop::UserEvent;
-use widgets::{RawWidgetId, WidgetAddress};
-use winit::event_loop::EventLoopProxy;
-
 pub mod callback;
 pub mod draw;
 pub mod event;
 pub mod event_loop;
+pub mod system;
+pub mod text_editor;
 pub mod types;
 pub mod widgets;
 pub mod window;
-
-pub struct SharedSystemDataInner {
-    pub address_book: HashMap<RawWidgetId, WidgetAddress>,
-    pub font_system: FontSystem,
-    pub swash_cache: SwashCache,
-
-    // TODO: per-widget font metrics and palette (as part of the style)
-    pub font_metrics: cosmic_text::Metrics,
-    pub palette: Palette,
-    pub event_loop_proxy: EventLoopProxy<UserEvent>,
-}
-
-#[derive(Clone)]
-pub struct SharedSystemData(pub Rc<RefCell<SharedSystemDataInner>>);
-
-impl SharedSystemData {
-    pub fn address(&self, id: RawWidgetId) -> Option<WidgetAddress> {
-        self.0.borrow().address_book.get(&id).cloned()
-    }
-}

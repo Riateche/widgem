@@ -5,6 +5,7 @@ use tiny_skia::Pixmap;
 
 use crate::{
     draw::{draw_text, unrestricted_text_size, DrawEvent},
+    system::with_system,
     types::{Point, Size},
 };
 
@@ -39,36 +40,29 @@ impl Label {
 
 impl Widget for Label {
     fn on_draw(&mut self, event: DrawEvent) {
-        let system = &mut *self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot draw when unmounted")
-            .system
-            .0
-            .borrow_mut();
+        with_system(|system| {
+            let mut buffer = self
+                .buffer
+                .get_or_insert_with(|| Buffer::new(&mut system.font_system, system.font_metrics))
+                .borrow_with(&mut system.font_system);
 
-        let mut buffer = self
-            .buffer
-            .get_or_insert_with(|| Buffer::new(&mut system.font_system, system.font_metrics))
-            .borrow_with(&mut system.font_system);
+            if self.redraw_text {
+                buffer.set_text(&self.text, Attrs::new(), Shaping::Advanced);
+                self.unrestricted_text_size = unrestricted_text_size(&mut buffer);
+                let pixmap = draw_text(
+                    &mut buffer,
+                    self.unrestricted_text_size,
+                    system.palette.foreground,
+                    &mut system.swash_cache,
+                );
+                self.pixmap = Some(pixmap);
+                self.redraw_text = false;
+            }
 
-        if self.redraw_text {
-            buffer.set_text(&self.text, Attrs::new(), Shaping::Advanced);
-            self.unrestricted_text_size = unrestricted_text_size(&mut buffer);
-            let pixmap = draw_text(
-                &mut buffer,
-                self.unrestricted_text_size,
-                system.palette.foreground,
-                &mut system.swash_cache,
-            );
-            self.pixmap = Some(pixmap);
-            self.redraw_text = false;
-        }
-
-        if let Some(pixmap) = &self.pixmap {
-            event.draw_pixmap(Point::default(), pixmap.as_ref());
-        }
+            if let Some(pixmap) = &self.pixmap {
+                event.draw_pixmap(Point::default(), pixmap.as_ref());
+            }
+        });
     }
 
     fn common(&self) -> &WidgetCommon {

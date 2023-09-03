@@ -14,9 +14,9 @@ use crate::{
         CursorMovedEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangedEvent, ImeEvent,
         KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent,
     },
+    system::{address, register_address, unregister_address},
     types::{Rect, Size},
     window::SharedWindowData,
-    SharedSystemData,
 };
 
 pub mod button;
@@ -63,7 +63,6 @@ pub struct WidgetCommon {
 #[derive(Clone)]
 pub struct MountPoint {
     pub address: WidgetAddress,
-    pub system: SharedSystemData,
     pub window: SharedWindowData,
 }
 
@@ -86,12 +85,7 @@ impl WidgetCommon {
         if self.mount_point.is_some() {
             println!("warn: widget was already mounted");
         }
-        let old = mount_point
-            .system
-            .0
-            .borrow_mut()
-            .address_book
-            .insert(self.id, mount_point.address.clone());
+        let old = register_address(self.id, mount_point.address.clone());
         if old.is_some() {
             println!("warn: widget address was already registered");
         }
@@ -101,12 +95,7 @@ impl WidgetCommon {
 
     pub fn unmount(&mut self) {
         if let Some(mount_point) = self.mount_point.take() {
-            mount_point
-                .system
-                .0
-                .borrow_mut()
-                .address_book
-                .remove(&self.id);
+            unregister_address(self.id);
             mount_point.window.0.borrow_mut().widget_tree_changed = true;
         } else {
             println!("warn: widget was not mounted");
@@ -143,12 +132,7 @@ pub fn get_widget_by_id_mut(
     root_widget: &mut dyn Widget,
     id: RawWidgetId,
 ) -> Result<&mut dyn Widget, WidgetNotFound> {
-    let mount_point = root_widget
-        .common()
-        .mount_point
-        .as_ref()
-        .ok_or(WidgetNotFound)?;
-    let address = mount_point.system.address(id).ok_or(WidgetNotFound)?;
+    let address = address(id).ok_or(WidgetNotFound)?;
     get_widget_by_address_mut(root_widget, &address)
 }
 
@@ -261,7 +245,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     child.dispatch(
                         MountEvent(MountPoint {
                             address: child_address,
-                            system: mount_point.system.clone(),
                             window: mount_point.window.clone(),
                         })
                         .into(),
