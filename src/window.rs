@@ -8,7 +8,8 @@ use std::{
 use tiny_skia::Pixmap;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{ElementState, Event, Ime, MouseButton, WindowEvent}, keyboard::{ModifiersState, Key},
+    event::{ElementState, Event, Ime, MouseButton, WindowEvent},
+    keyboard::{Key, ModifiersState},
 };
 
 use crate::{
@@ -46,7 +47,7 @@ pub struct Window {
     pub focusable_widgets: Vec<RawWidgetId>,
     pub focused_widget: Option<RawWidgetId>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
-    ime_position: Point,
+    ime_cursor_area: Rect,
 }
 
 impl Window {
@@ -84,7 +85,7 @@ impl Window {
             focusable_widgets: Vec::new(),
             focused_widget: None,
             mouse_grabber_widget: None,
-            ime_position: Point::default(),
+            ime_cursor_area: Rect::default(),
         };
         w.widget_tree_changed();
         w
@@ -148,7 +149,7 @@ impl Window {
                 if matches!(event, WindowEvent::Ime(_)) {
                     println!("{event:?}");
                 }
-                if matches!(event, WindowEvent::KeyboardInput{..}) {
+                if matches!(event, WindowEvent::KeyboardInput { .. }) {
                     println!("keyborard input event: {event:?}");
                 }
                 match event {
@@ -314,7 +315,13 @@ impl Window {
                         if event.state == ElementState::Pressed {
                             let logical_key = event.logical_key;
                             if logical_key == Key::Tab {
-                                if self.shared_window_data.0.borrow().modifiers_state.shift_key() {
+                                if self
+                                    .shared_window_data
+                                    .0
+                                    .borrow()
+                                    .modifiers_state
+                                    .shift_key()
+                                {
                                     self.move_keyboard_focus(-1);
                                 } else {
                                     self.move_keyboard_focus(1);
@@ -324,11 +331,17 @@ impl Window {
                     }
                     WindowEvent::Ime(ime) => {
                         if let Ime::Enabled = &ime {
-                            println!("reset ime position {:?}", self.ime_position);
-                            self.inner.set_ime_cursor_area(PhysicalPosition::new(
-                                self.ime_position.x,
-                                self.ime_position.y,
-                            ), PhysicalSize::new(10, 10)); //TODO: actual size
+                            println!("reset ime position {:?}", self.ime_cursor_area);
+                            self.inner.set_ime_cursor_area(
+                                PhysicalPosition::new(
+                                    self.ime_cursor_area.top_left.x,
+                                    self.ime_cursor_area.top_left.y,
+                                ),
+                                PhysicalSize::new(
+                                    self.ime_cursor_area.size.x,
+                                    self.ime_cursor_area.size.y,
+                                ),
+                            );
                         }
                         // TODO: deduplicate with ReceivedCharacter
                         if let Some(root_widget) = &mut self.root_widget {
@@ -499,12 +512,13 @@ impl Window {
             WindowRequest::SetFocus(request) => {
                 self.set_focus(request.widget_id, request.reason);
             }
-            WindowRequest::SetImePosition(request) => {
+            WindowRequest::SetImeCursorArea(request) => {
                 println!("set new ime position {:?}", request.0);
-                self.inner
-                    .set_ime_cursor_area(PhysicalPosition::new(request.0.x, request.0.y), 
-                    PhysicalSize::new(10, 10)); //TODO: actual size
-                self.ime_position = request.0;
+                self.inner.set_ime_cursor_area(
+                    PhysicalPosition::new(request.0.top_left.x, request.0.top_left.y),
+                    PhysicalSize::new(request.0.size.x, request.0.size.y),
+                ); //TODO: actual size
+                self.ime_cursor_area = request.0;
             }
         }
     }
@@ -525,7 +539,7 @@ pub struct WindowEventContext {}
 #[derive(Debug)]
 pub enum WindowRequest {
     SetFocus(SetFocusRequest),
-    SetImePosition(SetImePositionRequest),
+    SetImeCursorArea(SetImeCursorAreaRequest),
 }
 
 #[derive(Debug)]
@@ -535,4 +549,4 @@ pub struct SetFocusRequest {
 }
 
 #[derive(Debug)]
-pub struct SetImePositionRequest(pub Point);
+pub struct SetImeCursorAreaRequest(pub Rect);

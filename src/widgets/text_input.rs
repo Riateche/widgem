@@ -2,14 +2,17 @@ use std::fmt::Display;
 
 use cosmic_text::{Action, Attrs, Buffer, Edit, Editor, Shaping, Wrap};
 use tiny_skia::Pixmap;
-use winit::{event::{ElementState, Ime, MouseButton}, keyboard::Key};
+use winit::{
+    event::{ElementState, Ime, MouseButton},
+    keyboard::Key,
+};
 
 use crate::{
     draw::{draw_text, DrawEvent},
     event::{CursorMovedEvent, FocusReason, ImeEvent, KeyboardInputEvent},
     event_loop::UserEvent,
     types::{Point, Rect, Size},
-    window::{SetFocusRequest, SetImePositionRequest, WindowRequest},
+    window::{SetFocusRequest, SetImeCursorAreaRequest, WindowRequest},
 };
 
 use super::{Widget, WidgetCommon};
@@ -148,13 +151,18 @@ impl Widget for TextInput {
             if self.common.is_focused {
                 if let Some((editor_cursor_x, editor_cursor_y)) = editor.cursor_position() {
                     // TODO: adjust for editor offset
-                    let pos = Point {
+                    // We specify an area below the input because on Windows the IME window obscures the specified area.
+                    let top_left = Point {
                         x: editor_cursor_x,
                         y: editor_cursor_y + editor.buffer().metrics().line_height.ceil() as i32,
                     } + geometry.rect_in_window.top_left;
+                    let size = geometry.rect_in_window.size; // TODO: not actually correct
                     let _ = system.event_loop_proxy.send_event(UserEvent::WindowRequest(
                         mount_point.address.window_id,
-                        WindowRequest::SetImePosition(SetImePositionRequest(pos)),
+                        WindowRequest::SetImeCursorArea(SetImeCursorAreaRequest(Rect {
+                            top_left,
+                            size,
+                        })),
                     ));
                 }
             }
@@ -282,9 +290,7 @@ impl Widget for TextInput {
                     // TODO
                     None
                 }
-                _ => {
-                    None
-                }
+                _ => None,
             };
             // println!(
             //     "ok2.2 selection: {:?}, cursor: {:?}",
