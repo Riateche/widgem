@@ -5,6 +5,7 @@ use std::{
     rc::Rc,
 };
 
+use derive_more::From;
 use tiny_skia::Pixmap;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -526,7 +527,7 @@ fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidge
 
 pub struct WindowEventContext {}
 
-#[derive(Debug)]
+#[derive(Debug, From)]
 pub enum WindowRequest {
     SetFocus(SetFocusRequest),
     SetImeCursorArea(SetImeCursorAreaRequest),

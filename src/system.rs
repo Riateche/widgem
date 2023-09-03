@@ -1,12 +1,13 @@
 use std::{cell::RefCell, collections::HashMap};
 
 use cosmic_text::{FontSystem, SwashCache};
-use winit::event_loop::EventLoopProxy;
+use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     draw::Palette,
     event_loop::UserEvent,
     widgets::{RawWidgetId, WidgetAddress},
+    window::WindowRequest,
 };
 
 thread_local! {
@@ -29,42 +30,25 @@ pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);
 const EMPTY_ERR: &str = "system not initialized yet";
 
 pub fn address(id: RawWidgetId) -> Option<WidgetAddress> {
-    SYSTEM.with(|system| {
-        system
-            .0
-            .borrow()
-            .as_ref()
-            .expect(EMPTY_ERR)
-            .address_book
-            .get(&id)
-            .cloned()
-    })
+    with_system(|system| system.address_book.get(&id).cloned())
 }
 
 pub fn register_address(id: RawWidgetId, address: WidgetAddress) -> Option<WidgetAddress> {
-    SYSTEM.with(|system| {
-        system
-            .0
-            .borrow_mut()
-            .as_mut()
-            .expect(EMPTY_ERR)
-            .address_book
-            .insert(id, address)
-    })
+    with_system(|system| system.address_book.insert(id, address))
 }
 
 pub fn unregister_address(id: RawWidgetId) -> Option<WidgetAddress> {
-    SYSTEM.with(|system| {
-        system
-            .0
-            .borrow_mut()
-            .as_mut()
-            .expect(EMPTY_ERR)
-            .address_book
-            .remove(&id)
-    })
+    with_system(|system| system.address_book.remove(&id))
 }
 
 pub fn with_system<R>(f: impl FnOnce(&mut SharedSystemDataInner) -> R) -> R {
     SYSTEM.with(|system| f(system.0.borrow_mut().as_mut().expect(EMPTY_ERR)))
+}
+
+pub fn send_window_event(window_id: WindowId, event: impl Into<WindowRequest>) {
+    with_system(|system| {
+        let _ = system
+            .event_loop_proxy
+            .send_event(UserEvent::WindowRequest(window_id, event.into()));
+    });
 }

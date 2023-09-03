@@ -144,7 +144,7 @@ impl DrawableTextBuffer for BorrowedWithFontSystem<'_, Editor> {
     }
 }
 
-fn convert_color(color: Color) -> cosmic_text::Color {
+pub fn convert_color(color: Color) -> cosmic_text::Color {
     let c = color.to_color_u8();
     cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
 }
