@@ -115,7 +115,7 @@ pub enum UserEvent {
 scoped_thread_local!(pub static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
 
 pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) -> State) {
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build().expect("Event loop creation failed");
 
     let mut windows = HashMap::new();
 
@@ -201,5 +201,5 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                 _ => {}
             }
         });
-    });
+    }).expect("Error while running event loop");
 }

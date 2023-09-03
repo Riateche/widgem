@@ -1,6 +1,6 @@
 use std::{cell::Cell, rc::Rc};
 
-use winit::event::{DeviceId, ElementState, Ime, KeyboardInput, MouseButton};
+use winit::event::{DeviceId, ElementState, Ime, MouseButton, KeyEvent};
 
 use crate::{
     draw::DrawEvent,
@@ -15,7 +15,6 @@ pub enum Event {
     MouseInput(MouseInputEvent),
     CursorMoved(CursorMovedEvent),
     KeyboardInput(KeyboardInputEvent),
-    ReceivedCharacter(ReceivedCharacterEvent),
     Ime(ImeEvent),
     Draw(DrawEvent),
     GeometryChanged(GeometryChangedEvent),
@@ -38,14 +37,11 @@ pub struct CursorMovedEvent {
     pub pos: Point,
 }
 
+#[derive(Debug)]
 pub struct KeyboardInputEvent {
     pub device_id: DeviceId,
-    pub input: KeyboardInput,
+    pub event: KeyEvent,
     pub is_synthetic: bool,
-}
-
-pub struct ReceivedCharacterEvent {
-    pub char: char,
 }
 
 pub struct ImeEvent(pub Ime);

@@ -7,15 +7,15 @@ use std::{
 
 use tiny_skia::Pixmap;
 use winit::{
-    dpi::PhysicalPosition,
-    event::{ElementState, Event, Ime, ModifiersState, MouseButton, VirtualKeyCode, WindowEvent},
+    dpi::{PhysicalPosition, PhysicalSize},
+    event::{ElementState, Event, Ime, MouseButton, WindowEvent}, keyboard::{ModifiersState, Key},
 };
 
 use crate::{
     draw::DrawEvent,
     event::{
         CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent,
     },
     types::{Point, Rect, Size},
     widgets::{
@@ -148,6 +148,9 @@ impl Window {
                 if matches!(event, WindowEvent::Ime(_)) {
                     println!("{event:?}");
                 }
+                if matches!(event, WindowEvent::KeyboardInput{..}) {
+                    println!("keyborard input event: {event:?}");
+                }
                 match event {
                     // TODO: should use device id?
                     WindowEvent::CursorEntered { .. } => {
@@ -199,8 +202,8 @@ impl Window {
                         }
                         self.inner.request_redraw(); // TODO: smarter redraw
                     }
-                    WindowEvent::ModifiersChanged(state) => {
-                        self.shared_window_data.0.borrow_mut().modifiers_state = state;
+                    WindowEvent::ModifiersChanged(modifiers) => {
+                        self.shared_window_data.0.borrow_mut().modifiers_state = modifiers.state();
                     }
                     WindowEvent::MouseInput {
                         device_id,
@@ -284,9 +287,9 @@ impl Window {
                         }
                     }
                     WindowEvent::KeyboardInput {
-                        input,
                         device_id,
                         is_synthetic,
+                        event,
                     } => {
                         // TODO: deduplicate with ReceivedCharacter
                         if let Some(root_widget) = &mut self.root_widget {
@@ -297,7 +300,7 @@ impl Window {
                                     widget.dispatch(
                                         KeyboardInputEvent {
                                             device_id,
-                                            input,
+                                            event: event.clone(),
                                             is_synthetic,
                                         }
                                         .into(),
@@ -308,26 +311,13 @@ impl Window {
                         }
 
                         // TODO: only if event is not accepted by a widget
-                        if input.state == ElementState::Pressed {
-                            if let Some(virtual_keycode) = input.virtual_keycode {
-                                if virtual_keycode == VirtualKeyCode::Tab {
-                                    if self.shared_window_data.0.borrow().modifiers_state.shift() {
-                                        self.move_keyboard_focus(-1);
-                                    } else {
-                                        self.move_keyboard_focus(1);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    WindowEvent::ReceivedCharacter(char) => {
-                        if let Some(root_widget) = &mut self.root_widget {
-                            if let Some(focused_widget) = self.focused_widget {
-                                if let Ok(widget) =
-                                    get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
-                                {
-                                    widget.dispatch(ReceivedCharacterEvent { char }.into());
-                                    self.inner.request_redraw(); // TODO: smarter redraw
+                        if event.state == ElementState::Pressed {
+                            let logical_key = event.logical_key;
+                            if logical_key == Key::Tab {
+                                if self.shared_window_data.0.borrow().modifiers_state.shift_key() {
+                                    self.move_keyboard_focus(-1);
+                                } else {
+                                    self.move_keyboard_focus(1);
                                 }
                             }
                         }
@@ -335,10 +325,10 @@ impl Window {
                     WindowEvent::Ime(ime) => {
                         if let Ime::Enabled = &ime {
                             println!("reset ime position {:?}", self.ime_position);
-                            self.inner.set_ime_position(PhysicalPosition::new(
+                            self.inner.set_ime_cursor_area(PhysicalPosition::new(
                                 self.ime_position.x,
                                 self.ime_position.y,
-                            ));
+                            ), PhysicalSize::new(10, 10)); //TODO: actual size
                         }
                         // TODO: deduplicate with ReceivedCharacter
                         if let Some(root_widget) = &mut self.root_widget {
@@ -512,7 +502,8 @@ impl Window {
             WindowRequest::SetImePosition(request) => {
                 println!("set new ime position {:?}", request.0);
                 self.inner
-                    .set_ime_position(PhysicalPosition::new(request.0.x, request.0.y));
+                    .set_ime_cursor_area(PhysicalPosition::new(request.0.x, request.0.y), 
+                    PhysicalSize::new(10, 10)); //TODO: actual size
                 self.ime_position = request.0;
             }
         }

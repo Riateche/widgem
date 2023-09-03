@@ -12,7 +12,7 @@ use crate::{
     draw::DrawEvent,
     event::{
         CursorMovedEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, ReceivedCharacterEvent, UnmountEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent,
     },
     types::{Rect, Size},
     window::SharedWindowData,
@@ -172,10 +172,6 @@ pub trait Widget: Downcast {
         let _ = event;
         false
     }
-    fn on_received_character(&mut self, event: ReceivedCharacterEvent) -> bool {
-        let _ = event;
-        false
-    }
     fn on_ime(&mut self, event: ImeEvent) -> bool {
         let _ = event;
         false
@@ -201,7 +197,6 @@ pub trait Widget: Downcast {
             Event::MouseInput(e) => self.on_mouse_input(e),
             Event::CursorMoved(e) => self.on_cursor_moved(e),
             Event::KeyboardInput(e) => self.on_keyboard_input(e),
-            Event::ReceivedCharacter(e) => self.on_received_character(e),
             Event::Ime(e) => self.on_ime(e),
             Event::Draw(e) => {
                 self.on_draw(e);

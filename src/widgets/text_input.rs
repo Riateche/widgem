@@ -2,11 +2,11 @@ use std::fmt::Display;
 
 use cosmic_text::{Action, Attrs, Buffer, Edit, Editor, Shaping, Wrap};
 use tiny_skia::Pixmap;
-use winit::event::{ElementState, Ime, MouseButton, VirtualKeyCode};
+use winit::{event::{ElementState, Ime, MouseButton}, keyboard::Key};
 
 use crate::{
     draw::{draw_text, DrawEvent},
-    event::{CursorMovedEvent, FocusReason, ImeEvent, KeyboardInputEvent, ReceivedCharacterEvent},
+    event::{CursorMovedEvent, FocusReason, ImeEvent, KeyboardInputEvent},
     event_loop::UserEvent,
     types::{Point, Rect, Size},
     window::{SetFocusRequest, SetImePositionRequest, WindowRequest},
@@ -232,7 +232,8 @@ impl Widget for TextInput {
     }
 
     fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
-        if event.input.state == ElementState::Released {
+        //println!("on_keyboard_input, {:?}", event);
+        if event.event.state == ElementState::Released {
             return true;
         }
 
@@ -243,50 +244,46 @@ impl Widget for TextInput {
             .expect("cannot handle event when unmounted");
         let system = &mut *mount_point.system.0.borrow_mut();
         let modifiers = mount_point.window.0.borrow().modifiers_state;
-
-        // println!("ok2 {:?}", event.char);
         if let Some(editor) = &mut self.editor {
-            let Some(keycode) = event.input.virtual_keycode else {
-                return false;
-            };
+            let logical_key = event.event.logical_key;
             // TODO: different commands for macOS?
-            let action = match keycode {
+            let action = match logical_key {
                 // TODO: scroll lock?
-                VirtualKeyCode::Escape => {
+                Key::Escape => {
                     // TODO: cosmic-text for some reason suggests to clear selection on Escape?
-                    return true;
+                    None
                 }
-                VirtualKeyCode::Insert => todo!(),
-                VirtualKeyCode::Home => Action::Home,
-                VirtualKeyCode::Delete => Action::Delete,
-                VirtualKeyCode::End => Action::End,
-                VirtualKeyCode::PageDown => Action::PageDown,
-                VirtualKeyCode::PageUp => Action::PageUp,
-                VirtualKeyCode::Left => {
-                    if modifiers.shift() && editor.select_opt().is_none() {
+                Key::Insert => None, //TODO
+                Key::Home => Some(Action::Home),
+                Key::Delete => Some(Action::Delete),
+                Key::End => Some(Action::End),
+                Key::PageDown => Some(Action::PageDown),
+                Key::PageUp => Some(Action::PageUp),
+                Key::ArrowLeft => {
+                    if modifiers.shift_key() && editor.select_opt().is_none() {
                         editor.set_select_opt(Some(editor.cursor()));
                     }
-                    if !modifiers.shift() && editor.select_opt().is_some() {
+                    if !modifiers.shift_key() && editor.select_opt().is_some() {
                         editor.set_select_opt(None);
                     }
                     println!("handle left!");
-                    Action::Left
+                    Some(Action::Left)
                 }
-                VirtualKeyCode::Up => Action::Up,
-                VirtualKeyCode::Right => Action::Right,
-                VirtualKeyCode::Down => Action::Down,
-                VirtualKeyCode::Back => Action::Backspace,
-                VirtualKeyCode::Return => Action::Enter,
-                VirtualKeyCode::Caret => {
-                    // TODO: what's that?
-                    return true;
-                }
-                VirtualKeyCode::Copy | VirtualKeyCode::Cut | VirtualKeyCode::Paste => {
+                Key::ArrowUp => Some(Action::Up),
+                Key::ArrowRight => Some(Action::Right),
+                Key::ArrowDown => Some(Action::Down),
+                Key::Backspace => Some(Action::Backspace),
+                Key::Enter => Some(Action::Enter),
+                // Key::Caret => {
+                //     // TODO: what's that?
+                //     return true;
+                // }
+                Key::Copy | Key::Cut | Key::Paste => {
                     // TODO
-                    return true;
+                    None
                 }
                 _ => {
-                    return true;
+                    None
                 }
             };
             // println!(
@@ -295,7 +292,10 @@ impl Widget for TextInput {
             //     editor.cursor()
             // );
             println!("before {:?}", editor.cursor());
-            editor.action(&mut system.font_system, action);
+            if let Some(action) = action {
+                editor.action(&mut system.font_system, action);
+                return true;
+            }
             println!("after {:?}", editor.cursor());
             // println!("###");
             // for line in &editor.buffer().lines {
@@ -303,34 +303,43 @@ impl Widget for TextInput {
             //     println!("ok2 {:?}", line.text_without_ime());
             // }
             //editor.buffer_mut().set_redraw(true);
+
+            if let Some(text) = event.event.text {
+                // TODO: replace line breaks to avoid multiple lines in buffer
+                editor.insert_string(&text, None);
+                for line in &editor.buffer().lines {
+                    println!("ok3 {:?}", line.text());
+                }
+                return true;
+            }
         }
         false
     }
 
-    fn on_received_character(&mut self, event: ReceivedCharacterEvent) -> bool {
-        let system = &mut *self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted")
-            .system
-            .0
-            .borrow_mut();
+    // fn on_received_character(&mut self, event: ReceivedCharacterEvent) -> bool {
+    //     let system = &mut *self
+    //         .common
+    //         .mount_point
+    //         .as_ref()
+    //         .expect("cannot handle event when unmounted")
+    //         .system
+    //         .0
+    //         .borrow_mut();
 
-        if let Some(editor) = &mut self.editor {
-            // TODO: replace line breaks to avoid multiple lines in buffer
-            editor.action(&mut system.font_system, Action::Insert(event.char));
-            for line in &editor.buffer().lines {
-                println!("ok3 {:?}", line.text());
-            }
-            // println!("###");
-            // for line in &editor.buffer().lines {
-            //     println!("ok1 {:?}", line.text());
-            //     println!("ok2 {:?}", line.text_without_ime());
-            // }
-        }
-        true
-    }
+    //     if let Some(editor) = &mut self.editor {
+    //         // TODO: replace line breaks to avoid multiple lines in buffer
+    //         editor.action(&mut system.font_system, Action::Insert(event.char));
+    //         for line in &editor.buffer().lines {
+    //             println!("ok3 {:?}", line.text());
+    //         }
+    //         // println!("###");
+    //         // for line in &editor.buffer().lines {
+    //         //     println!("ok1 {:?}", line.text());
+    //         //     println!("ok2 {:?}", line.text_without_ime());
+    //         // }
+    //     }
+    //     true
+    // }
 
     fn on_ime(&mut self, event: ImeEvent) -> bool {
         let system = &mut *self
