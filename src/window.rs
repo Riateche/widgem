@@ -142,12 +142,12 @@ impl Window {
                 buffer.present().unwrap();
             }
             Event::WindowEvent { event, .. } => {
-                if matches!(event, WindowEvent::Ime(_)) {
-                    println!("{event:?}");
-                }
-                if matches!(event, WindowEvent::KeyboardInput { .. }) {
-                    println!("keyborard input event: {event:?}");
-                }
+                // if matches!(event, WindowEvent::Ime(_)) {
+                //     println!("{event:?}");
+                // }
+                // if matches!(event, WindowEvent::KeyboardInput { .. }) {
+                //     println!("keyborard input event: {event:?}");
+                // }
                 match event {
                     // TODO: should use device id?
                     WindowEvent::CursorEntered { .. } => {

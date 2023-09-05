@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use cosmic_text::{
     Action, Attrs, AttrsList, AttrsOwned, Buffer, Cursor, Edit, Editor, Shaping, Wrap,
 };
@@ -31,6 +29,12 @@ impl TextEditor {
             window_id: None,
         });
         e.set_text(text, Attrs::new());
+        e.editor
+            .set_selection_color(Some(cosmic_text::Color::rgb(61, 174, 233)));
+        e.editor
+            .set_selected_text_color(Some(cosmic_text::Color::rgb(255, 255, 255)));
+        // let mut c = e.cursor();
+        // c.color = Some(cosmic_text::Color::rgb(0, 255, 0));
         e
     }
 
@@ -135,12 +139,26 @@ impl TextEditor {
     }
 
     // TODO: remove
-    pub fn action(&mut self, action: Action) {
+    pub fn action(&mut self, mut action: Action) {
+        if let Action::SetPreedit { attrs, .. } = &mut action {
+            if attrs.is_none() {
+                let new_attrs = self
+                    .attrs_at_cursor()
+                    .color(cosmic_text::Color::rgb(255, 0, 0));
+                *attrs = Some(AttrsOwned::new(new_attrs));
+            }
+        }
         with_system(|system| self.editor.action(&mut system.font_system, action));
     }
 
     pub fn cursor(&self) -> Cursor {
         self.editor.cursor()
+    }
+    pub fn set_cursor(&mut self, cursor: Cursor) {
+        self.editor.set_cursor(cursor);
+    }
+    pub fn has_selection(&self) -> bool {
+        self.editor.has_selection()
     }
     pub fn select_opt(&self) -> Option<Cursor> {
         self.editor.select_opt()
@@ -149,26 +167,15 @@ impl TextEditor {
         self.editor.set_select_opt(select_opt);
     }
 
-    fn ime_range(&self) -> Option<Range<usize>> {
-        let cursor = self.editor.cursor();
-        let line = &self.editor.buffer().lines[cursor.line];
-        line.attrs_list()
-            .spans()
-            .iter()
-            .find(|(_, attrs)| attrs.is_ime_pretext)
-            .map(|(range, _)| (*range).clone())
-    }
-
-    fn interrupt_ime(&mut self) {
-        let cursor = self.editor.cursor();
-        let ime_range = self.ime_range();
-        let line = &mut self.editor.buffer_mut().lines[cursor.line];
-        if let Some(ime_range) = ime_range {
-            let mut attrs_list = line.attrs_list().clone();
-            let defaults = AttrsOwned::new(attrs_list.defaults());
-            attrs_list.add_span(ime_range, defaults.as_attrs());
-            line.set_attrs_list(attrs_list);
-            self.shape_as_needed();
+    fn interrupt_preedit(&mut self) {
+        if let Some(text) = self.editor.preedit_text() {
+            let text = text.to_owned();
+            self.action(Action::SetPreedit {
+                preedit: String::new(),
+                cursor: None,
+                attrs: None,
+            });
+            self.insert_string(&text, None);
             if let Some(window_id) = self.window_id {
                 send_window_event(window_id, CancelImePreedit);
             } else {
@@ -178,25 +185,25 @@ impl TextEditor {
     }
 
     pub fn on_focus_out(&mut self) {
-        self.interrupt_ime();
+        self.interrupt_preedit();
         // TODO: hide cursor
     }
 
     pub fn on_window_focus_changed(&mut self, focused: bool) {
         if !focused {
-            self.interrupt_ime();
+            self.interrupt_preedit();
         }
     }
 
     pub fn on_mouse_input(&mut self, pos: Point, button: MouseButton) {
         match button {
             MouseButton::Left => {
-                let ime_range = self.ime_range();
                 let old_cursor = self.editor.cursor();
+                let preedit_range = self.editor.preedit_range();
                 let click_cursor = self.editor.buffer().hit(pos.x as f32, pos.y as f32);
                 if let Some(click_cursor) = click_cursor {
                     if click_cursor.line == old_cursor.line
-                        && ime_range
+                        && preedit_range
                             .as_ref()
                             .map_or(false, |ime_range| ime_range.contains(&click_cursor.index))
                     {
@@ -205,7 +212,8 @@ impl TextEditor {
                     } else {
                         // Click is outside IME preedit, so we insert the preedit text
                         // as real text and cancel IME preedit.
-                        self.interrupt_ime();
+                        self.interrupt_preedit();
+                        self.shape_as_needed();
                         println!("action click");
                         self.action(Action::Click { x: pos.x, y: pos.y });
                     }
@@ -219,6 +227,11 @@ impl TextEditor {
             }
             _ => {}
         }
+    }
+    fn attrs_at_cursor(&self) -> Attrs {
+        // TODO: use lines.get() everywhere to be safe
+        let line = &self.editor.buffer().lines[self.editor.cursor().line];
+        line.attrs_list().get_span(self.editor.cursor().index)
     }
 }
 

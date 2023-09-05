@@ -252,13 +252,16 @@ impl Widget for TextInput {
     fn on_ime(&mut self, event: ImeEvent) -> bool {
         match event.0.clone() {
             Ime::Enabled => {}
-            Ime::Preedit(pretext, cursor) => {
+            Ime::Preedit(preedit, cursor) => {
                 // TODO: can pretext have line breaks?
-                self.editor
-                    .action(Action::ImeSetPretext { pretext, cursor });
+                self.editor.action(Action::SetPreedit {
+                    preedit,
+                    cursor,
+                    attrs: None,
+                });
             }
             Ime::Commit(string) => {
-                self.editor.action(Action::ImeCommit(string));
+                self.editor.insert_string(&string, None);
             }
             Ime::Disabled => {}
         }
