@@ -17,7 +17,7 @@ use crate::{
     draw::DrawEvent,
     event::{
         CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent, WindowFocusChangedEvent,
     },
     system::with_system,
     types::{Point, Rect, Size},
@@ -47,7 +47,9 @@ pub struct Window {
     pub focusable_widgets: Vec<RawWidgetId>,
     pub focused_widget: Option<RawWidgetId>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
+    ime_allowed: bool,
     ime_cursor_area: Rect,
+    is_window_focused: bool,
 }
 
 impl Window {
@@ -79,7 +81,9 @@ impl Window {
             focusable_widgets: Vec::new(),
             focused_widget: None,
             mouse_grabber_widget: None,
+            ime_allowed: false,
             ime_cursor_area: Rect::default(),
+            is_window_focused: false,
         };
         w.widget_tree_changed();
         w
@@ -323,7 +327,7 @@ impl Window {
                     }
                     WindowEvent::Ime(ime) => {
                         if let Ime::Enabled = &ime {
-                            println!("reset ime position {:?}", self.ime_cursor_area);
+                            //println!("reset ime position {:?}", self.ime_cursor_area);
                             self.inner.set_ime_cursor_area(
                                 PhysicalPosition::new(
                                     self.ime_cursor_area.top_left.x,
@@ -347,6 +351,12 @@ impl Window {
                             }
                         }
                         //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
+                    }
+                    WindowEvent::Focused(focused) => {
+                        self.is_window_focused = focused;
+                        if let Some(root_widget) = &mut self.root_widget {
+                            root_widget.dispatch(WindowFocusChangedEvent { focused }.into());
+                        }
                     }
                     // WindowEvent::Ime(Ime::Preedit(text, cursor)) => {
                     //     //...
@@ -452,7 +462,9 @@ impl Window {
                 println!("warn: cannot focus widget that is not focusable");
                 return;
             }
-            self.inner.set_ime_allowed(widget.common().enable_ime);
+            let allowed = widget.common().enable_ime;
+            self.inner.set_ime_allowed(allowed);
+            self.ime_allowed = allowed;
         } else {
             println!("warn: set_focus: widget not found");
         }
@@ -475,6 +487,7 @@ impl Window {
     fn unset_focus(&mut self) {
         self.focused_widget = None;
         self.inner.set_ime_allowed(false);
+        self.ime_allowed = false;
     }
 
     fn layout(&mut self) {
@@ -504,12 +517,20 @@ impl Window {
                 self.set_focus(request.widget_id, request.reason);
             }
             WindowRequest::SetImeCursorArea(request) => {
-                println!("set new ime position {:?}", request.0);
-                self.inner.set_ime_cursor_area(
-                    PhysicalPosition::new(request.0.top_left.x, request.0.top_left.y),
-                    PhysicalSize::new(request.0.size.x, request.0.size.y),
-                ); //TODO: actual size
-                self.ime_cursor_area = request.0;
+                //println!("set new ime position {:?}", request.0);
+                if self.ime_cursor_area != request.0 {
+                    self.inner.set_ime_cursor_area(
+                        PhysicalPosition::new(request.0.top_left.x, request.0.top_left.y),
+                        PhysicalSize::new(request.0.size.x, request.0.size.y),
+                    ); //TODO: actual size
+                    self.ime_cursor_area = request.0;
+                }
+            }
+            WindowRequest::CancelImePreedit(_) => {
+                if self.ime_allowed {
+                    self.inner.set_ime_allowed(false);
+                    self.inner.set_ime_allowed(true);
+                }
             }
         }
     }
@@ -531,6 +552,7 @@ pub struct WindowEventContext {}
 pub enum WindowRequest {
     SetFocus(SetFocusRequest),
     SetImeCursorArea(SetImeCursorAreaRequest),
+    CancelImePreedit(CancelImePreedit),
 }
 
 #[derive(Debug)]
@@ -541,3 +563,6 @@ pub struct SetFocusRequest {
 
 #[derive(Debug)]
 pub struct SetImeCursorAreaRequest(pub Rect);
+
+#[derive(Debug)]
+pub struct CancelImePreedit;

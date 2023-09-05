@@ -8,7 +8,10 @@ use winit::{
 
 use crate::{
     draw::DrawEvent,
-    event::{CursorMovedEvent, FocusReason, GeometryChangedEvent, ImeEvent, KeyboardInputEvent},
+    event::{
+        CursorMovedEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
+        KeyboardInputEvent, MountEvent, UnmountEvent, WindowFocusChangedEvent,
+    },
     system::{send_window_event, with_system},
     text_editor::TextEditor,
     types::{Point, Rect},
@@ -106,10 +109,20 @@ impl Widget for TextInput {
                         },
                     );
                 }
-                self.editor.action(Action::Click {
-                    x: event.pos.x,
-                    y: event.pos.y,
-                });
+                self.editor.on_mouse_input(event.pos, event.button);
+            }
+            if event.button == MouseButton::Right {
+                // let builder = WindowBuilder::new()
+                //     .with_title("test_window")
+                //     .with_position(PhysicalPosition::new(100, 10))
+                //     .with_inner_size(PhysicalSize::new(300, 300))
+                //     .with_decorations(false)
+                //     .with_visible(true);
+                // let window =
+                //     WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
+                // let window = Window::new(window, None);
+                // std::mem::forget(window);
+                // println!("ok");
             }
         }
         true
@@ -262,5 +275,18 @@ impl Widget for TextInput {
     }
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
+    }
+
+    fn on_mount(&mut self, event: MountEvent) {
+        self.editor.set_window_id(Some(event.0.address.window_id));
+    }
+    fn on_unmount(&mut self, _event: UnmountEvent) {
+        self.editor.set_window_id(None);
+    }
+    fn on_focus_out(&mut self, _event: FocusOutEvent) {
+        self.editor.on_focus_out();
+    }
+    fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
+        self.editor.on_window_focus_changed(event.focused);
     }
 }

@@ -2,7 +2,10 @@ use std::rc::Rc;
 
 use crate::{
     draw::DrawEvent,
-    event::{CursorMovedEvent, GeometryChangedEvent, MountEvent, MouseInputEvent},
+    event::{
+        CursorMovedEvent, GeometryChangedEvent, MountEvent, MouseInputEvent,
+        WindowFocusChangedEvent,
+    },
     types::Rect,
 };
 
@@ -89,6 +92,12 @@ impl Widget for Stack {
             }
         }
         false
+    }
+
+    fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
+        for child in &mut self.children {
+            child.widget.dispatch(event.clone().into());
+        }
     }
 
     fn common(&self) -> &WidgetCommon {

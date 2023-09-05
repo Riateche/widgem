@@ -12,7 +12,7 @@ use crate::{
     draw::DrawEvent,
     event::{
         CursorMovedEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent, WindowFocusChangedEvent,
     },
     system::{address, register_address, unregister_address},
     types::{Rect, Size},
@@ -55,6 +55,8 @@ pub struct WidgetCommon {
     pub is_focusable: bool,
     pub enable_ime: bool,
     pub is_focused: bool,
+    // TODO: set initial value in mount event
+    pub is_window_focused: bool,
     pub mount_point: Option<MountPoint>,
     // Present if the widget is mounted, not hidden, and only after layout.
     pub geometry: Option<Geometry>,
@@ -73,6 +75,7 @@ impl WidgetCommon {
             id: RawWidgetId::new(),
             is_focusable: false,
             is_focused: false,
+            is_window_focused: false,
             enable_ime: false,
             mount_point: None,
             geometry: None,
@@ -91,6 +94,7 @@ impl WidgetCommon {
         }
         mount_point.window.0.borrow_mut().widget_tree_changed = true;
         self.mount_point = Some(mount_point);
+        // TODO: set is_window_focused
     }
 
     pub fn unmount(&mut self) {
@@ -100,6 +104,8 @@ impl WidgetCommon {
         } else {
             println!("warn: widget was not mounted");
         }
+        self.is_focused = false;
+        self.is_window_focused = false;
     }
 
     pub fn size(&self) -> Option<Size> {
@@ -176,6 +182,9 @@ pub trait Widget: Downcast {
     fn on_focus_out(&mut self, event: FocusOutEvent) {
         let _ = event;
     }
+    fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
+        let _ = event;
+    }
     fn on_event(&mut self, event: Event) -> bool {
         match event {
             Event::MouseInput(e) => self.on_mouse_input(e),
@@ -204,6 +213,10 @@ pub trait Widget: Downcast {
             }
             Event::FocusOut(e) => {
                 self.on_focus_out(e);
+                true
+            }
+            Event::WindowFocusChanged(e) => {
+                self.on_window_focus_changed(e);
                 true
             }
         }
@@ -263,6 +276,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::FocusOut(_) => {
                 self.common_mut().is_focused = false;
+            }
+            Event::WindowFocusChanged(e) => {
+                self.common_mut().is_window_focused = e.focused;
             }
             _ => (),
         }

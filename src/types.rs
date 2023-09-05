@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Sub},
 };
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
@@ -30,13 +30,13 @@ impl Sub for Point {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Size {
     pub x: i32,
     pub y: i32,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Rect {
     pub top_left: Point,
     pub size: Size,

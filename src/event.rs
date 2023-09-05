@@ -1,6 +1,6 @@
 use std::{cell::Cell, rc::Rc};
 
-use winit::event::{DeviceId, ElementState, Ime, MouseButton, KeyEvent};
+use winit::event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton};
 
 use crate::{
     draw::DrawEvent,
@@ -22,6 +22,7 @@ pub enum Event {
     Unmount(UnmountEvent),
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
+    WindowFocusChanged(WindowFocusChangedEvent),
 }
 
 pub struct MouseInputEvent {
@@ -68,3 +69,8 @@ pub struct FocusInEvent {
 }
 
 pub struct FocusOutEvent;
+
+#[derive(Clone)]
+pub struct WindowFocusChangedEvent {
+    pub focused: bool,
+}
