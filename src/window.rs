@@ -294,11 +294,14 @@ impl Window {
                                 if let Ok(widget) =
                                     get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
                                 {
+                                    let modifiers =
+                                        self.shared_window_data.0.borrow().modifiers_state;
                                     widget.dispatch(
                                         KeyboardInputEvent {
                                             device_id,
                                             event: event.clone(),
                                             is_synthetic,
+                                            modifiers,
                                         }
                                         .into(),
                                     );

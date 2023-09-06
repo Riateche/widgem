@@ -1,6 +1,9 @@
 use std::{cell::Cell, rc::Rc};
 
-use winit::event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton};
+use winit::{
+    event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton},
+    keyboard::ModifiersState,
+};
 
 use crate::{
     draw::DrawEvent,
@@ -43,6 +46,7 @@ pub struct KeyboardInputEvent {
     pub device_id: DeviceId,
     pub event: KeyEvent,
     pub is_synthetic: bool,
+    pub modifiers: ModifiersState,
 }
 
 pub struct ImeEvent(pub Ime);
