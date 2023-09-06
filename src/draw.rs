@@ -1,7 +1,10 @@
 use std::{cell::RefCell, rc::Rc};
 
 use cosmic_text::{BorrowedWithFontSystem, Buffer, Editor, SwashCache};
-use tiny_skia::{Color, Paint, PathBuilder, Pixmap, PixmapPaint, PixmapRef, Stroke, Transform};
+use tiny_skia::{
+    BlendMode, Color, FilterQuality, Paint, PathBuilder, Pattern, Pixmap, PixmapPaint, PixmapRef,
+    SpreadMode, Stroke, Transform,
+};
 
 use crate::types::{Point, Rect, Size};
 
@@ -21,6 +24,37 @@ impl DrawEvent {
             // TODO: mask?
             None,
         )
+    }
+
+    pub fn draw_subpixmap(&self, target_rect: Rect, pixmap: PixmapRef<'_>, pixmap_offset: Point) {
+        let target_rect = target_rect.translate(self.rect.top_left);
+        let translation = target_rect.top_left - pixmap_offset;
+        let patt_transform = Transform::from_translate(translation.x as f32, translation.y as f32);
+        let paint = Paint {
+            shader: Pattern::new(
+                pixmap,
+                SpreadMode::Pad, // Pad, otherwise we will get weird borders overlap.
+                FilterQuality::Nearest,
+                1.0,
+                patt_transform,
+            ),
+            blend_mode: BlendMode::default(),
+            anti_alias: false,        // Skia doesn't use it too.
+            force_hq_pipeline: false, // Pattern will use hq anyway.
+        };
+
+        self.pixmap.borrow_mut().fill_rect(
+            tiny_skia::Rect::from_xywh(
+                target_rect.top_left.x as f32,
+                target_rect.top_left.y as f32,
+                target_rect.size.x as f32,
+                target_rect.size.y as f32,
+            )
+            .unwrap(),
+            &paint,
+            Transform::default(),
+            None,
+        );
     }
 
     // TODO: add at least width

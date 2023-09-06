@@ -44,7 +44,7 @@ impl State {
         root.add(
             Rect {
                 top_left: Point { x: 300, y: 130 },
-                size: Size { x: 300, y: 30 },
+                size: Size { x: 300, y: 40 },
             },
             Box::new(w2),
         );
@@ -52,7 +52,7 @@ impl State {
         root.add(
             Rect {
                 top_left: Point { x: 300, y: 180 },
-                size: Size { x: 300, y: 30 },
+                size: Size { x: 300, y: 40 },
             },
             Box::new(w3),
         );

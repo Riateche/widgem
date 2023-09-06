@@ -1,7 +1,5 @@
 use winit::keyboard::{Key, KeyCode};
 
-use crate::shortcut::{KeyCombination, Modifiers, ShortcutKey};
-
 pub fn parse_key(text: &str) -> Option<Key> {
     let key = match text {
         "alt" => Key::Alt,
@@ -518,6 +516,8 @@ pub fn parse_keycode(text: &str) -> Option<KeyCode> {
 
 #[test]
 fn parse_shortcut() {
+    use crate::shortcut::{KeyCombination, Modifiers, ShortcutKey};
+
     fn test(text: &str, modifiers: Modifiers, key: impl Into<ShortcutKey>) {
         let actual = KeyCombination::from_str_portable(text).unwrap();
         let expected = KeyCombination::new(modifiers, key);

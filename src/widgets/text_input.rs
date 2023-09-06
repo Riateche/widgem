@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    cmp::{max, min},
+    fmt::Display,
+};
 
 use cosmic_text::{Action, Attrs, Wrap};
 use winit::{
@@ -14,7 +17,7 @@ use crate::{
     },
     system::{send_window_event, with_system},
     text_editor::TextEditor,
-    types::{Point, Rect},
+    types::{Point, Rect, Size},
     window::{SetFocusRequest, SetImeCursorAreaRequest},
 };
 
@@ -22,6 +25,9 @@ use super::{Widget, WidgetCommon};
 
 pub struct TextInput {
     editor: TextEditor,
+    editor_viewport_rect: Rect,
+    ideal_editor_offset: Point,
+    scroll_x: i32,
     common: WidgetCommon,
 }
 
@@ -32,19 +38,54 @@ impl TextInput {
         common.enable_ime = true;
         let mut editor = TextEditor::new(&text.to_string());
         editor.set_wrap(Wrap::None);
-        Self { editor, common }
+        Self {
+            editor,
+            common,
+            editor_viewport_rect: Rect::default(),
+            // TODO: get from theme
+            ideal_editor_offset: Point { x: 5, y: 5 },
+            scroll_x: 0,
+        }
     }
 
     pub fn set_text(&mut self, text: impl Display) {
         // TODO: replace line breaks to avoid multiple lines in buffer
         self.editor.set_text(&text.to_string(), Attrs::new());
     }
+
+    fn adjust_scroll(&mut self) {
+        let max_scroll = max(0, self.editor.size().x - self.editor_viewport_rect.size.x);
+        if let Some(cursor_position) = self.editor.cursor_position() {
+            let cursor_x_in_viewport = cursor_position.x - self.scroll_x;
+            if cursor_x_in_viewport < 0 {
+                self.scroll_x -= -cursor_x_in_viewport;
+            } else if cursor_x_in_viewport > self.editor_viewport_rect.size.x - 1 {
+                self.scroll_x += cursor_x_in_viewport - (self.editor_viewport_rect.size.x - 1);
+            }
+        }
+        self.scroll_x = self.scroll_x.clamp(0, max_scroll);
+    }
 }
 
 impl Widget for TextInput {
     fn on_geometry_changed(&mut self, event: GeometryChangedEvent) {
         if let Some(new_geometry) = event.new_geometry {
-            self.editor.set_size(new_geometry.rect_in_window.size);
+            let offset_y = max(0, new_geometry.rect_in_window.size.y - self.editor.size().y) / 2;
+            self.editor_viewport_rect = Rect {
+                top_left: Point {
+                    x: self.ideal_editor_offset.x,
+                    y: offset_y,
+                },
+                size: Size {
+                    x: max(
+                        0,
+                        new_geometry.rect_in_window.size.x - 2 * self.ideal_editor_offset.x,
+                    ),
+                    y: min(new_geometry.rect_in_window.size.y, self.editor.size().y),
+                },
+            };
+            self.adjust_scroll();
+            // self.editor.set_size(new_geometry.rect_in_window.size);
         }
     }
 
@@ -74,15 +115,22 @@ impl Widget for TextInput {
             );
         });
 
-        event.draw_pixmap(Point::default(), self.editor.pixmap().as_ref());
+        let mut target_rect = self.editor_viewport_rect;
+        target_rect.size.x = min(target_rect.size.x, self.editor.size().x);
+
+        let scroll = Point::new(self.scroll_x, 0);
+        event.draw_subpixmap(target_rect, self.editor.pixmap().as_ref(), scroll);
         if self.common.is_focused {
             if let Some(editor_cursor) = self.editor.cursor_position() {
-                // TODO: adjust for editor offset
-                // We specify an area below the input because on Windows the IME window obscures the specified area.
-                let top_left = Point {
-                    x: editor_cursor.x,
-                    y: editor_cursor.y + self.editor.line_height().ceil() as i32,
-                } + geometry.rect_in_window.top_left;
+                // We specify an area below the input because on Windows
+                // the IME window obscures the specified area.
+                let top_left =
+                    geometry.rect_in_window.top_left + self.editor_viewport_rect.top_left - scroll
+                        + editor_cursor
+                        + Point {
+                            x: 0,
+                            y: self.editor.line_height().ceil() as i32,
+                        };
                 let size = geometry.rect_in_window.size; // TODO: not actually correct
                 send_window_event(
                     mount_point.address.window_id,
@@ -109,7 +157,10 @@ impl Widget for TextInput {
                         },
                     );
                 }
-                self.editor.on_mouse_input(event.pos, event.button);
+                self.editor.on_mouse_input(
+                    event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
+                    event.button,
+                );
             }
             if event.button == MouseButton::Right {
                 // let builder = WindowBuilder::new()
@@ -125,6 +176,7 @@ impl Widget for TextInput {
                 // println!("ok");
             }
         }
+        self.adjust_scroll();
         true
     }
 
@@ -141,11 +193,10 @@ impl Widget for TextInput {
             .pressed_mouse_buttons
             .contains(&MouseButton::Left)
         {
-            self.editor.action(Action::Drag {
-                x: event.pos.x,
-                y: event.pos.y,
-            });
+            let pos = event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
+            self.editor.action(Action::Drag { x: pos.x, y: pos.y });
         }
+        self.adjust_scroll();
         true
     }
 
@@ -182,7 +233,6 @@ impl Widget for TextInput {
                 if !modifiers.shift_key() && self.editor.select_opt().is_some() {
                     self.editor.set_select_opt(None);
                 }
-                println!("handle left!");
                 Some(Action::Left)
             }
             Key::ArrowUp => Some(Action::Up),
@@ -207,6 +257,7 @@ impl Widget for TextInput {
         // );
         if let Some(action) = action {
             self.editor.action(action);
+            self.adjust_scroll();
             return true;
         }
         // println!("###");
@@ -219,6 +270,7 @@ impl Widget for TextInput {
         if let Some(text) = event.event.text {
             // TODO: replace line breaks to avoid multiple lines in buffer
             self.editor.insert_string(&text, None);
+            self.adjust_scroll();
             return true;
         }
         false
@@ -270,6 +322,7 @@ impl Widget for TextInput {
         //     println!("ok1 {:?}", line.text());
         //     println!("ok2 {:?}", line.text_without_ime());
         // }
+        self.adjust_scroll();
         true
     }
 

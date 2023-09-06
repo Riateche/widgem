@@ -5,7 +5,7 @@ use tiny_skia::{Color, Paint, Pixmap, Transform};
 use winit::{event::MouseButton, window::WindowId};
 
 use crate::{
-    draw::convert_color,
+    draw::{convert_color, unrestricted_text_size},
     system::{send_window_event, with_system},
     types::{Point, Size},
     window::CancelImePreedit,
@@ -29,6 +29,7 @@ impl TextEditor {
             window_id: None,
         });
         e.set_text(text, Attrs::new());
+        // TODO: get from theme
         e.editor
             .set_selection_color(Some(cosmic_text::Color::rgb(61, 174, 233)));
         e.editor
@@ -59,12 +60,17 @@ impl TextEditor {
                 Shaping::Advanced,
             );
         });
+        self.adjust_size();
     }
     pub fn insert_string(&mut self, text: &str, attrs_list: Option<AttrsList>) {
-        self.editor.insert_string(text, attrs_list)
+        self.editor.insert_string(text, attrs_list);
+        self.adjust_size();
     }
 
-    pub fn set_size(&mut self, size: Size) {
+    fn set_size(&mut self, size: Size) {
+        if size == self.size {
+            return;
+        }
         with_system(|system| {
             self.editor.buffer_mut().set_size(
                 &mut system.font_system,
@@ -88,13 +94,13 @@ impl TextEditor {
         with_system(|system| self.editor.shape_as_needed(&mut system.font_system));
     }
 
-    pub fn redraw(&mut self) -> bool {
+    pub fn needs_redraw(&mut self) -> bool {
         self.shape_as_needed();
         self.editor.buffer().redraw()
     }
 
     pub fn pixmap(&mut self) -> &Pixmap {
-        if self.pixmap.is_none() || self.redraw() {
+        if self.pixmap.is_none() || self.needs_redraw() {
             let size = Size {
                 x: self.editor.buffer().size().0.ceil() as i32,
                 y: self.editor.buffer().size().1.ceil() as i32,
@@ -149,6 +155,7 @@ impl TextEditor {
             }
         }
         with_system(|system| self.editor.action(&mut system.font_system, action));
+        self.adjust_size();
     }
 
     pub fn cursor(&self) -> Cursor {
@@ -232,6 +239,23 @@ impl TextEditor {
         // TODO: use lines.get() everywhere to be safe
         let line = &self.editor.buffer().lines[self.editor.cursor().line];
         line.attrs_list().get_span(self.editor.cursor().index)
+    }
+
+    pub fn unrestricted_text_size(&mut self) -> Size {
+        with_system(|system| {
+            unrestricted_text_size(
+                &mut self
+                    .editor
+                    .buffer_mut()
+                    .borrow_with(&mut system.font_system),
+            )
+        })
+    }
+
+    // TODO: adapt for multiline text
+    fn adjust_size(&mut self) {
+        let unrestricted_size = self.unrestricted_text_size();
+        self.set_size(unrestricted_size);
     }
 }
 
