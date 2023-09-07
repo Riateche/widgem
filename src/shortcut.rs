@@ -230,29 +230,14 @@ impl StandardShortcuts {
             #[cfg(target_os = "macos")]
             redo: s("Shift+CtrlOrMacCmd+Z"),
 
-            #[cfg(not(target_os = "macos"))]
-            select_all: s("Ctrl+A"),
-            #[cfg(target_os = "macos")]
             select_all: s("CtrlOrMacCmd+A"),
 
-            #[cfg(not(target_os = "macos"))]
-            deselect: s("Ctrl+Shift+A"),
-            #[cfg(target_os = "macos")]
             deselect: s("CtrlOrMacCmd+Shift+A"),
 
-            #[cfg(not(target_os = "macos"))]
-            bold: s("Ctrl+B"),
-            #[cfg(target_os = "macos")]
             bold: s("CtrlOrMacCmd+B"),
 
-            #[cfg(not(target_os = "macos"))]
-            italic: s("Ctrl+I"),
-            #[cfg(target_os = "macos")]
             italic: s("CtrlOrMacCmd+I"),
 
-            #[cfg(not(target_os = "macos"))]
-            underline: s("Ctrl+U"),
-            #[cfg(target_os = "macos")]
             underline: s("CtrlOrMacCmd+U"),
 
             #[cfg(not(target_os = "macos"))]
@@ -275,14 +260,8 @@ impl StandardShortcuts {
             #[cfg(target_os = "macos")]
             move_to_end_of_line: s("CtrlOrMacCmd+Right; MetaOrMacCtrl+Right"),
 
-            #[cfg(not(target_os = "macos"))]
-            select_next_char: s("Shift+Right"),
-            #[cfg(target_os = "macos")]
             select_next_char: s("Shift+Right"),
 
-            #[cfg(not(target_os = "macos"))]
-            select_previous_char: s("Shift+Left"),
-            #[cfg(target_os = "macos")]
             select_previous_char: s("Shift+Left"),
 
             #[cfg(not(target_os = "macos"))]
