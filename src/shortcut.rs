@@ -61,8 +61,8 @@ impl KeyCombination {
         let mut iter = text.rsplitn(2, '+');
         let key_text = iter
             .next()
-            .ok_or_else(|| anyhow!("no shortcut specified"))?;
-        let key_text = key_text.trim();
+            .ok_or_else(|| anyhow!("no shortcut specified"))?
+            .trim();
         let mut modifiers = Modifiers::empty();
         if let Some(modifiers_text) = iter.next() {
             for modifier_text in modifiers_text.split('+') {
