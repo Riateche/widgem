@@ -107,7 +107,9 @@ impl Widget for Stack {
         &mut self.common
     }
     fn layout(&mut self) {
-        let Some(geometry) = self.common().geometry else { return };
+        let Some(geometry) = self.common().geometry else {
+            return;
+        };
         for child in &mut self.children {
             let rect = child
                 .rect_in_parent

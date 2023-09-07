@@ -518,23 +518,64 @@ pub fn parse_keycode(text: &str) -> Option<KeyCode> {
 fn parse_shortcut() {
     use crate::shortcut::{KeyCombination, Modifiers, ShortcutKey};
 
-    fn test(text: &str, modifiers: Modifiers, key: impl Into<ShortcutKey>) {
+    fn test(text: &str, modifiers: Modifiers, key: impl Into<ShortcutKey>, equality: bool) {
         let actual = KeyCombination::from_str_portable(text).unwrap();
         let expected = KeyCombination::new(modifiers, key);
-        assert_eq!(
-            actual, expected,
-            "parse({:?}): expected {:?}, got {:?}",
-            text, expected, actual
-        );
+        if equality {
+            assert_eq!(
+                actual, expected,
+                "parse({:?}): expected {:?}, got {:?}",
+                text, expected, actual
+            );
+        } else {
+            assert_ne!(
+                actual, expected,
+                "parse({:?}) for nonequality: expected {:?}, got {:?}",
+                text, expected, actual
+            );
+        }
     }
 
-    test("PageDown", Modifiers::empty(), Key::PageDown);
-    test("Left", Modifiers::empty(), Key::ArrowLeft);
-    test("Ctrl+Left", Modifiers::CTRL_OR_MAC_CMD, Key::ArrowLeft);
-    test(
+    fn test_eq(text: &str, modifiers: Modifiers, key: impl Into<ShortcutKey>) {
+        test(text, modifiers, key, true);
+    }
+
+    test_eq("PageDown", Modifiers::empty(), Key::PageDown);
+    test_eq("Left", Modifiers::empty(), Key::ArrowLeft);
+    test_eq("Ctrl+Left", Modifiers::CTRL_OR_MAC_CMD, Key::ArrowLeft);
+    test_eq(
         "Shift+Ctrl+Left",
         Modifiers::SHIFT | Modifiers::CTRL_OR_MAC_CMD,
         Key::ArrowLeft,
     );
-    test("Ctrl+X", Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyX);
+    test_eq("Ctrl+X", Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyX);
+    test_eq("Ctrl+ X", Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyX);
+    test_eq("Ctrl + X", Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyX);
+    test_eq(" Ctrl+X", Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyX);
+    test_eq("   Ctrl + X    ", Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyX);
+
+    fn test_ne(text: &str, modifiers: Modifiers, key: impl Into<ShortcutKey>) {
+        test(text, modifiers, key, false);
+    }
+
+    test_ne("Ctrl+Left", Modifiers::META_OR_MAC_CTRL, Key::ArrowLeft);
+    test_ne("PageDown", Modifiers::empty(), Key::PageUp);
+
+    fn test_for_err(text: &str, err: &str) {
+        let error = KeyCombination::from_str_portable(text).err().unwrap();
+        assert_eq!(
+            &error.to_string(),
+            err,
+            "parse({:?}): expected error {:?}, got {:?}",
+            text,
+            err,
+            error
+        );
+    }
+
+    test_for_err("", "unknown key");
+    test_for_err("+Shift", "invalid format");
+    test_for_err("Alt++Shift", "invalid format");
+    test_for_err("Blabla+Shift", "unknown modifier");
+    test_for_err("Shift+Anotherblabla", "unknown key");
 }
