@@ -57,8 +57,7 @@ impl KeyCombination {
     }
 
     pub fn from_str_portable(text: &str) -> anyhow::Result<Self> {
-        let text = text.to_ascii_lowercase();
-        let text = text.trim();
+        let text = text.to_ascii_lowercase().trim();
         let mut iter = text.rsplitn(2, '+');
         let key_text = iter
             .next()
