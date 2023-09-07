@@ -200,9 +200,6 @@ impl StandardShortcuts {
             #[cfg(target_os = "macos")]
             move_to_previous_char: s("Left; MetaOrMacCtrl+B"),
 
-            #[cfg(not(target_os = "macos"))]
-            delete: s("Delete; MetaOrMacCtrl+D"),
-            #[cfg(target_os = "macos")]
             delete: s("Delete; MetaOrMacCtrl+D"),
 
             #[cfg(not(target_os = "macos"))]
