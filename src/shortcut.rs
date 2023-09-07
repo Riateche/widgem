@@ -57,10 +57,12 @@ impl KeyCombination {
 
     pub fn from_str_portable(text: &str) -> anyhow::Result<Self> {
         let text = text.to_ascii_lowercase();
+        let text = text.trim();
         let mut iter = text.rsplitn(2, '+');
         let key_text = iter
             .next()
             .ok_or_else(|| anyhow!("no shortcut specified"))?;
+        let key_text = key_text.trim();
         let mut modifiers = Modifiers::empty();
         if let Some(modifiers_text) = iter.next() {
             for modifier_text in modifiers_text.split('+') {
