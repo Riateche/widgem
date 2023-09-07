@@ -564,9 +564,12 @@ fn parse_shortcut() {
     fn test_for_err(text: &str, err: &str) {
         let error = KeyCombination::from_str_portable(text).err().unwrap();
         assert_eq!(
-            &error.to_string(), err,
+            &error.to_string(),
+            err,
             "parse({:?}): expected error {:?}, got {:?}",
-            text, err, error
+            text,
+            err,
+            error
         );
     }
 

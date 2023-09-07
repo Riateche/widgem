@@ -10,6 +10,7 @@ use crate::{
     shortcut::parse::{parse_key, parse_keycode},
 };
 
+#[derive(PartialEq, Debug)]
 pub struct Shortcut(pub Vec<KeyCombination>);
 
 impl Shortcut {
@@ -300,5 +301,74 @@ impl StandardShortcuts {
 impl Default for StandardShortcuts {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[test]
+fn standard_shortcuts() {
+    let shortcuts = StandardShortcuts::new();
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let shortcut1 = Shortcut(vec![KeyCombination::new(
+            Modifiers::empty(),
+            Key::ArrowRight,
+        )]);
+        assert_eq!(
+            shortcuts.move_to_next_char, shortcut1,
+            "standard_shortcuts: expected {:?}, got {:?}",
+            shortcut1, shortcuts.move_to_next_char
+        );
+
+        let shortcut2 = Shortcut(vec![
+            KeyCombination::new(Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyY),
+            KeyCombination::new(Modifiers::CTRL_OR_MAC_CMD | Modifiers::SHIFT, KeyCode::KeyZ),
+            KeyCombination::new(Modifiers::ALT | Modifiers::SHIFT, Key::Backspace),
+        ]);
+        assert_eq!(
+            shortcuts.redo, shortcut2,
+            "standard_shortcuts: expected {:?}, got {:?}",
+            shortcut1, shortcuts.redo
+        );
+
+        let shortcut3 = Shortcut(vec![KeyCombination::new(Modifiers::SHIFT, Key::End)]);
+        assert_eq!(
+            shortcuts.select_end_of_line, shortcut3,
+            "standard_shortcuts: expected {:?}, got {:?}",
+            shortcut1, shortcuts.select_end_of_line
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let shortcut1 = Shortcut(vec![
+            KeyCombination::new(Modifiers::empty(), Key::ArrowRight),
+            KeyCombination::new(Modifiers::META_OR_MAC_CTRL, KeyCode::KeyF),
+        ]);
+        assert_eq!(
+            shortcuts.move_to_next_char, shortcut1,
+            "standard_shortcuts: expected {:?}, got {:?}",
+            shortcut1, shortcuts.move_to_next_char
+        );
+
+        let shortcut2 = Shortcut(vec![KeyCombination::new(
+            Modifiers::CTRL_OR_MAC_CMD | Modifiers::SHIFT,
+            KeyCode::KeyZ,
+        )]);
+        assert_eq!(
+            shortcuts.redo, shortcut2,
+            "standard_shortcuts: expected {:?}, got {:?}",
+            shortcut1, shortcuts.redo
+        );
+
+        let shortcut3 = Shortcut(vec![KeyCombination::new(
+            Modifiers::SHIFT | Modifiers::CTRL_OR_MAC_CMD,
+            Key::ArrowRight,
+        )]);
+        assert_eq!(
+            shortcuts.select_end_of_line, shortcut3,
+            "standard_shortcuts: expected {:?}, got {:?}",
+            shortcut1, shortcuts.select_end_of_line
+        );
     }
 }
