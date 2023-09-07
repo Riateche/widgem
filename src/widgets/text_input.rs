@@ -4,10 +4,7 @@ use std::{
 };
 
 use cosmic_text::{Action, Attrs, Wrap};
-use winit::{
-    event::{ElementState, Ime, MouseButton},
-    keyboard::Key,
-};
+use winit::event::{ElementState, Ime, MouseButton};
 
 use crate::{
     draw::DrawEvent,
@@ -15,6 +12,7 @@ use crate::{
         CursorMovedEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
         KeyboardInputEvent, MountEvent, UnmountEvent, WindowFocusChangedEvent,
     },
+    shortcut::standard_shortcuts,
     system::{send_window_event, with_system},
     text_editor::TextEditor,
     types::{Point, Rect, Size},
@@ -160,6 +158,8 @@ impl Widget for TextInput {
                 self.editor.on_mouse_input(
                     event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
                     event.button,
+                    event.num_clicks,
+                    mount_point.window.0.borrow().modifiers_state.shift_key(),
                 );
             }
             if event.button == MouseButton::Right {
@@ -194,86 +194,78 @@ impl Widget for TextInput {
             .contains(&MouseButton::Left)
         {
             let pos = event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
-            self.editor.action(Action::Drag { x: pos.x, y: pos.y });
+            self.editor
+                .action(Action::Drag { x: pos.x, y: pos.y }, true);
         }
         self.adjust_scroll();
         true
     }
 
+    #[allow(clippy::if_same_then_else)]
     fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
-        //println!("on_keyboard_input, {:?}", event);
+        // println!("text input on_keyboard_input, {:?}", event);
         if event.event.state == ElementState::Released {
             return true;
         }
 
-        let mount_point = self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted");
-        let modifiers = mount_point.window.0.borrow().modifiers_state;
-        let logical_key = event.event.logical_key;
-        // TODO: different commands for macOS?
-        let action = match logical_key {
-            // TODO: scroll lock?
-            Key::Escape => {
-                // TODO: cosmic-text for some reason suggests to clear selection on Escape?
-                None
-            }
-            Key::Insert => None, //TODO
-            Key::Home => Some(Action::Home),
-            Key::Delete => Some(Action::Delete),
-            Key::End => Some(Action::End),
-            Key::PageDown => Some(Action::PageDown),
-            Key::PageUp => Some(Action::PageUp),
-            Key::ArrowLeft => {
-                if modifiers.shift_key() && self.editor.select_opt().is_none() {
-                    self.editor.set_select_opt(Some(self.editor.cursor()));
-                }
-                if !modifiers.shift_key() && self.editor.select_opt().is_some() {
-                    self.editor.set_select_opt(None);
-                }
-                Some(Action::Left)
-            }
-            Key::ArrowUp => Some(Action::Up),
-            Key::ArrowRight => Some(Action::Right),
-            Key::ArrowDown => Some(Action::Down),
-            Key::Backspace => Some(Action::Backspace),
-            Key::Enter => Some(Action::Enter),
-            // Key::Caret => {
-            //     // TODO: what's that?
-            //     return true;
-            // }
-            Key::Copy | Key::Cut | Key::Paste => {
-                // TODO
-                None
-            }
-            _ => None,
-        };
-        // println!(
-        //     "ok2.2 selection: {:?}, cursor: {:?}",
-        //     editor.select_opt(),
-        //     editor.cursor()
-        // );
-        if let Some(action) = action {
-            self.editor.action(action);
-            self.adjust_scroll();
-            return true;
-        }
-        // println!("###");
-        // for line in &editor.buffer().lines {
-        //     println!("ok1 {:?}", line.text());
-        //     println!("ok2 {:?}", line.text_without_ime());
-        // }
-        //editor.buffer_mut().set_redraw(true);
-
-        if let Some(text) = event.event.text {
-            // TODO: replace line breaks to avoid multiple lines in buffer
+        let shortcuts = standard_shortcuts();
+        if shortcuts.move_to_next_char.matches(&event) {
+            self.editor.action(Action::Next, false);
+        } else if shortcuts.move_to_previous_char.matches(&event) {
+            self.editor.action(Action::Previous, false);
+        } else if shortcuts.delete.matches(&event) {
+            self.editor.action(Action::Delete, false);
+        } else if shortcuts.backspace.matches(&event) {
+            self.editor.action(Action::Backspace, false);
+        } else if shortcuts.cut.matches(&event) {
+            // TODO
+        } else if shortcuts.copy.matches(&event) {
+            // TODO
+        } else if shortcuts.paste.matches(&event) {
+            // TODO
+        } else if shortcuts.undo.matches(&event) {
+            // TODO
+        } else if shortcuts.redo.matches(&event) {
+            // TODO
+        } else if shortcuts.select_all.matches(&event) {
+            self.editor.action(Action::SelectAll, false);
+        } else if shortcuts.deselect.matches(&event) {
+            // TODO: why Escape?
+            self.editor.action(Action::Escape, false);
+        } else if shortcuts.move_to_next_word.matches(&event) {
+            self.editor.action(Action::NextWord, false);
+        } else if shortcuts.move_to_previous_word.matches(&event) {
+            self.editor.action(Action::PreviousWord, false);
+        } else if shortcuts.move_to_start_of_line.matches(&event) {
+            self.editor.action(Action::Home, false);
+        } else if shortcuts.move_to_end_of_line.matches(&event) {
+            self.editor.action(Action::End, false);
+        } else if shortcuts.select_next_char.matches(&event) {
+            self.editor.action(Action::Next, true);
+        } else if shortcuts.select_previous_char.matches(&event) {
+            self.editor.action(Action::Previous, true);
+        } else if shortcuts.select_next_word.matches(&event) {
+            self.editor.action(Action::NextWord, true);
+        } else if shortcuts.select_previous_word.matches(&event) {
+            self.editor.action(Action::PreviousWord, true);
+        } else if shortcuts.select_start_of_line.matches(&event) {
+            self.editor.action(Action::Home, true);
+        } else if shortcuts.select_end_of_line.matches(&event) {
+            self.editor.action(Action::End, true);
+        } else if shortcuts.delete_start_of_word.matches(&event) {
+            self.editor.action(Action::DeleteStartOfWord, false);
+        } else if shortcuts.delete_end_of_word.matches(&event) {
+            self.editor.action(Action::DeleteEndOfWord, false);
+        } else if shortcuts.insert_paragraph_separator.matches(&event) {
+            self.editor.action(Action::Enter, false);
+        } else if let Some(text) = event.event.text {
             self.editor.insert_string(&text, None);
-            self.adjust_scroll();
-            return true;
+        } else {
+            // println!("nothing");
+            return false;
         }
-        false
+        self.adjust_scroll();
+        true
     }
 
     // fn on_received_character(&mut self, event: ReceivedCharacterEvent) -> bool {
@@ -306,11 +298,14 @@ impl Widget for TextInput {
             Ime::Enabled => {}
             Ime::Preedit(preedit, cursor) => {
                 // TODO: can pretext have line breaks?
-                self.editor.action(Action::SetPreedit {
-                    preedit,
-                    cursor,
-                    attrs: None,
-                });
+                self.editor.action(
+                    Action::SetPreedit {
+                        preedit,
+                        cursor,
+                        attrs: None,
+                    },
+                    false,
+                );
             }
             Ime::Commit(string) => {
                 self.editor.insert_string(&string, None);

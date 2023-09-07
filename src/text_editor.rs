@@ -145,7 +145,8 @@ impl TextEditor {
     }
 
     // TODO: remove
-    pub fn action(&mut self, mut action: Action) {
+    pub fn action(&mut self, mut action: Action, select: bool) {
+        // println!("action {:?}", action);
         if let Action::SetPreedit { attrs, .. } = &mut action {
             if attrs.is_none() {
                 let new_attrs = self
@@ -154,7 +155,7 @@ impl TextEditor {
                 *attrs = Some(AttrsOwned::new(new_attrs));
             }
         }
-        with_system(|system| self.editor.action(&mut system.font_system, action));
+        with_system(|system| self.editor.action(&mut system.font_system, action, select));
         self.adjust_size();
     }
 
@@ -177,11 +178,14 @@ impl TextEditor {
     fn interrupt_preedit(&mut self) {
         if let Some(text) = self.editor.preedit_text() {
             let text = text.to_owned();
-            self.action(Action::SetPreedit {
-                preedit: String::new(),
-                cursor: None,
-                attrs: None,
-            });
+            self.action(
+                Action::SetPreedit {
+                    preedit: String::new(),
+                    cursor: None,
+                    attrs: None,
+                },
+                false,
+            );
             self.insert_string(&text, None);
             if let Some(window_id) = self.window_id {
                 send_window_event(window_id, CancelImePreedit);
@@ -202,7 +206,13 @@ impl TextEditor {
         }
     }
 
-    pub fn on_mouse_input(&mut self, pos: Point, button: MouseButton) {
+    pub fn on_mouse_input(
+        &mut self,
+        pos: Point,
+        button: MouseButton,
+        num_clicks: u32,
+        select: bool,
+    ) {
         match button {
             MouseButton::Left => {
                 let old_cursor = self.editor.cursor();
@@ -221,8 +231,15 @@ impl TextEditor {
                         // as real text and cancel IME preedit.
                         self.interrupt_preedit();
                         self.shape_as_needed();
-                        println!("action click");
-                        self.action(Action::Click { x: pos.x, y: pos.y });
+                        // println!("action click");
+                        let x = pos.x;
+                        let y = pos.y;
+                        match ((num_clicks - 1) % 3) + 1 {
+                            1 => self.action(Action::Click { x, y }, select),
+                            2 => self.action(Action::SelectWord { x, y }, false),
+                            3 => self.action(Action::SelectParagraph { x, y }, false),
+                            _ => {}
+                        }
                     }
                 }
             }

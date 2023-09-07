@@ -3,6 +3,7 @@ use std::{
     collections::HashSet,
     num::NonZeroU32,
     rc::Rc,
+    time::{Duration, Instant},
 };
 
 use derive_more::From;
@@ -25,6 +26,9 @@ use crate::{
         get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
     },
 };
+
+// TODO: get system setting
+const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 
 pub struct SharedWindowDataInner {
     pub widget_tree_changed: bool,
@@ -50,6 +54,10 @@ pub struct Window {
     ime_allowed: bool,
     ime_cursor_area: Rect,
     is_window_focused: bool,
+
+    num_clicks: u32,
+    last_click_button: Option<MouseButton>,
+    last_click_instant: Option<Instant>,
 }
 
 impl Window {
@@ -84,6 +92,9 @@ impl Window {
             ime_allowed: false,
             ime_cursor_area: Rect::default(),
             is_window_focused: false,
+            num_clicks: 0,
+            last_click_button: None,
+            last_click_instant: None,
         };
         w.widget_tree_changed();
         w
@@ -215,6 +226,17 @@ impl Window {
                                     .borrow_mut()
                                     .pressed_mouse_buttons
                                     .insert(button);
+                                if self
+                                    .last_click_instant
+                                    .map_or(false, |last| last.elapsed() < DOUBLE_CLICK_TIMEOUT)
+                                    && self.last_click_button == Some(button)
+                                {
+                                    self.num_clicks += 1;
+                                } else {
+                                    self.num_clicks = 1;
+                                    self.last_click_button = Some(button);
+                                }
+                                self.last_click_instant = Some(Instant::now());
                             }
                             ElementState::Released => {
                                 self.shared_window_data
@@ -243,6 +265,7 @@ impl Window {
                                                     device_id,
                                                     state,
                                                     button,
+                                                    num_clicks: self.num_clicks,
                                                     pos: pos_in_widget,
                                                     accepted_by: Rc::clone(&accepted_by),
                                                 }
@@ -265,6 +288,7 @@ impl Window {
                                             device_id,
                                             state,
                                             button,
+                                            num_clicks: self.num_clicks,
                                             pos: pos_in_window,
                                             accepted_by: Rc::clone(&accepted_by),
                                         }

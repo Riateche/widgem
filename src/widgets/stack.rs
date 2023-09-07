@@ -69,6 +69,7 @@ impl Widget for Stack {
                     device_id: event.device_id,
                     state: event.state,
                     button: event.button,
+                    num_clicks: event.num_clicks,
                     accepted_by: Rc::clone(&event.accepted_by),
                 };
                 if child.widget.dispatch(event.into()) {

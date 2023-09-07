@@ -32,6 +32,7 @@ pub struct MouseInputEvent {
     pub device_id: DeviceId,
     pub state: ElementState,
     pub button: MouseButton,
+    pub num_clicks: u32,
     pub pos: Point,
     pub accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }

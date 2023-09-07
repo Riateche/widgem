@@ -1,6 +1,7 @@
 use anyhow::{anyhow, bail};
 use bitflags::bitflags;
 use derive_more::From;
+use once_cell::sync::OnceCell;
 use winit::keyboard::{Key, KeyCode, ModifiersState};
 
 mod parse;
@@ -163,6 +164,7 @@ pub struct StandardShortcuts {
     pub move_to_next_char: Shortcut,
     pub move_to_previous_char: Shortcut,
     pub delete: Shortcut,
+    pub backspace: Shortcut,
     pub cut: Shortcut,
     pub copy: Shortcut,
     pub paste: Shortcut,
@@ -185,6 +187,7 @@ pub struct StandardShortcuts {
     pub select_end_of_line: Shortcut,
     pub delete_start_of_word: Shortcut,
     pub delete_end_of_word: Shortcut,
+    pub insert_paragraph_separator: Shortcut,
 }
 
 impl StandardShortcuts {
@@ -202,6 +205,11 @@ impl StandardShortcuts {
             move_to_previous_char: s("Left; MetaOrMacCtrl+B"),
 
             delete: s("Delete; MetaOrMacCtrl+D"),
+
+            #[cfg(not(target_os = "macos"))]
+            backspace: s("Backspace"),
+            #[cfg(target_os = "macos")]
+            backspace: s("Backspace; MetaOrMacCtrl+H"),
 
             #[cfg(not(target_os = "macos"))]
             cut: s("Ctrl+X; Shift+Delete; F20"),
@@ -287,10 +295,9 @@ impl StandardShortcuts {
             #[cfg(target_os = "macos")]
             delete_start_of_word: s("Alt+Backspace"),
 
-            #[cfg(not(target_os = "macos"))]
-            delete_end_of_word: s("Ctrl+Delete"),
-            #[cfg(target_os = "macos")]
             delete_end_of_word: s("CtrlOrMacCmd+Delete"),
+
+            insert_paragraph_separator: s("Enter"),
         }
     }
 }
@@ -301,8 +308,13 @@ impl Default for StandardShortcuts {
     }
 }
 
+pub fn standard_shortcuts() -> &'static StandardShortcuts {
+    static CELL: OnceCell<StandardShortcuts> = OnceCell::new();
+    CELL.get_or_init(StandardShortcuts::new)
+}
+
 #[test]
-fn standard_shortcuts() {
+fn test_standard_shortcuts() {
     let shortcuts = StandardShortcuts::new();
 
     #[cfg(not(target_os = "macos"))]
