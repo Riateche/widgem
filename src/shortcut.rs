@@ -159,6 +159,29 @@ impl From<ModifiersState> for Modifiers {
 pub struct StandardShortcuts {
     pub move_to_next_char: Shortcut,
     pub move_to_previous_char: Shortcut,
+    pub delete: Shortcut,
+    pub cut: Shortcut,
+    pub copy: Shortcut,
+    pub paste: Shortcut,
+    pub undo: Shortcut,
+    pub redo: Shortcut,
+    pub select_all: Shortcut,
+    pub deselect: Shortcut,
+    pub bold: Shortcut,
+    pub italic: Shortcut,
+    pub underline: Shortcut,
+    pub move_to_next_word: Shortcut,
+    pub move_to_previous_word: Shortcut,
+    pub move_to_start_of_line: Shortcut,
+    pub move_to_end_of_line: Shortcut,
+    pub select_next_char: Shortcut,
+    pub select_previous_char: Shortcut,
+    pub select_next_word: Shortcut,
+    pub select_previous_word: Shortcut,
+    pub select_start_of_line: Shortcut,
+    pub select_end_of_line: Shortcut,
+    pub delete_start_of_word: Shortcut,
+    pub delete_end_of_word: Shortcut,
 }
 
 impl StandardShortcuts {
@@ -169,11 +192,126 @@ impl StandardShortcuts {
             move_to_next_char: s("Right"),
             #[cfg(target_os = "macos")]
             move_to_next_char: s("Right; MetaOrMacCtrl+F"),
+
             #[cfg(not(target_os = "macos"))]
             move_to_previous_char: s("Left"),
             #[cfg(target_os = "macos")]
-            move_to_previous_char: Shortcut::new(Modifiers::empty(), Key::ArrowLeft)
-                .or(Modifiers::META_OR_MAC_CTRL, KeyCode::KeyB),
+            move_to_previous_char: s("Left; MetaOrMacCtrl+B"),
+
+            #[cfg(not(target_os = "macos"))]
+            delete: s("Delete; MetaOrMacCtrl+D"),
+            #[cfg(target_os = "macos")]
+            delete: s("Delete; MetaOrMacCtrl+D"),
+
+            #[cfg(not(target_os = "macos"))]
+            cut: s("Ctrl+X; Shift+Delete; F20"),
+            #[cfg(target_os = "macos")]
+            cut: s("CtrlOrMacCmd+X; MetaOrMacCtrl+K"),
+
+            #[cfg(not(target_os = "macos"))]
+            copy: s("Ctrl+C; Ctrl+Insert; F16"),
+            #[cfg(target_os = "macos")]
+            copy: s("CtrlOrMacCmd+C"),
+
+            #[cfg(not(target_os = "macos"))]
+            paste: s("Ctrl+V; Shift+Insert; F18"),
+            #[cfg(target_os = "macos")]
+            paste: s("CtrlOrMacCmd+V; MetaOrMacCtrl+Y"),
+
+            #[cfg(not(target_os = "macos"))]
+            undo: s("Ctrl+Z; Alt+Backspace; F14"),
+            #[cfg(target_os = "macos")]
+            undo: s("CtrlOrMacCmd+Z"),
+
+            #[cfg(not(target_os = "macos"))]
+            redo: s("Ctrl+Y; Shift+Ctrl+Z; Alt+Shift+Backspace"),
+            #[cfg(target_os = "macos")]
+            redo: s("Shift+CtrlOrMacCmd+Z"),
+
+            #[cfg(not(target_os = "macos"))]
+            select_all: s("Ctrl+A"),
+            #[cfg(target_os = "macos")]
+            select_all: s("CtrlOrMacCmd+A"),
+
+            #[cfg(not(target_os = "macos"))]
+            deselect: s("Ctrl+Shift+A"),
+            #[cfg(target_os = "macos")]
+            deselect: s("CtrlOrMacCmd+Shift+A"),
+
+            #[cfg(not(target_os = "macos"))]
+            bold: s("Ctrl+B"),
+            #[cfg(target_os = "macos")]
+            bold: s("CtrlOrMacCmd+B"),
+
+            #[cfg(not(target_os = "macos"))]
+            italic: s("Ctrl+I"),
+            #[cfg(target_os = "macos")]
+            italic: s("CtrlOrMacCmd+I"),
+
+            #[cfg(not(target_os = "macos"))]
+            underline: s("Ctrl+U"),
+            #[cfg(target_os = "macos")]
+            underline: s("CtrlOrMacCmd+U"),
+
+            #[cfg(not(target_os = "macos"))]
+            move_to_next_word: s("Ctrl+Right"),
+            #[cfg(target_os = "macos")]
+            move_to_next_word: s("Alt+Right"),
+
+            #[cfg(not(target_os = "macos"))]
+            move_to_previous_word: s("Ctrl+Left"),
+            #[cfg(target_os = "macos")]
+            move_to_previous_word: s("Alt+Left"),
+
+            #[cfg(not(target_os = "macos"))]
+            move_to_start_of_line: s("Home"),
+            #[cfg(target_os = "macos")]
+            move_to_start_of_line: s("CtrlOrMacCmd+Left; MetaOrMacCtrl+Left"),
+
+            #[cfg(not(target_os = "macos"))]
+            move_to_end_of_line: s("End; Ctrl+E"),
+            #[cfg(target_os = "macos")]
+            move_to_end_of_line: s("CtrlOrMacCmd+Right; MetaOrMacCtrl+Right"),
+
+            #[cfg(not(target_os = "macos"))]
+            select_next_char: s("Shift+Right"),
+            #[cfg(target_os = "macos")]
+            select_next_char: s("Shift+Right"),
+
+            #[cfg(not(target_os = "macos"))]
+            select_previous_char: s("Shift+Left"),
+            #[cfg(target_os = "macos")]
+            select_previous_char: s("Shift+Left"),
+
+            #[cfg(not(target_os = "macos"))]
+            select_next_word: s("Ctrl+Shift+Right"),
+            #[cfg(target_os = "macos")]
+            select_next_word: s("Alt+Shift+Right"),
+
+            #[cfg(not(target_os = "macos"))]
+            select_previous_word: s("Ctrl+Shift+Left"),
+            #[cfg(target_os = "macos")]
+            select_previous_word: s("Alt+Shift+Left"),
+
+            #[cfg(not(target_os = "macos"))]
+            select_start_of_line: s("Shift+Home"),
+            #[cfg(target_os = "macos")]
+            select_start_of_line: s("CtrlOrMacCmd+Shift+Left"),
+
+            #[cfg(not(target_os = "macos"))]
+            select_end_of_line: s("Shift+End"),
+            #[cfg(target_os = "macos")]
+            select_end_of_line: s("CtrlOrMacCmd+Shift+Right"),
+
+            #[cfg(not(target_os = "macos"))]
+            delete_start_of_word: s("Ctrl+Backspace"),
+            #[cfg(target_os = "macos")]
+            delete_start_of_word: s("Alt+Backspace"),
+
+            #[cfg(not(target_os = "macos"))]
+            delete_end_of_word: s("Ctrl+Delete"),
+            #[cfg(target_os = "macos")]
+            delete_end_of_word: s("CtrlOrMacCmd+Delete"),
         }
     }
 }
