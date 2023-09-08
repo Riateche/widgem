@@ -61,7 +61,7 @@ pub struct MountEvent(pub MountPoint);
 
 pub struct UnmountEvent;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum FocusReason {
     Mouse,
     Tab,

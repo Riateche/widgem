@@ -5,17 +5,21 @@ use std::{
 };
 
 use cosmic_text::{Action, Attrs, Wrap};
-use winit::event::{ElementState, Ime, MouseButton};
+use winit::{
+    event::{ElementState, Ime, MouseButton},
+    keyboard::Key,
+};
 
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
+        CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
         KeyboardInputEvent, MountEvent, UnmountEvent, WindowFocusChangedEvent,
     },
     shortcut::standard_shortcuts,
-    system::{add_interval, add_timer, send_window_event, with_system},
+    system::{add_interval, send_window_event, with_system},
     text_editor::TextEditor,
+    timer::TimerId,
     types::{Point, Rect, Size},
     window::{SetFocusRequest, SetImeCursorAreaRequest},
 };
@@ -28,7 +32,11 @@ pub struct TextInput {
     ideal_editor_offset: Point,
     scroll_x: i32,
     common: WidgetCommon,
+    blink_timer: Option<TimerId>,
 }
+
+// TODO: get system setting
+const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
 impl TextInput {
     pub fn new(text: impl Display) -> Self {
@@ -44,12 +52,14 @@ impl TextInput {
             // TODO: get from theme
             ideal_editor_offset: Point { x: 5, y: 5 },
             scroll_x: 0,
+            blink_timer: None,
         }
     }
 
     pub fn set_text(&mut self, text: impl Display) {
         // TODO: replace line breaks to avoid multiple lines in buffer
         self.editor.set_text(&text.to_string(), Attrs::new());
+        self.reset_blink_timer();
     }
 
     fn adjust_scroll(&mut self) {
@@ -65,8 +75,26 @@ impl TextInput {
         self.scroll_x = self.scroll_x.clamp(0, max_scroll);
     }
 
-    fn update_blink(&mut self) {
+    fn reset_blink_timer(&mut self) {
+        if let Some(id) = self.blink_timer.take() {
+            id.cancel();
+        }
+        if self.common.mount_point.is_none() {
+            return;
+        }
+        self.editor.set_cursor_hidden(!self.common.is_focused);
+        if self.common.is_focused {
+            let id = add_interval(CURSOR_BLINK_INTERVAL, self.id(), |this, _| {
+                this.toggle_cursor_hidden();
+            });
+            self.blink_timer = Some(id);
+        }
+    }
+
+    fn toggle_cursor_hidden(&mut self) {
         println!("blink!");
+        self.editor
+            .set_cursor_hidden(!self.editor.is_cursor_hidden());
     }
 }
 
@@ -88,6 +116,7 @@ impl Widget for TextInput {
                 },
             };
             self.adjust_scroll();
+            self.reset_blink_timer();
             // self.editor.set_size(new_geometry.rect_in_window.size);
         }
     }
@@ -170,9 +199,6 @@ impl Widget for TextInput {
                 // add_timer(Duration::from_secs(1), self.id(), |this, _| {
                 //     this.update_blink();
                 // });
-                add_interval(Duration::from_secs(1), self.id(), |this, _| {
-                    this.update_blink();
-                });
             }
             if event.button == MouseButton::Right {
                 // let builder = WindowBuilder::new()
@@ -189,6 +215,7 @@ impl Widget for TextInput {
             }
         }
         self.adjust_scroll();
+        self.reset_blink_timer();
         true
     }
 
@@ -271,39 +298,17 @@ impl Widget for TextInput {
         } else if shortcuts.insert_paragraph_separator.matches(&event) {
             self.editor.action(Action::Enter, false);
         } else if let Some(text) = event.event.text {
+            if event.event.logical_key == Key::Tab {
+                return false;
+            }
             self.editor.insert_string(&text, None);
         } else {
-            // println!("nothing");
             return false;
         }
         self.adjust_scroll();
+        self.reset_blink_timer();
         true
     }
-
-    // fn on_received_character(&mut self, event: ReceivedCharacterEvent) -> bool {
-    //     let system = &mut *self
-    //         .common
-    //         .mount_point
-    //         .as_ref()
-    //         .expect("cannot handle event when unmounted")
-    //         .system
-    //         .0
-    //         .borrow_mut();
-
-    //     if let Some(editor) = &mut self.editor {
-    //         // TODO: replace line breaks to avoid multiple lines in buffer
-    //         editor.action(&mut system.font_system, Action::Insert(event.char));
-    //         for line in &editor.buffer().lines {
-    //             println!("ok3 {:?}", line.text());
-    //         }
-    //         // println!("###");
-    //         // for line in &editor.buffer().lines {
-    //         //     println!("ok1 {:?}", line.text());
-    //         //     println!("ok2 {:?}", line.text_without_ime());
-    //         // }
-    //     }
-    //     true
-    // }
 
     fn on_ime(&mut self, event: ImeEvent) -> bool {
         match event.0.clone() {
@@ -330,6 +335,7 @@ impl Widget for TextInput {
         //     println!("ok2 {:?}", line.text_without_ime());
         // }
         self.adjust_scroll();
+        self.reset_blink_timer();
         true
     }
 
@@ -342,14 +348,22 @@ impl Widget for TextInput {
 
     fn on_mount(&mut self, event: MountEvent) {
         self.editor.set_window_id(Some(event.0.address.window_id));
+        self.reset_blink_timer();
     }
     fn on_unmount(&mut self, _event: UnmountEvent) {
         self.editor.set_window_id(None);
+        self.reset_blink_timer();
+    }
+    fn on_focus_in(&mut self, event: FocusInEvent) {
+        self.editor.on_focus_in(event.reason);
+        self.reset_blink_timer();
     }
     fn on_focus_out(&mut self, _event: FocusOutEvent) {
         self.editor.on_focus_out();
+        self.reset_blink_timer();
     }
     fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
         self.editor.on_window_focus_changed(event.focused);
+        self.reset_blink_timer();
     }
 }

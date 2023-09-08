@@ -6,6 +6,7 @@ use winit::{event::MouseButton, window::WindowId};
 
 use crate::{
     draw::{convert_color, unrestricted_text_size},
+    event::FocusReason,
     system::{send_window_event, with_system},
     types::{Point, Size},
     window::CancelImePreedit,
@@ -17,6 +18,7 @@ pub struct TextEditor {
     text_color: Color,
     size: Size,
     window_id: Option<WindowId>,
+    is_cursor_hidden: bool,
 }
 
 impl TextEditor {
@@ -27,6 +29,7 @@ impl TextEditor {
             text_color: system.palette.foreground,
             size: Size::default(),
             window_id: None,
+            is_cursor_hidden: false,
         });
         e.set_text(text, Attrs::new());
         // TODO: get from theme
@@ -195,9 +198,15 @@ impl TextEditor {
         }
     }
 
+    pub fn on_focus_in(&mut self, reason: FocusReason) {
+        if reason == FocusReason::Tab {
+            self.action(Action::SelectAll, false);
+        }
+    }
+
     pub fn on_focus_out(&mut self) {
         self.interrupt_preedit();
-        // TODO: hide cursor
+        self.action(Action::Escape, false);
     }
 
     pub fn on_window_focus_changed(&mut self, focused: bool) {
@@ -273,6 +282,15 @@ impl TextEditor {
     fn adjust_size(&mut self) {
         let unrestricted_size = self.unrestricted_text_size();
         self.set_size(unrestricted_size);
+    }
+
+    pub fn set_cursor_hidden(&mut self, hidden: bool) {
+        self.editor.set_cursor_hidden(hidden);
+        self.is_cursor_hidden = hidden;
+    }
+
+    pub fn is_cursor_hidden(&self) -> bool {
+        self.is_cursor_hidden
     }
 }
 

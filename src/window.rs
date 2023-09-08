@@ -100,298 +100,278 @@ impl Window {
         w
     }
 
+    // TODO: pass WindowEvent here
     pub fn handle_event(&mut self, _ctx: &mut WindowEventContext, event: Event<()>) {
         self.check_widget_tree_change_flag();
+        let event = if let Event::WindowEvent { event, .. } = event {
+            event
+        } else {
+            return;
+        };
         match event {
-            Event::WindowEvent { event, .. } => {
-                // if matches!(event, WindowEvent::Ime(_)) {
-                //     println!("{event:?}");
-                // }
-                // if matches!(event, WindowEvent::KeyboardInput { .. }) {
-                //     println!("keyborard input event: {event:?}");
-                // }
-                match event {
-                    WindowEvent::RedrawRequested => {
-                        // Grab the window's client area dimensions
-                        let (width, height) = {
-                            let size = self.inner.inner_size();
-                            (size.width, size.height)
-                        };
+            WindowEvent::RedrawRequested => {
+                // Grab the window's client area dimensions
+                let (width, height) = {
+                    let size = self.inner.inner_size();
+                    (size.width, size.height)
+                };
 
-                        // Resize surface if needed
-                        self.surface
-                            .resize(
-                                NonZeroU32::new(width).unwrap(),
-                                NonZeroU32::new(height).unwrap(),
-                            )
-                            .unwrap();
+                // Resize surface if needed
+                self.surface
+                    .resize(
+                        NonZeroU32::new(width).unwrap(),
+                        NonZeroU32::new(height).unwrap(),
+                    )
+                    .unwrap();
 
-                        // Draw something in the window
-                        let mut buffer = self.surface.buffer_mut().unwrap();
+                // Draw something in the window
+                let mut buffer = self.surface.buffer_mut().unwrap();
 
-                        let pixmap = Pixmap::new(width, height).unwrap();
-                        let pixmap = Rc::new(RefCell::new(pixmap));
-                        let draw_event = DrawEvent {
-                            rect: Rect {
-                                top_left: Point::default(),
-                                size: Size {
-                                    x: width as i32,
-                                    y: height as i32,
-                                },
-                            },
-                            pixmap: Rc::clone(&pixmap),
-                        };
-                        // TODO: option to turn off background, set style
-                        let color = with_system(|system| system.palette.background);
-                        draw_event.pixmap.borrow_mut().fill(color);
-                        if let Some(widget) = &mut self.root_widget {
-                            widget.dispatch(draw_event.into());
-                        }
+                let pixmap = Pixmap::new(width, height).unwrap();
+                let pixmap = Rc::new(RefCell::new(pixmap));
+                let draw_event = DrawEvent {
+                    rect: Rect {
+                        top_left: Point::default(),
+                        size: Size {
+                            x: width as i32,
+                            y: height as i32,
+                        },
+                    },
+                    pixmap: Rc::clone(&pixmap),
+                };
+                // TODO: option to turn off background, set style
+                let color = with_system(|system| system.palette.background);
+                draw_event.pixmap.borrow_mut().fill(color);
+                if let Some(widget) = &mut self.root_widget {
+                    widget.dispatch(draw_event.into());
+                }
 
-                        buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
+                buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
 
-                        // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
-                        // iterate over the pixels and shift the pixels over.
-                        buffer.iter_mut().for_each(|pixel| {
-                            let [r, g, b, _] = pixel.to_ne_bytes();
-                            *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
-                        });
+                // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
+                // iterate over the pixels and shift the pixels over.
+                buffer.iter_mut().for_each(|pixel| {
+                    let [r, g, b, _] = pixel.to_ne_bytes();
+                    *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
+                });
 
-                        //redraw(&mut buffer, width as usize, height as usize, flag);
-                        buffer.present().unwrap();
-                    }
-                    // TODO: should use device id?
-                    WindowEvent::CursorEntered { .. } => {
-                        self.shared_window_data.0.borrow_mut().cursor_entered = true;
-                    }
-                    WindowEvent::CursorLeft { .. } => {
-                        self.shared_window_data.0.borrow_mut().cursor_entered = false;
-                        self.shared_window_data.0.borrow_mut().cursor_position = None;
-                    }
-                    WindowEvent::CursorMoved {
-                        position,
-                        device_id,
-                        ..
-                    } => {
-                        let pos_in_window = Point {
-                            // TODO: is round() fine?
-                            x: position.x.round() as i32,
-                            y: position.y.round() as i32,
-                        };
-                        self.shared_window_data.0.borrow_mut().cursor_position =
-                            Some(pos_in_window);
-                        if let Some(root_widget) = &mut self.root_widget {
-                            if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
-                                if let Ok(mouse_grabber_widget) = get_widget_by_id_mut(
-                                    root_widget.as_mut(),
-                                    mouse_grabber_widget_id,
-                                ) {
-                                    if let Some(geometry) = mouse_grabber_widget.common().geometry {
-                                        let pos_in_widget =
-                                            pos_in_window - geometry.rect_in_window.top_left;
-                                        mouse_grabber_widget.dispatch(
-                                            CursorMovedEvent {
-                                                device_id,
-                                                pos: pos_in_widget,
-                                            }
-                                            .into(),
-                                        );
-                                    }
-                                }
-                            } else {
-                                root_widget.dispatch(
+                //redraw(&mut buffer, width as usize, height as usize, flag);
+                buffer.present().unwrap();
+            }
+            // TODO: should use device id?
+            WindowEvent::CursorEntered { .. } => {
+                self.shared_window_data.0.borrow_mut().cursor_entered = true;
+            }
+            WindowEvent::CursorLeft { .. } => {
+                self.shared_window_data.0.borrow_mut().cursor_entered = false;
+                self.shared_window_data.0.borrow_mut().cursor_position = None;
+            }
+            WindowEvent::CursorMoved {
+                position,
+                device_id,
+                ..
+            } => {
+                let pos_in_window = Point {
+                    // TODO: is round() fine?
+                    x: position.x.round() as i32,
+                    y: position.y.round() as i32,
+                };
+                self.shared_window_data.0.borrow_mut().cursor_position = Some(pos_in_window);
+                if let Some(root_widget) = &mut self.root_widget {
+                    if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
+                        if let Ok(mouse_grabber_widget) =
+                            get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
+                        {
+                            if let Some(geometry) = mouse_grabber_widget.common().geometry {
+                                let pos_in_widget =
+                                    pos_in_window - geometry.rect_in_window.top_left;
+                                mouse_grabber_widget.dispatch(
                                     CursorMovedEvent {
                                         device_id,
-                                        pos: pos_in_window,
+                                        pos: pos_in_widget,
                                     }
                                     .into(),
                                 );
                             }
                         }
-                        self.inner.request_redraw(); // TODO: smarter redraw
-                    }
-                    WindowEvent::ModifiersChanged(modifiers) => {
-                        self.shared_window_data.0.borrow_mut().modifiers_state = modifiers.state();
-                    }
-                    WindowEvent::MouseInput {
-                        device_id,
-                        state,
-                        button,
-                        ..
-                    } => {
-                        match state {
-                            ElementState::Pressed => {
-                                self.shared_window_data
-                                    .0
-                                    .borrow_mut()
-                                    .pressed_mouse_buttons
-                                    .insert(button);
-                                if self
-                                    .last_click_instant
-                                    .map_or(false, |last| last.elapsed() < DOUBLE_CLICK_TIMEOUT)
-                                    && self.last_click_button == Some(button)
-                                {
-                                    self.num_clicks += 1;
-                                } else {
-                                    self.num_clicks = 1;
-                                    self.last_click_button = Some(button);
-                                }
-                                self.last_click_instant = Some(Instant::now());
+                    } else {
+                        root_widget.dispatch(
+                            CursorMovedEvent {
+                                device_id,
+                                pos: pos_in_window,
                             }
-                            ElementState::Released => {
-                                self.shared_window_data
-                                    .0
-                                    .borrow_mut()
-                                    .pressed_mouse_buttons
-                                    .remove(&button);
-                            }
+                            .into(),
+                        );
+                    }
+                }
+                self.inner.request_redraw(); // TODO: smarter redraw
+            }
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.shared_window_data.0.borrow_mut().modifiers_state = modifiers.state();
+            }
+            WindowEvent::MouseInput {
+                device_id,
+                state,
+                button,
+                ..
+            } => {
+                match state {
+                    ElementState::Pressed => {
+                        self.shared_window_data
+                            .0
+                            .borrow_mut()
+                            .pressed_mouse_buttons
+                            .insert(button);
+                        if self
+                            .last_click_instant
+                            .map_or(false, |last| last.elapsed() < DOUBLE_CLICK_TIMEOUT)
+                            && self.last_click_button == Some(button)
+                        {
+                            self.num_clicks += 1;
+                        } else {
+                            self.num_clicks = 1;
+                            self.last_click_button = Some(button);
                         }
-                        let cursor_position = self.shared_window_data.0.borrow().cursor_position;
-                        if let Some(pos_in_window) = cursor_position {
-                            if let Some(root_widget) = &mut self.root_widget {
-                                let accepted_by = Rc::new(Cell::new(None));
-                                if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
-                                    if let Ok(mouse_grabber_widget) = get_widget_by_id_mut(
-                                        root_widget.as_mut(),
-                                        mouse_grabber_widget_id,
-                                    ) {
-                                        if let Some(geometry) =
-                                            mouse_grabber_widget.common().geometry
-                                        {
-                                            let pos_in_widget =
-                                                pos_in_window - geometry.rect_in_window.top_left;
-                                            mouse_grabber_widget.dispatch(
-                                                MouseInputEvent {
-                                                    device_id,
-                                                    state,
-                                                    button,
-                                                    num_clicks: self.num_clicks,
-                                                    pos: pos_in_widget,
-                                                    accepted_by: Rc::clone(&accepted_by),
-                                                }
-                                                .into(),
-                                            );
-                                        }
-                                    }
-                                    if self
-                                        .shared_window_data
-                                        .0
-                                        .borrow_mut()
-                                        .pressed_mouse_buttons
-                                        .is_empty()
-                                    {
-                                        self.mouse_grabber_widget = None;
-                                    }
-                                } else {
-                                    root_widget.dispatch(
+                        self.last_click_instant = Some(Instant::now());
+                    }
+                    ElementState::Released => {
+                        self.shared_window_data
+                            .0
+                            .borrow_mut()
+                            .pressed_mouse_buttons
+                            .remove(&button);
+                    }
+                }
+                let cursor_position = self.shared_window_data.0.borrow().cursor_position;
+                if let Some(pos_in_window) = cursor_position {
+                    if let Some(root_widget) = &mut self.root_widget {
+                        let accepted_by = Rc::new(Cell::new(None));
+                        if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
+                            if let Ok(mouse_grabber_widget) =
+                                get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
+                            {
+                                if let Some(geometry) = mouse_grabber_widget.common().geometry {
+                                    let pos_in_widget =
+                                        pos_in_window - geometry.rect_in_window.top_left;
+                                    mouse_grabber_widget.dispatch(
                                         MouseInputEvent {
                                             device_id,
                                             state,
                                             button,
                                             num_clicks: self.num_clicks,
-                                            pos: pos_in_window,
+                                            pos: pos_in_widget,
                                             accepted_by: Rc::clone(&accepted_by),
                                         }
                                         .into(),
                                     );
-                                    if state == ElementState::Pressed {
-                                        if let Some(accepted_by_widget_id) = accepted_by.get() {
-                                            self.mouse_grabber_widget = Some(accepted_by_widget_id);
-                                        }
-                                    }
                                 }
-
-                                self.inner.request_redraw(); // TODO: smarter redraw
+                            }
+                            if self
+                                .shared_window_data
+                                .0
+                                .borrow_mut()
+                                .pressed_mouse_buttons
+                                .is_empty()
+                            {
+                                self.mouse_grabber_widget = None;
                             }
                         } else {
-                            println!("warning: no cursor position in mouse input handler");
-                        }
-                    }
-                    WindowEvent::KeyboardInput {
-                        device_id,
-                        is_synthetic,
-                        event,
-                    } => {
-                        // TODO: deduplicate with ReceivedCharacter
-                        if let Some(root_widget) = &mut self.root_widget {
-                            if let Some(focused_widget) = self.focused_widget {
-                                if let Ok(widget) =
-                                    get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
-                                {
-                                    let modifiers =
-                                        self.shared_window_data.0.borrow().modifiers_state;
-                                    widget.dispatch(
-                                        KeyboardInputEvent {
-                                            device_id,
-                                            event: event.clone(),
-                                            is_synthetic,
-                                            modifiers,
-                                        }
-                                        .into(),
-                                    );
-                                    self.inner.request_redraw(); // TODO: smarter redraw
+                            root_widget.dispatch(
+                                MouseInputEvent {
+                                    device_id,
+                                    state,
+                                    button,
+                                    num_clicks: self.num_clicks,
+                                    pos: pos_in_window,
+                                    accepted_by: Rc::clone(&accepted_by),
+                                }
+                                .into(),
+                            );
+                            if state == ElementState::Pressed {
+                                if let Some(accepted_by_widget_id) = accepted_by.get() {
+                                    self.mouse_grabber_widget = Some(accepted_by_widget_id);
                                 }
                             }
                         }
 
-                        // TODO: only if event is not accepted by a widget
-                        if event.state == ElementState::Pressed {
-                            let logical_key = event.logical_key;
-                            if logical_key == Key::Tab {
-                                if self
-                                    .shared_window_data
-                                    .0
-                                    .borrow()
-                                    .modifiers_state
-                                    .shift_key()
-                                {
-                                    self.move_keyboard_focus(-1);
-                                } else {
-                                    self.move_keyboard_focus(1);
-                                }
-                            }
-                        }
+                        self.inner.request_redraw(); // TODO: smarter redraw
                     }
-                    WindowEvent::Ime(ime) => {
-                        if let Ime::Enabled = &ime {
-                            //println!("reset ime position {:?}", self.ime_cursor_area);
-                            self.inner.set_ime_cursor_area(
-                                PhysicalPosition::new(
-                                    self.ime_cursor_area.top_left.x,
-                                    self.ime_cursor_area.top_left.y,
-                                ),
-                                PhysicalSize::new(
-                                    self.ime_cursor_area.size.x,
-                                    self.ime_cursor_area.size.y,
-                                ),
+                } else {
+                    println!("warning: no cursor position in mouse input handler");
+                }
+            }
+            WindowEvent::KeyboardInput {
+                device_id,
+                is_synthetic,
+                event,
+            } => {
+                // TODO: deduplicate with ReceivedCharacter
+                if let Some(root_widget) = &mut self.root_widget {
+                    if let Some(focused_widget) = self.focused_widget {
+                        if let Ok(widget) =
+                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                        {
+                            let modifiers = self.shared_window_data.0.borrow().modifiers_state;
+                            widget.dispatch(
+                                KeyboardInputEvent {
+                                    device_id,
+                                    event: event.clone(),
+                                    is_synthetic,
+                                    modifiers,
+                                }
+                                .into(),
                             );
-                        }
-                        // TODO: deduplicate with ReceivedCharacter
-                        if let Some(root_widget) = &mut self.root_widget {
-                            if let Some(focused_widget) = self.focused_widget {
-                                if let Ok(widget) =
-                                    get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
-                                {
-                                    widget.dispatch(ImeEvent(ime).into());
-                                    self.inner.request_redraw(); // TODO: smarter redraw
-                                }
-                            }
-                        }
-                        //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
-                    }
-                    WindowEvent::Focused(focused) => {
-                        self.is_window_focused = focused;
-                        if let Some(root_widget) = &mut self.root_widget {
-                            root_widget.dispatch(WindowFocusChangedEvent { focused }.into());
+                            self.inner.request_redraw(); // TODO: smarter redraw
                         }
                     }
-                    // WindowEvent::Ime(Ime::Preedit(text, cursor)) => {
-                    //     //...
-                    //     if let Some((start, _end)) = cursor {
-                    //         println!("{}|{}", &text[..start], &text[start..]);
-                    //     }
-                    // }
-                    _ => {}
+                }
+
+                // TODO: only if event is not accepted by a widget
+                if event.state == ElementState::Pressed {
+                    let logical_key = event.logical_key;
+                    if logical_key == Key::Tab {
+                        if self
+                            .shared_window_data
+                            .0
+                            .borrow()
+                            .modifiers_state
+                            .shift_key()
+                        {
+                            self.move_keyboard_focus(-1);
+                        } else {
+                            self.move_keyboard_focus(1);
+                        }
+                    }
+                }
+            }
+            WindowEvent::Ime(ime) => {
+                if let Ime::Enabled = &ime {
+                    //println!("reset ime position {:?}", self.ime_cursor_area);
+                    self.inner.set_ime_cursor_area(
+                        PhysicalPosition::new(
+                            self.ime_cursor_area.top_left.x,
+                            self.ime_cursor_area.top_left.y,
+                        ),
+                        PhysicalSize::new(self.ime_cursor_area.size.x, self.ime_cursor_area.size.y),
+                    );
+                }
+                // TODO: deduplicate with ReceivedCharacter
+                if let Some(root_widget) = &mut self.root_widget {
+                    if let Some(focused_widget) = self.focused_widget {
+                        if let Ok(widget) =
+                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                        {
+                            widget.dispatch(ImeEvent(ime).into());
+                            self.inner.request_redraw(); // TODO: smarter redraw
+                        }
+                    }
+                }
+                //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
+            }
+            WindowEvent::Focused(focused) => {
+                self.is_window_focused = focused;
+                if let Some(root_widget) = &mut self.root_widget {
+                    root_widget.dispatch(WindowFocusChangedEvent { focused }.into());
                 }
             }
             _ => {}

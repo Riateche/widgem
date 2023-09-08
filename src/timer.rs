@@ -7,7 +7,7 @@ use std::{
 
 use priority_queue::PriorityQueue;
 
-use crate::callback::WidgetCallback;
+use crate::{callback::WidgetCallback, system::with_system};
 
 #[derive(Default)]
 pub struct Timers {
@@ -23,6 +23,10 @@ impl TimerId {
     pub fn new() -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+    }
+
+    pub fn cancel(self) {
+        with_system(|system| system.timers.remove(self))
     }
 }
 
@@ -40,12 +44,17 @@ impl Timers {
     pub fn add(&mut self, instant: Instant, timer: WidgetTimer) -> TimerId {
         println!("add {instant:?}");
         let id = TimerId::new();
-        self.queue.push(id, Reverse(instant));
-        self.timers.insert(id, timer);
+        self.add_with_id(instant, timer, id);
         id
     }
 
+    fn add_with_id(&mut self, instant: Instant, timer: WidgetTimer, id: TimerId) {
+        self.queue.push(id, Reverse(instant));
+        self.timers.insert(id, timer);
+    }
+
     pub fn remove(&mut self, id: TimerId) {
+        println!("remove {id:?}");
         self.queue.remove(&id);
         self.timers.remove(&id);
     }
@@ -62,7 +71,7 @@ impl Timers {
         let (id, old_instant) = self.queue.pop().unwrap();
         let timer = self.timers.remove(&id).expect("missing entry in timers");
         if let Some(interval) = timer.interval {
-            self.add(old_instant.0 + interval, timer.clone());
+            self.add_with_id(old_instant.0 + interval, timer.clone(), id);
         }
         Some(timer)
     }

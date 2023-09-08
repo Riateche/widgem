@@ -173,6 +173,10 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
             WINDOW_TARGET.set(window_target, || {
                 while let Some(timer) = with_system(|system| system.timers.pop()) {
                     dispatch_widget_callback(&mut windows, &timer.callback, Instant::now());
+                    // TODO: smarter redraw
+                    for window in windows.values() {
+                        window.inner.request_redraw();
+                    }
                 }
 
                 let mut ctx = WindowEventContext {};
