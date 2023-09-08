@@ -118,10 +118,18 @@ fn dispatch_widget_callback<Event>(
     callback: &WidgetCallback<Event>,
     event: Event,
 ) {
-    let Some(address) = address(callback.widget_id) else { return };
-    let Some(window) = windows.get_mut(&address.window_id) else { return };
-    let Some(root_widget) = window.root_widget.as_mut() else { return };
-    let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &address) else { return };
+    let Some(address) = address(callback.widget_id) else {
+        return;
+    };
+    let Some(window) = windows.get_mut(&address.window_id) else {
+        return;
+    };
+    let Some(root_widget) = window.root_widget.as_mut() else {
+        return;
+    };
+    let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &address) else {
+        return;
+    };
     (callback.func)(widget, event);
 }
 
