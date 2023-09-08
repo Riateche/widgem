@@ -103,55 +103,6 @@ impl Window {
     pub fn handle_event(&mut self, _ctx: &mut WindowEventContext, event: Event<()>) {
         self.check_widget_tree_change_flag();
         match event {
-            Event::RedrawRequested(_) => {
-                // Grab the window's client area dimensions
-                let (width, height) = {
-                    let size = self.inner.inner_size();
-                    (size.width, size.height)
-                };
-
-                // Resize surface if needed
-                self.surface
-                    .resize(
-                        NonZeroU32::new(width).unwrap(),
-                        NonZeroU32::new(height).unwrap(),
-                    )
-                    .unwrap();
-
-                // Draw something in the window
-                let mut buffer = self.surface.buffer_mut().unwrap();
-
-                let pixmap = Pixmap::new(width, height).unwrap();
-                let pixmap = Rc::new(RefCell::new(pixmap));
-                let draw_event = DrawEvent {
-                    rect: Rect {
-                        top_left: Point::default(),
-                        size: Size {
-                            x: width as i32,
-                            y: height as i32,
-                        },
-                    },
-                    pixmap: Rc::clone(&pixmap),
-                };
-                // TODO: option to turn off background, set style
-                let color = with_system(|system| system.palette.background);
-                draw_event.pixmap.borrow_mut().fill(color);
-                if let Some(widget) = &mut self.root_widget {
-                    widget.dispatch(draw_event.into());
-                }
-
-                buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
-
-                // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
-                // iterate over the pixels and shift the pixels over.
-                buffer.iter_mut().for_each(|pixel| {
-                    let [r, g, b, _] = pixel.to_ne_bytes();
-                    *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
-                });
-
-                //redraw(&mut buffer, width as usize, height as usize, flag);
-                buffer.present().unwrap();
-            }
             Event::WindowEvent { event, .. } => {
                 // if matches!(event, WindowEvent::Ime(_)) {
                 //     println!("{event:?}");
@@ -160,6 +111,55 @@ impl Window {
                 //     println!("keyborard input event: {event:?}");
                 // }
                 match event {
+                    WindowEvent::RedrawRequested => {
+                        // Grab the window's client area dimensions
+                        let (width, height) = {
+                            let size = self.inner.inner_size();
+                            (size.width, size.height)
+                        };
+
+                        // Resize surface if needed
+                        self.surface
+                            .resize(
+                                NonZeroU32::new(width).unwrap(),
+                                NonZeroU32::new(height).unwrap(),
+                            )
+                            .unwrap();
+
+                        // Draw something in the window
+                        let mut buffer = self.surface.buffer_mut().unwrap();
+
+                        let pixmap = Pixmap::new(width, height).unwrap();
+                        let pixmap = Rc::new(RefCell::new(pixmap));
+                        let draw_event = DrawEvent {
+                            rect: Rect {
+                                top_left: Point::default(),
+                                size: Size {
+                                    x: width as i32,
+                                    y: height as i32,
+                                },
+                            },
+                            pixmap: Rc::clone(&pixmap),
+                        };
+                        // TODO: option to turn off background, set style
+                        let color = with_system(|system| system.palette.background);
+                        draw_event.pixmap.borrow_mut().fill(color);
+                        if let Some(widget) = &mut self.root_widget {
+                            widget.dispatch(draw_event.into());
+                        }
+
+                        buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
+
+                        // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
+                        // iterate over the pixels and shift the pixels over.
+                        buffer.iter_mut().for_each(|pixel| {
+                            let [r, g, b, _] = pixel.to_ne_bytes();
+                            *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
+                        });
+
+                        //redraw(&mut buffer, width as usize, height as usize, flag);
+                        buffer.present().unwrap();
+                    }
                     // TODO: should use device id?
                     WindowEvent::CursorEntered { .. } => {
                         self.shared_window_data.0.borrow_mut().cursor_entered = true;

@@ -1,6 +1,7 @@
 use std::{
     cmp::{max, min},
     fmt::Display,
+    time::Duration,
 };
 
 use cosmic_text::{Action, Attrs, Wrap};
@@ -13,13 +14,13 @@ use crate::{
         KeyboardInputEvent, MountEvent, UnmountEvent, WindowFocusChangedEvent,
     },
     shortcut::standard_shortcuts,
-    system::{send_window_event, with_system},
+    system::{add_interval, add_timer, send_window_event, with_system},
     text_editor::TextEditor,
     types::{Point, Rect, Size},
     window::{SetFocusRequest, SetImeCursorAreaRequest},
 };
 
-use super::{Widget, WidgetCommon};
+use super::{Widget, WidgetCommon, WidgetExt};
 
 pub struct TextInput {
     editor: TextEditor,
@@ -62,6 +63,10 @@ impl TextInput {
             }
         }
         self.scroll_x = self.scroll_x.clamp(0, max_scroll);
+    }
+
+    fn update_blink(&mut self) {
+        println!("blink!");
     }
 }
 
@@ -161,6 +166,13 @@ impl Widget for TextInput {
                     event.num_clicks,
                     mount_point.window.0.borrow().modifiers_state.shift_key(),
                 );
+
+                // add_timer(Duration::from_secs(1), self.id(), |this, _| {
+                //     this.update_blink();
+                // });
+                add_interval(Duration::from_secs(1), self.id(), |this, _| {
+                    this.update_blink();
+                });
             }
             if event.button == MouseButton::Right {
                 // let builder = WindowBuilder::new()

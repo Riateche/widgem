@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData};
+use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, time::Instant};
 
 use cosmic_text::{FontSystem, SwashCache};
 use scoped_tls::scoped_thread_local;
@@ -10,9 +10,10 @@ use winit::{
 };
 
 use crate::{
-    callback::{Callback, CallbackId, CallbackMaker, Callbacks},
+    callback::{Callback, CallbackId, CallbackMaker, Callbacks, WidgetCallback},
     draw::Palette,
-    system::{address, SharedSystemDataInner, SYSTEM},
+    system::{address, with_system, SharedSystemDataInner, SYSTEM},
+    timer::Timers,
     widgets::{get_widget_by_address_mut, RawWidgetId, Widget, WidgetId, WidgetNotFound},
     window::{Window, WindowEventContext, WindowRequest},
 };
@@ -112,6 +113,18 @@ pub enum UserEvent {
 
 scoped_thread_local!(pub static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
 
+fn dispatch_widget_callback<Event>(
+    windows: &mut HashMap<WindowId, Window>,
+    callback: &WidgetCallback<Event>,
+    event: Event,
+) {
+    let Some(address) = address(callback.widget_id) else { return };
+    let Some(window) = windows.get_mut(&address.window_id) else { return };
+    let Some(root_widget) = window.root_widget.as_mut() else { return };
+    let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &address) else { return };
+    (callback.func)(widget, event);
+}
+
 pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) -> State) {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
@@ -133,6 +146,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
             // foreground: Color::WHITE,
             // background: Color::BLACK,
         },
+        timers: Timers::new(),
     };
     SYSTEM.with(|system| {
         *system.0.borrow_mut() = Some(shared_system_data);
@@ -155,25 +169,22 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     callbacks.add_all(&mut callback_maker);
 
     event_loop
-        .run(move |event, window_target, control_flow| {
+        .run(move |event, window_target| {
             WINDOW_TARGET.set(window_target, || {
-                *control_flow = ControlFlow::Wait;
+                while let Some(timer) = with_system(|system| system.timers.pop()) {
+                    dispatch_widget_callback(&mut windows, &timer.callback, Instant::now());
+                }
 
                 let mut ctx = WindowEventContext {};
 
                 match event {
-                    Event::RedrawRequested(window_id) => {
-                        if let Some(window) = windows.get_mut(&window_id) {
-                            window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
-                        }
-                    }
                     Event::WindowEvent {
                         window_id,
                         event: ref wevent,
                     } => {
                         // TODO: smarter logic
                         if matches!(wevent, WindowEvent::CloseRequested) {
-                            *control_flow = ControlFlow::Exit;
+                            window_target.exit();
                         }
                         if let Some(window) = windows.get_mut(&window_id) {
                             window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
@@ -200,8 +211,25 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                             callbacks.add_all(&mut callback_maker);
                         }
                     },
+                    Event::AboutToWait => {
+                        let next_timer = with_system(|system| system.timers.next_instant());
+                        if let Some(next_timer) = next_timer {
+                            // println!(
+                            //     "wait until {:?} | {:?}",
+                            //     next_timer,
+                            //     next_timer - Instant::now()
+                            // );
+                            window_target.set_control_flow(ControlFlow::WaitUntil(next_timer));
+                        } else {
+                            // println!("wait forever");
+                            window_target.set_control_flow(ControlFlow::Wait);
+                        }
+                    }
                     _ => {}
                 }
+
+                //if *control_flow == ControlFlow::Wait {
+                //}
             });
         })
         .expect("Error while running event loop");

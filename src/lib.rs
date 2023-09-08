@@ -7,6 +7,7 @@ pub mod event_loop;
 pub mod shortcut;
 pub mod system;
 pub mod text_editor;
+pub mod timer;
 pub mod types;
 pub mod widgets;
 pub mod window;

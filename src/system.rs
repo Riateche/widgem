@@ -1,12 +1,19 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use cosmic_text::{FontSystem, SwashCache};
 use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
+    callback::WidgetCallback,
     draw::Palette,
     event_loop::UserEvent,
-    widgets::{RawWidgetId, WidgetAddress},
+    timer::{TimerId, Timers, WidgetTimer},
+    widgets::{RawWidgetId, Widget, WidgetAddress, WidgetId},
     window::WindowRequest,
 };
 
@@ -23,6 +30,7 @@ pub struct SharedSystemDataInner {
     pub font_metrics: cosmic_text::Metrics,
     pub palette: Palette,
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
+    pub timers: Timers,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);
@@ -51,4 +59,46 @@ pub fn send_window_event(window_id: WindowId, event: impl Into<WindowRequest>) {
             .event_loop_proxy
             .send_event(UserEvent::WindowRequest(window_id, event.into()));
     });
+}
+
+pub fn add_timer<W: Widget, F>(duration: Duration, widget_id: WidgetId<W>, func: F) -> TimerId
+where
+    F: Fn(&mut W, Instant) + 'static,
+{
+    add_timer_or_interval(duration, None, widget_id, func)
+}
+
+pub fn add_interval<W: Widget, F>(interval: Duration, widget_id: WidgetId<W>, func: F) -> TimerId
+where
+    F: Fn(&mut W, Instant) + 'static,
+{
+    add_timer_or_interval(interval, Some(interval), widget_id, func)
+}
+
+pub fn add_timer_or_interval<W: Widget, F>(
+    duration: Duration,
+    interval: Option<Duration>,
+    widget_id: WidgetId<W>,
+    func: F,
+) -> TimerId
+where
+    F: Fn(&mut W, Instant) + 'static,
+{
+    with_system(|system| {
+        system.timers.add(
+            Instant::now() + duration,
+            WidgetTimer {
+                interval,
+                callback: WidgetCallback {
+                    widget_id: widget_id.0,
+                    func: Rc::new(move |widget, event| {
+                        func(
+                            widget.downcast_mut::<W>().expect("widget type mismatch"),
+                            event,
+                        )
+                    }),
+                },
+            },
+        )
+    })
 }

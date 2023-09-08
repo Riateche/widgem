@@ -48,7 +48,7 @@ impl State {
             },
             Box::new(w2),
         );
-        let w3 = TextInput::new("second input");
+        let w3 = TextInput::new("Hebrew name Sarah: שרה, spelled");
         root.add(
             Rect {
                 top_left: Point { x: 300, y: 180 },

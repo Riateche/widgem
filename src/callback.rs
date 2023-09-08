@@ -1,8 +1,11 @@
-use std::{any::Any, collections::HashMap, marker::PhantomData};
+use std::{any::Any, collections::HashMap, marker::PhantomData, rc::Rc};
 
 use winit::event_loop::EventLoopProxy;
 
-use crate::event_loop::{CallbackContext, InvokeCallbackEvent, UserEvent};
+use crate::{
+    event_loop::{CallbackContext, InvokeCallbackEvent, UserEvent},
+    widgets::{RawWidgetId, Widget},
+};
 
 //pub type CallbackFn<State> = Rc<dyn FnMut(&mut State, Box<dyn Any>)>;
 
@@ -98,4 +101,11 @@ impl<State> Default for Callbacks<State> {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[allow(clippy::type_complexity)]
+#[derive(Clone)]
+pub struct WidgetCallback<Event> {
+    pub widget_id: RawWidgetId,
+    pub func: Rc<dyn Fn(&mut dyn Widget, Event)>,
 }
