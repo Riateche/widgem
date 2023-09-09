@@ -42,7 +42,6 @@ impl Timers {
     }
 
     pub fn add(&mut self, instant: Instant, timer: WidgetTimer) -> TimerId {
-        println!("add {instant:?}");
         let id = TimerId::new();
         self.add_with_id(instant, timer, id);
         id
@@ -54,7 +53,6 @@ impl Timers {
     }
 
     pub fn remove(&mut self, id: TimerId) {
-        println!("remove {id:?}");
         self.queue.remove(&id);
         self.timers.remove(&id);
     }

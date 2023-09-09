@@ -36,6 +36,7 @@ pub struct SharedWindowDataInner {
     pub cursor_entered: bool,
     pub modifiers_state: ModifiersState,
     pub pressed_mouse_buttons: HashSet<MouseButton>,
+    pub is_window_focused: bool,
 }
 
 #[derive(Clone)]
@@ -53,7 +54,6 @@ pub struct Window {
     pub mouse_grabber_widget: Option<RawWidgetId>,
     ime_allowed: bool,
     ime_cursor_area: Rect,
-    is_window_focused: bool,
 
     num_clicks: u32,
     last_click_button: Option<MouseButton>,
@@ -69,6 +69,7 @@ impl Window {
             cursor_entered: false,
             modifiers_state: ModifiersState::default(),
             pressed_mouse_buttons: HashSet::new(),
+            is_window_focused: false,
         })));
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(inner.id()).join(widget.common().id);
@@ -91,7 +92,6 @@ impl Window {
             mouse_grabber_widget: None,
             ime_allowed: false,
             ime_cursor_area: Rect::default(),
-            is_window_focused: false,
             num_clicks: 0,
             last_click_button: None,
             last_click_instant: None,
@@ -369,10 +369,11 @@ impl Window {
                 //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
             }
             WindowEvent::Focused(focused) => {
-                self.is_window_focused = focused;
+                self.shared_window_data.0.borrow_mut().is_window_focused = focused;
                 if let Some(root_widget) = &mut self.root_widget {
                     root_widget.dispatch(WindowFocusChangedEvent { focused }.into());
                 }
+                self.inner.request_redraw(); // TODO: smarter redraw
             }
             _ => {}
         }
@@ -399,7 +400,6 @@ impl Window {
         } else {
             println!("warn: no focused widget");
         }
-        println!("new focused: {:?}", self.focused_widget);
         self.check_auto_focus();
     }
 
@@ -448,7 +448,6 @@ impl Window {
             }
         }
         self.check_auto_focus();
-        println!("new focused after refresh: {:?}", self.focused_widget);
     }
 
     fn check_auto_focus(&mut self) {

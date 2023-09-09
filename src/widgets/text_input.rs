@@ -79,11 +79,12 @@ impl TextInput {
         if let Some(id) = self.blink_timer.take() {
             id.cancel();
         }
-        if self.common.mount_point.is_none() {
+        let Some(mount_point) = &self.common.mount_point else {
             return;
-        }
-        self.editor.set_cursor_hidden(!self.common.is_focused);
-        if self.common.is_focused {
+        };
+        let focused = self.common.is_focused && mount_point.window.0.borrow().is_window_focused;
+        self.editor.set_cursor_hidden(!focused);
+        if focused {
             let id = add_interval(CURSOR_BLINK_INTERVAL, self.id(), |this, _| {
                 this.toggle_cursor_hidden();
             });
@@ -92,7 +93,6 @@ impl TextInput {
     }
 
     fn toggle_cursor_hidden(&mut self) {
-        println!("blink!");
         self.editor
             .set_cursor_hidden(!self.editor.is_cursor_hidden());
     }
