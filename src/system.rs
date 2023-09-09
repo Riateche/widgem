@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
 use winit::{event_loop::EventLoopProxy, window::WindowId};
 
@@ -31,6 +32,7 @@ pub struct SharedSystemDataInner {
     pub palette: Palette,
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
+    pub clipboard: Clipboard,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);

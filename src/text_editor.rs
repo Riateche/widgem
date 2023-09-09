@@ -1,8 +1,10 @@
+use std::cmp::max;
+
 use cosmic_text::{
     Action, Attrs, AttrsList, AttrsOwned, Buffer, Cursor, Edit, Editor, Shaping, Wrap,
 };
 use tiny_skia::{Color, Paint, Pixmap, Transform};
-use winit::{event::MouseButton, window::WindowId};
+use winit::window::WindowId;
 
 use crate::{
     draw::{convert_color, unrestricted_text_size},
@@ -105,11 +107,9 @@ impl TextEditor {
     pub fn pixmap(&mut self) -> &Pixmap {
         if self.pixmap.is_none() || self.needs_redraw() {
             let size = Size {
-                x: self.editor.buffer().size().0.ceil() as i32,
-                y: self.editor.buffer().size().1.ceil() as i32,
+                x: max(1, self.editor.buffer().size().0.ceil() as i32),
+                y: max(1, self.editor.buffer().size().1.ceil() as i32),
             };
-            // TODO: empty size check
-            // TODO: error propagation?
             let mut pixmap =
                 Pixmap::new(size.x as u32, size.y as u32).expect("failed to create pixmap");
             with_system(|system| {
@@ -215,52 +215,36 @@ impl TextEditor {
         }
     }
 
-    pub fn on_mouse_input(
-        &mut self,
-        pos: Point,
-        button: MouseButton,
-        num_clicks: u32,
-        select: bool,
-    ) {
-        match button {
-            MouseButton::Left => {
-                let old_cursor = self.editor.cursor();
-                let preedit_range = self.editor.preedit_range();
-                let click_cursor = self.editor.buffer().hit(pos.x as f32, pos.y as f32);
-                if let Some(click_cursor) = click_cursor {
-                    if click_cursor.line == old_cursor.line
-                        && preedit_range
-                            .as_ref()
-                            .map_or(false, |ime_range| ime_range.contains(&click_cursor.index))
-                    {
-                        // Click is inside IME preedit, so we ignore it.
-                        println!("click inside ime");
-                    } else {
-                        // Click is outside IME preedit, so we insert the preedit text
-                        // as real text and cancel IME preedit.
-                        self.interrupt_preedit();
-                        self.shape_as_needed();
-                        // println!("action click");
-                        let x = pos.x;
-                        let y = pos.y;
-                        match ((num_clicks - 1) % 3) + 1 {
-                            1 => self.action(Action::Click { x, y }, select),
-                            2 => self.action(Action::SelectWord { x, y }, false),
-                            3 => self.action(Action::SelectParagraph { x, y }, false),
-                            _ => {}
-                        }
-                    }
+    pub fn on_mouse_input(&mut self, pos: Point, num_clicks: u32, select: bool) {
+        let old_cursor = self.editor.cursor();
+        let preedit_range = self.editor.preedit_range();
+        let click_cursor = self.editor.buffer().hit(pos.x as f32, pos.y as f32);
+        if let Some(click_cursor) = click_cursor {
+            if click_cursor.line == old_cursor.line
+                && preedit_range
+                    .as_ref()
+                    .map_or(false, |ime_range| ime_range.contains(&click_cursor.index))
+            {
+                // Click is inside IME preedit, so we ignore it.
+                println!("click inside ime");
+            } else {
+                // Click is outside IME preedit, so we insert the preedit text
+                // as real text and cancel IME preedit.
+                self.interrupt_preedit();
+                self.shape_as_needed();
+                // println!("action click");
+                let x = pos.x;
+                let y = pos.y;
+                match ((num_clicks - 1) % 3) + 1 {
+                    1 => self.action(Action::Click { x, y }, select),
+                    2 => self.action(Action::SelectWord { x, y }, false),
+                    3 => self.action(Action::SelectParagraph { x, y }, false),
+                    _ => {}
                 }
             }
-            MouseButton::Right => {
-                // TODO: context menu
-            }
-            MouseButton::Middle => {
-                // TODO: paste selection
-            }
-            _ => {}
         }
     }
+
     fn attrs_at_cursor(&self) -> Attrs {
         // TODO: use lines.get() everywhere to be safe
         let line = &self.editor.buffer().lines[self.editor.cursor().line];
@@ -291,6 +275,11 @@ impl TextEditor {
 
     pub fn is_cursor_hidden(&self) -> bool {
         self.is_cursor_hidden
+    }
+
+    pub fn selected_text(&mut self) -> Option<String> {
+        // TODO: patch cosmic-text to remove mut and don't return empty selection
+        self.editor.copy_selection().filter(|s| !s.is_empty())
     }
 }
 

@@ -14,7 +14,7 @@ use crate::{
     draw::DrawEvent,
     event::{
         CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, UnmountEvent, WindowFocusChangedEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent, WindowFocusChangedEvent,
     },
     shortcut::standard_shortcuts,
     system::{add_interval, send_window_event, with_system},
@@ -33,6 +33,7 @@ pub struct TextInput {
     scroll_x: i32,
     common: WidgetCommon,
     blink_timer: Option<TimerId>,
+    selected_text: String,
 }
 
 // TODO: get system setting
@@ -57,6 +58,7 @@ impl TextInput {
             ideal_editor_offset: Point { x: 5, y: 5 },
             scroll_x: 0,
             blink_timer: None,
+            selected_text: String::new(),
         }
     }
 
@@ -64,7 +66,36 @@ impl TextInput {
         // TODO: replace line breaks to avoid multiple lines in buffer
         self.editor
             .set_text(&sanitize(&text.to_string()), Attrs::new());
+        self.after_change();
         self.reset_blink_timer();
+    }
+
+    fn after_change(&mut self) {
+        self.adjust_scroll();
+        let new_selected_text = self.editor.selected_text().unwrap_or_default();
+        if new_selected_text != self.selected_text {
+            self.selected_text = new_selected_text;
+            #[cfg(all(
+                unix,
+                not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
+            ))]
+            {
+                use arboard::{LinuxClipboardKind, SetExtLinux};
+
+                if !self.selected_text.is_empty() {
+                    let r = with_system(|system| {
+                        system
+                            .clipboard
+                            .set()
+                            .clipboard(LinuxClipboardKind::Primary)
+                            .text(&self.selected_text)
+                    });
+                    if let Err(err) = r {
+                        println!("warn: clipboard error: {err}");
+                    }
+                }
+            }
+        }
     }
 
     fn adjust_scroll(&mut self) {
@@ -100,6 +131,37 @@ impl TextInput {
     fn toggle_cursor_hidden(&mut self) {
         self.editor
             .set_cursor_hidden(!self.editor.is_cursor_hidden());
+    }
+
+    fn copy_to_clipboard(&mut self) {
+        if let Some(text) = self.editor.selected_text() {
+            if let Err(err) = with_system(|system| system.clipboard.set_text(text)) {
+                println!("warn: clipboard error: {err}");
+            }
+        }
+    }
+
+    fn handle_main_click(&mut self, event: MouseInputEvent) {
+        let mount_point = &self
+            .common
+            .mount_point
+            .as_ref()
+            .expect("cannot handle event when unmounted");
+
+        if !self.common.is_focused {
+            send_window_event(
+                mount_point.address.window_id,
+                SetFocusRequest {
+                    widget_id: self.common.id,
+                    reason: FocusReason::Mouse,
+                },
+            );
+        }
+        self.editor.on_mouse_input(
+            event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
+            event.num_clicks,
+            mount_point.window.0.borrow().modifiers_state.shift_key(),
+        );
     }
 }
 
@@ -177,49 +239,61 @@ impl Widget for TextInput {
         }
     }
 
-    fn on_mouse_input(&mut self, event: crate::event::MouseInputEvent) -> bool {
-        let mount_point = self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted");
+    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         if event.state == ElementState::Pressed {
-            if event.button == MouseButton::Left {
-                if !self.common.is_focused {
-                    send_window_event(
-                        mount_point.address.window_id,
-                        SetFocusRequest {
-                            widget_id: self.common.id,
-                            reason: FocusReason::Mouse,
-                        },
-                    );
+            match event.button {
+                MouseButton::Left => {
+                    self.handle_main_click(event);
                 }
-                self.editor.on_mouse_input(
-                    event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
-                    event.button,
-                    event.num_clicks,
-                    mount_point.window.0.borrow().modifiers_state.shift_key(),
-                );
+                MouseButton::Right => {
+                    // let builder = WindowBuilder::new()
+                    //     .with_title("test_window")
+                    //     .with_position(PhysicalPosition::new(100, 10))
+                    //     .with_inner_size(PhysicalSize::new(300, 300))
+                    //     .with_decorations(false)
+                    //     .with_visible(true);
+                    // let window =
+                    //     WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
+                    // let window = Window::new(window, None);
+                    // std::mem::forget(window);
+                    // println!("ok");
+                }
+                MouseButton::Middle => {
+                    #[cfg(all(
+                        unix,
+                        not(any(
+                            target_os = "macos",
+                            target_os = "android",
+                            target_os = "emscripten"
+                        ))
+                    ))]
+                    {
+                        use arboard::{GetExtLinux, LinuxClipboardKind};
 
-                // add_timer(Duration::from_secs(1), self.id(), |this, _| {
-                //     this.update_blink();
-                // });
-            }
-            if event.button == MouseButton::Right {
-                // let builder = WindowBuilder::new()
-                //     .with_title("test_window")
-                //     .with_position(PhysicalPosition::new(100, 10))
-                //     .with_inner_size(PhysicalSize::new(300, 300))
-                //     .with_decorations(false)
-                //     .with_visible(true);
-                // let window =
-                //     WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
-                // let window = Window::new(window, None);
-                // std::mem::forget(window);
-                // println!("ok");
+                        self.handle_main_click(event);
+                        let r = with_system(|system| {
+                            system
+                                .clipboard
+                                .get()
+                                .clipboard(LinuxClipboardKind::Primary)
+                                .text()
+                        });
+                        match r {
+                            Ok(text) => {
+                                self.editor.insert_string(&sanitize(&text), None);
+                            }
+                            Err(err) => {
+                                println!("warn: clipboard error: {err}");
+                            }
+                        }
+                    }
+                }
+                MouseButton::Back => todo!(),
+                MouseButton::Forward => todo!(),
+                MouseButton::Other(_) => todo!(),
             }
         }
-        self.adjust_scroll();
+        self.after_change();
         self.reset_blink_timer();
         true
     }
@@ -241,7 +315,7 @@ impl Widget for TextInput {
             self.editor
                 .action(Action::Drag { x: pos.x, y: pos.y }, true);
         }
-        self.adjust_scroll();
+        self.after_change();
         true
     }
 
@@ -262,11 +336,16 @@ impl Widget for TextInput {
         } else if shortcuts.backspace.matches(&event) {
             self.editor.action(Action::Backspace, false);
         } else if shortcuts.cut.matches(&event) {
-            // TODO
+            self.copy_to_clipboard();
+            self.editor.action(Action::Delete, false);
         } else if shortcuts.copy.matches(&event) {
-            // TODO
+            self.copy_to_clipboard();
         } else if shortcuts.paste.matches(&event) {
-            // TODO
+            let r = with_system(|system| system.clipboard.get_text());
+            match r {
+                Ok(text) => self.editor.insert_string(&sanitize(&text), None),
+                Err(err) => println!("warn: clipboard error: {err}"),
+            }
         } else if shortcuts.undo.matches(&event) {
             // TODO
         } else if shortcuts.redo.matches(&event) {
@@ -301,14 +380,14 @@ impl Widget for TextInput {
         } else if shortcuts.delete_end_of_word.matches(&event) {
             self.editor.action(Action::DeleteEndOfWord, false);
         } else if let Some(text) = event.event.text {
-            if event.event.logical_key == Key::Tab || event.event.logical_key == Key::Enter {
+            if [Key::Tab, Key::Enter, Key::Escape].contains(&event.event.logical_key) {
                 return false;
             }
             self.editor.insert_string(&sanitize(&text), None);
         } else {
             return false;
         }
-        self.adjust_scroll();
+        self.after_change();
         self.reset_blink_timer();
         true
     }
@@ -337,7 +416,7 @@ impl Widget for TextInput {
         //     println!("ok1 {:?}", line.text());
         //     println!("ok2 {:?}", line.text_without_ime());
         // }
-        self.adjust_scroll();
+        self.after_change();
         self.reset_blink_timer();
         true
     }

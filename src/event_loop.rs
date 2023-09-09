@@ -1,5 +1,6 @@
 use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, time::Instant};
 
+use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Color;
@@ -155,6 +156,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
             // background: Color::BLACK,
         },
         timers: Timers::new(),
+        clipboard: Clipboard::new().expect("failed to initialize clipboard"),
     };
     SYSTEM.with(|system| {
         *system.0.borrow_mut() = Some(shared_system_data);
