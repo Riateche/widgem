@@ -38,12 +38,16 @@ pub struct TextInput {
 // TODO: get system setting
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
+fn sanitize(text: &str) -> String {
+    text.replace('\n', " ")
+}
+
 impl TextInput {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
         common.enable_ime = true;
-        let mut editor = TextEditor::new(&text.to_string());
+        let mut editor = TextEditor::new(&sanitize(&text.to_string()));
         editor.set_wrap(Wrap::None);
         Self {
             editor,
@@ -58,7 +62,8 @@ impl TextInput {
 
     pub fn set_text(&mut self, text: impl Display) {
         // TODO: replace line breaks to avoid multiple lines in buffer
-        self.editor.set_text(&text.to_string(), Attrs::new());
+        self.editor
+            .set_text(&sanitize(&text.to_string()), Attrs::new());
         self.reset_blink_timer();
     }
 
@@ -295,13 +300,11 @@ impl Widget for TextInput {
             self.editor.action(Action::DeleteStartOfWord, false);
         } else if shortcuts.delete_end_of_word.matches(&event) {
             self.editor.action(Action::DeleteEndOfWord, false);
-        } else if shortcuts.insert_paragraph_separator.matches(&event) {
-            self.editor.action(Action::Enter, false);
         } else if let Some(text) = event.event.text {
-            if event.event.logical_key == Key::Tab {
+            if event.event.logical_key == Key::Tab || event.event.logical_key == Key::Enter {
                 return false;
             }
-            self.editor.insert_string(&text, None);
+            self.editor.insert_string(&sanitize(&text), None);
         } else {
             return false;
         }
@@ -317,7 +320,7 @@ impl Widget for TextInput {
                 // TODO: can pretext have line breaks?
                 self.editor.action(
                     Action::SetPreedit {
-                        preedit,
+                        preedit: sanitize(&preedit),
                         cursor,
                         attrs: None,
                     },
@@ -325,7 +328,7 @@ impl Widget for TextInput {
                 );
             }
             Ime::Commit(string) => {
-                self.editor.insert_string(&string, None);
+                self.editor.insert_string(&sanitize(&string), None);
             }
             Ime::Disabled => {}
         }
