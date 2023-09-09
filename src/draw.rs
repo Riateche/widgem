@@ -57,6 +57,84 @@ impl DrawEvent {
         );
     }
 
+    pub fn draw_rounded_rect(&self, rect: Rect, radius: f32, color: Color, width: f32) {
+        if radius > (rect.size.x as f32 / 2.0) || radius > (rect.size.y as f32 / 2.0) {
+            //TODO do something here, log some error
+            println!("radius is bigger than fits in rectangle");
+            return;
+        }
+        let top_left_point = self.rect.top_left + rect.top_left;
+        let top_left = (
+            top_left_point.x as f32 + width / 2.0,
+            top_left_point.y as f32 + width / 2.0,
+        );
+        let size = (rect.size.x as f32 - width, rect.size.y as f32 - width);
+        let mut path_builder = PathBuilder::new();
+        path_builder.move_to(top_left.0 + radius, top_left.1);
+        path_builder.line_to(top_left.0 + size.0 - radius, top_left.1);
+        Self::rounded_line_in_square_corner(
+            &mut path_builder,
+            top_left.0 + size.0,
+            top_left.1,
+            top_left.0 + size.0,
+            top_left.1 + radius,
+        );
+        path_builder.line_to(top_left.0 + size.0, top_left.1 + size.1 - radius);
+        Self::rounded_line_in_square_corner(
+            &mut path_builder,
+            top_left.0 + size.0,
+            top_left.1 + size.1,
+            top_left.0 + size.0 - radius,
+            top_left.1 + size.1,
+        );
+        path_builder.line_to(top_left.0 + radius, top_left.1 + size.1);
+        Self::rounded_line_in_square_corner(
+            &mut path_builder,
+            top_left.0,
+            top_left.1 + size.1,
+            top_left.0,
+            top_left.1 + size.1 - radius,
+        );
+        path_builder.line_to(top_left.0, top_left.1 + radius);
+        Self::rounded_line_in_square_corner(
+            &mut path_builder,
+            top_left.0,
+            top_left.1,
+            top_left.0 + radius,
+            top_left.1,
+        );
+        let path = path_builder.finish().unwrap();
+        self.pixmap.borrow_mut().stroke_path(
+            &path,
+            &Paint {
+                shader: tiny_skia::Shader::SolidColor(color),
+                ..Paint::default()
+            },
+            &Stroke {
+                width,
+                ..Stroke::default()
+            },
+            Transform::default(),
+            // TODO: mask?
+            None,
+        );
+    }
+
+    fn rounded_line_in_square_corner(
+        path_builder: &mut PathBuilder,
+        corner_x: f32,
+        corner_y: f32,
+        x: f32,
+        y: f32,
+    ) {
+        path_builder.quad_to(
+            corner_x + (x - corner_x) / 4.0,
+            corner_y + (y - corner_y) / 4.0,
+            x,
+            y,
+        );
+    }
+
     // TODO: add at least width
     pub fn stroke_rect(&self, rect: Rect, color: Color) {
         let top_left = self.rect.top_left + rect.top_left;
