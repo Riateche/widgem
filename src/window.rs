@@ -176,7 +176,14 @@ impl Window {
                     x: position.x.round() as i32,
                     y: position.y.round() as i32,
                 };
-                self.shared_window_data.0.borrow_mut().cursor_position = Some(pos_in_window);
+                {
+                    let mut shared = self.shared_window_data.0.borrow_mut();
+                    if shared.cursor_position != Some(pos_in_window) {
+                        shared.cursor_position = Some(pos_in_window);
+                    } else {
+                        return;
+                    }
+                }
                 if let Some(root_widget) = &mut self.root_widget {
                     if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
                         if let Ok(mouse_grabber_widget) =
