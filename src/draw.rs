@@ -79,11 +79,14 @@ impl DrawEvent {
             return;
         }
         let top_left_point = self.rect.top_left + rect.top_left;
-        let top_left = tiny_skia::Point{
+        let top_left = tiny_skia::Point {
             x: top_left_point.x as f32 + width / 2.0,
             y: top_left_point.y as f32 + width / 2.0,
         };
-        let size = tiny_skia::Point{x: rect.size.x as f32 - width, y: rect.size.y as f32 - width};
+        let size = tiny_skia::Point {
+            x: rect.size.x as f32 - width,
+            y: rect.size.y as f32 - width,
+        };
         let mut path_builder = PathBuilder::new();
         path_builder.move_to(top_left.x + radius, top_left.y);
         path_builder.line_to(top_left.x + size.x - radius, top_left.y);
