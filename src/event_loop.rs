@@ -1,7 +1,9 @@
 use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, time::Instant};
 
+use accesskit_winit::ActionRequestEvent;
 use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
+use derive_more::From;
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Color;
 use winit::{
@@ -103,13 +105,14 @@ impl<'a, State> CallbackContext<'a, State> {
 #[derive(Debug)]
 pub struct InvokeCallbackEvent {
     pub callback_id: CallbackId,
-    pub event: Box<dyn Any>,
+    pub event: Box<dyn Any + Send>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, From)]
 pub enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
     WindowRequest(WindowId, WindowRequest),
+    ActionRequest(ActionRequestEvent),
 }
 
 scoped_thread_local!(pub static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
@@ -223,6 +226,9 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                                 callbacks.call(&mut state, &mut ctx, event);
                             }
                             callbacks.add_all(&mut callback_maker);
+                        }
+                        UserEvent::ActionRequest(request) => {
+                            println!("accesskit request: {:?}", request)
                         }
                     },
                     Event::AboutToWait => {

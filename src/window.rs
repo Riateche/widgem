@@ -1,11 +1,13 @@
 use std::{
     cell::{Cell, RefCell},
+    cmp::max,
     collections::HashSet,
-    num::NonZeroU32,
+    num::{NonZeroU32, NonZeroU64},
     rc::Rc,
     time::{Duration, Instant},
 };
 
+use accesskit::{NodeBuilder, NodeClassSet, NodeId, NodeIdContent, Role, Tree, TreeUpdate};
 use derive_more::From;
 use tiny_skia::Pixmap;
 use winit::{
@@ -44,6 +46,8 @@ pub struct SharedWindowData(pub Rc<RefCell<SharedWindowDataInner>>);
 
 pub struct Window {
     pub inner: winit::window::Window,
+    #[allow(dead_code)]
+    accesskit_adapter: accesskit_winit::Adapter,
     pub softbuffer_context: softbuffer::Context,
     pub surface: softbuffer::Surface,
     pub root_widget: Option<Box<dyn Widget>>,
@@ -62,6 +66,46 @@ pub struct Window {
 
 impl Window {
     pub fn new(inner: winit::window::Window, mut widget: Option<Box<dyn Widget>>) -> Self {
+        let tree = {
+            let mut cs = NodeClassSet::new();
+            let mut btn1 = NodeBuilder::new(Role::Button);
+            btn1.set_value("first button");
+            btn1.set_bounds(accesskit::Rect {
+                x0: 10.0,
+                y0: 10.0,
+                x1: 200.0,
+                y1: 200.0,
+            });
+            let btn1 = btn1.build(&mut cs);
+
+            let mut btn2 = NodeBuilder::new(Role::Button);
+            btn2.set_value("second button");
+            btn2.set_bounds(accesskit::Rect {
+                x0: 300.0,
+                y0: 400.0,
+                x1: 350.0,
+                y1: 450.0,
+            });
+            let btn2 = btn2.build(&mut cs);
+
+            let mut root = NodeBuilder::new(Role::Group);
+            let btn_id1 = NodeId(NodeIdContent::from(NonZeroU64::new(1).unwrap()));
+            let btn_id2 = NodeId(NodeIdContent::from(NonZeroU64::new(2).unwrap()));
+            let root_id = NodeId(NodeIdContent::from(NonZeroU64::new(3).unwrap()));
+            root.set_children([btn_id1, btn_id2]);
+            let root = root.build(&mut cs);
+            TreeUpdate {
+                nodes: vec![(btn_id1, btn1), (btn_id2, btn2), (root_id, root)],
+                tree: Some(Tree { root: root_id }),
+                focus: root_id,
+            }
+        };
+        let accesskit_adapter = accesskit_winit::Adapter::new(
+            &inner,
+            || tree,
+            with_system(|system| system.event_loop_proxy.clone()),
+        );
+
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             widget_tree_changed: false,
@@ -82,6 +126,7 @@ impl Window {
             );
         }
         let mut w = Self {
+            accesskit_adapter,
             surface: unsafe { softbuffer::Surface::new(&softbuffer_context, &inner) }.unwrap(),
             softbuffer_context,
             inner,
@@ -113,7 +158,7 @@ impl Window {
                 // Grab the window's client area dimensions
                 let (width, height) = {
                     let size = self.inner.inner_size();
-                    (size.width, size.height)
+                    (max(1, size.width), max(1, size.height))
                 };
 
                 // Resize surface if needed

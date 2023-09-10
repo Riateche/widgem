@@ -21,7 +21,7 @@ pub struct Callback<Event> {
     pub _marker: PhantomData<Event>,
 }
 
-impl<Event: 'static> Callback<Event> {
+impl<Event: Send + 'static> Callback<Event> {
     pub fn invoke(&self, event: Event) {
         let event = UserEvent::InvokeCallback(InvokeCallbackEvent {
             callback_id: self.callback_id,
