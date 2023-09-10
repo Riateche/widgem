@@ -201,7 +201,7 @@ impl Widget for TextInput {
             .expect("cannot draw when unmounted");
 
         with_system(|system| {
-            event.draw_rounded_rect(
+            event.stroke_rounded_rect(
                 Rect {
                     top_left: Point::default(),
                     size: geometry.rect_in_window.size,

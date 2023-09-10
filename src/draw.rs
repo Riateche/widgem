@@ -8,6 +8,21 @@ use tiny_skia::{
 
 use crate::types::{Point, Rect, Size};
 
+fn rounded_line_in_square_corner(
+    path_builder: &mut PathBuilder,
+    corner_x: f32,
+    corner_y: f32,
+    x: f32,
+    y: f32,
+) {
+    path_builder.quad_to(
+        corner_x + (x - corner_x) / 4.0,
+        corner_y + (y - corner_y) / 4.0,
+        x,
+        y,
+    );
+}
+
 pub struct DrawEvent {
     pub pixmap: Rc<RefCell<Pixmap>>,
     pub rect: Rect,
@@ -57,51 +72,51 @@ impl DrawEvent {
         );
     }
 
-    pub fn draw_rounded_rect(&self, rect: Rect, radius: f32, color: Color, width: f32) {
+    pub fn stroke_rounded_rect(&self, rect: Rect, radius: f32, color: Color, width: f32) {
         if radius > (rect.size.x as f32 / 2.0) || radius > (rect.size.y as f32 / 2.0) {
             //TODO do something here, log some error
             println!("radius is bigger than fits in rectangle");
             return;
         }
         let top_left_point = self.rect.top_left + rect.top_left;
-        let top_left = (
-            top_left_point.x as f32 + width / 2.0,
-            top_left_point.y as f32 + width / 2.0,
-        );
-        let size = (rect.size.x as f32 - width, rect.size.y as f32 - width);
+        let top_left = tiny_skia::Point{
+            x: top_left_point.x as f32 + width / 2.0,
+            y: top_left_point.y as f32 + width / 2.0,
+        };
+        let size = tiny_skia::Point{x: rect.size.x as f32 - width, y: rect.size.y as f32 - width};
         let mut path_builder = PathBuilder::new();
-        path_builder.move_to(top_left.0 + radius, top_left.1);
-        path_builder.line_to(top_left.0 + size.0 - radius, top_left.1);
-        Self::rounded_line_in_square_corner(
+        path_builder.move_to(top_left.x + radius, top_left.y);
+        path_builder.line_to(top_left.x + size.x - radius, top_left.y);
+        rounded_line_in_square_corner(
             &mut path_builder,
-            top_left.0 + size.0,
-            top_left.1,
-            top_left.0 + size.0,
-            top_left.1 + radius,
+            top_left.x + size.x,
+            top_left.y,
+            top_left.x + size.x,
+            top_left.y + radius,
         );
-        path_builder.line_to(top_left.0 + size.0, top_left.1 + size.1 - radius);
-        Self::rounded_line_in_square_corner(
+        path_builder.line_to(top_left.x + size.x, top_left.y + size.y - radius);
+        rounded_line_in_square_corner(
             &mut path_builder,
-            top_left.0 + size.0,
-            top_left.1 + size.1,
-            top_left.0 + size.0 - radius,
-            top_left.1 + size.1,
+            top_left.x + size.x,
+            top_left.y + size.y,
+            top_left.x + size.x - radius,
+            top_left.y + size.y,
         );
-        path_builder.line_to(top_left.0 + radius, top_left.1 + size.1);
-        Self::rounded_line_in_square_corner(
+        path_builder.line_to(top_left.x + radius, top_left.y + size.y);
+        rounded_line_in_square_corner(
             &mut path_builder,
-            top_left.0,
-            top_left.1 + size.1,
-            top_left.0,
-            top_left.1 + size.1 - radius,
+            top_left.x,
+            top_left.y + size.y,
+            top_left.x,
+            top_left.y + size.y - radius,
         );
-        path_builder.line_to(top_left.0, top_left.1 + radius);
-        Self::rounded_line_in_square_corner(
+        path_builder.line_to(top_left.x, top_left.y + radius);
+        rounded_line_in_square_corner(
             &mut path_builder,
-            top_left.0,
-            top_left.1,
-            top_left.0 + radius,
-            top_left.1,
+            top_left.x,
+            top_left.y,
+            top_left.x + radius,
+            top_left.y,
         );
         let path = path_builder.finish().unwrap();
         self.pixmap.borrow_mut().stroke_path(
@@ -117,21 +132,6 @@ impl DrawEvent {
             Transform::default(),
             // TODO: mask?
             None,
-        );
-    }
-
-    fn rounded_line_in_square_corner(
-        path_builder: &mut PathBuilder,
-        corner_x: f32,
-        corner_y: f32,
-        x: f32,
-        y: f32,
-    ) {
-        path_builder.quad_to(
-            corner_x + (x - corner_x) / 4.0,
-            corner_y + (y - corner_y) / 4.0,
-            x,
-            y,
         );
     }
 
