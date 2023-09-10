@@ -271,27 +271,42 @@ impl Widget for TextInput {
                         use arboard::{GetExtLinux, LinuxClipboardKind};
 
                         self.handle_main_click(event);
-                        let r = with_system(|system| {
-                            system
-                                .clipboard
-                                .get()
-                                .clipboard(LinuxClipboardKind::Primary)
-                                .text()
-                        });
-                        match r {
-                            Ok(text) => {
-                                self.editor.insert_string(&sanitize(&text), None);
-                            }
-                            Err(err) => {
-                                println!("warn: clipboard error: {err}");
+                        if !self.editor.is_mouse_interaction_forbidden() {
+                            let r = with_system(|system| {
+                                system
+                                    .clipboard
+                                    .get()
+                                    .clipboard(LinuxClipboardKind::Primary)
+                                    .text()
+                            });
+                            match r {
+                                Ok(text) => {
+                                    self.editor.insert_string(&sanitize(&text), None);
+                                }
+                                Err(err) => {
+                                    println!("warn: clipboard error: {err}");
+                                }
                             }
                         }
                     }
                 }
-                MouseButton::Back => todo!(),
-                MouseButton::Forward => todo!(),
-                MouseButton::Other(_) => todo!(),
+                _ => {}
             }
+        }
+        let is_released = self
+            .common
+            .mount_point
+            .as_ref()
+            .map_or(false, |mount_point| {
+                mount_point
+                    .window
+                    .0
+                    .borrow()
+                    .pressed_mouse_buttons
+                    .is_empty()
+            });
+        if is_released {
+            self.editor.mouse_released();
         }
         self.after_change();
         self.reset_blink_timer();

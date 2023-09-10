@@ -3,7 +3,8 @@ use std::cmp::max;
 use cosmic_text::{
     Action, Attrs, AttrsList, AttrsOwned, Buffer, Cursor, Edit, Editor, Shaping, Wrap,
 };
-use tiny_skia::{Color, Paint, Pixmap, Transform};
+use line_straddler::{GlyphStyle, LineGenerator, LineType};
+use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform};
 use winit::window::WindowId;
 
 use crate::{
@@ -21,6 +22,7 @@ pub struct TextEditor {
     size: Size,
     window_id: Option<WindowId>,
     is_cursor_hidden: bool,
+    forbid_mouse_interaction: bool,
 }
 
 impl TextEditor {
@@ -32,6 +34,7 @@ impl TextEditor {
             size: Size::default(),
             window_id: None,
             is_cursor_hidden: false,
+            forbid_mouse_interaction: false,
         });
         e.set_text(text, Attrs::new());
         // TODO: get from theme
@@ -39,6 +42,7 @@ impl TextEditor {
             .set_selection_color(Some(cosmic_text::Color::rgb(61, 174, 233)));
         e.editor
             .set_selected_text_color(Some(cosmic_text::Color::rgb(255, 255, 255)));
+        e.adjust_size();
         // let mut c = e.cursor();
         // c.color = Some(cosmic_text::Color::rgb(0, 255, 0));
         e
@@ -104,6 +108,10 @@ impl TextEditor {
         self.editor.buffer().redraw()
     }
 
+    pub fn is_mouse_interaction_forbidden(&self) -> bool {
+        self.forbid_mouse_interaction
+    }
+
     pub fn pixmap(&mut self) -> &Pixmap {
         if self.pixmap.is_none() || self.needs_redraw() {
             let size = Size {
@@ -120,7 +128,7 @@ impl TextEditor {
                     |x, y, w, h, c| {
                         let color = Color::from_rgba8(c.r(), c.g(), c.b(), c.a());
                         let paint = Paint {
-                            shader: tiny_skia::Shader::SolidColor(color),
+                            shader: Shader::SolidColor(color),
                             ..Paint::default()
                         };
                         pixmap.fill_rect(
@@ -133,6 +141,63 @@ impl TextEditor {
                     },
                 );
             });
+            let mut alg = LineGenerator::new(LineType::Underline);
+            let mut lines = Vec::new();
+            let line_height = self.editor.buffer().metrics().line_height;
+            // TODO: determine from glyph width?
+            let stroke_width = 1.0;
+            for run in self.editor.buffer().layout_runs() {
+                let underline_space = line_height - run.line_y;
+                let line_y = run.line_top + underline_space / 2.0;
+                let line_y = (line_y + stroke_width / 2.0).round() - stroke_width / 2.0;
+                for glyph in run.glyphs {
+                    if glyph.metadata & 0x1 != 0 {
+                        //println!("glyph ok");
+                        let color = glyph.color_opt.unwrap_or(convert_color(self.text_color));
+                        let glyph = line_straddler::Glyph {
+                            line_y,
+                            font_size: glyph.font_size,
+                            width: glyph.w,
+                            x: glyph.x,
+                            style: GlyphStyle {
+                                boldness: 1,
+                                color: line_straddler::Color::rgba(
+                                    color.r(),
+                                    color.g(),
+                                    color.b(),
+                                    color.a(),
+                                ),
+                            },
+                        };
+                        lines.extend(alg.add_glyph(glyph));
+                    }
+                }
+            }
+            lines.extend(alg.pop_line());
+            for line in lines {
+                //println!("line ok {line:?}");
+                let mut path = PathBuilder::new();
+                path.move_to(line.start_x, line.y);
+                path.line_to(line.end_x, line.y);
+                pixmap.stroke_path(
+                    &path.finish().unwrap(),
+                    &Paint {
+                        shader: Shader::SolidColor(tiny_skia::Color::from_rgba8(
+                            line.style.color.red(),
+                            line.style.color.green(),
+                            line.style.color.blue(),
+                            line.style.color.alpha(),
+                        )),
+                        ..Paint::default()
+                    },
+                    &Stroke {
+                        width: stroke_width,
+                        ..Stroke::default()
+                    },
+                    Transform::default(),
+                    None,
+                );
+            }
             self.pixmap = Some(pixmap);
             self.editor.buffer_mut().set_redraw(false);
         }
@@ -150,13 +215,19 @@ impl TextEditor {
     // TODO: remove
     pub fn action(&mut self, mut action: Action, select: bool) {
         // println!("action {:?}", action);
-        if let Action::SetPreedit { attrs, .. } = &mut action {
-            if attrs.is_none() {
-                let new_attrs = self
-                    .attrs_at_cursor()
-                    .color(cosmic_text::Color::rgb(255, 0, 0));
-                *attrs = Some(AttrsOwned::new(new_attrs));
+        match &mut action {
+            Action::SetPreedit { attrs, .. } => {
+                if attrs.is_none() {
+                    let new_attrs = self.attrs_at_cursor().metadata(1);
+                    *attrs = Some(AttrsOwned::new(new_attrs));
+                }
             }
+            Action::Drag { .. } => {
+                if self.forbid_mouse_interaction {
+                    return;
+                }
+            }
+            _ => (),
         }
         with_system(|system| self.editor.action(&mut system.font_system, action, select));
         self.adjust_size();
@@ -226,7 +297,8 @@ impl TextEditor {
                     .map_or(false, |ime_range| ime_range.contains(&click_cursor.index))
             {
                 // Click is inside IME preedit, so we ignore it.
-                println!("click inside ime");
+                //println!("click inside ime");
+                self.forbid_mouse_interaction = true;
             } else {
                 // Click is outside IME preedit, so we insert the preedit text
                 // as real text and cancel IME preedit.
@@ -243,6 +315,10 @@ impl TextEditor {
                 }
             }
         }
+    }
+
+    pub fn mouse_released(&mut self) {
+        self.forbid_mouse_interaction = false;
     }
 
     fn attrs_at_cursor(&self) -> Attrs {

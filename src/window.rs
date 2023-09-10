@@ -352,6 +352,7 @@ impl Window {
                 }
             }
             WindowEvent::Ime(ime) => {
+                println!("{ime:?}");
                 if let Ime::Enabled = &ime {
                     //println!("reset ime position {:?}", self.ime_cursor_area);
                     self.inner.set_ime_cursor_area(
