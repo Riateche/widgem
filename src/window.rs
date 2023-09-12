@@ -69,6 +69,7 @@ impl Window {
         let tree = {
             let mut cs = NodeClassSet::new();
             let mut btn1 = NodeBuilder::new(Role::Button);
+            btn1.set_name("first button name");
             btn1.set_value("first button");
             btn1.set_bounds(accesskit::Rect {
                 x0: 10.0,
@@ -97,7 +98,7 @@ impl Window {
             TreeUpdate {
                 nodes: vec![(btn_id1, btn1), (btn_id2, btn2), (root_id, root)],
                 tree: Some(Tree { root: root_id }),
-                focus: root_id,
+                focus: btn_id1,
             }
         };
         let accesskit_adapter = accesskit_winit::Adapter::new(
@@ -153,6 +154,10 @@ impl Window {
         } else {
             return;
         };
+        if !self.accesskit_adapter.on_event(&self.inner, &event) {
+            println!("accesskit handled event: {event:?}");
+            return;
+        }
         match event {
             WindowEvent::RedrawRequested => {
                 // Grab the window's client area dimensions

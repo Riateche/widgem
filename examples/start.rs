@@ -3,7 +3,7 @@
 use salvation::{
     event_loop::{self, CallbackContext},
     types::{Point, Rect, Size},
-    widgets::{button::Button, stack::Stack, text_input::TextInput, Widget},
+    widgets::{button::Button, stack::Stack, text_input::TextInput, Widget, WidgetExt, WidgetId},
 };
 
 struct AnotherState {
@@ -23,15 +23,15 @@ impl AnotherState {
 }
 
 struct State {
-    // another_state: AnotherState,
-    // button_id: WidgetId<Button>,
+    another_state: AnotherState,
+    button_id: WidgetId<Button>,
 }
 
 impl State {
     fn new(ctx: &mut CallbackContext<Self>) -> Self {
         let mut root = Stack::new();
         // let w1 =
-        //     Image::load_png("/home/ri/tmp/rusttype/dev/tests/reference_big_biohazard.png").unwrap();
+        //     Image::load_png("1.png").unwrap();
         // root.add(
         //     Rect {
         //         top_left: Point { x: 20, y: 30 },
@@ -57,11 +57,11 @@ impl State {
             Box::new(w3),
         );
 
-        let btn1 = Button::new("btn1");
-        //let button_id = btn1.id();
-        // btn1.on_clicked(ctx.callback(|state, ctx, event| {
-        //     state.button_clicked2(ctx, event, 1);
-        // }));
+        let mut btn1 = Button::new("btn1");
+        let button_id = btn1.id();
+        btn1.on_clicked(ctx.callback(|state, ctx, event| {
+            state.button_clicked2(ctx, event, 1);
+        }));
         root.add(
             Rect {
                 top_left: Point { x: 20, y: 200 },
@@ -70,32 +70,33 @@ impl State {
             Box::new(btn1),
         );
 
-        // let mut btn2 = Button::new("btn2");
-        // // btn2.on_clicked(ctx.callback_maker.add(Self::button_clicked));
-        // btn2.on_clicked(ctx.callback(|state, ctx, event| {
-        //     state.button_clicked2(ctx, event, 2);
-        // }));
-        // root.add(
-        //     Rect {
-        //         top_left: Point { x: 20, y: 260 },
-        //         size: Size { x: 200, y: 50 },
-        //     },
-        //     Box::new(btn2),
-        // );
+        let mut btn2 = Button::new("btn2");
+        // btn2.on_clicked(ctx.callback_maker.add(Self::button_clicked));
+        btn2.on_clicked(ctx.callback(|state, ctx, event| {
+            state.button_clicked2(ctx, event, 2);
+        }));
+        root.add(
+            Rect {
+                top_left: Point { x: 20, y: 260 },
+                size: Size { x: 200, y: 50 },
+            },
+            Box::new(btn2),
+        );
 
-        // let (another_state, btn3) =
-        //     AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
-        // root.add(
-        //     Rect {
-        //         top_left: Point { x: 20, y: 320 },
-        //         size: Size { x: 200, y: 50 },
-        //     },
-        //     btn3,
-        //         );
+        let (another_state, btn3) =
+            AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
+        root.add(
+            Rect {
+                top_left: Point { x: 20, y: 320 },
+                size: Size { x: 200, y: 50 },
+            },
+            btn3,
+        );
+
         ctx.add_window("example", Some(Box::new(root)));
         State {
-            // another_state,
-            // button_id,
+            another_state,
+            button_id,
         }
     }
 
@@ -103,11 +104,11 @@ impl State {
     //     println!("callback! {:?}", data);
     // }
 
-    // fn button_clicked2(&mut self, ctx: &mut CallbackContext<Self>, data: String, k: u32) {
-    //     println!("callback! {:?}, {}", data, k);
-    //     let button = ctx.get_widget_by_id_mut(self.button_id).unwrap();
-    //     button.set_text(&format!("ok {k}"));
-    // }
+    fn button_clicked2(&mut self, ctx: &mut CallbackContext<Self>, data: String, k: u32) {
+        println!("callback! {:?}, {}", data, k);
+        let button = ctx.get_widget_by_id_mut(self.button_id).unwrap();
+        button.set_text(&format!("ok {k}"));
+    }
 }
 
 fn main() {

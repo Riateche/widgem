@@ -7,9 +7,11 @@ use winit::event::MouseButton;
 use crate::{
     callback::Callback,
     draw::{draw_text, unrestricted_text_size, DrawEvent},
+    event::FocusReason,
     event::{CursorMovedEvent, MouseInputEvent},
-    system::with_system,
+    system::{send_window_event, with_system},
     types::{Point, Rect, Size},
+    window::SetFocusRequest,
 };
 
 use super::{Widget, WidgetCommon};
@@ -192,6 +194,19 @@ impl Widget for Button {
         if let Some(on_clicked) = &self.on_clicked {
             on_clicked.invoke(self.text.clone());
         }
+
+        let mount_point = &self
+            .common
+            .mount_point
+            .as_ref()
+            .expect("cannot handle event when unmounted");
+        send_window_event(
+            mount_point.address.window_id,
+            SetFocusRequest {
+                widget_id: self.common.id,
+                reason: FocusReason::Mouse,
+            },
+        );
         true
     }
 
