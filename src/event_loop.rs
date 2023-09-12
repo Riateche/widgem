@@ -17,7 +17,9 @@ use crate::{
     draw::Palette,
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
-    widgets::{get_widget_by_address_mut, RawWidgetId, Widget, WidgetId, WidgetNotFound},
+    widgets::{
+        get_widget_by_address_mut, RawWidgetId, Widget, WidgetExt, WidgetId, WidgetNotFound,
+    },
     window::{Window, WindowEventContext, WindowRequest},
 };
 
@@ -135,6 +137,7 @@ fn dispatch_widget_callback<Event>(
         return;
     };
     (callback.func)(widget, event);
+    widget.update_accessible();
 }
 
 pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) -> State) {

@@ -71,6 +71,11 @@ impl TextEditor {
         });
         self.adjust_size();
     }
+
+    pub fn text(&self) -> String {
+        self.editor.buffer().text_without_preedit()
+    }
+
     pub fn insert_string(&mut self, text: &str, attrs_list: Option<AttrsList>) {
         self.editor.insert_string(text, attrs_list);
         self.adjust_size();

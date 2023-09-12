@@ -1,5 +1,6 @@
 #![allow(clippy::collapsible_if)]
 
+pub mod accessible;
 pub mod callback;
 pub mod draw;
 pub mod event;

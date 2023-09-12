@@ -1,5 +1,6 @@
 use std::{cmp::max, fmt::Display};
 
+use accesskit::{NodeBuilder, Role};
 use cosmic_text::{Attrs, Buffer, Shaping};
 use tiny_skia::{Color, GradientStop, LinearGradient, Pixmap, SpreadMode, Transform};
 use winit::event::MouseButton;
@@ -40,6 +41,7 @@ impl Button {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
+        common.is_accessible = true;
         Self {
             text: text.to_string(),
             buffer: None,
@@ -221,5 +223,11 @@ impl Widget for Button {
     }
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
+    }
+
+    fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
+        let mut node = NodeBuilder::new(Role::Button);
+        node.set_name(self.text.as_str());
+        Some(node)
     }
 }

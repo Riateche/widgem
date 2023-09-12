@@ -5,6 +5,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+use accesskit::{NodeId, NodeIdContent};
 use downcast_rs::{impl_downcast, Downcast};
 use winit::window::WindowId;
 
@@ -34,6 +35,10 @@ impl RawWidgetId {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
     }
+
+    // pub fn accessible_id(self) -> NodeId {
+    //     self.0.into()
+    // }
 }
 
 pub struct WidgetId<T>(pub RawWidgetId, pub PhantomData<T>);
@@ -54,6 +59,8 @@ pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
     pub enable_ime: bool,
+    pub is_accessible: bool,
+
     pub is_focused: bool,
     // TODO: set initial value in mount event
     pub is_window_focused: bool,
@@ -77,6 +84,7 @@ impl WidgetCommon {
             is_focused: false,
             is_window_focused: false,
             enable_ime: false,
+            is_accessible: false,
             mount_point: None,
             geometry: None,
         }
@@ -101,6 +109,12 @@ impl WidgetCommon {
         if let Some(mount_point) = self.mount_point.take() {
             unregister_address(self.id);
             mount_point.window.0.borrow_mut().widget_tree_changed = true;
+            mount_point
+                .window
+                .0
+                .borrow_mut()
+                .accessible_nodes
+                .update(self.id.0.into(), None);
         } else {
             println!("warn: widget was not mounted");
         }
@@ -222,6 +236,9 @@ pub trait Widget: Downcast {
         }
     }
     fn layout(&mut self) {}
+    fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
+        None
+    }
 }
 impl_downcast!(Widget);
 
@@ -230,6 +247,8 @@ pub trait WidgetExt {
     where
         Self: Sized;
     fn dispatch(&mut self, event: Event) -> bool;
+    fn update_accessible(&mut self);
+    fn update_accessible_recursive(&mut self);
 }
 
 impl<W: Widget + ?Sized> WidgetExt for W {
@@ -288,7 +307,65 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 accepted_by.set(Some(self.common().id));
             }
         }
+        self.update_accessible();
         result
+    }
+
+    fn update_accessible(&mut self) {
+        let node = self.accessible_node();
+        let mut children = Vec::new();
+        find_accessible_children(self, &mut children);
+        let Some(mount_point) = self.common().mount_point.as_ref() else {
+            return;
+        };
+        let geometry = self.common().geometry;
+        let node = node.map(|mut node| {
+            if let Some(geometry) = geometry {
+                let rect = geometry.rect_in_window;
+                node.set_bounds(accesskit::Rect {
+                    x0: rect.top_left.x as f64,
+                    y0: rect.top_left.y as f64,
+                    x1: rect.bottom_right().x as f64,
+                    y1: rect.bottom_right().y as f64,
+                });
+            }
+            node.set_children(children);
+            node.build(&mut mount_point.window.0.borrow_mut().accessible_nodes.classes)
+        });
+        mount_point
+            .window
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .update(self.common().id.0.into(), node);
+    }
+
+    fn update_accessible_recursive(&mut self) {
+        self.update_accessible();
+        for child in self.children_mut() {
+            child.update_accessible();
+        }
+    }
+}
+
+// TODO: not mut
+fn find_accessible_children(widget: &mut (impl Widget + ?Sized), out: &mut Vec<NodeId>) {
+    for child in widget.children_mut() {
+        if child.common().is_accessible {
+            out.push(child.common().id.0.into());
+        } else {
+            find_accessible_children(child.as_mut(), out);
+        }
+    }
+}
+
+pub fn find_accessible_roots(widget: &mut (impl Widget + ?Sized), out: &mut Vec<NodeId>) {
+    if widget.common().is_accessible {
+        out.push(widget.common().id.0.into());
+    } else {
+        for child in widget.children_mut() {
+            find_accessible_roots(child.as_mut(), out);
+        }
     }
 }
 

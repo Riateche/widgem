@@ -1,13 +1,13 @@
 use std::{
     cell::{Cell, RefCell},
     cmp::max,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     num::{NonZeroU32, NonZeroU64},
     rc::Rc,
     time::{Duration, Instant},
 };
 
-use accesskit::{NodeBuilder, NodeClassSet, NodeId, NodeIdContent, Role, Tree, TreeUpdate};
+use accesskit::{Node, NodeBuilder, NodeClassSet, NodeId, NodeIdContent, Role, Tree, TreeUpdate};
 use derive_more::From;
 use tiny_skia::Pixmap;
 use winit::{
@@ -17,6 +17,7 @@ use winit::{
 };
 
 use crate::{
+    accessible::AccessibleNodes,
     draw::DrawEvent,
     event::{
         CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
@@ -25,7 +26,8 @@ use crate::{
     system::with_system,
     types::{Point, Rect, Size},
     widgets::{
-        get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
+        find_accessible_roots, get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget,
+        WidgetAddress, WidgetExt,
     },
 };
 
@@ -39,6 +41,7 @@ pub struct SharedWindowDataInner {
     pub modifiers_state: ModifiersState,
     pub pressed_mouse_buttons: HashSet<MouseButton>,
     pub is_window_focused: bool,
+    pub accessible_nodes: AccessibleNodes,
 }
 
 #[derive(Clone)]
@@ -66,47 +69,6 @@ pub struct Window {
 
 impl Window {
     pub fn new(inner: winit::window::Window, mut widget: Option<Box<dyn Widget>>) -> Self {
-        let tree = {
-            let mut cs = NodeClassSet::new();
-            let mut btn1 = NodeBuilder::new(Role::Button);
-            btn1.set_name("first button name");
-            btn1.set_value("first button");
-            btn1.set_bounds(accesskit::Rect {
-                x0: 10.0,
-                y0: 10.0,
-                x1: 200.0,
-                y1: 200.0,
-            });
-            let btn1 = btn1.build(&mut cs);
-
-            let mut btn2 = NodeBuilder::new(Role::Button);
-            btn2.set_value("second button");
-            btn2.set_bounds(accesskit::Rect {
-                x0: 300.0,
-                y0: 400.0,
-                x1: 350.0,
-                y1: 450.0,
-            });
-            let btn2 = btn2.build(&mut cs);
-
-            let mut root = NodeBuilder::new(Role::Group);
-            let btn_id1 = NodeId(NodeIdContent::from(NonZeroU64::new(1).unwrap()));
-            let btn_id2 = NodeId(NodeIdContent::from(NonZeroU64::new(2).unwrap()));
-            let root_id = NodeId(NodeIdContent::from(NonZeroU64::new(3).unwrap()));
-            root.set_children([btn_id1, btn_id2]);
-            let root = root.build(&mut cs);
-            TreeUpdate {
-                nodes: vec![(btn_id1, btn1), (btn_id2, btn2), (root_id, root)],
-                tree: Some(Tree { root: root_id }),
-                focus: btn_id1,
-            }
-        };
-        let accesskit_adapter = accesskit_winit::Adapter::new(
-            &inner,
-            || tree,
-            with_system(|system| system.event_loop_proxy.clone()),
-        );
-
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             widget_tree_changed: false,
@@ -115,6 +77,7 @@ impl Window {
             modifiers_state: ModifiersState::default(),
             pressed_mouse_buttons: HashSet::new(),
             is_window_focused: false,
+            accessible_nodes: AccessibleNodes::new(),
         })));
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(inner.id()).join(widget.common().id);
@@ -126,6 +89,18 @@ impl Window {
                 .into(),
             );
         }
+        build_accessible_tree(widget.as_mut().map(|w| w.as_mut()), &shared_window_data);
+        let initial_tree = shared_window_data
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .take_update();
+        let accesskit_adapter = accesskit_winit::Adapter::new(
+            &inner,
+            || initial_tree,
+            with_system(|system| system.event_loop_proxy.clone()),
+        );
+
         let mut w = Self {
             accesskit_adapter,
             surface: unsafe { softbuffer::Surface::new(&softbuffer_context, &inner) }.unwrap(),
@@ -155,7 +130,6 @@ impl Window {
             return;
         };
         if !self.accesskit_adapter.on_event(&self.inner, &event) {
-            println!("accesskit handled event: {event:?}");
             return;
         }
         match event {
@@ -435,6 +409,7 @@ impl Window {
             }
             _ => {}
         }
+        self.push_accessible_updates();
     }
 
     pub fn move_keyboard_focus(&mut self, direction: i32) {
@@ -493,6 +468,25 @@ impl Window {
     fn widget_tree_changed(&mut self) {
         self.refresh_focusable_widgets();
         self.layout();
+        self.accessible_tree_changed();
+    }
+
+    fn accessible_tree_changed(&mut self) {
+        build_accessible_tree(
+            self.root_widget.as_mut().map(|w| w.as_mut()),
+            &self.shared_window_data,
+        );
+        self.push_accessible_updates();
+    }
+
+    fn push_accessible_updates(&mut self) {
+        let update = self
+            .shared_window_data
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .take_update();
+        self.accesskit_adapter.update(update);
     }
 
     fn refresh_focusable_widgets(&mut self) {
@@ -546,12 +540,26 @@ impl Window {
             println!("warn: set_focus: widget not found on second pass");
         }
         self.inner.request_redraw(); // TODO: smarter redraw
+        self.update_accessible_focus();
     }
 
     fn unset_focus(&mut self) {
         self.focused_widget = None;
         self.inner.set_ime_allowed(false);
         self.ime_allowed = false;
+        self.update_accessible_focus();
+    }
+
+    fn update_accessible_focus(&mut self) {
+        // TODO: what if it's not focusable?
+        let nodes = &mut self.shared_window_data.0.borrow_mut().accessible_nodes;
+        nodes.focus = nodes.root;
+        if let Some(focused) = self.focused_widget {
+            let id = focused.0.into();
+            if nodes.nodes.contains_key(&id) {
+                nodes.focus = id;
+            }
+        }
     }
 
     fn layout(&mut self) {
@@ -597,6 +605,31 @@ impl Window {
                 }
             }
         }
+        self.push_accessible_updates();
+    }
+}
+
+fn build_accessible_tree(
+    root_widget: Option<&mut dyn Widget>,
+    shared_window_data: &SharedWindowData,
+) {
+    shared_window_data.0.borrow_mut().accessible_nodes.clear();
+
+    shared_window_data.0.borrow_mut().accessible_nodes.clear();
+    let mut accessible_roots = Vec::new();
+    if let Some(root) = root_widget {
+        root.update_accessible_recursive();
+        find_accessible_roots(root, &mut accessible_roots);
+    }
+    let nodes = &mut shared_window_data.0.borrow_mut().accessible_nodes;
+    if accessible_roots.len() == 1 {
+        nodes.root = accessible_roots[0];
+    } else {
+        nodes.root = nodes.virtual_root;
+        let mut root = NodeBuilder::new(Role::Group);
+        root.set_children(accessible_roots);
+        let root = root.build(&mut nodes.classes);
+        nodes.update(nodes.virtual_root, Some(root));
     }
 }
 

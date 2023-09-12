@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use accesskit::{NodeBuilder, Role};
 use cosmic_text::{Action, Attrs, Wrap};
 use winit::{
     event::{ElementState, Ime, MouseButton},
@@ -48,6 +49,7 @@ impl TextInput {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
         common.enable_ime = true;
+        common.is_accessible = true;
         let mut editor = TextEditor::new(&sanitize(&text.to_string()));
         editor.set_wrap(Wrap::None);
         Self {
@@ -464,5 +466,12 @@ impl Widget for TextInput {
     fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
         self.editor.on_window_focus_changed(event.focused);
         self.reset_blink_timer();
+    }
+    fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
+        let mut node = NodeBuilder::new(Role::TextInput);
+        // TODO: use label
+        node.set_name("some input");
+        node.set_value(self.editor.text());
+        Some(node)
     }
 }
