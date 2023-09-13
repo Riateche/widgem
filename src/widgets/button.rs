@@ -41,7 +41,6 @@ impl Button {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
-        common.is_accessible = true;
         Self {
             text: text.to_string(),
             buffer: None,

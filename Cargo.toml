@@ -25,7 +25,7 @@ arboard = "3.2.1"
 line-straddler = "0.2.1"
 #accesskit = "0.11.2"
 #accesskit_winit = "0.14.4"
-accesskit = { path = "../accesskit/common" }
-accesskit_winit = { path = "../accesskit/platforms/winit" }
-# accesskit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
-# accesskit_winit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+#accesskit = { path = "../accesskit/common" }
+#accesskit_winit = { path = "../accesskit/platforms/winit" }
+accesskit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+accesskit_winit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }

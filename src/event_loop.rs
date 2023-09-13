@@ -74,7 +74,7 @@ impl<'a, State> CallbackContext<'a, State> {
 
     // TODO: create builder instead
     pub fn add_window(&mut self, title: &str, root_widget: Option<Box<dyn Widget>>) -> WindowId {
-        let builder = WindowBuilder::new().with_title(title);
+        let builder = WindowBuilder::new().with_title(title).with_visible(false);
         let window = WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
         let window = Window::new(window, root_widget);
         let id = window.inner.id();

@@ -49,7 +49,6 @@ impl TextInput {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
         common.enable_ime = true;
-        common.is_accessible = true;
         let mut editor = TextEditor::new(&sanitize(&text.to_string()));
         editor.set_wrap(Wrap::None);
         Self {
@@ -255,7 +254,7 @@ impl Widget for TextInput {
                     //     .with_position(PhysicalPosition::new(100, 10))
                     //     .with_inner_size(PhysicalSize::new(300, 300))
                     //     .with_decorations(false)
-                    //     .with_visible(true);
+                    //     .with_visible(false);
                     // let window =
                     //     WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
                     // let window = Window::new(window, None);
