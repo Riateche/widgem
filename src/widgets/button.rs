@@ -1,7 +1,7 @@
 use std::{cmp::max, fmt::Display};
 
 use cosmic_text::{Attrs, Buffer, Shaping};
-use tiny_skia::{Color, Pixmap};
+use tiny_skia::{Color, GradientStop, LinearGradient, Pixmap, SpreadMode, Transform};
 
 use crate::{
     callback::Callback,
@@ -51,21 +51,33 @@ impl Button {
 
 impl Widget for Button {
     fn on_draw(&mut self, event: DrawEvent) {
-        event.fill_rect(
+        let start = tiny_skia::Point {
+            x: event.rect.top_left.x as f32,
+            y: event.rect.top_left.y as f32,
+        };
+        let end = tiny_skia::Point {
+            x: event.rect.top_left.x as f32,
+            y: event.rect.top_left.y as f32 + event.rect.size.y as f32,
+        };
+        let gradient = LinearGradient::new(
+            start,
+            end,
+            vec![
+                GradientStop::new(0.0, Color::from_rgba8(0, 0, 0, 255)),
+                GradientStop::new(1.0, Color::from_rgba8(255, 255, 255, 255)),
+            ],
+            SpreadMode::Pad,
+            Transform::default(),
+        )
+        .expect("failed to create gradient");
+        event.stroke_and_fill_rounded_rect(
             Rect {
                 top_left: Point::default(),
                 size: event.rect.size,
             },
-            Color::from_rgba8(180, 255, 180, 255),
-        );
-        event.fill_rect(
-            Rect {
-                top_left: Point { x: 3, y: 3 },
-                size: Size {
-                    x: event.rect.size.x - 6,
-                    y: event.rect.size.y - 6,
-                },
-            },
+            2.0,
+            1.0,
+            gradient,
             Color::from_rgba8(220, 220, 220, 255),
         );
 
