@@ -56,43 +56,42 @@ impl State {
             },
             Box::new(w3),
         );
-        /*
-                let mut btn1 = Button::new("btn1");
-                let button_id = btn1.id();
-                btn1.on_clicked(ctx.callback(|state, ctx, event| {
-                    state.button_clicked2(ctx, event, 1);
-                }));
-                root.add(
-                    Rect {
-                        top_left: Point { x: 20, y: 200 },
-                        size: Size { x: 200, y: 50 },
-                    },
-                    Box::new(btn1),
-                );
 
-                let mut btn2 = Button::new("btn2");
-                // btn2.on_clicked(ctx.callback_maker.add(Self::button_clicked));
-                btn2.on_clicked(ctx.callback(|state, ctx, event| {
-                    state.button_clicked2(ctx, event, 2);
-                }));
-                root.add(
-                    Rect {
-                        top_left: Point { x: 20, y: 260 },
-                        size: Size { x: 200, y: 50 },
-                    },
-                    Box::new(btn2),
-                );
+        let btn1 = Button::new("btn1");
+        //let button_id = btn1.id();
+        // btn1.on_clicked(ctx.callback(|state, ctx, event| {
+        //     state.button_clicked2(ctx, event, 1);
+        // }));
+        root.add(
+            Rect {
+                top_left: Point { x: 20, y: 200 },
+                size: Size { x: 200, y: 50 },
+            },
+            Box::new(btn1),
+        );
 
-                let (another_state, btn3) =
-                    AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
-                root.add(
-                    Rect {
-                        top_left: Point { x: 20, y: 320 },
-                        size: Size { x: 200, y: 50 },
-                    },
-                    btn3,
-                );
-        */
+        // let mut btn2 = Button::new("btn2");
+        // // btn2.on_clicked(ctx.callback_maker.add(Self::button_clicked));
+        // btn2.on_clicked(ctx.callback(|state, ctx, event| {
+        //     state.button_clicked2(ctx, event, 2);
+        // }));
+        // root.add(
+        //     Rect {
+        //         top_left: Point { x: 20, y: 260 },
+        //         size: Size { x: 200, y: 50 },
+        //     },
+        //     Box::new(btn2),
+        // );
+
+        // let (another_state, btn3) =
+        //     AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
+        // root.add(
+        //     Rect {
+        //         top_left: Point { x: 20, y: 320 },
+        //         size: Size { x: 200, y: 50 },
+        //     },
+        //     btn3,
+        //         );
         ctx.add_window("example", Some(Box::new(root)));
         State {
             // another_state,

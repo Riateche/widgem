@@ -1,12 +1,13 @@
 use std::{cmp::max, fmt::Display};
 
 use cosmic_text::{Attrs, Buffer, Shaping};
-use tiny_skia::{Color, Pixmap};
+use tiny_skia::{Color, GradientStop, LinearGradient, Pixmap, SpreadMode, Transform};
+use winit::event::MouseButton;
 
 use crate::{
     callback::Callback,
     draw::{draw_text, unrestricted_text_size, DrawEvent},
-    event::MouseInputEvent,
+    event::{CursorMovedEvent, MouseInputEvent},
     system::with_system,
     types::{Point, Rect, Size},
 };
@@ -21,7 +22,16 @@ pub struct Button {
     redraw_text: bool,
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
+    state: ButtonState,
+    enabled: bool,
     common: WidgetCommon,
+}
+
+#[derive(PartialEq)]
+enum ButtonState {
+    Default,
+    Hover,
+    Pressed,
 }
 
 impl Button {
@@ -35,6 +45,8 @@ impl Button {
             unrestricted_text_size: Size::default(),
             redraw_text: true,
             on_clicked: None,
+            enabled: true,
+            state: ButtonState::Default,
             common,
         }
     }
@@ -44,6 +56,13 @@ impl Button {
         self.redraw_text = true;
     }
 
+    //TODO: needs some automatic redraw?
+    pub fn set_enabled(&mut self, enabled: bool) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+        }
+    }
+
     pub fn on_clicked(&mut self, callback: Callback<String>) {
         self.on_clicked = Some(callback);
     }
@@ -51,22 +70,78 @@ impl Button {
 
 impl Widget for Button {
     fn on_draw(&mut self, event: DrawEvent) {
-        event.fill_rect(
+        let start = tiny_skia::Point {
+            x: event.rect.top_left.x as f32,
+            y: event.rect.top_left.y as f32,
+        };
+        let end = tiny_skia::Point {
+            x: event.rect.top_left.x as f32,
+            y: event.rect.top_left.y as f32 + event.rect.size.y as f32,
+        };
+        let gradient = if !self.enabled {
+            LinearGradient::new(
+                start,
+                end,
+                vec![
+                    GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
+                    GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
+                ],
+                SpreadMode::Pad,
+                Transform::default(),
+            )
+        } else {
+            match self.state {
+                ButtonState::Default => LinearGradient::new(
+                    start,
+                    end,
+                    vec![
+                        GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
+                        GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
+                    ],
+                    SpreadMode::Pad,
+                    Transform::default(),
+                ),
+                ButtonState::Hover => LinearGradient::new(
+                    start,
+                    end,
+                    vec![
+                        GradientStop::new(1.0, Color::from_rgba8(254, 254, 254, 255)),
+                        GradientStop::new(1.0, Color::from_rgba8(247, 247, 247, 255)),
+                    ],
+                    SpreadMode::Pad,
+                    Transform::default(),
+                ),
+                ButtonState::Pressed => LinearGradient::new(
+                    start,
+                    end,
+                    vec![GradientStop::new(
+                        1.0,
+                        Color::from_rgba8(219, 219, 219, 255),
+                    )],
+                    SpreadMode::Pad,
+                    Transform::default(),
+                ),
+            }
+        }
+        .expect("failed to create gradient");
+        let border_color = if self.enabled {
+            if self.common.is_focused {
+                Color::from_rgba8(38, 112, 158, 255)
+            } else {
+                Color::from_rgba8(171, 171, 171, 255)
+            }
+        } else {
+            Color::from_rgba8(196, 196, 196, 255)
+        };
+        event.stroke_and_fill_rounded_rect(
             Rect {
                 top_left: Point::default(),
                 size: event.rect.size,
             },
-            Color::from_rgba8(180, 255, 180, 255),
-        );
-        event.fill_rect(
-            Rect {
-                top_left: Point { x: 3, y: 3 },
-                size: Size {
-                    x: event.rect.size.x - 6,
-                    y: event.rect.size.y - 6,
-                },
-            },
-            Color::from_rgba8(220, 220, 220, 255),
+            2.0,
+            1.0,
+            gradient,
+            border_color,
         );
 
         with_system(|system| {
@@ -75,13 +150,19 @@ impl Widget for Button {
                 .get_or_insert_with(|| Buffer::new(&mut system.font_system, system.font_metrics))
                 .borrow_with(&mut system.font_system);
 
+            let text_color = if self.enabled {
+                system.palette.foreground
+            } else {
+                Color::from_rgba8(191, 191, 191, 255)
+            };
+
             if self.redraw_text {
                 buffer.set_text(&self.text, Attrs::new(), Shaping::Advanced);
                 self.unrestricted_text_size = unrestricted_text_size(&mut buffer);
                 let pixmap = draw_text(
                     &mut buffer,
                     self.unrestricted_text_size,
-                    system.palette.foreground,
+                    text_color,
                     &mut system.swash_cache,
                 );
                 self.text_pixmap = Some(pixmap);
@@ -98,11 +179,26 @@ impl Widget for Button {
         });
     }
 
-    fn on_mouse_input(&mut self, _event: MouseInputEvent) -> bool {
+    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
+        if event.button == MouseButton::Left {
+            if event.state.is_pressed() {
+                if self.enabled {
+                    self.state = ButtonState::Pressed;
+                }
+            } else if self.enabled {
+                self.state = ButtonState::Hover;
+            }
+        }
         if let Some(on_clicked) = &self.on_clicked {
             on_clicked.invoke(self.text.clone());
         }
         true
+    }
+
+    // TODO: mouse out event
+    fn on_cursor_moved(&mut self, _event: CursorMovedEvent) -> bool {
+        self.state = ButtonState::Hover;
+        false
     }
 
     fn common(&self) -> &WidgetCommon {
