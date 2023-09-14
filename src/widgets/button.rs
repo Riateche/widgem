@@ -45,7 +45,7 @@ impl Button {
             unrestricted_text_size: Size::default(),
             redraw_text: true,
             on_clicked: None,
-            enabled: false,
+            enabled: true,
             state: ButtonState::Default,
             common,
         }
@@ -125,7 +125,11 @@ impl Widget for Button {
         }
         .expect("failed to create gradient");
         let border_color = if self.enabled {
-            Color::from_rgba8(171, 171, 171, 255)
+            if self.common.is_focused {
+                Color::from_rgba8(38, 112, 158, 255)
+            } else {
+                Color::from_rgba8(171, 171, 171, 255)
+            }
         } else {
             Color::from_rgba8(196, 196, 196, 255)
         };
@@ -182,7 +186,7 @@ impl Widget for Button {
                     self.state = ButtonState::Pressed;
                 }
             } else if self.enabled {
-                self.state = ButtonState::Hover;    
+                self.state = ButtonState::Hover;
             }
         }
         if let Some(on_clicked) = &self.on_clicked {
