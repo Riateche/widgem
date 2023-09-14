@@ -7,6 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use accesskit::ActionRequest;
 use derive_more::From;
 use tiny_skia::Pixmap;
 use winit::{
@@ -19,8 +20,9 @@ use crate::{
     accessible::AccessibleNodes,
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent, WindowFocusChangedEvent,
+        AccessibleEvent, CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason,
+        GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
+        UnmountEvent, WindowFocusChangedEvent,
     },
     system::with_system,
     types::{Point, Rect, Size},
@@ -598,6 +600,35 @@ impl Window {
             }
         }
         self.push_accessible_updates();
+    }
+
+    pub fn handle_accessible_request(
+        &mut self,
+        _ctx: &mut WindowEventContext,
+        request: ActionRequest,
+    ) {
+        let root = self.shared_window_data.0.borrow().accessible_nodes.root;
+        if request.target == root {
+            println!("warn: cannot dispatch accessible event to virtual root: {request:?}");
+            return;
+        }
+        let widget_id = RawWidgetId(request.target.0);
+        if let Some(root_widget) = &mut self.root_widget {
+            if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+                widget.dispatch(
+                    AccessibleEvent {
+                        action: request.action,
+                        data: request.data,
+                    }
+                    .into(),
+                );
+                self.inner.request_redraw(); // TODO: smarter redraw
+            } else {
+                println!("warn: cannot dispatch accessible event (no such widget): {request:?}");
+            }
+        } else {
+            println!("warn: cannot dispatch accessible event (no root widget): {request:?}");
+        }
     }
 }
 

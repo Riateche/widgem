@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use accesskit::{NodeBuilder, Role};
+use accesskit::{DefaultActionVerb, NodeBuilder, Role};
 use cosmic_text::{Action, Attrs, Wrap};
 use winit::{
     event::{ElementState, Ime, MouseButton},
@@ -14,8 +14,9 @@ use winit::{
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent, WindowFocusChangedEvent,
+        AccessibleEvent, CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason,
+        GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
+        UnmountEvent, WindowFocusChangedEvent,
     },
     shortcut::standard_shortcuts,
     system::{add_interval, send_window_event, with_system},
@@ -466,11 +467,34 @@ impl Widget for TextInput {
         self.editor.on_window_focus_changed(event.focused);
         self.reset_blink_timer();
     }
+    fn on_accessible(&mut self, event: AccessibleEvent) {
+        let mount_point = &self
+            .common
+            .mount_point
+            .as_ref()
+            .expect("cannot handle event when unmounted");
+
+        match event.action {
+            accesskit::Action::Default | accesskit::Action::Focus => {
+                send_window_event(
+                    mount_point.address.window_id,
+                    SetFocusRequest {
+                        widget_id: self.common.id,
+                        // TODO: separate reason?
+                        reason: FocusReason::Mouse,
+                    },
+                );
+            }
+            _ => {}
+        }
+    }
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         let mut node = NodeBuilder::new(Role::TextInput);
         // TODO: use label
         node.set_name("some input");
         node.set_value(self.editor.text());
+        node.add_action(accesskit::Action::Focus);
+        node.set_default_action_verb(DefaultActionVerb::Click);
         Some(node)
     }
 }

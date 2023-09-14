@@ -12,8 +12,9 @@ use winit::window::WindowId;
 use crate::{
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent, WindowFocusChangedEvent,
+        AccessibleEvent, CursorMovedEvent, Event, FocusInEvent, FocusOutEvent,
+        GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
+        UnmountEvent, WindowFocusChangedEvent,
     },
     system::{address, register_address, unregister_address},
     types::{Rect, Size},
@@ -207,6 +208,9 @@ pub trait Widget: Downcast {
     fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
         let _ = event;
     }
+    fn on_accessible(&mut self, event: AccessibleEvent) {
+        let _ = event;
+    }
     fn on_event(&mut self, event: Event) -> bool {
         match event {
             Event::MouseInput(e) => self.on_mouse_input(e),
@@ -239,6 +243,10 @@ pub trait Widget: Downcast {
             }
             Event::WindowFocusChanged(e) => {
                 self.on_window_focus_changed(e);
+                true
+            }
+            Event::Accessible(e) => {
+                self.on_accessible(e);
                 true
             }
         }

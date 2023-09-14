@@ -231,7 +231,15 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                             callbacks.add_all(&mut callback_maker);
                         }
                         UserEvent::ActionRequest(request) => {
-                            println!("accesskit request: {:?}", request)
+                            println!("accesskit request: {:?}", request);
+                            if let Some(window) = windows.get_mut(&request.window_id) {
+                                window.handle_accessible_request(&mut ctx, request.request);
+                            } else {
+                                println!(
+                                    "warn: accesskit request for unknown window: {:?}",
+                                    request
+                                );
+                            }
                         }
                     },
                     Event::AboutToWait => {

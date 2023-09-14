@@ -1,6 +1,6 @@
 use std::{cmp::max, fmt::Display};
 
-use accesskit::{NodeBuilder, Role};
+use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use cosmic_text::{Attrs, Buffer, Shaping};
 use tiny_skia::{Color, GradientStop, LinearGradient, Pixmap, SpreadMode, Transform};
 use winit::event::MouseButton;
@@ -8,8 +8,8 @@ use winit::event::MouseButton;
 use crate::{
     callback::Callback,
     draw::{draw_text, unrestricted_text_size, DrawEvent},
-    event::FocusReason,
-    event::{CursorMovedEvent, MouseInputEvent},
+    event::CursorMovedEvent,
+    event::{AccessibleEvent, FocusReason, MouseInputEvent},
     system::{send_window_event, with_system},
     types::{Point, Rect, Size},
     window::SetFocusRequest,
@@ -68,6 +68,12 @@ impl Button {
 
     pub fn on_clicked(&mut self, callback: Callback<String>) {
         self.on_clicked = Some(callback);
+    }
+
+    fn click(&mut self) {
+        if let Some(on_clicked) = &self.on_clicked {
+            on_clicked.invoke(self.text.clone());
+        }
     }
 }
 
@@ -183,17 +189,16 @@ impl Widget for Button {
     }
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
+        // TODO: only on release, check buttons
         if event.button == MouseButton::Left {
             if event.state.is_pressed() {
                 if self.enabled {
                     self.state = ButtonState::Pressed;
+                    self.click();
                 }
             } else if self.enabled {
                 self.state = ButtonState::Hover;
             }
-        }
-        if let Some(on_clicked) = &self.on_clicked {
-            on_clicked.invoke(self.text.clone());
         }
 
         let mount_point = &self
@@ -223,10 +228,35 @@ impl Widget for Button {
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
+    fn on_accessible(&mut self, event: AccessibleEvent) {
+        let mount_point = &self
+            .common
+            .mount_point
+            .as_ref()
+            .expect("cannot handle event when unmounted");
+
+        match event.action {
+            Action::Default => self.click(),
+            Action::Focus => {
+                send_window_event(
+                    mount_point.address.window_id,
+                    SetFocusRequest {
+                        widget_id: self.common.id,
+                        // TODO: separate reason?
+                        reason: FocusReason::Mouse,
+                    },
+                );
+            }
+            _ => {}
+        }
+    }
 
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         let mut node = NodeBuilder::new(Role::Button);
         node.set_name(self.text.as_str());
+        node.add_action(Action::Focus);
+        //node.add_action(Action::Default);
+        node.set_default_action_verb(DefaultActionVerb::Click);
         Some(node)
     }
 }

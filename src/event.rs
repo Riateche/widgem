@@ -1,5 +1,6 @@
 use std::{cell::Cell, rc::Rc};
 
+use accesskit::{Action, ActionData};
 use winit::{
     event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton},
     keyboard::ModifiersState,
@@ -26,6 +27,7 @@ pub enum Event {
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
     WindowFocusChanged(WindowFocusChangedEvent),
+    Accessible(AccessibleEvent),
 }
 
 pub struct MouseInputEvent {
@@ -78,4 +80,9 @@ pub struct FocusOutEvent;
 #[derive(Clone)]
 pub struct WindowFocusChangedEvent {
     pub focused: bool,
+}
+
+pub struct AccessibleEvent {
+    pub action: Action,
+    pub data: Option<ActionData>,
 }
