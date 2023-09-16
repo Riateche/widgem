@@ -9,7 +9,12 @@ use crate::{
     types::Rect,
 };
 
-use super::{Child, Geometry, MountPoint, Widget, WidgetCommon, WidgetExt};
+use super::{Geometry, MountPoint, Widget, WidgetCommon, WidgetExt};
+
+pub struct Child {
+    pub rect_in_parent: Rect,
+    pub child: super::Child,
+}
 
 pub struct Stack {
     children: Vec<Child>,
@@ -26,26 +31,31 @@ impl Stack {
     }
 
     pub fn add(&mut self, rect: Rect, mut widget: Box<dyn Widget>) {
+        let index_in_parent = self.children.len() as i32;
         if let Some(mount_point) = &self.common.mount_point {
             let address = mount_point.address.clone().join(widget.common().id);
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
                     window: mount_point.window.clone(),
+                    index_in_parent,
                 })
                 .into(),
             );
         }
         self.children.push(Child {
             rect_in_parent: rect,
-            widget,
+            child: super::Child {
+                widget,
+                index_in_parent,
+            },
         });
     }
 }
 
 impl Widget for Stack {
-    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Box<dyn Widget>> + '_> {
-        Box::new(self.children.iter_mut().map(|c| &mut c.widget))
+    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut super::Child> + '_> {
+        Box::new(self.children.iter_mut().map(|c| &mut c.child))
     }
 
     fn on_draw(&mut self, event: DrawEvent) {
@@ -57,7 +67,7 @@ impl Widget for Stack {
                     .intersect(event.rect),
                 pixmap: Rc::clone(&event.pixmap),
             };
-            child.widget.dispatch(child_event.into());
+            child.child.widget.dispatch(child_event.into());
         }
     }
 
@@ -72,7 +82,7 @@ impl Widget for Stack {
                     num_clicks: event.num_clicks,
                     accepted_by: Rc::clone(&event.accepted_by),
                 };
-                if child.widget.dispatch(event.into()) {
+                if child.child.widget.dispatch(event.into()) {
                     return true;
                 }
             }
@@ -87,7 +97,7 @@ impl Widget for Stack {
                     pos: event.pos - child.rect_in_parent.top_left,
                     device_id: event.device_id,
                 };
-                if child.widget.dispatch(event.into()) {
+                if child.child.widget.dispatch(event.into()) {
                     return true;
                 }
             }
@@ -97,7 +107,7 @@ impl Widget for Stack {
 
     fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
         for child in &mut self.children {
-            child.widget.dispatch(event.clone().into());
+            child.child.widget.dispatch(event.clone().into());
         }
     }
 
@@ -115,7 +125,7 @@ impl Widget for Stack {
             let rect = child
                 .rect_in_parent
                 .translate(geometry.rect_in_window.top_left);
-            child.widget.dispatch(
+            child.child.widget.dispatch(
                 GeometryChangedEvent {
                     new_geometry: Some(Geometry {
                         rect_in_window: rect,

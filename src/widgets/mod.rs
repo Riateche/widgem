@@ -75,6 +75,9 @@ pub struct WidgetCommon {
 pub struct MountPoint {
     pub address: WidgetAddress,
     pub window: SharedWindowData,
+    // Determines visual / accessible order.
+    pub index_in_parent: i32,
+    // TODO: separate event for updating index_in_parent without remounting
 }
 
 impl WidgetCommon {
@@ -105,6 +108,7 @@ impl WidgetCommon {
         mount_point.window.0.borrow_mut().accessible_nodes.mount(
             mount_point.address.parent_widget().map(|id| id.into()),
             self.id.into(),
+            mount_point.index_in_parent,
         );
         self.mount_point = Some(mount_point);
         // TODO: set is_window_focused
@@ -150,8 +154,9 @@ pub fn get_widget_by_address_mut<'a>(
     for &id in &address.path[1..] {
         current_widget = current_widget
             .children_mut()
-            .find(|w| w.common().id == id)
+            .find(|w| w.widget.common().id == id)
             .ok_or(WidgetNotFound)?
+            .widget
             .as_mut();
     }
     Ok(current_widget)
@@ -165,11 +170,16 @@ pub fn get_widget_by_id_mut(
     get_widget_by_address_mut(root_widget, &address)
 }
 
+pub struct Child {
+    pub widget: Box<dyn Widget>,
+    pub index_in_parent: i32,
+}
+
 pub trait Widget: Downcast {
     fn common(&self) -> &WidgetCommon;
     fn common_mut(&mut self) -> &mut WidgetCommon;
     // TODO: why doesn't it work without Box?
-    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Box<dyn Widget>> + '_> {
+    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Child> + '_> {
         Box::new(iter::empty())
     }
     fn on_draw(&mut self, ctx: DrawEvent);
@@ -288,11 +298,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 let mount_point = event.0.clone();
                 self.common_mut().mount(mount_point.clone());
                 for child in self.children_mut() {
-                    let child_address = mount_point.address.clone().join(child.common().id);
-                    child.dispatch(
+                    let child_address = mount_point.address.clone().join(child.widget.common().id);
+                    child.widget.dispatch(
                         MountEvent(MountPoint {
                             address: child_address,
                             window: mount_point.window.clone(),
+                            index_in_parent: child.index_in_parent,
                         })
                         .into(),
                     );
@@ -301,7 +312,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             // TODO: before or after handler?
             Event::Unmount(_event) => {
                 for child in self.children_mut() {
-                    child.dispatch(UnmountEvent.into());
+                    child.widget.dispatch(UnmountEvent.into());
                 }
                 self.common_mut().unmount();
             }
@@ -351,11 +362,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             .accessible_nodes
             .update(self.common().id.0.into(), node);
     }
-}
-
-pub struct Child {
-    pub rect_in_parent: Rect,
-    pub widget: Box<dyn Widget>,
 }
 
 #[derive(Debug, Clone)]

@@ -85,6 +85,7 @@ impl Window {
                 MountEvent(MountPoint {
                     address,
                     window: shared_window_data.clone(),
+                    index_in_parent: 0,
                 })
                 .into(),
             );
@@ -448,6 +449,7 @@ impl Window {
                 MountEvent(MountPoint {
                     address,
                     window: self.shared_window_data.clone(),
+                    index_in_parent: 0,
                 })
                 .into(),
             );
@@ -638,7 +640,7 @@ fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidge
         output.push(widget.common().id);
     }
     for child in widget.children_mut() {
-        populate_focusable_widgets(child.as_mut(), output);
+        populate_focusable_widgets(child.widget.as_mut(), output);
     }
 }
 

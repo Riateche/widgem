@@ -1,4 +1,7 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::{
+    collections::{hash_map::Entry, HashMap, HashSet},
+    convert::identity,
+};
 
 use accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate};
 
@@ -6,7 +9,7 @@ use crate::widgets::RawWidgetId;
 
 pub struct AccessibleNodes {
     pub nodes: HashMap<NodeId, NodeBuilder>,
-    pub direct_children: HashMap<NodeId, HashSet<NodeId>>,
+    pub direct_children: HashMap<NodeId, Vec<(i32, NodeId)>>,
     pub direct_parents: HashMap<NodeId, NodeId>,
 
     pub pending_updates: HashSet<NodeId>,
@@ -40,14 +43,16 @@ impl AccessibleNodes {
         self.update(self.root, Some(root_node));
     }
 
-    pub fn mount(&mut self, parent: Option<NodeId>, child: NodeId) {
+    // TODO: separate method to update index_in_parent when it changes in the widget
+    pub fn mount(&mut self, parent: Option<NodeId>, child: NodeId, index_in_parent: i32) {
         // TODO: stricter checks and warnings
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.insert(child, parent);
-        self.direct_children
-            .entry(parent)
-            .or_default()
-            .insert(child);
+        let children = self.direct_children.entry(parent).or_default();
+        let index = children
+            .binary_search_by_key(&index_in_parent, |i| i.0)
+            .unwrap_or_else(identity);
+        children.insert(index, (index_in_parent, child));
         self.mark_parent_as_pending(parent);
     }
 
@@ -56,7 +61,7 @@ impl AccessibleNodes {
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.remove(&parent);
         if let Entry::Occupied(mut entry) = self.direct_children.entry(parent) {
-            entry.get_mut().remove(&child);
+            entry.get_mut().retain(|(_, id)| *id == child);
             if entry.get_mut().is_empty() {
                 entry.remove();
             }
@@ -126,12 +131,12 @@ impl AccessibleNodes {
 
 fn find_children(
     parent: NodeId,
-    direct_children: &HashMap<NodeId, HashSet<NodeId>>,
+    direct_children: &HashMap<NodeId, Vec<(i32, NodeId)>>,
     nodes: &HashMap<NodeId, NodeBuilder>,
     out: &mut Vec<NodeId>,
 ) {
     if let Some(children) = direct_children.get(&parent) {
-        for child in children {
+        for (_, child) in children {
             if nodes.contains_key(child) {
                 out.push(*child);
             } else {
