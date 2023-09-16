@@ -4,6 +4,7 @@ use std::{
 };
 
 use accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate};
+use log::warn;
 
 use crate::widgets::RawWidgetId;
 
@@ -75,12 +76,12 @@ impl AccessibleNodes {
                 self.pending_updates.insert(parent);
                 break;
             } else if parent == self.root {
-                println!("warn: node not found for root");
+                warn!("node not found for root");
                 break;
             } else if let Some(next) = self.direct_parents.get(&parent) {
                 parent = *next;
             } else {
-                println!("warn: parent not found");
+                warn!("parent not found");
                 break;
             }
         }
@@ -100,7 +101,7 @@ impl AccessibleNodes {
             if let Some(parent) = self.direct_parents.get(&id) {
                 self.mark_parent_as_pending(*parent);
             } else {
-                println!("warn: parent not found");
+                warn!("parent not found");
             }
         }
     }

@@ -4,6 +4,7 @@ use accesskit_winit::ActionRequestEvent;
 use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
 use derive_more::From;
+use log::warn;
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Color;
 use winit::{
@@ -235,10 +236,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                             if let Some(window) = windows.get_mut(&request.window_id) {
                                 window.handle_accessible_request(&mut ctx, request.request);
                             } else {
-                                println!(
-                                    "warn: accesskit request for unknown window: {:?}",
-                                    request
-                                );
+                                warn!("accesskit request for unknown window: {:?}", request);
                             }
                         }
                     },

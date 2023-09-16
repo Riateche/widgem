@@ -9,6 +9,7 @@ use std::{
 
 use accesskit::ActionRequest;
 use derive_more::From;
+use log::warn;
 use tiny_skia::Pixmap;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -331,7 +332,7 @@ impl Window {
                         self.inner.request_redraw(); // TODO: smarter redraw
                     }
                 } else {
-                    println!("warning: no cursor position in mouse input handler");
+                    warn!("no cursor position in mouse input handler");
                 }
             }
             WindowEvent::KeyboardInput {
@@ -430,11 +431,11 @@ impl Window {
                     (index as i32 + direction).rem_euclid(self.focusable_widgets.len() as i32);
                 self.set_focus(self.focusable_widgets[new_index as usize], reason);
             } else {
-                println!("warn: focused widget is unknown");
+                warn!("focused widget is unknown");
                 self.unset_focus();
             }
         } else {
-            println!("warn: no focused widget");
+            warn!("no focused widget");
         }
         self.check_auto_focus();
     }
@@ -507,19 +508,19 @@ impl Window {
 
     fn set_focus(&mut self, widget_id: RawWidgetId, reason: FocusReason) {
         let Some(root_widget) = &mut self.root_widget else {
-            println!("warn: set_focus: no root widget");
+            warn!("set_focus: no root widget");
             return;
         };
         if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
             if !widget.common().is_focusable {
-                println!("warn: cannot focus widget that is not focusable");
+                warn!("cannot focus widget that is not focusable");
                 return;
             }
             let allowed = widget.common().enable_ime;
             self.inner.set_ime_allowed(allowed);
             self.ime_allowed = allowed;
         } else {
-            println!("warn: set_focus: widget not found");
+            warn!("set_focus: widget not found");
         }
 
         if let Some(old_widget_id) = self.focused_widget.take() {
@@ -542,7 +543,7 @@ impl Window {
                 .accessible_nodes
                 .set_focus(Some(widget_id.into()));
         } else {
-            println!("warn: set_focus: widget not found on second pass");
+            warn!("set_focus: widget not found on second pass");
         }
         self.inner.request_redraw(); // TODO: smarter redraw
     }
@@ -611,7 +612,7 @@ impl Window {
     ) {
         let root = self.shared_window_data.0.borrow().accessible_nodes.root;
         if request.target == root {
-            println!("warn: cannot dispatch accessible event to virtual root: {request:?}");
+            warn!("cannot dispatch accessible event to virtual root: {request:?}");
             return;
         }
         let widget_id = RawWidgetId(request.target.0);
@@ -626,10 +627,10 @@ impl Window {
                 );
                 self.inner.request_redraw(); // TODO: smarter redraw
             } else {
-                println!("warn: cannot dispatch accessible event (no such widget): {request:?}");
+                warn!("cannot dispatch accessible event (no such widget): {request:?}");
             }
         } else {
-            println!("warn: cannot dispatch accessible event (no root widget): {request:?}");
+            warn!("cannot dispatch accessible event (no root widget): {request:?}");
         }
     }
 }

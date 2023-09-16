@@ -6,6 +6,7 @@ use std::{
 
 use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
 use cosmic_text::{Action, Attrs, Wrap};
+use log::warn;
 use winit::{
     event::{ElementState, Ime, MouseButton},
     keyboard::Key,
@@ -96,7 +97,7 @@ impl TextInput {
                             .text(&self.selected_text)
                     });
                     if let Err(err) = r {
-                        println!("warn: clipboard error: {err}");
+                        warn!("clipboard error: {err}");
                     }
                 }
             }
@@ -141,7 +142,7 @@ impl TextInput {
     fn copy_to_clipboard(&mut self) {
         if let Some(text) = self.editor.selected_text() {
             if let Err(err) = with_system(|system| system.clipboard.set_text(text)) {
-                println!("warn: clipboard error: {err}");
+                warn!("clipboard error: {err}");
             }
         }
     }
@@ -195,7 +196,7 @@ impl Widget for TextInput {
 
     fn on_draw(&mut self, event: DrawEvent) {
         let Some(geometry) = self.common.geometry else {
-            println!("warn: no geometry in draw event");
+            warn!("no geometry in draw event");
             return;
         };
 
@@ -291,7 +292,7 @@ impl Widget for TextInput {
                                     self.editor.insert_string(&sanitize(&text), None);
                                 }
                                 Err(err) => {
-                                    println!("warn: clipboard error: {err}");
+                                    warn!("clipboard error: {err}");
                                 }
                             }
                         }
@@ -366,7 +367,7 @@ impl Widget for TextInput {
             let r = with_system(|system| system.clipboard.get_text());
             match r {
                 Ok(text) => self.editor.insert_string(&sanitize(&text), None),
-                Err(err) => println!("warn: clipboard error: {err}"),
+                Err(err) => warn!("clipboard error: {err}"),
             }
         } else if shortcuts.undo.matches(&event) {
             // TODO
@@ -462,7 +463,7 @@ impl Widget for TextInput {
     }
     fn on_unmount(&mut self, _event: UnmountEvent) {
         let Some(mount_point) = &self.common.mount_point else {
-            println!("warn: on_unmount: no mount point");
+            warn!("on_unmount: no mount point");
             return;
         };
         mount_point
@@ -513,10 +514,7 @@ impl Widget for TextInput {
             }
             accesskit::Action::SetTextSelection => {
                 let Some(ActionData::SetTextSelection(data)) = event.data else {
-                    println!(
-                        "warn: expected SetTextSelection in data, got {:?}",
-                        event.data
-                    );
+                    warn!("expected SetTextSelection in data, got {:?}", event.data);
                     return;
                 };
                 self.editor.set_accessible_selection(data);

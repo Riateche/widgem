@@ -8,6 +8,7 @@ use cosmic_text::{
     Action, Affinity, Attrs, AttrsList, AttrsOwned, Buffer, Cursor, Edit, Editor, Shaping, Wrap,
 };
 use line_straddler::{GlyphStyle, LineGenerator, LineType};
+use log::warn;
 use range_ext::intersect::Intersect;
 use strict_num::FiniteF32;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform};
@@ -138,11 +139,11 @@ impl TextEditor {
         let mut runs = self.editor.buffer().layout_runs();
         let run = runs.next().expect("missing layout run");
         if runs.next().is_some() {
-            println!("warn: multiple layout_runs in single line edit");
+            warn!("multiple layout_runs in single line edit");
         }
 
         if run.line_i != 0 {
-            println!("warn: invalid line_i in single line layout_runs");
+            warn!("invalid line_i in single line layout_runs");
         }
         // println!("before: {character_stats:?}");
         for glyph in run.glyphs {
@@ -161,7 +162,7 @@ impl TextEditor {
                 }
                 // println!("found {stats:?}");
             } else {
-                println!("warn: no char found for glyph: {glyph:?}");
+                warn!("no char found for glyph: {glyph:?}");
             }
         }
         // println!("after: {character_stats:?}");
@@ -181,7 +182,7 @@ impl TextEditor {
                 .map(|s| {
                     s.pixels.as_ref().map_or_else(
                         || {
-                            println!("warn: glyph for char not found");
+                            warn!("glyph for char not found");
                             0.0
                         },
                         |range| range.start.get(),
@@ -193,7 +194,7 @@ impl TextEditor {
                 .map(|s| {
                     s.pixels.as_ref().map_or_else(
                         || {
-                            println!("warn: glyph for char not found;");
+                            warn!("glyph for char not found;");
                             0.0
                         },
                         |range| range.end.get() - range.start.get(),
@@ -214,7 +215,7 @@ impl TextEditor {
             self.set_select_opt(None);
         } else {
             let Some(index) = char_to_byte_index(data.anchor.character_index) else {
-                println!("warn: char index is too large");
+                warn!("char index is too large");
                 return;
             };
             self.set_select_opt(Some(Cursor {
@@ -225,7 +226,7 @@ impl TextEditor {
             }));
         }
         let Some(index) = char_to_byte_index(data.focus.character_index) else {
-            println!("warn: char index is too large");
+            warn!("char index is too large");
             return;
         };
         self.set_cursor(Cursor {
@@ -452,7 +453,7 @@ impl TextEditor {
             if let Some(window_id) = self.window_id {
                 send_window_event(window_id, CancelImePreedit);
             } else {
-                println!("warn: no window id in text editor event handler");
+                warn!("no window id in text editor event handler");
             }
         }
     }

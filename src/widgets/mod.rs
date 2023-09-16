@@ -7,6 +7,7 @@ use std::{
 
 use accesskit::NodeId;
 use downcast_rs::{impl_downcast, Downcast};
+use log::warn;
 use winit::window::WindowId;
 
 use crate::{
@@ -98,11 +99,11 @@ impl WidgetCommon {
 
     pub fn mount(&mut self, mount_point: MountPoint) {
         if self.mount_point.is_some() {
-            println!("warn: widget was already mounted");
+            warn!("widget was already mounted");
         }
         let old = register_address(self.id, mount_point.address.clone());
         if old.is_some() {
-            println!("warn: widget address was already registered");
+            warn!("widget address was already registered");
         }
         mount_point.window.0.borrow_mut().widget_tree_changed = true;
         mount_point.window.0.borrow_mut().accessible_nodes.mount(
@@ -129,7 +130,7 @@ impl WidgetCommon {
                 self.id.into(),
             );
         } else {
-            println!("warn: widget was not mounted");
+            warn!("widget was not mounted");
         }
         self.is_focused = false;
         self.is_window_focused = false;

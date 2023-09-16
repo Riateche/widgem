@@ -1,5 +1,6 @@
 use std::{any::Any, collections::HashMap, marker::PhantomData, rc::Rc};
 
+use log::warn;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
@@ -92,7 +93,7 @@ impl<State> Callbacks<State> {
         if let Some(data) = self.callbacks.get_mut(&event.callback_id) {
             (data.func)(state, ctx, event.event);
         } else {
-            println!("warning: unknown callback id");
+            warn!("unknown callback id");
         }
     }
 }
