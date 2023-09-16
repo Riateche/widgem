@@ -40,6 +40,7 @@ impl State {
         //     Box::new(w1),
         // );
 
+        // let w2 = TextInput::new("Hello, Rust! 🦀 one two three four five\n");
         let w2 = TextInput::new("Hello, Rust! 🦀\n");
         root.add(
             Rect {

@@ -21,7 +21,7 @@ pub struct AccessibleNodes {
 impl AccessibleNodes {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let root = RawWidgetId::new().0.into();
+        let root = new_id();
         let mut this = Self {
             nodes: Default::default(),
             direct_children: Default::default(),
@@ -144,4 +144,8 @@ fn find_children(
             }
         }
     }
+}
+
+pub fn new_id() -> NodeId {
+    RawWidgetId::new().into()
 }

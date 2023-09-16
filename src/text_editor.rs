@@ -1,10 +1,17 @@
-use std::cmp::max;
+use std::{
+    cmp::{max, min},
+    ops::Range,
+};
 
+use accesskit::{NodeId, TextDirection, TextPosition, TextSelection};
 use cosmic_text::{
-    Action, Attrs, AttrsList, AttrsOwned, Buffer, Cursor, Edit, Editor, Shaping, Wrap,
+    Action, Affinity, Attrs, AttrsList, AttrsOwned, Buffer, Cursor, Edit, Editor, Shaping, Wrap,
 };
 use line_straddler::{GlyphStyle, LineGenerator, LineType};
+use range_ext::intersect::Intersect;
+use strict_num::FiniteF32;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform};
+use unicode_segmentation::UnicodeSegmentation;
 use winit::window::WindowId;
 
 use crate::{
@@ -23,6 +30,18 @@ pub struct TextEditor {
     window_id: Option<WindowId>,
     is_cursor_hidden: bool,
     forbid_mouse_interaction: bool,
+}
+
+#[derive(Debug)]
+pub struct AccessibleLine {
+    pub text: String,
+    pub text_direction: TextDirection,
+    pub character_lengths: Vec<u8>,
+    pub character_positions: Vec<f32>,
+    pub character_widths: Vec<f32>,
+    pub word_lengths: Vec<u8>,
+    // pub line_top: f32,
+    // pub line_bottom: f32,
 }
 
 impl TextEditor {
@@ -74,6 +93,170 @@ impl TextEditor {
 
     pub fn text(&self) -> String {
         self.editor.buffer().text_without_preedit()
+    }
+
+    pub fn acccessible_line(&mut self) -> AccessibleLine {
+        #[derive(Debug)]
+        struct CharStats {
+            bytes: Range<usize>,
+            pixels: Option<Range<FiniteF32>>,
+        }
+
+        self.shape_as_needed();
+        // TODO: extend for multiline
+        let line = &self.editor.buffer().lines[0];
+
+        let mut character_lengths = Vec::new();
+        let mut character_stats = Vec::new();
+        for (i, c) in line.text().grapheme_indices(true) {
+            character_lengths.push(c.len() as u8);
+            character_stats.push(CharStats {
+                bytes: i..i + c.len(),
+                pixels: None,
+            });
+        }
+        let mut word_lengths = Vec::new();
+        // TODO: expose from cosmic-text
+        let mut prev_index_in_chars = None;
+        let mut total_chars_in_words = 0;
+        for (i, word) in line.text().unicode_word_indices() {
+            // println!("word {i} {word:?}");
+            let end_i = i + word.len();
+            let index_in_chars = character_stats
+                .iter()
+                .take_while(|s| s.bytes.start < end_i)
+                .count();
+            // TODO: checked_sub?
+            let len_in_chars = index_in_chars - prev_index_in_chars.unwrap_or(0);
+            word_lengths.push(len_in_chars as u8);
+            prev_index_in_chars = Some(index_in_chars);
+            total_chars_in_words += len_in_chars;
+        }
+        if total_chars_in_words < character_stats.len() {
+            word_lengths.push((character_stats.len() - total_chars_in_words) as u8);
+        }
+        let mut runs = self.editor.buffer().layout_runs();
+        let run = runs.next().expect("missing layout run");
+        if runs.next().is_some() {
+            println!("warn: multiple layout_runs in single line edit");
+        }
+
+        if run.line_i != 0 {
+            println!("warn: invalid line_i in single line layout_runs");
+        }
+        // println!("before: {character_stats:?}");
+        for glyph in run.glyphs {
+            // println!("glyph {glyph:?}");
+            if let Some(stats) = character_stats
+                .iter_mut()
+                .find(|s| s.bytes.does_intersect(&(glyph.start..glyph.end)))
+            {
+                let new_start = FiniteF32::new(glyph.x).unwrap();
+                let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
+                if let Some(pixels) = &mut stats.pixels {
+                    pixels.start = min(pixels.start, new_start);
+                    pixels.end = max(pixels.end, new_end);
+                } else {
+                    stats.pixels = Some(new_start..new_end);
+                }
+                // println!("found {stats:?}");
+            } else {
+                println!("warn: no char found for glyph: {glyph:?}");
+            }
+        }
+        // println!("after: {character_stats:?}");
+
+        AccessibleLine {
+            text_direction: if run.rtl {
+                TextDirection::RightToLeft
+            } else {
+                TextDirection::LeftToRight
+            },
+            // line_top: run.line_top,
+            // line_bottom: run.line_top + self.editor.buffer().metrics().line_height,
+            text: line.text().into(),
+            character_lengths,
+            character_positions: character_stats
+                .iter()
+                .map(|s| {
+                    s.pixels.as_ref().map_or_else(
+                        || {
+                            println!("warn: glyph for char not found");
+                            0.0
+                        },
+                        |range| range.start.get(),
+                    )
+                })
+                .collect(),
+            character_widths: character_stats
+                .iter()
+                .map(|s| {
+                    s.pixels.as_ref().map_or_else(
+                        || {
+                            println!("warn: glyph for char not found;");
+                            0.0
+                        },
+                        |range| range.end.get() - range.start.get(),
+                    )
+                })
+                .collect(),
+            // TODO: real words
+            word_lengths,
+        }
+    }
+
+    pub fn set_accessible_selection(&mut self, data: TextSelection) {
+        let text = self.editor.buffer().lines[0].text().to_string();
+        let char_to_byte_index =
+            |char_index| text.grapheme_indices(true).nth(char_index).map(|(i, _)| i);
+        let old_cursor = self.editor.cursor();
+        if data.anchor == data.focus {
+            self.set_select_opt(None);
+        } else {
+            let Some(index) = char_to_byte_index(data.anchor.character_index) else {
+                println!("warn: char index is too large");
+                return;
+            };
+            self.set_select_opt(Some(Cursor {
+                line: 0,
+                index,
+                affinity: Affinity::Before,
+                ..old_cursor
+            }));
+        }
+        let Some(index) = char_to_byte_index(data.focus.character_index) else {
+            println!("warn: char index is too large");
+            return;
+        };
+        self.set_cursor(Cursor {
+            line: 0,
+            index,
+            affinity: Affinity::Before,
+            ..old_cursor
+        });
+    }
+
+    pub fn accessible_selection(&mut self, id: NodeId) -> TextSelection {
+        let text = self.editor.buffer().lines[0].text();
+        let byte_to_char_index = |byte_index| {
+            text.grapheme_indices(true)
+                .take_while(|(i, _)| *i < byte_index)
+                .count()
+        };
+        let focus = TextPosition {
+            node: id,
+            character_index: byte_to_char_index(self.cursor().index),
+        };
+        let anchor = if let Some(select) = self.select_opt() {
+            TextPosition {
+                node: id,
+                character_index: byte_to_char_index(select.index),
+            }
+        } else {
+            focus
+        };
+        // println!("TextSelection anchor {anchor:?}, focus {focus:?}");
+        TextSelection { anchor, focus }
     }
 
     pub fn insert_string(&mut self, text: &str, attrs_list: Option<AttrsList>) {

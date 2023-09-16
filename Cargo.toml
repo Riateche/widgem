@@ -29,3 +29,7 @@ line-straddler = "0.2.1"
 #accesskit_winit = { path = "../accesskit/platforms/winit" }
 accesskit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
 accesskit_winit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+itertools = "0.11.0"
+unicode-segmentation = "1.10.1"
+strict-num = "0.1.1"
+range-ext = "0.3.0"

@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use accesskit::{DefaultActionVerb, NodeBuilder, Role};
+use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
 use cosmic_text::{Action, Attrs, Wrap};
 use winit::{
     event::{ElementState, Ime, MouseButton},
@@ -12,6 +12,7 @@ use winit::{
 };
 
 use crate::{
+    accessible,
     draw::DrawEvent,
     event::{
         AccessibleEvent, CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason,
@@ -36,6 +37,7 @@ pub struct TextInput {
     common: WidgetCommon,
     blink_timer: Option<TimerId>,
     selected_text: String,
+    accessible_line_id: NodeId,
 }
 
 // TODO: get system setting
@@ -61,6 +63,7 @@ impl TextInput {
             scroll_x: 0,
             blink_timer: None,
             selected_text: String::new(),
+            accessible_line_id: accessible::new_id(),
         }
     }
 
@@ -450,8 +453,30 @@ impl Widget for TextInput {
     fn on_mount(&mut self, event: MountEvent) {
         self.editor.set_window_id(Some(event.0.address.window_id));
         self.reset_blink_timer();
+
+        event.0.window.0.borrow_mut().accessible_nodes.mount(
+            Some(self.common.id.into()),
+            self.accessible_line_id,
+            0,
+        );
     }
     fn on_unmount(&mut self, _event: UnmountEvent) {
+        let Some(mount_point) = &self.common.mount_point else {
+            println!("warn: on_unmount: no mount point");
+            return;
+        };
+        mount_point
+            .window
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .unmount(Some(self.common.id.into()), self.accessible_line_id);
+        mount_point
+            .window
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .update(self.accessible_line_id, None);
         self.editor.set_window_id(None);
         self.reset_blink_timer();
     }
@@ -474,6 +499,7 @@ impl Widget for TextInput {
             .as_ref()
             .expect("cannot handle event when unmounted");
 
+        println!("action in text input widget {:?}", event.action);
         match event.action {
             accesskit::Action::Default | accesskit::Action::Focus => {
                 send_window_event(
@@ -485,16 +511,73 @@ impl Widget for TextInput {
                     },
                 );
             }
+            accesskit::Action::SetTextSelection => {
+                let Some(ActionData::SetTextSelection(data)) = event.data else {
+                    println!(
+                        "warn: expected SetTextSelection in data, got {:?}",
+                        event.data
+                    );
+                    return;
+                };
+                self.editor.set_accessible_selection(data);
+                self.after_change();
+                self.reset_blink_timer();
+            }
             _ => {}
         }
     }
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
+        let Some(mount_point) = self.common.mount_point.as_ref() else {
+            return None;
+        };
+        let mut line_node = NodeBuilder::new(Role::InlineTextBox);
+        let mut line = self.editor.acccessible_line();
+        for pos in &mut line.character_positions {
+            *pos -= self.scroll_x as f32;
+        }
+        // let line = AccessibleLine {
+        //     text: "abcd🦀".into(),
+        //     text_direction: accesskit::TextDirection::LeftToRight,
+        //     character_lengths: vec![1, 1, 1, 1, 4],
+        //     character_positions: vec![0.0, 20.0, 30.0, 40.0, 50.0],
+        //     character_widths: vec![10.0, 10.0, 10.0, 10.0, 10.0],
+        //     word_lengths: vec![4],
+        //     // line_top: todo!(),
+        //     // line_bottom: todo!(),
+        // };
+        // println!("line data {:?}", line);
+        line_node.set_text_direction(line.text_direction);
+        line_node.set_value(line.text);
+        line_node.set_character_lengths(line.character_lengths);
+        line_node.set_character_positions(line.character_positions);
+        line_node.set_character_widths(line.character_widths);
+        line_node.set_word_lengths(line.word_lengths);
+
+        if let Some(geometry) = self.common.geometry {
+            let rect = self
+                .editor_viewport_rect
+                .translate(geometry.rect_in_window.top_left);
+            line_node.set_bounds(accesskit::Rect {
+                x0: rect.top_left.x as f64,
+                y0: rect.top_left.y as f64,
+                x1: rect.bottom_right().x as f64,
+                y1: rect.bottom_right().y as f64,
+            });
+        }
+
+        mount_point
+            .window
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .update(self.accessible_line_id, Some(line_node));
+
         let mut node = NodeBuilder::new(Role::TextInput);
         // TODO: use label
         node.set_name("some input");
-        node.set_value(self.editor.text());
         node.add_action(accesskit::Action::Focus);
         node.set_default_action_verb(DefaultActionVerb::Click);
+        node.set_text_selection(self.editor.accessible_selection(self.accessible_line_id));
         Some(node)
     }
 }

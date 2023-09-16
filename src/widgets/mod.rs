@@ -290,6 +290,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         } else {
             None
         };
+        let mut is_unmount = false;
         match &event {
             Event::GeometryChanged(event) => {
                 self.common_mut().geometry = event.new_geometry;
@@ -314,7 +315,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 for child in self.children_mut() {
                     child.widget.dispatch(UnmountEvent.into());
                 }
-                self.common_mut().unmount();
+                is_unmount = true;
             }
             Event::FocusIn(_) => {
                 self.common_mut().is_focused = true;
@@ -332,6 +333,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             if accepted_by.get().is_none() && result {
                 accepted_by.set(Some(self.common().id));
             }
+        }
+        if is_unmount {
+            self.common_mut().unmount();
         }
         self.update_accessible();
         result
@@ -382,6 +386,10 @@ impl WidgetAddress {
         self
     }
     pub fn parent_widget(&self) -> Option<RawWidgetId> {
-        self.path.get(self.path.len() - 2).copied()
+        if self.path.len() > 1 {
+            Some(self.path[self.path.len() - 2])
+        } else {
+            None
+        }
     }
 }
