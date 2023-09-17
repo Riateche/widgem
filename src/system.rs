@@ -34,6 +34,7 @@ pub struct SharedSystemDataInner {
     pub timers: Timers,
     pub clipboard: Clipboard,
     pub new_windows: Vec<Window>,
+    pub exit_after_last_window_closes: bool,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);

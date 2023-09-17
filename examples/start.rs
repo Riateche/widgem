@@ -2,7 +2,10 @@
 
 use salvation::{
     event_loop::{self, CallbackContext},
-    widgets::{button::Button, column::Column, text_input::TextInput, Widget, WidgetExt, WidgetId},
+    widgets::{
+        button::Button, column::Column, label::Label, text_input::TextInput, Widget, WidgetExt,
+        WidgetId,
+    },
     window::create_window,
 };
 use winit::window::WindowBuilder;
@@ -18,6 +21,10 @@ impl AnotherState {
         btn.on_clicked(ctx.callback(|state, _ctx, _event| {
             state.counter += 1;
             println!("counter: {}", state.counter);
+            create_window(
+                WindowBuilder::new().with_title("example"),
+                Some(Box::new(Label::new(format!("counter: {}", state.counter)))),
+            );
         }));
         (another_state, Box::new(btn))
     }

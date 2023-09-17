@@ -13,7 +13,7 @@ use log::warn;
 use tiny_skia::Pixmap;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{ElementState, Event, Ime, MouseButton, WindowEvent},
+    event::{ElementState, Ime, MouseButton, WindowEvent},
     keyboard::{Key, ModifiersState},
     window::{CursorIcon, Icon, WindowId},
 };
@@ -26,7 +26,7 @@ use crate::{
         GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
         UnmountEvent, WindowFocusChangedEvent,
     },
-    event_loop::WINDOW_TARGET,
+    event_loop::{UserEvent, WINDOW_TARGET},
     system::{send_window_request, with_system},
     types::{Point, Rect, Size},
     widgets::{
@@ -144,14 +144,16 @@ impl Window {
         w
     }
 
-    // TODO: pass WindowEvent here
-    pub fn handle_event(&mut self, _ctx: &mut WindowEventContext, event: Event<()>) {
+    pub fn close(&mut self) {
+        with_system(|system| {
+            let _ = system
+                .event_loop_proxy
+                .send_event(UserEvent::WindowClosed(self.inner.id()));
+        });
+    }
+
+    pub fn handle_event(&mut self, event: WindowEvent) {
         self.check_widget_tree_change_flag();
-        let event = if let Event::WindowEvent { event, .. } = event {
-            event
-        } else {
-            return;
-        };
         if !self.accesskit_adapter.on_event(&self.inner, &event) {
             println!("accesskit consumed event: {event:?}");
             return;
@@ -209,6 +211,10 @@ impl Window {
             WindowEvent::Resized(_) => {
                 self.layout();
                 self.inner.request_redraw();
+            }
+            WindowEvent::CloseRequested => {
+                // TODO: add option to confirm close or do something else
+                self.close();
             }
             // TODO: should use device id?
             WindowEvent::CursorEntered { .. } => {
@@ -611,7 +617,7 @@ impl Window {
         }
     }
 
-    pub fn handle_request(&mut self, _ctx: &mut WindowEventContext, request: WindowRequest) {
+    pub fn handle_request(&mut self, request: WindowRequest) {
         match request {
             WindowRequest::SetFocus(request) => {
                 self.set_focus(request.widget_id, request.reason);
@@ -639,11 +645,7 @@ impl Window {
         self.push_accessible_updates();
     }
 
-    pub fn handle_accessible_request(
-        &mut self,
-        _ctx: &mut WindowEventContext,
-        request: ActionRequest,
-    ) {
+    pub fn handle_accessible_request(&mut self, request: ActionRequest) {
         let root = self.shared_window_data.0.borrow().accessible_nodes.root();
         if request.target == root {
             warn!("cannot dispatch accessible event to virtual root: {request:?}");
@@ -678,8 +680,6 @@ fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidge
         populate_focusable_widgets(child.widget.as_mut(), output);
     }
 }
-
-pub struct WindowEventContext {}
 
 #[derive(Debug, From)]
 pub enum WindowRequest {

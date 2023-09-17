@@ -8,7 +8,7 @@ use log::warn;
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Color;
 use winit::{
-    event::{Event, WindowEvent},
+    event::Event,
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
     window::WindowId,
 };
@@ -21,7 +21,7 @@ use crate::{
     widgets::{
         get_widget_by_address_mut, RawWidgetId, Widget, WidgetExt, WidgetId, WidgetNotFound,
     },
-    window::{Window, WindowEventContext, WindowRequest},
+    window::{Window, WindowRequest},
 };
 
 pub struct CallbackContext<'a, State> {
@@ -107,6 +107,7 @@ pub struct InvokeCallbackEvent {
 pub enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
     WindowRequest(WindowId, WindowRequest),
+    WindowClosed(WindowId),
     ActionRequest(ActionRequestEvent),
 }
 
@@ -165,6 +166,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
         timers: Timers::new(),
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
         new_windows: Vec::new(),
+        exit_after_last_window_closes: true,
     };
     SYSTEM.with(|system| {
         *system.0.borrow_mut() = Some(shared_system_data);
@@ -197,26 +199,30 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                     }
                 }
 
-                let mut ctx = WindowEventContext {};
-
                 match event {
-                    Event::WindowEvent {
-                        window_id,
-                        event: ref wevent,
-                    } => {
-                        // TODO: smarter logic
-                        if matches!(wevent, WindowEvent::CloseRequested) {
-                            window_target.exit();
-                        }
+                    Event::WindowEvent { window_id, event } => {
+                        // // TODO: smarter logic
+                        // if matches!(wevent, WindowEvent::CloseRequested) {
+                        //     window_target.exit();
+                        // }
                         if let Some(window) = windows.get_mut(&window_id) {
-                            window.handle_event(&mut ctx, event.map_nonuser_event().unwrap());
+                            window.handle_event(event);
                         }
                     }
 
                     Event::UserEvent(event) => match event {
                         UserEvent::WindowRequest(window_id, request) => {
                             if let Some(window) = windows.get_mut(&window_id) {
-                                window.handle_request(&mut ctx, request);
+                                window.handle_request(request);
+                            }
+                        }
+                        UserEvent::WindowClosed(window_id) => {
+                            windows.remove(&window_id);
+                            if windows.is_empty() {
+                                let exit = with_system(|s| s.exit_after_last_window_closes);
+                                if exit {
+                                    window_target.exit();
+                                }
                             }
                         }
                         UserEvent::InvokeCallback(event) => {
@@ -234,7 +240,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                         UserEvent::ActionRequest(request) => {
                             println!("accesskit request: {:?}", request);
                             if let Some(window) = windows.get_mut(&request.window_id) {
-                                window.handle_accessible_request(&mut ctx, request.request);
+                                window.handle_accessible_request(request.request);
                             } else {
                                 warn!("accesskit request for unknown window: {:?}", request);
                             }
@@ -257,8 +263,6 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                     _ => {}
                 }
                 fetch_new_windows(&mut windows);
-                //if *control_flow == ControlFlow::Wait {
-                //}
             });
         })
         .expect("Error while running event loop");
