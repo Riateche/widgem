@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use log::warn;
 use tiny_skia::{
     BlendMode, Color, FillRule, FilterQuality, Paint, Path, PathBuilder, Pattern, Pixmap,
     PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
@@ -75,11 +76,11 @@ impl DrawEvent {
         );
     }
 
-    fn rounded_rect_path(&self, rect: Rect, radius: f32, width: f32) -> Option<Path> {
+    fn rounded_rect_path(&self, rect: Rect, mut radius: f32, width: f32) -> Path {
         if radius > (rect.size.x as f32 / 2.0) || radius > (rect.size.y as f32 / 2.0) {
             //TODO do something here, log some error
-            println!("radius is bigger than fits in rectangle");
-            return None;
+            warn!("radius is bigger than fits in rectangle");
+            radius = 0.0;
         }
         let top_left_point = self.rect.top_left + rect.top_left;
         let top_left = tiny_skia::Point {
@@ -124,7 +125,7 @@ impl DrawEvent {
             top_left.x + radius,
             top_left.y,
         );
-        Some(path_builder.finish().unwrap())
+        path_builder.finish().unwrap()
     }
 
     // TODO: translate to current rect
@@ -168,24 +169,18 @@ impl DrawEvent {
         shader: Shader,
         border_color: Color,
     ) {
-        let path = self
-            .rounded_rect_path(rect, radius, width)
-            .expect("failed to generate the path for rounded rect");
+        let path = self.rounded_rect_path(rect, radius, width);
         self.fill_path(&path, shader);
         self.stroke_path(&path, border_color, width);
     }
 
     pub fn fill_rounded_rect(&self, rect: Rect, radius: f32, width: f32, shader: Shader) {
-        let path = self
-            .rounded_rect_path(rect, radius, width)
-            .expect("failed to generate the path for rounded rect");
+        let path = self.rounded_rect_path(rect, radius, width);
         self.fill_path(&path, shader);
     }
 
     pub fn stroke_rounded_rect(&self, rect: Rect, radius: f32, color: Color, width: f32) {
-        let path = self
-            .rounded_rect_path(rect, radius, width)
-            .expect("failed to generate the path for rounded rect");
+        let path = self.rounded_rect_path(rect, radius, width);
         self.stroke_path(&path, color, width);
     }
 

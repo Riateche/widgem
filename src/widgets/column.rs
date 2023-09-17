@@ -77,7 +77,9 @@ impl Widget for Column {
     fn on_draw(&mut self, event: DrawEvent) {
         for child in &mut self.children {
             let child_event = event.map_to_child(child.rect_in_parent);
-            child.child.widget.dispatch(child_event.into());
+            if !child_event.rect().is_empty() {
+                child.child.widget.dispatch(child_event.into());
+            }
         }
     }
 

@@ -65,6 +65,10 @@ impl Rect {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.size.x == 0 || self.size.y == 0
+    }
+
     pub fn contains(&self, pos: Point) -> bool {
         let br = self.bottom_right();
         self.top_left.x <= pos.x && pos.x < br.x && self.top_left.y <= pos.y && pos.y < br.y
