@@ -55,11 +55,11 @@ pub fn with_system<R>(f: impl FnOnce(&mut SharedSystemDataInner) -> R) -> R {
     SYSTEM.with(|system| f(system.0.borrow_mut().as_mut().expect(EMPTY_ERR)))
 }
 
-pub fn send_window_event(window_id: WindowId, event: impl Into<WindowRequest>) {
+pub fn send_window_request(window_id: WindowId, request: impl Into<WindowRequest>) {
     with_system(|system| {
         let _ = system
             .event_loop_proxy
-            .send_event(UserEvent::WindowRequest(window_id, event.into()));
+            .send_event(UserEvent::WindowRequest(window_id, request.into()));
     });
 }
 

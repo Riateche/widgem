@@ -42,6 +42,7 @@ pub struct MouseInputEvent {
 pub struct CursorMovedEvent {
     pub device_id: DeviceId,
     pub pos: Point,
+    pub accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
 #[derive(Debug)]

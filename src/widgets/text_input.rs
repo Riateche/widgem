@@ -10,6 +10,7 @@ use log::warn;
 use winit::{
     event::{ElementState, Ime, MouseButton},
     keyboard::Key,
+    window::CursorIcon,
 };
 
 use crate::{
@@ -22,7 +23,7 @@ use crate::{
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
-    system::{add_interval, send_window_event, with_system},
+    system::{add_interval, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
     types::{Point, Rect, Size},
@@ -58,6 +59,7 @@ impl TextInput {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
         common.enable_ime = true;
+        common.cursor_icon = CursorIcon::Text;
         let mut editor = TextEditor::new(&sanitize(&text.to_string()));
         editor.set_wrap(Wrap::None);
         Self {
@@ -160,7 +162,7 @@ impl TextInput {
             .expect("cannot handle event when unmounted");
 
         if !self.common.is_focused {
-            send_window_event(
+            send_window_request(
                 mount_point.address.window_id,
                 SetFocusRequest {
                     widget_id: self.common.id,
@@ -244,7 +246,7 @@ impl Widget for TextInput {
                             y: self.editor.line_height().ceil() as i32,
                         };
                 let size = geometry.rect_in_window.size; // TODO: not actually correct
-                send_window_event(
+                send_window_request(
                     mount_point.address.window_id,
                     SetImeCursorAreaRequest(Rect { top_left, size }),
                 );
@@ -508,7 +510,7 @@ impl Widget for TextInput {
         println!("action in text input widget {:?}", event.action);
         match event.action {
             accesskit::Action::Default | accesskit::Action::Focus => {
-                send_window_event(
+                send_window_request(
                     mount_point.address.window_id,
                     SetFocusRequest {
                         widget_id: self.common.id,

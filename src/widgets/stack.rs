@@ -97,6 +97,7 @@ impl Widget for Stack {
                 let event = CursorMovedEvent {
                     pos: event.pos - child.rect_in_parent.top_left,
                     device_id: event.device_id,
+                    accepted_by: event.accepted_by.clone(),
                 };
                 if child.child.widget.dispatch(event.into()) {
                     return true;

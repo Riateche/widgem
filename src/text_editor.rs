@@ -18,7 +18,7 @@ use winit::window::WindowId;
 use crate::{
     draw::{convert_color, unrestricted_text_size},
     event::FocusReason,
-    system::{send_window_event, with_system},
+    system::{send_window_request, with_system},
     types::{Point, Size},
     window::CancelImePreedit,
 };
@@ -451,7 +451,7 @@ impl TextEditor {
             );
             self.insert_string(&text, None);
             if let Some(window_id) = self.window_id {
-                send_window_event(window_id, CancelImePreedit);
+                send_window_request(window_id, CancelImePreedit);
             } else {
                 warn!("no window id in text editor event handler");
             }

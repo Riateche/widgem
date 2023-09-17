@@ -11,7 +11,7 @@ use crate::{
     event::CursorMovedEvent,
     event::{AccessibleEvent, FocusReason, MouseInputEvent},
     layout::SizeHint,
-    system::{send_window_event, with_system},
+    system::{send_window_request, with_system},
     types::{Point, Rect, Size},
     window::SetFocusRequest,
 };
@@ -207,7 +207,7 @@ impl Widget for Button {
             .mount_point
             .as_ref()
             .expect("cannot handle event when unmounted");
-        send_window_event(
+        send_window_request(
             mount_point.address.window_id,
             SetFocusRequest {
                 widget_id: self.common.id,
@@ -239,7 +239,7 @@ impl Widget for Button {
         match event.action {
             Action::Default => self.click(),
             Action::Focus => {
-                send_window_event(
+                send_window_request(
                     mount_point.address.window_id,
                     SetFocusRequest {
                         widget_id: self.common.id,

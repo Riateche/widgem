@@ -8,7 +8,7 @@ use std::{
 use accesskit::NodeId;
 use downcast_rs::{impl_downcast, Downcast};
 use log::warn;
-use winit::window::WindowId;
+use winit::window::{CursorIcon, WindowId};
 
 use crate::{
     draw::DrawEvent,
@@ -18,9 +18,9 @@ use crate::{
         UnmountEvent, WindowFocusChangedEvent,
     },
     layout::SizeHint,
-    system::{address, register_address, unregister_address},
+    system::{address, register_address, send_window_request, unregister_address},
     types::{Rect, Size},
-    window::SharedWindowData,
+    window::{SetCursorIcon, SharedWindowData},
 };
 
 pub mod button;
@@ -65,6 +65,7 @@ pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
     pub enable_ime: bool,
+    pub cursor_icon: CursorIcon,
 
     pub is_focused: bool,
     // TODO: set initial value in mount event
@@ -94,6 +95,7 @@ impl WidgetCommon {
             enable_ime: false,
             mount_point: None,
             geometry: None,
+            cursor_icon: CursorIcon::Default,
         }
     }
 
@@ -291,12 +293,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn dispatch(&mut self, event: Event) -> bool {
-        let accepted_by = if let Event::MouseInput(mouse_input_event) = &event {
-            Some(Rc::clone(&mouse_input_event.accepted_by))
-        } else {
-            None
+        let accepted_by = match &event {
+            Event::MouseInput(event) => Some(Rc::clone(&event.accepted_by)),
+            Event::CursorMoved(event) => Some(Rc::clone(&event.accepted_by)),
+            _ => None,
         };
         let mut is_unmount = false;
+        let mut is_cursor_moved = false;
         match &event {
             Event::GeometryChanged(event) => {
                 self.common_mut().geometry = event.new_geometry;
@@ -332,17 +335,29 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::WindowFocusChanged(e) => {
                 self.common_mut().is_window_focused = e.focused;
             }
+            Event::CursorMoved(_) => {
+                is_cursor_moved = true;
+            }
             _ => (),
         }
         let result = self.on_event(event);
         if let Some(accepted_by) = accepted_by {
             if accepted_by.get().is_none() && result {
                 accepted_by.set(Some(self.common().id));
+                if is_cursor_moved {
+                    if let Some(mount_point) = &self.common().mount_point {
+                        send_window_request(
+                            mount_point.address.window_id,
+                            SetCursorIcon(self.common().cursor_icon),
+                        );
+                    }
+                }
             }
         }
         if is_unmount {
             self.common_mut().unmount();
         }
+
         self.update_accessible();
         result
     }

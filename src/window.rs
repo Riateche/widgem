@@ -15,6 +15,7 @@ use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Event, Ime, MouseButton, WindowEvent},
     keyboard::{Key, ModifiersState},
+    window::CursorIcon,
 };
 
 use crate::{
@@ -25,7 +26,7 @@ use crate::{
         GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
         UnmountEvent, WindowFocusChangedEvent,
     },
-    system::with_system,
+    system::{send_window_request, with_system},
     types::{Point, Rect, Size},
     widgets::{
         get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
@@ -216,6 +217,8 @@ impl Window {
                         return;
                     }
                 }
+
+                let accepted_by = Rc::new(Cell::new(None));
                 if let Some(root_widget) = &mut self.root_widget {
                     if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
                         if let Ok(mouse_grabber_widget) =
@@ -228,6 +231,7 @@ impl Window {
                                     CursorMovedEvent {
                                         device_id,
                                         pos: pos_in_widget,
+                                        accepted_by: accepted_by.clone(),
                                     }
                                     .into(),
                                 );
@@ -238,10 +242,14 @@ impl Window {
                             CursorMovedEvent {
                                 device_id,
                                 pos: pos_in_window,
+                                accepted_by: accepted_by.clone(),
                             }
                             .into(),
                         );
                     }
+                }
+                if accepted_by.get().is_none() {
+                    send_window_request(self.inner.id(), SetCursorIcon(CursorIcon::Default));
                 }
                 self.inner.request_redraw(); // TODO: smarter redraw
             }
@@ -605,6 +613,9 @@ impl Window {
                     self.inner.set_ime_allowed(true);
                 }
             }
+            WindowRequest::SetCursorIcon(icon) => {
+                self.inner.set_cursor_icon(icon.0);
+            }
         }
         self.push_accessible_updates();
     }
@@ -656,6 +667,7 @@ pub enum WindowRequest {
     SetFocus(SetFocusRequest),
     SetImeCursorArea(SetImeCursorAreaRequest),
     CancelImePreedit(CancelImePreedit),
+    SetCursorIcon(SetCursorIcon),
 }
 
 #[derive(Debug)]
@@ -669,3 +681,6 @@ pub struct SetImeCursorAreaRequest(pub Rect);
 
 #[derive(Debug)]
 pub struct CancelImePreedit;
+
+#[derive(Debug)]
+pub struct SetCursorIcon(pub CursorIcon);
