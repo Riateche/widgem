@@ -3,7 +3,9 @@
 use salvation::{
     event_loop::{self, CallbackContext},
     widgets::{button::Button, column::Column, text_input::TextInput, Widget, WidgetExt, WidgetId},
+    window::create_window,
 };
+use winit::window::WindowBuilder;
 
 struct AnotherState {
     counter: i32,
@@ -63,7 +65,10 @@ impl State {
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
         root.add(btn3);
 
-        ctx.add_window("example", Some(Box::new(root)));
+        create_window(
+            WindowBuilder::new().with_title("example"),
+            Some(Box::new(root)),
+        );
         State {
             another_state,
             button_id,

@@ -9,12 +9,12 @@ use scoped_tls::scoped_thread_local;
 use tiny_skia::Color;
 use winit::{
     event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy, EventLoopWindowTarget},
-    window::{WindowBuilder, WindowId},
+    event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
+    window::WindowId,
 };
 
 use crate::{
-    callback::{Callback, CallbackId, CallbackMaker, Callbacks, WidgetCallback},
+    callback::{Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, WidgetCallback},
     style::Palette,
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
@@ -24,11 +24,9 @@ use crate::{
     window::{Window, WindowEventContext, WindowRequest},
 };
 
-type CallbackFn<State> = Box<dyn FnMut(&mut State, &mut CallbackContext<State>, Box<dyn Any>)>;
 pub struct CallbackContext<'a, State> {
-    pub windows: &'a mut HashMap<WindowId, Window>,
-    pub add_callback: Box<dyn FnMut(CallbackFn<State>) -> CallbackId + 'a>,
-    event_loop_proxy: EventLoopProxy<UserEvent>,
+    windows: &'a mut HashMap<WindowId, Window>,
+    add_callback: Box<dyn FnMut(Box<CallbackDataFn<State>>) -> CallbackId + 'a>,
     //...
     marker: PhantomData<State>,
 }
@@ -41,7 +39,6 @@ impl<'a, State> CallbackContext<'a, State> {
         let add_callback = &mut self.add_callback;
         CallbackContext {
             windows: self.windows,
-            event_loop_proxy: self.event_loop_proxy.clone(),
             marker: PhantomData,
             add_callback: Box::new(move |mut f| -> CallbackId {
                 let mapper = mapper.clone();
@@ -65,19 +62,18 @@ impl<'a, State> CallbackContext<'a, State> {
                 .expect("event downcast failed");
             callback(state, ctx, event);
         }));
-
-        Callback::new(self.event_loop_proxy.clone(), callback_id)
+        let event_loop_proxy = with_system(|s| s.event_loop_proxy.clone());
+        Callback::new(event_loop_proxy, callback_id)
     }
 
-    // TODO: create builder instead
-    pub fn add_window(&mut self, title: &str, root_widget: Option<Box<dyn Widget>>) -> WindowId {
-        let builder = WindowBuilder::new().with_title(title).with_visible(false);
-        let window = WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
-        let window = Window::new(window, root_widget);
-        let id = window.inner.id();
-        self.windows.insert(id, window);
-        id
-    }
+    // pub fn add_window(&mut self, title: &str, root_widget: Option<Box<dyn Widget>>) -> WindowId {
+    //     let builder = WindowBuilder::new().with_title(title).with_visible(false);
+    //     let window = WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
+    //     let window = Window::new(window, root_widget);
+    //     let id = window.inner.id();
+    //     self.windows.insert(id, window);
+    //     id
+    // }
 
     pub fn get_widget_by_id_mut<W: Widget>(
         &mut self,
@@ -137,6 +133,14 @@ fn dispatch_widget_callback<Event>(
     widget.update_accessible();
 }
 
+fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>) {
+    with_system(|system| {
+        for window in system.new_windows.drain(..) {
+            windows.insert(window.inner.id(), window);
+        }
+    });
+}
+
 pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) -> State) {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
@@ -160,6 +164,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
         },
         timers: Timers::new(),
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
+        new_windows: Vec::new(),
     };
     SYSTEM.with(|system| {
         *system.0.borrow_mut() = Some(shared_system_data);
@@ -168,24 +173,24 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     let mut callback_maker = CallbackMaker::<State>::new();
     let mut callbacks = Callbacks::<State>::new();
 
-    let event_loop_proxy = event_loop.create_proxy();
-
     let mut state = {
         let mut ctx = CallbackContext {
             windows: &mut windows,
             add_callback: Box::new(|f| callback_maker.add(f)),
             marker: PhantomData,
-            event_loop_proxy: event_loop_proxy.clone(),
         };
         WINDOW_TARGET.set(&event_loop, || make_state(&mut ctx))
     };
     callbacks.add_all(&mut callback_maker);
+    fetch_new_windows(&mut windows);
 
     event_loop
         .run(move |event, window_target| {
             WINDOW_TARGET.set(window_target, || {
+                fetch_new_windows(&mut windows);
                 while let Some(timer) = with_system(|system| system.timers.pop()) {
                     dispatch_widget_callback(&mut windows, &timer.callback, Instant::now());
+                    fetch_new_windows(&mut windows);
                     // TODO: smarter redraw
                     for window in windows.values() {
                         window.inner.request_redraw();
@@ -220,7 +225,6 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                                     windows: &mut windows,
                                     add_callback: Box::new(|f| callback_maker.add(f)),
                                     marker: PhantomData,
-                                    event_loop_proxy: event_loop_proxy.clone(),
                                 };
 
                                 callbacks.call(&mut state, &mut ctx, event);
@@ -252,7 +256,7 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
                     }
                     _ => {}
                 }
-
+                fetch_new_windows(&mut windows);
                 //if *control_flow == ControlFlow::Wait {
                 //}
             });

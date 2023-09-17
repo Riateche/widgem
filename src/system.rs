@@ -15,7 +15,7 @@ use crate::{
     style::Palette,
     timer::{TimerId, Timers, WidgetTimer},
     widgets::{RawWidgetId, Widget, WidgetAddress, WidgetId},
-    window::WindowRequest,
+    window::{Window, WindowRequest},
 };
 
 thread_local! {
@@ -33,6 +33,7 @@ pub struct SharedSystemDataInner {
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
+    pub new_windows: Vec<Window>,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);

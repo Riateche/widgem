@@ -127,6 +127,7 @@ impl DrawEvent {
         Some(path_builder.finish().unwrap())
     }
 
+    // TODO: translate to current rect
     pub fn stroke_path(&self, path: &Path, color: Color, width: f32) {
         self.pixmap.borrow_mut().stroke_path(
             path,
@@ -144,6 +145,7 @@ impl DrawEvent {
         );
     }
 
+    // TODO: translate to current rect
     pub fn fill_path(&self, path: &Path, shader: Shader) {
         self.pixmap.borrow_mut().fill_path(
             path,

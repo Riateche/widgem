@@ -15,7 +15,7 @@ use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Event, Ime, MouseButton, WindowEvent},
     keyboard::{Key, ModifiersState},
-    window::{CursorIcon, Icon},
+    window::{CursorIcon, Icon, WindowId},
 };
 
 use crate::{
@@ -26,6 +26,7 @@ use crate::{
         GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
         UnmountEvent, WindowFocusChangedEvent,
     },
+    event_loop::WINDOW_TARGET,
     system::{send_window_request, with_system},
     types::{Point, Rect, Size},
     widgets::{
@@ -69,8 +70,19 @@ pub struct Window {
     last_click_instant: Option<Instant>,
 }
 
+pub fn create_window(
+    inner: winit::window::WindowBuilder,
+    widget: Option<Box<dyn Widget>>,
+) -> WindowId {
+    let w = Window::new(inner, widget);
+    let id = w.inner.id();
+    with_system(|system| system.new_windows.push(w));
+    id
+}
+
 impl Window {
-    pub fn new(inner: winit::window::Window, mut widget: Option<Box<dyn Widget>>) -> Self {
+    fn new(inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
+        let inner = WINDOW_TARGET.with(|window_target| inner.build(window_target).unwrap());
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             widget_tree_changed: false,
