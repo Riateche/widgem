@@ -20,6 +20,7 @@ use crate::{
         GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
         UnmountEvent, WindowFocusChangedEvent,
     },
+    layout::SizeHint,
     shortcut::standard_shortcuts,
     system::{add_interval, send_window_event, with_system},
     text_editor::TextEditor,
@@ -29,6 +30,10 @@ use crate::{
 };
 
 use super::{Widget, WidgetCommon, WidgetExt};
+
+const PADDING: i32 = 5;
+const MIN_ASPECT_RATIO: i32 = 2;
+const PREFERRED_ASPECT_RATIO: i32 = 10;
 
 pub struct TextInput {
     editor: TextEditor,
@@ -577,5 +582,23 @@ impl Widget for TextInput {
         node.set_default_action_verb(DefaultActionVerb::Click);
         node.set_text_selection(self.editor.accessible_selection(self.accessible_line_id));
         Some(node)
+    }
+
+    fn size_hint_x(&mut self) -> SizeHint {
+        let size_hint_y = self.size_hint_y(0);
+        SizeHint {
+            min: size_hint_y.min * MIN_ASPECT_RATIO,
+            preferred: size_hint_y.preferred * PREFERRED_ASPECT_RATIO,
+            is_fixed: false,
+        }
+    }
+
+    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+        let size = self.editor.size().y + 2 * PADDING;
+        SizeHint {
+            min: self.editor.size().y,
+            preferred: size,
+            is_fixed: true,
+        }
     }
 }

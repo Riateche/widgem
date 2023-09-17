@@ -2,8 +2,7 @@
 
 use salvation::{
     event_loop::{self, CallbackContext},
-    types::{Point, Rect, Size},
-    widgets::{button::Button, stack::Stack, text_input::TextInput, Widget, WidgetExt, WidgetId},
+    widgets::{button::Button, column::Column, text_input::TextInput, Widget, WidgetExt, WidgetId},
 };
 
 struct AnotherState {
@@ -29,7 +28,7 @@ struct State {
 
 impl State {
     fn new(ctx: &mut CallbackContext<Self>) -> Self {
-        let mut root = Stack::new();
+        let mut root = Column::new();
         // let w1 =
         //     Image::load_png("1.png").unwrap();
         // root.add(
@@ -42,57 +41,27 @@ impl State {
 
         // let w2 = TextInput::new("Hello, Rust! 🦀 one two three four five\n");
         let w2 = TextInput::new("Hello, Rust! 🦀\n");
-        root.add(
-            Rect {
-                top_left: Point { x: 300, y: 130 },
-                size: Size { x: 300, y: 40 },
-            },
-            Box::new(w2),
-        );
+        root.add(Box::new(w2));
         let w3 = TextInput::new("Hebrew \nname Sarah: שרה, spelled");
-        root.add(
-            Rect {
-                top_left: Point { x: 300, y: 180 },
-                size: Size { x: 300, y: 40 },
-            },
-            Box::new(w3),
-        );
+        root.add(Box::new(w3));
 
         let mut btn1 = Button::new("btn1");
         let button_id = btn1.id();
         btn1.on_clicked(ctx.callback(|state, ctx, event| {
             state.button_clicked2(ctx, event, 1);
         }));
-        root.add(
-            Rect {
-                top_left: Point { x: 20, y: 200 },
-                size: Size { x: 200, y: 50 },
-            },
-            Box::new(btn1),
-        );
+        root.add(Box::new(btn1));
 
         let mut btn2 = Button::new("btn2");
         // btn2.on_clicked(ctx.callback_maker.add(Self::button_clicked));
         btn2.on_clicked(ctx.callback(|state, ctx, event| {
             state.button_clicked2(ctx, event, 2);
         }));
-        root.add(
-            Rect {
-                top_left: Point { x: 20, y: 260 },
-                size: Size { x: 200, y: 50 },
-            },
-            Box::new(btn2),
-        );
+        root.add(Box::new(btn2));
 
         let (another_state, btn3) =
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
-        root.add(
-            Rect {
-                top_left: Point { x: 20, y: 320 },
-                size: Size { x: 200, y: 50 },
-            },
-            btn3,
-        );
+        root.add(btn3);
 
         ctx.add_window("example", Some(Box::new(root)));
         State {

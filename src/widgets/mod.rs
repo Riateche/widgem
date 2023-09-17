@@ -17,12 +17,14 @@ use crate::{
         GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
         UnmountEvent, WindowFocusChangedEvent,
     },
+    layout::SizeHint,
     system::{address, register_address, unregister_address},
     types::{Rect, Size},
     window::SharedWindowData,
 };
 
 pub mod button;
+pub mod column;
 pub mod image;
 pub mod label;
 pub mod stack;
@@ -262,6 +264,9 @@ pub trait Widget: Downcast {
             }
         }
     }
+    fn size_hint_x(&mut self) -> SizeHint;
+    fn size_hint_y(&mut self, size_x: i32) -> SizeHint;
+
     fn layout(&mut self) {}
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         None

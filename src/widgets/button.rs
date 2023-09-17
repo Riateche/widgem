@@ -10,6 +10,7 @@ use crate::{
     draw::{draw_text, unrestricted_text_size, DrawEvent},
     event::CursorMovedEvent,
     event::{AccessibleEvent, FocusReason, MouseInputEvent},
+    layout::SizeHint,
     system::{send_window_event, with_system},
     types::{Point, Rect, Size},
     window::SetFocusRequest,
@@ -258,5 +259,21 @@ impl Widget for Button {
         //node.add_action(Action::Default);
         node.set_default_action_verb(DefaultActionVerb::Click);
         Some(node)
+    }
+
+    fn size_hint_x(&mut self) -> SizeHint {
+        SizeHint {
+            min: 150,
+            preferred: 150,
+            is_fixed: true,
+        }
+    }
+
+    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+        SizeHint {
+            min: 30,
+            preferred: 30,
+            is_fixed: true,
+        }
     }
 }

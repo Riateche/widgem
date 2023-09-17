@@ -5,6 +5,7 @@ pub mod callback;
 pub mod draw;
 pub mod event;
 pub mod event_loop;
+pub mod layout;
 pub mod shortcut;
 pub mod system;
 pub mod text_editor;

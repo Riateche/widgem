@@ -5,6 +5,7 @@ use tiny_skia::Pixmap;
 
 use crate::{
     draw::{draw_text, unrestricted_text_size, DrawEvent},
+    layout::SizeHint,
     system::with_system,
     types::{Point, Size},
 };
@@ -70,5 +71,21 @@ impl Widget for Label {
     }
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
+    }
+
+    fn size_hint_x(&mut self) -> SizeHint {
+        SizeHint {
+            min: 150,
+            preferred: 150,
+            is_fixed: true,
+        }
+    }
+
+    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+        SizeHint {
+            min: 30,
+            preferred: 30,
+            is_fixed: true,
+        }
     }
 }

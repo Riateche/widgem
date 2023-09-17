@@ -3,7 +3,7 @@ use std::path::Path;
 use png::DecodingError;
 use tiny_skia::Pixmap;
 
-use crate::{draw::DrawEvent, types::Point};
+use crate::{draw::DrawEvent, layout::SizeHint, types::Point};
 
 use super::{Widget, WidgetCommon};
 
@@ -40,5 +40,25 @@ impl Widget for Image {
     }
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
+    }
+
+    fn size_hint_x(&mut self) -> SizeHint {
+        let size = self.pixmap.as_ref().map_or(0, |p| p.width() as i32);
+
+        SizeHint {
+            min: size,
+            preferred: size,
+            is_fixed: true,
+        }
+    }
+
+    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+        let size = self.pixmap.as_ref().map_or(0, |p| p.height() as i32);
+
+        SizeHint {
+            min: size,
+            preferred: size,
+            is_fixed: true,
+        }
     }
 }

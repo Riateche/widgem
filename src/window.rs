@@ -138,10 +138,10 @@ impl Window {
         }
         match event {
             WindowEvent::RedrawRequested => {
-                // Grab the window's client area dimensions
                 let (width, height) = {
                     let size = self.inner.inner_size();
-                    (max(1, size.width), max(1, size.height))
+                    // Extra size to avoid visual artifacts when resizing the window.
+                    (max(1, size.width) + 50, max(1, size.height) + 50)
                 };
 
                 // Resize surface if needed
@@ -185,6 +185,10 @@ impl Window {
 
                 //redraw(&mut buffer, width as usize, height as usize, flag);
                 buffer.present().unwrap();
+            }
+            WindowEvent::Resized(_) => {
+                self.layout();
+                self.inner.request_redraw();
             }
             // TODO: should use device id?
             WindowEvent::CursorEntered { .. } => {
