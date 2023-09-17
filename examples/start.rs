@@ -3,8 +3,8 @@
 use salvation::{
     event_loop::{self, CallbackContext},
     widgets::{
-        button::Button, column::Column, label::Label, text_input::TextInput, Widget, WidgetExt,
-        WidgetId,
+        button::Button, column::Column, label::Label, padding_box::PaddingBox,
+        text_input::TextInput, Widget, WidgetExt, WidgetId,
     },
     window::create_window,
 };
@@ -74,7 +74,8 @@ impl State {
 
         create_window(
             WindowBuilder::new().with_title("example"),
-            Some(Box::new(root)),
+            Some(Box::new(PaddingBox::new(Box::new(root)))),
+            // Some(Box::new(root)),
         );
         State {
             another_state,

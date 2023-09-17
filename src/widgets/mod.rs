@@ -27,6 +27,7 @@ pub mod button;
 pub mod column;
 pub mod image;
 pub mod label;
+pub mod padding_box;
 pub mod stack;
 pub mod text_input;
 
@@ -85,7 +86,6 @@ pub struct MountPoint {
 }
 
 impl WidgetCommon {
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             id: RawWidgetId::new(),
@@ -145,6 +145,12 @@ impl WidgetCommon {
     }
 }
 
+impl Default for WidgetCommon {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug)]
 pub struct WidgetNotFound;
 
@@ -187,7 +193,7 @@ pub trait Widget: Downcast {
     fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Child> + '_> {
         Box::new(iter::empty())
     }
-    fn on_draw(&mut self, ctx: DrawEvent);
+    fn on_draw(&mut self, event: DrawEvent);
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         let _ = event;
         false
