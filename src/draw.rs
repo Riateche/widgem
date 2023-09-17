@@ -24,11 +24,15 @@ fn rounded_line_in_square_corner(
 }
 
 pub struct DrawEvent {
-    pub pixmap: Rc<RefCell<Pixmap>>,
-    pub rect: Rect,
+    pixmap: Rc<RefCell<Pixmap>>,
+    rect: Rect,
 }
 
 impl DrawEvent {
+    pub fn new(pixmap: Rc<RefCell<Pixmap>>, rect: Rect) -> Self {
+        Self { pixmap, rect }
+    }
+
     pub fn draw_pixmap(&self, pos: Point, pixmap: PixmapRef<'_>) {
         self.pixmap.borrow_mut().draw_pixmap(
             pos.x + self.rect.top_left.x,
@@ -228,13 +232,19 @@ impl DrawEvent {
             None,
         );
     }
-}
 
-pub struct Palette {
-    pub foreground: Color,
-    pub background: Color,
-    pub unfocused_input_border: Color,
-    pub focused_input_border: Color,
+    pub fn rect(&self) -> Rect {
+        self.rect
+    }
+
+    pub fn map_to_child(&self, rect_in_parent: Rect) -> Self {
+        Self {
+            rect: rect_in_parent
+                .translate(self.rect.top_left)
+                .intersect(self.rect),
+            pixmap: Rc::clone(&self.pixmap),
+        }
+    }
 }
 
 const MEASURE_MAX_SIZE: f32 = 10_000.;

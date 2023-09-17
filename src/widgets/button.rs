@@ -88,12 +88,12 @@ impl Button {
 impl Widget for Button {
     fn on_draw(&mut self, event: DrawEvent) {
         let start = tiny_skia::Point {
-            x: event.rect.top_left.x as f32,
-            y: event.rect.top_left.y as f32,
+            x: event.rect().top_left.x as f32,
+            y: event.rect().top_left.y as f32,
         };
         let end = tiny_skia::Point {
-            x: event.rect.top_left.x as f32,
-            y: event.rect.top_left.y as f32 + event.rect.size.y as f32,
+            x: event.rect().top_left.x as f32,
+            y: event.rect().top_left.y as f32 + event.rect().size.y as f32,
         };
         let gradient = if !self.enabled {
             LinearGradient::new(
@@ -153,7 +153,7 @@ impl Widget for Button {
         event.stroke_and_fill_rounded_rect(
             Rect {
                 top_left: Point::default(),
-                size: event.rect.size,
+                size: event.rect().size,
             },
             2.0,
             1.0,
@@ -163,8 +163,8 @@ impl Widget for Button {
 
         let editor_pixmap = self.editor.pixmap();
         let padding = Point {
-            x: max(0, event.rect.size.x - editor_pixmap.width() as i32) / 2,
-            y: max(0, event.rect.size.y - editor_pixmap.height() as i32) / 2,
+            x: max(0, event.rect().size.x - editor_pixmap.width() as i32) / 2,
+            y: max(0, event.rect().size.y - editor_pixmap.height() as i32) / 2,
         };
         event.draw_pixmap(padding, editor_pixmap.as_ref());
     }

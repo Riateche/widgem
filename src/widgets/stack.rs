@@ -61,13 +61,7 @@ impl Widget for Stack {
 
     fn on_draw(&mut self, event: DrawEvent) {
         for child in &mut self.children {
-            let child_event = DrawEvent {
-                rect: child
-                    .rect_in_parent
-                    .translate(event.rect.top_left)
-                    .intersect(event.rect),
-                pixmap: Rc::clone(&event.pixmap),
-            };
+            let child_event = event.map_to_child(child.rect_in_parent);
             child.child.widget.dispatch(child_event.into());
         }
     }

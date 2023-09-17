@@ -11,8 +11,8 @@ use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     callback::WidgetCallback,
-    draw::Palette,
     event_loop::UserEvent,
+    style::Palette,
     timer::{TimerId, Timers, WidgetTimer},
     widgets::{RawWidgetId, Widget, WidgetAddress, WidgetId},
     window::WindowRequest,
@@ -91,15 +91,15 @@ where
             Instant::now() + duration,
             WidgetTimer {
                 interval,
-                callback: WidgetCallback {
-                    widget_id: widget_id.0,
-                    func: Rc::new(move |widget, event| {
+                callback: WidgetCallback::new(
+                    widget_id.0,
+                    Rc::new(move |widget, event| {
                         func(
                             widget.downcast_mut::<W>().expect("widget type mismatch"),
                             event,
                         )
                     }),
-                },
+                ),
             },
         )
     })

@@ -8,18 +8,22 @@ use crate::{
     widgets::{RawWidgetId, Widget},
 };
 
-//pub type CallbackFn<State> = Rc<dyn FnMut(&mut State, Box<dyn Any>)>;
-
-// pub struct InvokeCallbackEvent<State> {
-//     func: CallbackFn<State>,
-//     event: Box<dyn Any>,
-// }
-
 pub type CallbackFn<State, Event> = dyn Fn(&mut State, &mut CallbackContext<State>, Event);
+
 pub struct Callback<Event> {
-    pub sender: EventLoopProxy<UserEvent>,
-    pub callback_id: CallbackId,
-    pub _marker: PhantomData<Event>,
+    sender: EventLoopProxy<UserEvent>,
+    callback_id: CallbackId,
+    _marker: PhantomData<Event>,
+}
+
+impl<Event> Callback<Event> {
+    pub fn new(sender: EventLoopProxy<UserEvent>, callback_id: CallbackId) -> Self {
+        Self {
+            sender,
+            callback_id,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<Event: Send + 'static> Callback<Event> {
@@ -36,7 +40,8 @@ impl<Event: Send + 'static> Callback<Event> {
 pub struct CallbackId(u64);
 
 pub type CallbackDataFn<State> = dyn FnMut(&mut State, &mut CallbackContext<State>, Box<dyn Any>);
-pub struct CallbackData<State> {
+
+struct CallbackData<State> {
     func: Box<CallbackDataFn<State>>,
     // TODO: weak ref for cleanup
 }
@@ -104,9 +109,25 @@ impl<State> Default for Callbacks<State> {
     }
 }
 
+pub type WidgetCallbackFn<Event> = dyn Fn(&mut dyn Widget, Event);
+
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]
 pub struct WidgetCallback<Event> {
-    pub widget_id: RawWidgetId,
-    pub func: Rc<dyn Fn(&mut dyn Widget, Event)>,
+    widget_id: RawWidgetId,
+    func: Rc<WidgetCallbackFn<Event>>,
+}
+
+impl<Event> WidgetCallback<Event> {
+    pub fn new(widget_id: RawWidgetId, func: Rc<WidgetCallbackFn<Event>>) -> Self {
+        Self { widget_id, func }
+    }
+
+    pub fn widget_id(&self) -> RawWidgetId {
+        self.widget_id
+    }
+
+    pub fn func(&self) -> &WidgetCallbackFn<Event> {
+        self.func.as_ref()
+    }
 }

@@ -15,7 +15,7 @@ use winit::{
 
 use crate::{
     callback::{Callback, CallbackId, CallbackMaker, Callbacks, WidgetCallback},
-    draw::Palette,
+    style::Palette,
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
     widgets::{
@@ -66,11 +66,7 @@ impl<'a, State> CallbackContext<'a, State> {
             callback(state, ctx, event);
         }));
 
-        Callback {
-            sender: self.event_loop_proxy.clone(),
-            callback_id,
-            _marker: PhantomData,
-        }
+        Callback::new(self.event_loop_proxy.clone(), callback_id)
     }
 
     // TODO: create builder instead
@@ -125,7 +121,7 @@ fn dispatch_widget_callback<Event>(
     callback: &WidgetCallback<Event>,
     event: Event,
 ) {
-    let Some(address) = address(callback.widget_id) else {
+    let Some(address) = address(callback.widget_id()) else {
         return;
     };
     let Some(window) = windows.get_mut(&address.window_id) else {
@@ -137,7 +133,7 @@ fn dispatch_widget_callback<Event>(
     let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &address) else {
         return;
     };
-    (callback.func)(widget, event);
+    callback.func()(widget, event);
     widget.update_accessible();
 }
 

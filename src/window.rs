@@ -165,19 +165,19 @@ impl Window {
 
                 let pixmap = Pixmap::new(width, height).unwrap();
                 let pixmap = Rc::new(RefCell::new(pixmap));
-                let draw_event = DrawEvent {
-                    rect: Rect {
+                let draw_event = DrawEvent::new(
+                    Rc::clone(&pixmap),
+                    Rect {
                         top_left: Point::default(),
                         size: Size {
                             x: width as i32,
                             y: height as i32,
                         },
                     },
-                    pixmap: Rc::clone(&pixmap),
-                };
+                );
                 // TODO: option to turn off background, set style
                 let color = with_system(|system| system.palette.background);
-                draw_event.pixmap.borrow_mut().fill(color);
+                pixmap.borrow_mut().fill(color);
                 if let Some(widget) = &mut self.root_widget {
                     widget.dispatch(draw_event.into());
                 }
@@ -632,7 +632,7 @@ impl Window {
         _ctx: &mut WindowEventContext,
         request: ActionRequest,
     ) {
-        let root = self.shared_window_data.0.borrow().accessible_nodes.root;
+        let root = self.shared_window_data.0.borrow().accessible_nodes.root();
         if request.target == root {
             warn!("cannot dispatch accessible event to virtual root: {request:?}");
             return;

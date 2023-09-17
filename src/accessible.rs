@@ -9,14 +9,14 @@ use log::warn;
 use crate::widgets::RawWidgetId;
 
 pub struct AccessibleNodes {
-    pub nodes: HashMap<NodeId, NodeBuilder>,
-    pub direct_children: HashMap<NodeId, Vec<(i32, NodeId)>>,
-    pub direct_parents: HashMap<NodeId, NodeId>,
+    nodes: HashMap<NodeId, NodeBuilder>,
+    direct_children: HashMap<NodeId, Vec<(i32, NodeId)>>,
+    direct_parents: HashMap<NodeId, NodeId>,
 
-    pub pending_updates: HashSet<NodeId>,
-    pub classes: NodeClassSet,
-    pub root: NodeId,
-    pub focus: NodeId,
+    pending_updates: HashSet<NodeId>,
+    classes: NodeClassSet,
+    root: NodeId,
+    focus: NodeId,
 }
 
 impl AccessibleNodes {
@@ -34,6 +34,10 @@ impl AccessibleNodes {
         };
         this.clear();
         this
+    }
+
+    pub fn root(&self) -> NodeId {
+        self.root
     }
 
     pub fn clear(&mut self) {
