@@ -81,7 +81,13 @@ pub fn create_window(
 }
 
 impl Window {
-    fn new(inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
+    fn new(mut inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
+        if let Some(widget) = &mut widget {
+            let size_x = widget.size_hint_x().preferred;
+            // TODO: adjust size_x for screen size
+            let size_y = widget.size_hint_y(size_x).preferred;
+            inner = inner.with_inner_size(PhysicalSize::new(size_x, size_y));
+        }
         let inner = WINDOW_TARGET.with(|window_target| inner.build(window_target).unwrap());
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
@@ -104,6 +110,7 @@ impl Window {
                 .into(),
             );
         }
+
         let initial_tree = shared_window_data
             .0
             .borrow_mut()
