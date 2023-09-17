@@ -15,7 +15,7 @@ use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Event, Ime, MouseButton, WindowEvent},
     keyboard::{Key, ModifiersState},
-    window::CursorIcon,
+    window::{CursorIcon, Icon},
 };
 
 use crate::{
@@ -122,6 +122,13 @@ impl Window {
             last_click_instant: None,
         };
         w.widget_tree_changed();
+
+        {
+            let pixmap = Pixmap::decode_png(include_bytes!("../assets/icon.png")).unwrap();
+            w.inner.set_window_icon(Some(
+                Icon::from_rgba(pixmap.data().to_vec(), pixmap.width(), pixmap.height()).unwrap(),
+            ));
+        }
         w
     }
 

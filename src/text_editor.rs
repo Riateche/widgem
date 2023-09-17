@@ -266,9 +266,6 @@ impl TextEditor {
     }
 
     fn set_size(&mut self, size: Size) {
-        if size == self.size {
-            return;
-        }
         with_system(|system| {
             self.editor.buffer_mut().set_size(
                 &mut system.font_system,

@@ -1,29 +1,26 @@
 use std::{cmp::max, fmt::Display};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
-use cosmic_text::{Attrs, Buffer, Shaping};
-use tiny_skia::{Color, GradientStop, LinearGradient, Pixmap, SpreadMode, Transform};
+use cosmic_text::Attrs;
+use tiny_skia::{Color, GradientStop, LinearGradient, SpreadMode, Transform};
 use winit::event::MouseButton;
 
 use crate::{
     callback::Callback,
-    draw::{draw_text, unrestricted_text_size, DrawEvent},
+    draw::DrawEvent,
     event::CursorMovedEvent,
     event::{AccessibleEvent, FocusReason, MouseInputEvent},
     layout::SizeHint,
     system::{send_window_request, with_system},
-    types::{Point, Rect, Size},
+    text_editor::TextEditor,
+    types::{Point, Rect},
     window::SetFocusRequest,
 };
 
 use super::{Widget, WidgetCommon};
 
 pub struct Button {
-    text: String,
-    buffer: Option<Buffer>,
-    text_pixmap: Option<Pixmap>,
-    unrestricted_text_size: Size,
-    redraw_text: bool,
+    editor: TextEditor,
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
     state: ButtonState,
@@ -38,32 +35,34 @@ enum ButtonState {
     Pressed,
 }
 
+const PADDING: Point = Point { x: 10, y: 5 };
+
 impl Button {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new();
         common.is_focusable = true;
-        Self {
-            text: text.to_string(),
-            buffer: None,
-            text_pixmap: None,
-            unrestricted_text_size: Size::default(),
-            redraw_text: true,
+        let mut editor = TextEditor::new(&text.to_string());
+        editor.set_cursor_hidden(true);
+        let mut this = Self {
+            editor,
             on_clicked: None,
             enabled: true,
             state: ButtonState::Default,
             common,
-        }
+        };
+        this.update_color();
+        this
     }
 
     pub fn set_text(&mut self, text: impl Display) {
-        self.text = text.to_string();
-        self.redraw_text = true;
+        self.editor.set_text(&text.to_string(), Attrs::new());
     }
 
     //TODO: needs some automatic redraw?
     pub fn set_enabled(&mut self, enabled: bool) {
         if self.enabled != enabled {
             self.enabled = enabled;
+            self.update_color();
         }
     }
 
@@ -73,8 +72,16 @@ impl Button {
 
     fn click(&mut self) {
         if let Some(on_clicked) = &self.on_clicked {
-            on_clicked.invoke(self.text.clone());
+            on_clicked.invoke(self.editor.text());
         }
+    }
+
+    fn update_color(&mut self) {
+        self.editor.set_text_color(if self.enabled {
+            with_system(|system| system.palette.foreground)
+        } else {
+            Color::from_rgba8(191, 191, 191, 255)
+        });
     }
 }
 
@@ -154,39 +161,12 @@ impl Widget for Button {
             border_color,
         );
 
-        with_system(|system| {
-            let mut buffer = self
-                .buffer
-                .get_or_insert_with(|| Buffer::new(&mut system.font_system, system.font_metrics))
-                .borrow_with(&mut system.font_system);
-
-            let text_color = if self.enabled {
-                system.palette.foreground
-            } else {
-                Color::from_rgba8(191, 191, 191, 255)
-            };
-
-            if self.redraw_text {
-                buffer.set_text(&self.text, Attrs::new(), Shaping::Advanced);
-                self.unrestricted_text_size = unrestricted_text_size(&mut buffer);
-                let pixmap = draw_text(
-                    &mut buffer,
-                    self.unrestricted_text_size,
-                    text_color,
-                    &mut system.swash_cache,
-                );
-                self.text_pixmap = Some(pixmap);
-                self.redraw_text = false;
-            }
-
-            if let Some(pixmap) = &self.text_pixmap {
-                let padding = Point {
-                    x: max(0, event.rect.size.x - pixmap.width() as i32) / 2,
-                    y: max(0, event.rect.size.y - pixmap.height() as i32) / 2,
-                };
-                event.draw_pixmap(padding, pixmap.as_ref());
-            }
-        });
+        let editor_pixmap = self.editor.pixmap();
+        let padding = Point {
+            x: max(0, event.rect.size.x - editor_pixmap.width() as i32) / 2,
+            y: max(0, event.rect.size.y - editor_pixmap.height() as i32) / 2,
+        };
+        event.draw_pixmap(padding, editor_pixmap.as_ref());
     }
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
@@ -254,7 +234,7 @@ impl Widget for Button {
 
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         let mut node = NodeBuilder::new(Role::Button);
-        node.set_name(self.text.as_str());
+        node.set_name(self.editor.text().as_str());
         node.add_action(Action::Focus);
         //node.add_action(Action::Default);
         node.set_default_action_verb(DefaultActionVerb::Click);
@@ -263,16 +243,17 @@ impl Widget for Button {
 
     fn size_hint_x(&mut self) -> SizeHint {
         SizeHint {
-            min: 150,
-            preferred: 150,
+            min: self.editor.size().x,
+            preferred: self.editor.size().x + 2 * PADDING.x,
             is_fixed: true,
         }
     }
 
     fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+        // TODO: use size_x, handle multiple lines
         SizeHint {
-            min: 30,
-            preferred: 30,
+            min: self.editor.size().y,
+            preferred: self.editor.size().y + 2 * PADDING.y,
             is_fixed: true,
         }
     }
