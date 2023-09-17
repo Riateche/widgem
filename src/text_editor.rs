@@ -5,7 +5,8 @@ use std::{
 
 use accesskit::{NodeId, TextDirection, TextPosition, TextSelection};
 use cosmic_text::{
-    Action, Affinity, Attrs, AttrsList, AttrsOwned, Buffer, Cursor, Edit, Editor, Shaping, Wrap,
+    Action, Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Edit,
+    Editor, Shaping, Wrap,
 };
 use line_straddler::{GlyphStyle, LineGenerator, LineType};
 use log::warn;
@@ -16,7 +17,6 @@ use unicode_segmentation::UnicodeSegmentation;
 use winit::window::WindowId;
 
 use crate::{
-    draw::{convert_color, unrestricted_text_size},
     event::FocusReason,
     system::{send_window_request, with_system},
     types::{Point, Size},
@@ -550,3 +550,30 @@ impl Default for TextEditor {
         Self::new("")
     }
 }
+
+const MEASURE_MAX_SIZE: f32 = 10_000.;
+
+fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Size {
+    buffer.set_size(MEASURE_MAX_SIZE, MEASURE_MAX_SIZE);
+    buffer.shape_until_scroll();
+    let height = (buffer.lines.len() as f32 * buffer.metrics().line_height).ceil() as i32;
+    let width = buffer
+        .layout_runs()
+        .map(|run| run.line_w.ceil() as i32)
+        .max()
+        .unwrap_or(0);
+
+    Size {
+        x: width,
+        y: height,
+    }
+}
+
+fn convert_color(color: Color) -> cosmic_text::Color {
+    let c = color.to_color_u8();
+    cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
+}
+
+// fn convert_color_back(c: cosmic_text::Color) -> Color {
+//     Color::from_rgba8(c.r(), c.g(), c.b(), c.a())
+// }
