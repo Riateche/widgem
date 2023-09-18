@@ -1,5 +1,5 @@
 use crate::{
-    event::{GeometryChangedEvent, MountEvent},
+    event::{GeometryChangeEvent, MountEvent},
     layout::SizeHint,
     types::Rect,
 };
@@ -60,7 +60,7 @@ impl Widget for Stack {
             if let Some(rect_in_parent) = child.rect_in_parent {
                 let rect = rect_in_parent.translate(self_rect.top_left);
                 child.widget.dispatch(
-                    GeometryChangedEvent {
+                    GeometryChangeEvent {
                         new_rect_in_window: Some(rect),
                     }
                     .into(),

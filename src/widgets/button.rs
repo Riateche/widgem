@@ -8,7 +8,7 @@ use winit::event::MouseButton;
 use crate::{
     callback::Callback,
     draw::DrawEvent,
-    event::CursorMovedEvent,
+    event::CursorMoveEvent,
     event::{AccessibleEvent, FocusReason, MouseInputEvent},
     layout::SizeHint,
     system::{send_window_request, with_system},
@@ -23,16 +23,9 @@ pub struct Button {
     editor: TextEditor,
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
-    state: ButtonState,
+    is_pressed: bool,
     enabled: bool,
     common: WidgetCommon,
-}
-
-#[derive(PartialEq)]
-enum ButtonState {
-    Default,
-    Hover,
-    Pressed,
 }
 
 const PADDING: Point = Point { x: 10, y: 5 };
@@ -47,7 +40,7 @@ impl Button {
             editor,
             on_clicked: None,
             enabled: true,
-            state: ButtonState::Default,
+            is_pressed: false,
             common,
         };
         this.update_color();
@@ -106,39 +99,39 @@ impl Widget for Button {
                 SpreadMode::Pad,
                 Transform::default(),
             )
+        } else if self.is_pressed {
+            LinearGradient::new(
+                start,
+                end,
+                vec![GradientStop::new(
+                    1.0,
+                    Color::from_rgba8(219, 219, 219, 255),
+                )],
+                SpreadMode::Pad,
+                Transform::default(),
+            )
+        } else if self.common.is_mouse_entered {
+            LinearGradient::new(
+                start,
+                end,
+                vec![
+                    GradientStop::new(1.0, Color::from_rgba8(254, 254, 254, 255)),
+                    GradientStop::new(1.0, Color::from_rgba8(247, 247, 247, 255)),
+                ],
+                SpreadMode::Pad,
+                Transform::default(),
+            )
         } else {
-            match self.state {
-                ButtonState::Default => LinearGradient::new(
-                    start,
-                    end,
-                    vec![
-                        GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
-                        GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
-                    ],
-                    SpreadMode::Pad,
-                    Transform::default(),
-                ),
-                ButtonState::Hover => LinearGradient::new(
-                    start,
-                    end,
-                    vec![
-                        GradientStop::new(1.0, Color::from_rgba8(254, 254, 254, 255)),
-                        GradientStop::new(1.0, Color::from_rgba8(247, 247, 247, 255)),
-                    ],
-                    SpreadMode::Pad,
-                    Transform::default(),
-                ),
-                ButtonState::Pressed => LinearGradient::new(
-                    start,
-                    end,
-                    vec![GradientStop::new(
-                        1.0,
-                        Color::from_rgba8(219, 219, 219, 255),
-                    )],
-                    SpreadMode::Pad,
-                    Transform::default(),
-                ),
-            }
+            LinearGradient::new(
+                start,
+                end,
+                vec![
+                    GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
+                    GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
+                ],
+                SpreadMode::Pad,
+                Transform::default(),
+            )
         }
         .expect("failed to create gradient");
         let border_color = if self.enabled {
@@ -172,14 +165,7 @@ impl Widget for Button {
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         // TODO: only on release, check buttons
         if event.button() == MouseButton::Left {
-            if event.state().is_pressed() {
-                if self.enabled {
-                    self.state = ButtonState::Pressed;
-                    self.click();
-                }
-            } else if self.enabled {
-                self.state = ButtonState::Hover;
-            }
+            self.is_pressed = self.enabled && event.state().is_pressed();
         }
 
         let mount_point = &self
@@ -197,10 +183,8 @@ impl Widget for Button {
         true
     }
 
-    // TODO: mouse out event
-    fn on_cursor_moved(&mut self, _event: CursorMovedEvent) -> bool {
-        self.state = ButtonState::Hover;
-        false
+    fn on_cursor_move(&mut self, _event: CursorMoveEvent) -> bool {
+        true
     }
 
     fn common(&self) -> &WidgetCommon {

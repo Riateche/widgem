@@ -12,9 +12,9 @@ use winit::window::{CursorIcon, WindowId};
 use crate::{
     draw::DrawEvent,
     event::{
-        AccessibleEvent, CursorMovedEvent, Event, FocusInEvent, FocusOutEvent,
-        GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
-        UnmountEvent, WindowFocusChangedEvent,
+        AccessibleEvent, CursorLeaveEvent, CursorMoveEvent, Event, FocusInEvent, FocusOutEvent,
+        GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
+        UnmountEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     system::{address, register_address, send_window_request, unregister_address},
@@ -65,6 +65,8 @@ pub struct WidgetCommon {
     pub is_focused: bool,
     // TODO: set initial value in mount event
     pub is_window_focused: bool,
+
+    pub is_mouse_entered: bool,
     pub mount_point: Option<MountPoint>,
     // Present if the widget is mounted, not hidden, and only after layout.
     pub rect_in_window: Option<Rect>,
@@ -85,6 +87,7 @@ impl WidgetCommon {
             id: RawWidgetId::new(),
             is_focusable: false,
             is_focused: false,
+            is_mouse_entered: false,
             is_window_focused: false,
             enable_ime: false,
             mount_point: None,
@@ -195,9 +198,12 @@ pub trait Widget: Downcast {
         let _ = event;
         false
     }
-    fn on_cursor_moved(&mut self, event: CursorMovedEvent) -> bool {
+    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> bool {
         let _ = event;
         false
+    }
+    fn on_cursor_leave(&mut self, event: CursorLeaveEvent) {
+        let _ = event;
     }
     fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
         let _ = event;
@@ -208,7 +214,7 @@ pub trait Widget: Downcast {
         false
     }
     // TODO: we don't need accept/reject for some event types
-    fn on_geometry_changed(&mut self, event: GeometryChangedEvent) {
+    fn on_geometry_change(&mut self, event: GeometryChangeEvent) {
         let _ = event;
     }
     fn on_mount(&mut self, event: MountEvent) {
@@ -223,7 +229,7 @@ pub trait Widget: Downcast {
     fn on_focus_out(&mut self, event: FocusOutEvent) {
         let _ = event;
     }
-    fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
+    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) {
         let _ = event;
     }
     fn on_accessible(&mut self, event: AccessibleEvent) {
@@ -232,15 +238,19 @@ pub trait Widget: Downcast {
     fn on_event(&mut self, event: Event) -> bool {
         match event {
             Event::MouseInput(e) => self.on_mouse_input(e),
-            Event::CursorMoved(e) => self.on_cursor_moved(e),
+            Event::CursorMove(e) => self.on_cursor_move(e),
+            Event::CursorLeave(e) => {
+                self.on_cursor_leave(e);
+                true
+            }
             Event::KeyboardInput(e) => self.on_keyboard_input(e),
             Event::Ime(e) => self.on_ime(e),
             Event::Draw(e) => {
                 self.on_draw(e);
                 true
             }
-            Event::GeometryChanged(e) => {
-                self.on_geometry_changed(e);
+            Event::GeometryChange(e) => {
+                self.on_geometry_change(e);
                 true
             }
             Event::Mount(e) => {
@@ -259,8 +269,8 @@ pub trait Widget: Downcast {
                 self.on_focus_out(e);
                 true
             }
-            Event::WindowFocusChanged(e) => {
-                self.on_window_focus_changed(e);
+            Event::WindowFocusChange(e) => {
+                self.on_window_focus_change(e);
                 true
             }
             Event::Accessible(e) => {
@@ -298,7 +308,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     fn dispatch(&mut self, event: Event) -> bool {
         let mut accepted = false;
         match &event {
-            Event::GeometryChanged(event) => {
+            Event::GeometryChange(event) => {
                 self.common_mut().rect_in_window = event.new_rect_in_window;
             }
             Event::Mount(event) => {
@@ -328,7 +338,11 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::FocusOut(_) => {
                 self.common_mut().is_focused = false;
             }
-            Event::WindowFocusChanged(e) => {
+            Event::CursorLeave(_) => {
+                self.common_mut().is_mouse_entered = false;
+                println!("leave!");
+            }
+            Event::WindowFocusChange(e) => {
                 self.common_mut().is_window_focused = e.focused;
             }
             Event::MouseInput(event) => {
@@ -343,14 +357,17 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
                 }
             }
-            Event::CursorMoved(event) => {
+            Event::CursorMove(event) => {
                 for child in self.children_mut() {
                     if let Some(rect_in_parent) = child.rect_in_parent {
                         if rect_in_parent.contains(event.pos) {
-                            let event = CursorMovedEvent {
+                            let widget_id = child.widget.common().id;
+                            let event = CursorMoveEvent {
                                 pos: event.pos - rect_in_parent.top_left,
                                 device_id: event.device_id,
                                 accepted_by: event.accepted_by.clone(),
+                                widget_id,
+                                window: event.window.clone(),
                             };
                             if child.widget.dispatch(event.into()) {
                                 accepted = true;
@@ -371,9 +388,17 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     event.set_accepted_by(self.common().id);
                 }
             }
-            Event::CursorMoved(event) => {
+            Event::CursorMove(event) => {
                 if event.accepted_by().is_none() && accepted {
-                    event.set_accepted_by(self.common().id);
+                    if let Some(rect_in_window) = self.common().rect_in_window {
+                        if event.is_enter() {
+                            println!("enter!");
+                        }
+                        event.set_accepted_by(self.common().id, rect_in_window);
+                        self.common_mut().is_mouse_entered = true;
+                    } else {
+                        warn!("no rect_in_window on CursorMove dispatch");
+                    }
                     if let Some(mount_point) = &self.common().mount_point {
                         send_window_request(
                             mount_point.address.window_id,
@@ -393,7 +418,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
                 }
             }
-            Event::WindowFocusChanged(event) => {
+            Event::WindowFocusChange(event) => {
                 for child in self.children_mut() {
                     child.widget.dispatch(event.clone().into());
                 }

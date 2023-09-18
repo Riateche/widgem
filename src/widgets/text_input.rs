@@ -17,9 +17,9 @@ use crate::{
     accessible,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason,
-        GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
-        UnmountEvent, WindowFocusChangedEvent,
+        AccessibleEvent, CursorMoveEvent, FocusInEvent, FocusOutEvent, FocusReason,
+        GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
+        UnmountEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
@@ -179,7 +179,7 @@ impl TextInput {
 }
 
 impl Widget for TextInput {
-    fn on_geometry_changed(&mut self, event: GeometryChangedEvent) {
+    fn on_geometry_change(&mut self, event: GeometryChangeEvent) {
         if let Some(new_rect_in_window) = event.new_rect_in_window {
             let offset_y = max(0, new_rect_in_window.size.y - self.editor.size().y) / 2;
             self.editor_viewport_rect = Rect {
@@ -328,7 +328,7 @@ impl Widget for TextInput {
         true
     }
 
-    fn on_cursor_moved(&mut self, event: CursorMovedEvent) -> bool {
+    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> bool {
         let mount_point = self
             .common
             .mount_point
@@ -496,7 +496,7 @@ impl Widget for TextInput {
         self.editor.on_focus_out();
         self.reset_blink_timer();
     }
-    fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
+    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) {
         self.editor.on_window_focus_changed(event.focused);
         self.reset_blink_timer();
     }

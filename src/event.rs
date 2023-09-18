@@ -11,6 +11,7 @@ use crate::{
     draw::DrawEvent,
     types::{Point, Rect},
     widgets::{MountPoint, RawWidgetId},
+    window::SharedWindowData,
 };
 
 use derive_more::From;
@@ -18,16 +19,17 @@ use derive_more::From;
 #[derive(Debug, Clone, From)]
 pub enum Event {
     MouseInput(MouseInputEvent),
-    CursorMoved(CursorMovedEvent),
+    CursorMove(CursorMoveEvent),
+    CursorLeave(CursorLeaveEvent),
     KeyboardInput(KeyboardInputEvent),
     Ime(ImeEvent),
     Draw(DrawEvent),
-    GeometryChanged(GeometryChangedEvent),
+    GeometryChange(GeometryChangeEvent),
     Mount(MountEvent),
     Unmount(UnmountEvent),
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
-    WindowFocusChanged(WindowFocusChangedEvent),
+    WindowFocusChange(WindowFocusChangeEvent),
     Accessible(AccessibleEvent),
 }
 
@@ -82,19 +84,28 @@ impl MouseInputEvent {
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
-pub struct CursorMovedEvent {
+pub struct CursorMoveEvent {
     pub device_id: DeviceId,
     pub pos: Point,
     pub accepted_by: Rc<Cell<Option<RawWidgetId>>>,
+    pub widget_id: RawWidgetId,
+    pub window: SharedWindowData,
 }
 
-impl CursorMovedEvent {
+impl CursorMoveEvent {
     pub(crate) fn accepted_by(&self) -> Option<RawWidgetId> {
         self.accepted_by.get()
     }
 
-    pub(crate) fn set_accepted_by(&self, id: RawWidgetId) {
+    pub(crate) fn set_accepted_by(&self, id: RawWidgetId, rect_in_window: Rect) {
         self.accepted_by.set(Some(id));
+        if self.is_enter() {
+            self.window
+                .0
+                .borrow_mut()
+                .mouse_entered_widgets
+                .push((rect_in_window, id));
+        }
     }
 
     pub fn device_id(&self) -> DeviceId {
@@ -104,7 +115,20 @@ impl CursorMovedEvent {
     pub fn pos(&self) -> Point {
         self.pos
     }
+
+    pub fn is_enter(&self) -> bool {
+        !self
+            .window
+            .0
+            .borrow()
+            .mouse_entered_widgets
+            .iter()
+            .any(|(_, id)| *id == self.widget_id)
+    }
 }
+
+#[derive(Debug, Clone)]
+pub struct CursorLeaveEvent;
 
 #[derive(Debug, Clone)]
 pub struct KeyboardInputEvent {
@@ -118,7 +142,7 @@ pub struct KeyboardInputEvent {
 pub struct ImeEvent(pub Ime);
 
 #[derive(Debug, Clone)]
-pub struct GeometryChangedEvent {
+pub struct GeometryChangeEvent {
     pub new_rect_in_window: Option<Rect>,
 }
 
@@ -145,7 +169,7 @@ pub struct FocusInEvent {
 pub struct FocusOutEvent;
 
 #[derive(Debug, Clone)]
-pub struct WindowFocusChangedEvent {
+pub struct WindowFocusChangeEvent {
     pub focused: bool,
 }
 

@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 
 use crate::{
-    event::{GeometryChangedEvent, MountEvent},
+    event::{GeometryChangeEvent, MountEvent},
     layout::SizeHint,
     types::{Point, Rect, Size},
 };
@@ -96,7 +96,7 @@ impl Widget for Column {
 
             let rect = child_rect.translate(rect_in_window.top_left);
             child.child.widget.dispatch(
-                GeometryChangedEvent {
+                GeometryChangeEvent {
                     new_rect_in_window: Some(rect),
                 }
                 .into(),
