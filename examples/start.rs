@@ -89,7 +89,7 @@ impl State {
 
     fn button_clicked2(&mut self, ctx: &mut CallbackContext<Self>, data: String, k: u32) {
         println!("callback! {:?}, {}", data, k);
-        let button = ctx.get_widget_by_id_mut(self.button_id).unwrap();
+        let button = ctx.widget(self.button_id).unwrap();
         button.set_text(&format!("ok {k}"));
     }
 }
@@ -99,5 +99,5 @@ fn main() {
         std::env::set_var("RUST_LOG", "info")
     }
     env_logger::init();
-    event_loop::run(State::new);
+    event_loop::run(State::new).unwrap();
 }

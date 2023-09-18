@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{
     draw::DrawEvent,
     event::{
@@ -10,7 +8,7 @@ use crate::{
     types::Rect,
 };
 
-use super::{Geometry, MountPoint, Widget, WidgetCommon, WidgetExt};
+use super::{MountPoint, Widget, WidgetCommon, WidgetExt};
 
 pub struct Child {
     pub rect_in_parent: Rect,
@@ -68,16 +66,8 @@ impl Widget for Stack {
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         for child in &mut self.children {
-            if child.rect_in_parent.contains(event.pos) {
-                let event = MouseInputEvent {
-                    pos: event.pos - child.rect_in_parent.top_left,
-                    device_id: event.device_id,
-                    state: event.state,
-                    button: event.button,
-                    num_clicks: event.num_clicks,
-                    accepted_by: Rc::clone(&event.accepted_by),
-                };
-                if child.child.widget.dispatch(event.into()) {
+            if let Some(child_event) = event.map_to_child(child.rect_in_parent) {
+                if child.child.widget.dispatch(child_event.into()) {
                     return true;
                 }
             }
@@ -114,18 +104,14 @@ impl Widget for Stack {
         &mut self.common
     }
     fn layout(&mut self) {
-        let Some(geometry) = self.common().geometry else {
+        let Some(self_rect) = self.common().rect_in_window else {
             return;
         };
         for child in &mut self.children {
-            let rect = child
-                .rect_in_parent
-                .translate(geometry.rect_in_window.top_left);
+            let rect = child.rect_in_parent.translate(self_rect.top_left);
             child.child.widget.dispatch(
                 GeometryChangedEvent {
-                    new_geometry: Some(Geometry {
-                        rect_in_window: rect,
-                    }),
+                    new_rect_in_window: Some(rect),
                 }
                 .into(),
             );

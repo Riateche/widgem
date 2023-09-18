@@ -1,7 +1,4 @@
-use std::{
-    cmp::{max, min},
-    rc::Rc,
-};
+use std::cmp::{max, min};
 
 use crate::{
     draw::DrawEvent,
@@ -13,7 +10,7 @@ use crate::{
     types::{Point, Rect, Size},
 };
 
-use super::{Geometry, MountPoint, Widget, WidgetCommon, WidgetExt};
+use super::{MountPoint, Widget, WidgetCommon, WidgetExt};
 
 // TODO: get from style, apply scale
 const SPACING: i32 = 10;
@@ -85,16 +82,8 @@ impl Widget for Column {
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         for child in &mut self.children {
-            if child.rect_in_parent.contains(event.pos) {
-                let event = MouseInputEvent {
-                    pos: event.pos - child.rect_in_parent.top_left,
-                    device_id: event.device_id,
-                    state: event.state,
-                    button: event.button,
-                    num_clicks: event.num_clicks,
-                    accepted_by: Rc::clone(&event.accepted_by),
-                };
-                if child.child.widget.dispatch(event.into()) {
+            if let Some(child_event) = event.map_to_child(child.rect_in_parent) {
+                if child.child.widget.dispatch(child_event.into()) {
                     return true;
                 }
             }
@@ -131,7 +120,7 @@ impl Widget for Column {
         &mut self.common
     }
     fn layout(&mut self) {
-        let Some(geometry) = self.common().geometry else {
+        let Some(rect_in_window) = self.common().rect_in_window else {
             return;
         };
         // TODO: implement shrinking/growing
@@ -140,7 +129,7 @@ impl Widget for Column {
             if i != 0 {
                 current_y += SPACING;
             }
-            let child_size_x = child_size_x(geometry.rect_in_window.size.x, &mut child.child);
+            let child_size_x = child_size_x(rect_in_window.size.x, &mut child.child);
             let child_hint_y = child.child.widget.size_hint_y(child_size_x);
             child.rect_in_parent = Rect {
                 top_left: Point { x: 0, y: current_y },
@@ -151,14 +140,10 @@ impl Widget for Column {
             };
             current_y = child.rect_in_parent.bottom_right().y;
 
-            let rect = child
-                .rect_in_parent
-                .translate(geometry.rect_in_window.top_left);
+            let rect = child.rect_in_parent.translate(rect_in_window.top_left);
             child.child.widget.dispatch(
                 GeometryChangedEvent {
-                    new_geometry: Some(Geometry {
-                        rect_in_window: rect,
-                    }),
+                    new_rect_in_window: Some(rect),
                 }
                 .into(),
             );

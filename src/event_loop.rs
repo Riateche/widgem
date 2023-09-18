@@ -1,20 +1,24 @@
-use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, time::Instant};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData, time::Instant};
 
 use accesskit_winit::ActionRequestEvent;
 use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
 use derive_more::From;
-use log::warn;
+use log::{trace, warn};
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Color;
 use winit::{
+    error::EventLoopError,
     event::Event,
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
     window::WindowId,
 };
 
 use crate::{
-    callback::{Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, WidgetCallback},
+    callback::{
+        Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, InvokeCallbackEvent,
+        WidgetCallback,
+    },
     style::Palette,
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
@@ -27,7 +31,6 @@ use crate::{
 pub struct CallbackContext<'a, State> {
     windows: &'a mut HashMap<WindowId, Window>,
     add_callback: Box<dyn FnMut(Box<CallbackDataFn<State>>) -> CallbackId + 'a>,
-    //...
     marker: PhantomData<State>,
 }
 
@@ -66,27 +69,12 @@ impl<'a, State> CallbackContext<'a, State> {
         Callback::new(event_loop_proxy, callback_id)
     }
 
-    // pub fn add_window(&mut self, title: &str, root_widget: Option<Box<dyn Widget>>) -> WindowId {
-    //     let builder = WindowBuilder::new().with_title(title).with_visible(false);
-    //     let window = WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
-    //     let window = Window::new(window, root_widget);
-    //     let id = window.inner.id();
-    //     self.windows.insert(id, window);
-    //     id
-    // }
-
-    pub fn get_widget_by_id_mut<W: Widget>(
-        &mut self,
-        id: WidgetId<W>,
-    ) -> Result<&mut W, WidgetNotFound> {
-        let w = self.get_widget_by_raw_id_mut(id.0)?;
+    pub fn widget<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
+        let w = self.widget_raw(id.0)?;
         Ok(w.downcast_mut::<W>().expect("widget downcast failed"))
     }
 
-    pub fn get_widget_by_raw_id_mut(
-        &mut self,
-        id: RawWidgetId,
-    ) -> Result<&mut dyn Widget, WidgetNotFound> {
+    pub fn widget_raw(&mut self, id: RawWidgetId) -> Result<&mut dyn Widget, WidgetNotFound> {
         let address = address(id).ok_or(WidgetNotFound)?;
         let window = self
             .windows
@@ -97,12 +85,6 @@ impl<'a, State> CallbackContext<'a, State> {
     }
 }
 
-#[derive(Debug)]
-pub struct InvokeCallbackEvent {
-    pub callback_id: CallbackId,
-    pub event: Box<dyn Any + Send>,
-}
-
 #[derive(Debug, From)]
 pub enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
@@ -111,7 +93,14 @@ pub enum UserEvent {
     ActionRequest(ActionRequestEvent),
 }
 
-scoped_thread_local!(pub static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
+scoped_thread_local!(static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
+
+pub fn with_window_target<F, R>(f: F) -> R
+where
+    F: FnOnce(&EventLoopWindowTarget<UserEvent>) -> R,
+{
+    WINDOW_TARGET.with(f)
+}
 
 fn dispatch_widget_callback<Event>(
     windows: &mut HashMap<WindowId, Window>,
@@ -142,10 +131,10 @@ fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>) {
     });
 }
 
-pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) -> State) {
-    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event()
-        .build()
-        .expect("Event loop creation failed");
+pub fn run<State: 'static>(
+    make_state: impl FnOnce(&mut CallbackContext<State>) -> State,
+) -> Result<(), EventLoopError> {
+    let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build()?;
 
     let mut windows = HashMap::new();
 
@@ -186,84 +175,71 @@ pub fn run<State: 'static>(make_state: impl FnOnce(&mut CallbackContext<State>) 
     callbacks.add_all(&mut callback_maker);
     fetch_new_windows(&mut windows);
 
-    event_loop
-        .run(move |event, window_target| {
-            WINDOW_TARGET.set(window_target, || {
+    event_loop.run(move |event, window_target| {
+        WINDOW_TARGET.set(window_target, || {
+            fetch_new_windows(&mut windows);
+            while let Some(timer) = with_system(|system| system.timers.pop()) {
+                dispatch_widget_callback(&mut windows, &timer.callback, Instant::now());
                 fetch_new_windows(&mut windows);
-                while let Some(timer) = with_system(|system| system.timers.pop()) {
-                    dispatch_widget_callback(&mut windows, &timer.callback, Instant::now());
-                    fetch_new_windows(&mut windows);
-                    // TODO: smarter redraw
-                    for window in windows.values() {
-                        window.inner.request_redraw();
+                // TODO: smarter redraw
+                for window in windows.values() {
+                    window.inner.request_redraw();
+                }
+            }
+
+            match event {
+                Event::WindowEvent { window_id, event } => {
+                    if let Some(window) = windows.get_mut(&window_id) {
+                        window.handle_event(event);
                     }
                 }
-
-                match event {
-                    Event::WindowEvent { window_id, event } => {
-                        // // TODO: smarter logic
-                        // if matches!(wevent, WindowEvent::CloseRequested) {
-                        //     window_target.exit();
-                        // }
+                Event::UserEvent(event) => match event {
+                    UserEvent::WindowRequest(window_id, request) => {
                         if let Some(window) = windows.get_mut(&window_id) {
-                            window.handle_event(event);
+                            window.handle_request(request);
                         }
                     }
+                    UserEvent::WindowClosed(window_id) => {
+                        windows.remove(&window_id);
+                        if windows.is_empty() {
+                            let exit = with_system(|s| s.exit_after_last_window_closes);
+                            if exit {
+                                window_target.exit();
+                            }
+                        }
+                    }
+                    UserEvent::InvokeCallback(event) => {
+                        {
+                            let mut ctx = CallbackContext {
+                                windows: &mut windows,
+                                add_callback: Box::new(|f| callback_maker.add(f)),
+                                marker: PhantomData,
+                            };
 
-                    Event::UserEvent(event) => match event {
-                        UserEvent::WindowRequest(window_id, request) => {
-                            if let Some(window) = windows.get_mut(&window_id) {
-                                window.handle_request(request);
-                            }
+                            callbacks.call(&mut state, &mut ctx, event);
                         }
-                        UserEvent::WindowClosed(window_id) => {
-                            windows.remove(&window_id);
-                            if windows.is_empty() {
-                                let exit = with_system(|s| s.exit_after_last_window_closes);
-                                if exit {
-                                    window_target.exit();
-                                }
-                            }
-                        }
-                        UserEvent::InvokeCallback(event) => {
-                            {
-                                let mut ctx = CallbackContext {
-                                    windows: &mut windows,
-                                    add_callback: Box::new(|f| callback_maker.add(f)),
-                                    marker: PhantomData,
-                                };
-
-                                callbacks.call(&mut state, &mut ctx, event);
-                            }
-                            callbacks.add_all(&mut callback_maker);
-                        }
-                        UserEvent::ActionRequest(request) => {
-                            println!("accesskit request: {:?}", request);
-                            if let Some(window) = windows.get_mut(&request.window_id) {
-                                window.handle_accessible_request(request.request);
-                            } else {
-                                warn!("accesskit request for unknown window: {:?}", request);
-                            }
-                        }
-                    },
-                    Event::AboutToWait => {
-                        let next_timer = with_system(|system| system.timers.next_instant());
-                        if let Some(next_timer) = next_timer {
-                            // println!(
-                            //     "wait until {:?} | {:?}",
-                            //     next_timer,
-                            //     next_timer - Instant::now()
-                            // );
-                            window_target.set_control_flow(ControlFlow::WaitUntil(next_timer));
+                        callbacks.add_all(&mut callback_maker);
+                    }
+                    UserEvent::ActionRequest(request) => {
+                        trace!("accesskit request: {:?}", request);
+                        if let Some(window) = windows.get_mut(&request.window_id) {
+                            window.handle_accessible_request(request.request);
                         } else {
-                            // println!("wait forever");
-                            window_target.set_control_flow(ControlFlow::Wait);
+                            warn!("accesskit request for unknown window: {:?}", request);
                         }
                     }
-                    _ => {}
+                },
+                Event::AboutToWait => {
+                    let next_timer = with_system(|system| system.timers.next_instant());
+                    if let Some(next_timer) = next_timer {
+                        window_target.set_control_flow(ControlFlow::WaitUntil(next_timer));
+                    } else {
+                        window_target.set_control_flow(ControlFlow::Wait);
+                    }
                 }
-                fetch_new_windows(&mut windows);
-            });
-        })
-        .expect("Error while running event loop");
+                _ => {}
+            }
+            fetch_new_windows(&mut windows);
+        });
+    })
 }

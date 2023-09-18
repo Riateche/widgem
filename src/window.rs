@@ -26,17 +26,16 @@ use crate::{
         GeometryChangedEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
         UnmountEvent, WindowFocusChangedEvent,
     },
-    event_loop::{UserEvent, WINDOW_TARGET},
+    event_loop::{with_window_target, UserEvent},
     system::{send_window_request, with_system},
     types::{Point, Rect, Size},
-    widgets::{
-        get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
-    },
+    widgets::{get_widget_by_id_mut, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt},
 };
 
 // TODO: get system setting
 const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 
+#[derive(Debug)]
 pub struct SharedWindowDataInner {
     pub widget_tree_changed: bool,
     pub cursor_position: Option<Point>,
@@ -47,7 +46,7 @@ pub struct SharedWindowDataInner {
     pub accessible_nodes: AccessibleNodes,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SharedWindowData(pub Rc<RefCell<SharedWindowDataInner>>);
 
 pub struct Window {
@@ -93,7 +92,7 @@ impl Window {
                 ))
                 .with_min_inner_size(PhysicalSize::new(size_hint_x.min, size_hint_y.min));
         }
-        let inner = WINDOW_TARGET.with(|window_target| inner.build(window_target).unwrap());
+        let inner = with_window_target(|window_target| inner.build(window_target).unwrap());
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             widget_tree_changed: false,
@@ -261,9 +260,10 @@ impl Window {
                         if let Ok(mouse_grabber_widget) =
                             get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
                         {
-                            if let Some(geometry) = mouse_grabber_widget.common().geometry {
-                                let pos_in_widget =
-                                    pos_in_window - geometry.rect_in_window.top_left;
+                            if let Some(rect_in_window) =
+                                mouse_grabber_widget.common().rect_in_window
+                            {
+                                let pos_in_widget = pos_in_window - rect_in_window.top_left;
                                 mouse_grabber_widget.dispatch(
                                     CursorMovedEvent {
                                         device_id,
@@ -334,20 +334,19 @@ impl Window {
                             if let Ok(mouse_grabber_widget) =
                                 get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
                             {
-                                if let Some(geometry) = mouse_grabber_widget.common().geometry {
-                                    let pos_in_widget =
-                                        pos_in_window - geometry.rect_in_window.top_left;
-                                    mouse_grabber_widget.dispatch(
-                                        MouseInputEvent {
-                                            device_id,
-                                            state,
-                                            button,
-                                            num_clicks: self.num_clicks,
-                                            pos: pos_in_widget,
-                                            accepted_by: Rc::clone(&accepted_by),
-                                        }
-                                        .into(),
-                                    );
+                                if let Some(rect_in_window) =
+                                    mouse_grabber_widget.common().rect_in_window
+                                {
+                                    let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                                    let event = MouseInputEvent::builder()
+                                        .device_id(device_id)
+                                        .state(state)
+                                        .button(button)
+                                        .num_clicks(self.num_clicks)
+                                        .pos(pos_in_widget)
+                                        .accepted_by(Rc::clone(&accepted_by))
+                                        .build();
+                                    mouse_grabber_widget.dispatch(event.into());
                                 }
                             }
                             if self
@@ -360,17 +359,16 @@ impl Window {
                                 self.mouse_grabber_widget = None;
                             }
                         } else {
-                            root_widget.dispatch(
-                                MouseInputEvent {
-                                    device_id,
-                                    state,
-                                    button,
-                                    num_clicks: self.num_clicks,
-                                    pos: pos_in_window,
-                                    accepted_by: Rc::clone(&accepted_by),
-                                }
-                                .into(),
-                            );
+                            let event = MouseInputEvent::builder()
+                                .device_id(device_id)
+                                .state(state)
+                                .button(button)
+                                .num_clicks(self.num_clicks)
+                                .pos(pos_in_window)
+                                .accepted_by(Rc::clone(&accepted_by))
+                                .build();
+                            root_widget.dispatch(event.into());
+
                             if state == ElementState::Pressed {
                                 if let Some(accepted_by_widget_id) = accepted_by.get() {
                                     self.mouse_grabber_widget = Some(accepted_by_widget_id);
@@ -613,13 +611,11 @@ impl Window {
             // TODO: only on insert or resize
             root.dispatch(
                 GeometryChangedEvent {
-                    new_geometry: Some(Geometry {
-                        rect_in_window: Rect {
-                            top_left: Point::default(),
-                            size: Size {
-                                x: self.inner.inner_size().width as i32,
-                                y: self.inner.inner_size().height as i32,
-                            },
+                    new_rect_in_window: Some(Rect {
+                        top_left: Point::default(),
+                        size: Size {
+                            x: self.inner.inner_size().width as i32,
+                            y: self.inner.inner_size().height as i32,
                         },
                     }),
                 }

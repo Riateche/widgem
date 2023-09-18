@@ -1,6 +1,6 @@
 use std::{
     cmp::{max, min},
-    ops::{Add, Sub},
+    ops::{Add, Sub, SubAssign},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -33,6 +33,12 @@ impl Sub for Point {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
         }
+    }
+}
+impl SubAssign for Point {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
     }
 }
 

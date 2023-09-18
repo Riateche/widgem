@@ -4,7 +4,7 @@ use log::warn;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    event_loop::{CallbackContext, InvokeCallbackEvent, UserEvent},
+    event_loop::{CallbackContext, UserEvent},
     widgets::{RawWidgetId, Widget},
 };
 
@@ -28,10 +28,8 @@ impl<Event> Callback<Event> {
 
 impl<Event: Send + 'static> Callback<Event> {
     pub fn invoke(&self, event: Event) {
-        let event = UserEvent::InvokeCallback(InvokeCallbackEvent {
-            callback_id: self.callback_id,
-            event: Box::new(event),
-        });
+        let event =
+            UserEvent::InvokeCallback(InvokeCallbackEvent::new(self.callback_id, Box::new(event)));
         let _ = self.sender.send_event(event);
     }
 }
@@ -106,6 +104,18 @@ impl<State> Callbacks<State> {
 impl<State> Default for Callbacks<State> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[derive(Debug)]
+pub struct InvokeCallbackEvent {
+    callback_id: CallbackId,
+    event: Box<dyn Any + Send>,
+}
+
+impl InvokeCallbackEvent {
+    pub fn new(callback_id: CallbackId, event: Box<dyn Any + Send>) -> Self {
+        Self { callback_id, event }
     }
 }
 

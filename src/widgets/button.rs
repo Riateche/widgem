@@ -171,8 +171,8 @@ impl Widget for Button {
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         // TODO: only on release, check buttons
-        if event.button == MouseButton::Left {
-            if event.state.is_pressed() {
+        if event.button() == MouseButton::Left {
+            if event.state().is_pressed() {
                 if self.enabled {
                     self.state = ButtonState::Pressed;
                     self.click();

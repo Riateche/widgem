@@ -4,16 +4,20 @@ use std::{
 };
 
 use accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate};
+use derivative::Derivative;
 use log::warn;
 
 use crate::widgets::RawWidgetId;
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct AccessibleNodes {
     nodes: HashMap<NodeId, NodeBuilder>,
     direct_children: HashMap<NodeId, Vec<(i32, NodeId)>>,
     direct_parents: HashMap<NodeId, NodeId>,
 
     pending_updates: HashSet<NodeId>,
+    #[derivative(Debug = "ignore")]
     classes: NodeClassSet,
     root: NodeId,
     focus: NodeId,

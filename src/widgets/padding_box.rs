@@ -1,4 +1,4 @@
-use std::{cmp::max, rc::Rc};
+use std::cmp::max;
 
 use crate::{
     draw::DrawEvent,
@@ -7,7 +7,7 @@ use crate::{
     types::{Point, Rect},
 };
 
-use super::{Child, Geometry, Widget, WidgetCommon, WidgetExt};
+use super::{Child, Widget, WidgetCommon, WidgetExt};
 
 const PADDING: Point = Point { x: 10, y: 10 };
 
@@ -56,16 +56,8 @@ impl Widget for PaddingBox {
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         if let Some(content) = &mut self.content {
-            if self.content_rect_in_parent.contains(event.pos) {
-                let event = MouseInputEvent {
-                    pos: event.pos - self.content_rect_in_parent.top_left,
-                    device_id: event.device_id,
-                    state: event.state,
-                    button: event.button,
-                    num_clicks: event.num_clicks,
-                    accepted_by: Rc::clone(&event.accepted_by),
-                };
-                if content.widget.dispatch(event.into()) {
+            if let Some(child_event) = event.map_to_child(self.content_rect_in_parent) {
+                if content.widget.dispatch(child_event.into()) {
                     return true;
                 }
             }
@@ -127,10 +119,10 @@ impl Widget for PaddingBox {
     }
 
     fn layout(&mut self) {
-        let Some(geometry) = self.common.geometry else {
+        let Some(self_rect) = self.common.rect_in_window else {
             return;
         };
-        let mut rect = geometry.rect_in_window;
+        let mut rect = self_rect;
         rect.top_left.x += PADDING.x;
         rect.top_left.y += PADDING.y;
         rect.size.x = max(0, rect.size.x - 2 * PADDING.x);
@@ -139,9 +131,7 @@ impl Widget for PaddingBox {
         if let Some(content) = &mut self.content {
             content.widget.dispatch(
                 GeometryChangedEvent {
-                    new_geometry: Some(Geometry {
-                        rect_in_window: rect,
-                    }),
+                    new_rect_in_window: Some(rect),
                 }
                 .into(),
             );

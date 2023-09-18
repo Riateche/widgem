@@ -171,8 +171,8 @@ impl TextInput {
             );
         }
         self.editor.on_mouse_input(
-            event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
-            event.num_clicks,
+            event.pos() - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
+            event.num_clicks(),
             mount_point.window.0.borrow().modifiers_state.shift_key(),
         );
     }
@@ -180,8 +180,8 @@ impl TextInput {
 
 impl Widget for TextInput {
     fn on_geometry_changed(&mut self, event: GeometryChangedEvent) {
-        if let Some(new_geometry) = event.new_geometry {
-            let offset_y = max(0, new_geometry.rect_in_window.size.y - self.editor.size().y) / 2;
+        if let Some(new_rect_in_window) = event.new_rect_in_window {
+            let offset_y = max(0, new_rect_in_window.size.y - self.editor.size().y) / 2;
             self.editor_viewport_rect = Rect {
                 top_left: Point {
                     x: self.ideal_editor_offset.x,
@@ -190,9 +190,9 @@ impl Widget for TextInput {
                 size: Size {
                     x: max(
                         0,
-                        new_geometry.rect_in_window.size.x - 2 * self.ideal_editor_offset.x,
+                        new_rect_in_window.size.x - 2 * self.ideal_editor_offset.x,
                     ),
-                    y: min(new_geometry.rect_in_window.size.y, self.editor.size().y),
+                    y: min(new_rect_in_window.size.y, self.editor.size().y),
                 },
             };
             self.adjust_scroll();
@@ -202,7 +202,7 @@ impl Widget for TextInput {
     }
 
     fn on_draw(&mut self, event: DrawEvent) {
-        let Some(geometry) = self.common.geometry else {
+        let Some(rect_in_window) = self.common.rect_in_window else {
             warn!("no geometry in draw event");
             return;
         };
@@ -217,7 +217,7 @@ impl Widget for TextInput {
             event.stroke_rounded_rect(
                 Rect {
                     top_left: Point::default(),
-                    size: geometry.rect_in_window.size,
+                    size: rect_in_window.size,
                 },
                 2.0,
                 if self.common.is_focused {
@@ -238,14 +238,14 @@ impl Widget for TextInput {
             if let Some(editor_cursor) = self.editor.cursor_position() {
                 // We specify an area below the input because on Windows
                 // the IME window obscures the specified area.
-                let top_left =
-                    geometry.rect_in_window.top_left + self.editor_viewport_rect.top_left - scroll
-                        + editor_cursor
-                        + Point {
-                            x: 0,
-                            y: self.editor.line_height().ceil() as i32,
-                        };
-                let size = geometry.rect_in_window.size; // TODO: not actually correct
+                let top_left = rect_in_window.top_left + self.editor_viewport_rect.top_left
+                    - scroll
+                    + editor_cursor
+                    + Point {
+                        x: 0,
+                        y: self.editor.line_height().ceil() as i32,
+                    };
+                let size = rect_in_window.size; // TODO: not actually correct
                 send_window_request(
                     mount_point.address.window_id,
                     SetImeCursorAreaRequest(Rect { top_left, size }),
@@ -255,8 +255,8 @@ impl Widget for TextInput {
     }
 
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
-        if event.state == ElementState::Pressed {
-            match event.button {
+        if event.state() == ElementState::Pressed {
+            match event.button() {
                 MouseButton::Left => {
                     self.handle_main_click(event);
                 }
@@ -558,10 +558,8 @@ impl Widget for TextInput {
         line_node.set_character_widths(line.character_widths);
         line_node.set_word_lengths(line.word_lengths);
 
-        if let Some(geometry) = self.common.geometry {
-            let rect = self
-                .editor_viewport_rect
-                .translate(geometry.rect_in_window.top_left);
+        if let Some(rect_in_window) = self.common.rect_in_window {
+            let rect = self.editor_viewport_rect.translate(rect_in_window.top_left);
             line_node.set_bounds(accesskit::Rect {
                 x0: rect.top_left.x as f64,
                 y0: rect.top_left.y as f64,

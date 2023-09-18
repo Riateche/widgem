@@ -23,6 +23,7 @@ fn rounded_line_in_square_corner(
     );
 }
 
+#[derive(Debug, Clone)]
 pub struct DrawEvent {
     pixmap: Rc<RefCell<Pixmap>>,
     rect: Rect,

@@ -1,7 +1,6 @@
 use std::{
     iter,
     marker::PhantomData,
-    rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -57,11 +56,6 @@ impl<T> Clone for WidgetId<T> {
 }
 impl<T> Copy for WidgetId<T> {}
 
-#[derive(Clone, Copy)]
-pub struct Geometry {
-    pub rect_in_window: Rect,
-}
-
 pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
@@ -73,10 +67,10 @@ pub struct WidgetCommon {
     pub is_window_focused: bool,
     pub mount_point: Option<MountPoint>,
     // Present if the widget is mounted, not hidden, and only after layout.
-    pub geometry: Option<Geometry>,
+    pub rect_in_window: Option<Rect>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MountPoint {
     pub address: WidgetAddress,
     pub window: SharedWindowData,
@@ -94,7 +88,7 @@ impl WidgetCommon {
             is_window_focused: false,
             enable_ime: false,
             mount_point: None,
-            geometry: None,
+            rect_in_window: None,
             cursor_icon: CursorIcon::Default,
         }
     }
@@ -141,7 +135,7 @@ impl WidgetCommon {
     }
 
     pub fn size(&self) -> Option<Size> {
-        self.geometry.as_ref().map(|g| g.rect_in_window.size)
+        self.rect_in_window.as_ref().map(|g| g.size)
     }
 }
 
@@ -299,16 +293,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn dispatch(&mut self, event: Event) -> bool {
-        let accepted_by = match &event {
-            Event::MouseInput(event) => Some(Rc::clone(&event.accepted_by)),
-            Event::CursorMoved(event) => Some(Rc::clone(&event.accepted_by)),
-            _ => None,
-        };
-        let mut is_unmount = false;
-        let mut is_cursor_moved = false;
         match &event {
             Event::GeometryChanged(event) => {
-                self.common_mut().geometry = event.new_geometry;
+                self.common_mut().rect_in_window = event.new_rect_in_window;
             }
             Event::Mount(event) => {
                 let mount_point = event.0.clone();
@@ -330,7 +317,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 for child in self.children_mut() {
                     child.widget.dispatch(UnmountEvent.into());
                 }
-                is_unmount = true;
             }
             Event::FocusIn(_) => {
                 self.common_mut().is_focused = true;
@@ -341,16 +327,18 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::WindowFocusChanged(e) => {
                 self.common_mut().is_window_focused = e.focused;
             }
-            Event::CursorMoved(_) => {
-                is_cursor_moved = true;
-            }
-            _ => (),
+            _ => {}
         }
-        let result = self.on_event(event);
-        if let Some(accepted_by) = accepted_by {
-            if accepted_by.get().is_none() && result {
-                accepted_by.set(Some(self.common().id));
-                if is_cursor_moved {
+        let result = self.on_event(event.clone());
+        match event {
+            Event::MouseInput(event) => {
+                if event.accepted_by().is_none() && result {
+                    event.set_accepted_by(self.common().id);
+                }
+            }
+            Event::CursorMoved(event) => {
+                if event.accepted_by().is_none() && result {
+                    event.set_accepted_by(self.common().id);
                     if let Some(mount_point) = &self.common().mount_point {
                         send_window_request(
                             mount_point.address.window_id,
@@ -359,9 +347,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
                 }
             }
-        }
-        if is_unmount {
-            self.common_mut().unmount();
+            Event::Unmount(_) => {
+                self.common_mut().unmount();
+            }
+            _ => {}
         }
 
         self.update_accessible();
@@ -373,10 +362,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let Some(mount_point) = self.common().mount_point.as_ref() else {
             return;
         };
-        let geometry = self.common().geometry;
+        let rect = self.common().rect_in_window;
         let node = node.map(|mut node| {
-            if let Some(geometry) = geometry {
-                let rect = geometry.rect_in_window;
+            if let Some(rect) = rect {
                 node.set_bounds(accesskit::Rect {
                     x0: rect.top_left.x as f64,
                     y0: rect.top_left.y as f64,
