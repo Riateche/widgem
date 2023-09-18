@@ -178,6 +178,7 @@ pub fn get_widget_by_id_mut(
 pub struct Child {
     pub widget: Box<dyn Widget>,
     pub index_in_parent: i32,
+    pub rect_in_parent: Option<Rect>,
 }
 
 pub trait Widget: Downcast {
@@ -187,7 +188,9 @@ pub trait Widget: Downcast {
     fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Child> + '_> {
         Box::new(iter::empty())
     }
-    fn on_draw(&mut self, event: DrawEvent);
+    fn on_draw(&mut self, event: DrawEvent) {
+        let _ = event;
+    }
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         let _ = event;
         false
@@ -293,6 +296,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn dispatch(&mut self, event: Event) -> bool {
+        let mut accepted = false;
         match &event {
             Event::GeometryChanged(event) => {
                 self.common_mut().rect_in_window = event.new_rect_in_window;
@@ -327,17 +331,48 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::WindowFocusChanged(e) => {
                 self.common_mut().is_window_focused = e.focused;
             }
+            Event::MouseInput(event) => {
+                for child in self.children_mut() {
+                    if let Some(rect_in_parent) = child.rect_in_parent {
+                        if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                            if child.widget.dispatch(child_event.into()) {
+                                accepted = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::CursorMoved(event) => {
+                for child in self.children_mut() {
+                    if let Some(rect_in_parent) = child.rect_in_parent {
+                        if rect_in_parent.contains(event.pos) {
+                            let event = CursorMovedEvent {
+                                pos: event.pos - rect_in_parent.top_left,
+                                device_id: event.device_id,
+                                accepted_by: event.accepted_by.clone(),
+                            };
+                            if child.widget.dispatch(event.into()) {
+                                accepted = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
             _ => {}
         }
-        let result = self.on_event(event.clone());
+        if !accepted {
+            accepted = self.on_event(event.clone());
+        }
         match event {
             Event::MouseInput(event) => {
-                if event.accepted_by().is_none() && result {
+                if event.accepted_by().is_none() && accepted {
                     event.set_accepted_by(self.common().id);
                 }
             }
             Event::CursorMoved(event) => {
-                if event.accepted_by().is_none() && result {
+                if event.accepted_by().is_none() && accepted {
                     event.set_accepted_by(self.common().id);
                     if let Some(mount_point) = &self.common().mount_point {
                         send_window_request(
@@ -350,11 +385,24 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::Unmount(_) => {
                 self.common_mut().unmount();
             }
+            Event::Draw(event) => {
+                for child in self.children_mut() {
+                    if let Some(rect_in_parent) = child.rect_in_parent {
+                        let child_event = event.map_to_child(rect_in_parent);
+                        child.widget.dispatch(child_event.into());
+                    }
+                }
+            }
+            Event::WindowFocusChanged(event) => {
+                for child in self.children_mut() {
+                    child.widget.dispatch(event.clone().into());
+                }
+            }
             _ => {}
         }
 
         self.update_accessible();
-        result
+        accepted
     }
 
     fn update_accessible(&mut self) {

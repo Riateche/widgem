@@ -1,11 +1,7 @@
 use std::cmp::{max, min};
 
 use crate::{
-    draw::DrawEvent,
-    event::{
-        CursorMovedEvent, GeometryChangedEvent, MountEvent, MouseInputEvent,
-        WindowFocusChangedEvent,
-    },
+    event::{GeometryChangedEvent, MountEvent},
     layout::SizeHint,
     types::{Point, Rect, Size},
 };
@@ -16,7 +12,7 @@ use super::{MountPoint, Widget, WidgetCommon, WidgetExt};
 const SPACING: i32 = 10;
 
 pub struct Child {
-    pub rect_in_parent: Rect,
+    // TODO: add layout options
     pub child: super::Child,
 }
 
@@ -57,10 +53,10 @@ impl Column {
             );
         }
         self.children.push(Child {
-            rect_in_parent: Rect::default(),
             child: super::Child {
                 widget,
                 index_in_parent,
+                rect_in_parent: None,
             },
         });
     }
@@ -70,49 +66,6 @@ impl Widget for Column {
     fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut super::Child> + '_> {
         Box::new(self.children.iter_mut().map(|c| &mut c.child))
     }
-
-    fn on_draw(&mut self, event: DrawEvent) {
-        for child in &mut self.children {
-            let child_event = event.map_to_child(child.rect_in_parent);
-            if !child_event.rect().is_empty() {
-                child.child.widget.dispatch(child_event.into());
-            }
-        }
-    }
-
-    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
-        for child in &mut self.children {
-            if let Some(child_event) = event.map_to_child(child.rect_in_parent) {
-                if child.child.widget.dispatch(child_event.into()) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn on_cursor_moved(&mut self, event: CursorMovedEvent) -> bool {
-        for child in &mut self.children {
-            if child.rect_in_parent.contains(event.pos) {
-                let event = CursorMovedEvent {
-                    pos: event.pos - child.rect_in_parent.top_left,
-                    device_id: event.device_id,
-                    accepted_by: event.accepted_by.clone(),
-                };
-                if child.child.widget.dispatch(event.into()) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn on_window_focus_changed(&mut self, event: WindowFocusChangedEvent) {
-        for child in &mut self.children {
-            child.child.widget.dispatch(event.clone().into());
-        }
-    }
-
     fn common(&self) -> &WidgetCommon {
         &self.common
     }
@@ -131,16 +84,17 @@ impl Widget for Column {
             }
             let child_size_x = child_size_x(rect_in_window.size.x, &mut child.child);
             let child_hint_y = child.child.widget.size_hint_y(child_size_x);
-            child.rect_in_parent = Rect {
+            let child_rect = Rect {
                 top_left: Point { x: 0, y: current_y },
                 size: Size {
                     x: child_size_x,
                     y: child_hint_y.preferred,
                 },
             };
-            current_y = child.rect_in_parent.bottom_right().y;
+            child.child.rect_in_parent = Some(child_rect);
+            current_y = child_rect.bottom_right().y;
 
-            let rect = child.rect_in_parent.translate(rect_in_window.top_left);
+            let rect = child_rect.translate(rect_in_window.top_left);
             child.child.widget.dispatch(
                 GeometryChangedEvent {
                     new_rect_in_window: Some(rect),

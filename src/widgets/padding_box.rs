@@ -24,6 +24,7 @@ impl PaddingBox {
             content: Some(Child {
                 widget: content,
                 index_in_parent: 0,
+                rect_in_parent: None,
             }),
             content_rect_in_parent: Rect::default(),
             common: WidgetCommon::new(),
