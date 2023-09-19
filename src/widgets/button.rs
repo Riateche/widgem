@@ -166,6 +166,9 @@ impl Widget for Button {
         // TODO: only on release, check buttons
         if event.button() == MouseButton::Left {
             self.is_pressed = self.enabled && event.state().is_pressed();
+            if event.state().is_pressed() {
+                self.click();
+            }
         }
 
         let mount_point = &self

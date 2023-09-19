@@ -1,76 +1,49 @@
-use crate::{
-    event::{GeometryChangeEvent, MountEvent},
-    layout::SizeHint,
-    types::Rect,
-};
+use std::collections::HashMap;
 
-use super::{Child, MountPoint, Widget, WidgetCommon, WidgetExt};
+use crate::{layout::SizeHint, types::Rect};
+
+use super::{RawWidgetId, Widget, WidgetCommon};
 
 pub struct Stack {
-    children: Vec<Child>,
     common: WidgetCommon,
+    rects: HashMap<RawWidgetId, Option<Rect>>,
 }
 
 impl Stack {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
-            children: Vec::new(),
             common: WidgetCommon::new(),
+            rects: HashMap::new(),
         }
     }
 
-    pub fn add(&mut self, rect: Rect, mut widget: Box<dyn Widget>) {
-        let index_in_parent = self.children.len() as i32;
-        if let Some(mount_point) = &self.common.mount_point {
-            let address = mount_point.address.clone().join(widget.common().id);
-            widget.dispatch(
-                MountEvent(MountPoint {
-                    address,
-                    window: mount_point.window.clone(),
-                    index_in_parent,
-                })
-                .into(),
-            );
-        }
-        self.children.push(Child {
-            widget,
-            index_in_parent,
-            rect_in_parent: Some(rect),
-        });
+    pub fn add(&mut self, rect: Rect, widget: Box<dyn Widget>) {
+        let index = self.common.children.len();
+        let id = widget.common().id;
+        self.common.add_child(index, widget);
+        self.rects.insert(id, Some(rect));
     }
 }
 
 impl Widget for Stack {
-    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut super::Child> + '_> {
-        Box::new(self.children.iter_mut())
-    }
-
     fn common(&self) -> &WidgetCommon {
         &self.common
     }
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
-    fn layout(&mut self) {
-        let Some(self_rect) = self.common().rect_in_window else {
-            return;
-        };
-        for child in &mut self.children {
-            if let Some(rect_in_parent) = child.rect_in_parent {
-                let rect = rect_in_parent.translate(self_rect.top_left);
-                child.widget.dispatch(
-                    GeometryChangeEvent {
-                        new_rect_in_window: Some(rect),
-                    }
-                    .into(),
-                );
-            }
+    fn layout(&mut self) -> Vec<Option<Rect>> {
+        let mut new_rects = Vec::new();
+        for child in &mut self.common.children {
+            new_rects.push(self.rects.get(&child.widget.common().id).copied().flatten());
         }
+        new_rects
     }
 
     fn size_hint_x(&mut self) -> SizeHint {
         let max = self
+            .common
             .children
             .iter()
             .filter_map(|c| c.rect_in_parent)
@@ -86,6 +59,7 @@ impl Widget for Stack {
 
     fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
         let max = self
+            .common
             .children
             .iter()
             .filter_map(|c| c.rect_in_parent)

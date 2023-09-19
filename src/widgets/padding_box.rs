@@ -1,27 +1,24 @@
 use std::cmp::max;
 
-use crate::{event::GeometryChangeEvent, layout::SizeHint, types::Point};
+use crate::{
+    layout::SizeHint,
+    types::{Point, Rect, Size},
+};
 
-use super::{Child, Widget, WidgetCommon, WidgetExt};
+use super::{Widget, WidgetCommon};
 
 const PADDING: Point = Point { x: 10, y: 10 };
 
 #[derive(Default)]
 pub struct PaddingBox {
-    content: Option<Child>,
     common: WidgetCommon,
 }
 
 impl PaddingBox {
     pub fn new(content: Box<dyn Widget>) -> Self {
-        Self {
-            content: Some(Child {
-                widget: content,
-                index_in_parent: 0,
-                rect_in_parent: None,
-            }),
-            common: WidgetCommon::new(),
-        }
+        let mut common = WidgetCommon::new();
+        common.add_child(0, content);
+        Self { common }
     }
     // TODO: method to set content
 }
@@ -35,12 +32,8 @@ impl Widget for PaddingBox {
         &mut self.common
     }
 
-    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut super::Child> + '_> {
-        Box::new(self.content.as_mut().into_iter())
-    }
-
     fn size_hint_x(&mut self) -> SizeHint {
-        let mut size_hint = if let Some(content) = &mut self.content {
+        let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
             content.widget.size_hint_x()
         } else {
             SizeHint {
@@ -56,7 +49,7 @@ impl Widget for PaddingBox {
 
     fn size_hint_y(&mut self, size_x: i32) -> SizeHint {
         let child_size_x = max(0, size_x - 2 * PADDING.x);
-        let mut size_hint = if let Some(content) = &mut self.content {
+        let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
             content.widget.size_hint_y(child_size_x)
         } else {
             SizeHint {
@@ -70,25 +63,21 @@ impl Widget for PaddingBox {
         size_hint
     }
 
-    fn layout(&mut self) {
-        if let Some(content) = &mut self.content {
-            let Some(self_rect) = self.common.rect_in_window else {
-                content.rect_in_parent = None;
-                return;
-            };
-            let mut rect = self_rect;
-            rect.top_left.x += PADDING.x;
-            rect.top_left.y += PADDING.y;
-            rect.size.x = max(0, rect.size.x - 2 * PADDING.x);
-            rect.size.y = max(0, rect.size.y - 2 * PADDING.y);
-            content.rect_in_parent = Some(rect);
-            content.widget.dispatch(
-                GeometryChangeEvent {
-                    new_rect_in_window: Some(rect),
-                }
-                .into(),
-            );
-            content.widget.layout();
+    fn layout(&mut self) -> Vec<Option<Rect>> {
+        if self.common.children.is_empty() {
+            return Vec::new();
         }
+
+        let Some(self_rect) = self.common.rect_in_window else {
+            return Vec::new();
+        };
+        let rect = Rect {
+            top_left: PADDING,
+            size: Size {
+                x: max(0, self_rect.size.x - 2 * PADDING.x),
+                y: max(0, self_rect.size.y - 2 * PADDING.y),
+            },
+        };
+        vec![Some(rect)]
     }
 }

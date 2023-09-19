@@ -713,12 +713,13 @@ impl Window {
     }
 }
 
+// TODO: update on mount/unmount instead
 // TODO: not mut
 fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidgetId>) {
     if widget.common().is_focusable {
         output.push(widget.common().id);
     }
-    for child in widget.children_mut() {
+    for child in &mut widget.common_mut().children {
         populate_focusable_widgets(child.widget.as_mut(), output);
     }
 }

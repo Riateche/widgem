@@ -13,7 +13,7 @@ use crate::widgets::RawWidgetId;
 #[derivative(Debug)]
 pub struct AccessibleNodes {
     nodes: HashMap<NodeId, NodeBuilder>,
-    direct_children: HashMap<NodeId, Vec<(i32, NodeId)>>,
+    direct_children: HashMap<NodeId, Vec<(usize, NodeId)>>,
     direct_parents: HashMap<NodeId, NodeId>,
 
     pending_updates: HashSet<NodeId>,
@@ -53,7 +53,7 @@ impl AccessibleNodes {
     }
 
     // TODO: separate method to update index_in_parent when it changes in the widget
-    pub fn mount(&mut self, parent: Option<NodeId>, child: NodeId, index_in_parent: i32) {
+    pub fn mount(&mut self, parent: Option<NodeId>, child: NodeId, index_in_parent: usize) {
         // TODO: stricter checks and warnings
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.insert(child, parent);
@@ -63,6 +63,16 @@ impl AccessibleNodes {
             .unwrap_or_else(identity);
         children.insert(index, (index_in_parent, child));
         self.mark_parent_as_pending(parent);
+    }
+
+    pub fn update_index_in_parent(
+        &mut self,
+        parent: Option<NodeId>,
+        child: NodeId,
+        index_in_parent: usize,
+    ) {
+        self.unmount(parent, child);
+        self.mount(parent, child, index_in_parent);
     }
 
     pub fn unmount(&mut self, parent: Option<NodeId>, child: NodeId) {
@@ -140,7 +150,7 @@ impl AccessibleNodes {
 
 fn find_children(
     parent: NodeId,
-    direct_children: &HashMap<NodeId, Vec<(i32, NodeId)>>,
+    direct_children: &HashMap<NodeId, Vec<(usize, NodeId)>>,
     nodes: &HashMap<NodeId, NodeBuilder>,
     out: &mut Vec<NodeId>,
 ) {

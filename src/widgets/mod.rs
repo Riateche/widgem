@@ -1,5 +1,4 @@
 use std::{
-    iter,
     marker::PhantomData,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -70,6 +69,8 @@ pub struct WidgetCommon {
     pub mount_point: Option<MountPoint>,
     // Present if the widget is mounted, not hidden, and only after layout.
     pub rect_in_window: Option<Rect>,
+
+    pub children: Vec<Child>,
 }
 
 #[derive(Debug, Clone)]
@@ -77,7 +78,7 @@ pub struct MountPoint {
     pub address: WidgetAddress,
     pub window: SharedWindowData,
     // Determines visual / accessible order.
-    pub index_in_parent: i32,
+    pub index_in_parent: usize,
     // TODO: separate event for updating index_in_parent without remounting
 }
 
@@ -93,6 +94,7 @@ impl WidgetCommon {
             mount_point: None,
             rect_in_window: None,
             cursor_icon: CursorIcon::Default,
+            children: Vec::new(),
         }
     }
 
@@ -140,6 +142,65 @@ impl WidgetCommon {
     pub fn size(&self) -> Option<Size> {
         self.rect_in_window.as_ref().map(|g| g.size)
     }
+
+    pub fn add_child(&mut self, index: usize, mut widget: Box<dyn Widget>) {
+        if let Some(mount_point) = &self.mount_point {
+            let address = mount_point.address.clone().join(widget.common().id);
+            widget.dispatch(
+                MountEvent(MountPoint {
+                    address,
+                    window: mount_point.window.clone(),
+                    index_in_parent: index,
+                })
+                .into(),
+            );
+        }
+        self.children.insert(
+            index,
+            Child {
+                widget,
+                rect_in_parent: None,
+            },
+        );
+        for i in index + 1..self.children.len() {
+            self.children[i]
+                .widget
+                .common_mut()
+                .update_index_in_parent(i);
+        }
+    }
+
+    pub fn remove_child(&mut self, index: usize) -> Box<dyn Widget> {
+        let mut widget = self.children.remove(index).widget;
+        if self.mount_point.is_some() {
+            widget.dispatch(UnmountEvent.into());
+        }
+        for i in index..self.children.len() {
+            self.children[i]
+                .widget
+                .common_mut()
+                .update_index_in_parent(i);
+        }
+        widget
+    }
+
+    fn update_index_in_parent(&mut self, index: usize) {
+        if let Some(mount_point) = &mut self.mount_point {
+            mount_point.index_in_parent = index;
+            mount_point
+                .window
+                .0
+                .borrow_mut()
+                .accessible_nodes
+                .update_index_in_parent(
+                    mount_point.address.parent_widget().map(|id| id.into()),
+                    self.id.into(),
+                    index,
+                );
+        } else {
+            warn!("update_index_in_parent: not mounted");
+        }
+    }
 }
 
 impl Default for WidgetCommon {
@@ -161,7 +222,9 @@ pub fn get_widget_by_address_mut<'a>(
     let mut current_widget = root_widget;
     for &id in &address.path[1..] {
         current_widget = current_widget
-            .children_mut()
+            .common_mut()
+            .children
+            .iter_mut()
             .find(|w| w.widget.common().id == id)
             .ok_or(WidgetNotFound)?
             .widget
@@ -180,17 +243,12 @@ pub fn get_widget_by_id_mut(
 
 pub struct Child {
     pub widget: Box<dyn Widget>,
-    pub index_in_parent: i32,
     pub rect_in_parent: Option<Rect>,
 }
 
 pub trait Widget: Downcast {
     fn common(&self) -> &WidgetCommon;
     fn common_mut(&mut self) -> &mut WidgetCommon;
-    // TODO: why doesn't it work without Box?
-    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut Child> + '_> {
-        Box::new(iter::empty())
-    }
     fn on_draw(&mut self, event: DrawEvent) {
         let _ = event;
     }
@@ -282,7 +340,12 @@ pub trait Widget: Downcast {
     fn size_hint_x(&mut self) -> SizeHint;
     fn size_hint_y(&mut self, size_x: i32) -> SizeHint;
 
-    fn layout(&mut self) {}
+    fn layout(&mut self) -> Vec<Option<Rect>> {
+        if !self.common().children.is_empty() {
+            warn!("no layout impl for widget with children");
+        }
+        Vec::new()
+    }
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         None
     }
@@ -295,6 +358,7 @@ pub trait WidgetExt {
         Self: Sized;
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
+    fn apply_layout(&mut self);
 }
 
 impl<W: Widget + ?Sized> WidgetExt for W {
@@ -314,13 +378,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::Mount(event) => {
                 let mount_point = event.0.clone();
                 self.common_mut().mount(mount_point.clone());
-                for child in self.children_mut() {
+
+                for (i, child) in self.common_mut().children.iter_mut().enumerate() {
                     let child_address = mount_point.address.clone().join(child.widget.common().id);
                     child.widget.dispatch(
                         MountEvent(MountPoint {
                             address: child_address,
                             window: mount_point.window.clone(),
-                            index_in_parent: child.index_in_parent,
+                            index_in_parent: i,
                         })
                         .into(),
                     );
@@ -328,7 +393,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             // TODO: before or after handler?
             Event::Unmount(_event) => {
-                for child in self.children_mut() {
+                for child in &mut self.common_mut().children {
                     child.widget.dispatch(UnmountEvent.into());
                 }
             }
@@ -346,7 +411,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().is_window_focused = e.focused;
             }
             Event::MouseInput(event) => {
-                for child in self.children_mut() {
+                for child in &mut self.common_mut().children {
                     if let Some(rect_in_parent) = child.rect_in_parent {
                         if let Some(child_event) = event.map_to_child(rect_in_parent) {
                             if child.widget.dispatch(child_event.into()) {
@@ -358,7 +423,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::CursorMove(event) => {
-                for child in self.children_mut() {
+                for child in &mut self.common_mut().children {
                     if let Some(rect_in_parent) = child.rect_in_parent {
                         if rect_in_parent.contains(event.pos) {
                             let widget_id = child.widget.common().id;
@@ -411,7 +476,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().unmount();
             }
             Event::Draw(event) => {
-                for child in self.children_mut() {
+                for child in &mut self.common_mut().children {
                     if let Some(rect_in_parent) = child.rect_in_parent {
                         let child_event = event.map_to_child(rect_in_parent);
                         child.widget.dispatch(child_event.into());
@@ -419,15 +484,48 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::WindowFocusChange(event) => {
-                for child in self.children_mut() {
+                for child in &mut self.common_mut().children {
                     child.widget.dispatch(event.clone().into());
                 }
+            }
+            Event::GeometryChange(_) => {
+                self.apply_layout();
             }
             _ => {}
         }
 
         self.update_accessible();
         accepted
+    }
+
+    fn apply_layout(&mut self) {
+        let mut rects = self.layout();
+        if rects.is_empty() {
+            rects = self.common().children.iter().map(|_| None).collect();
+        }
+        if rects.len() != self.common().children.len() {
+            warn!("invalid length in layout output");
+            return;
+        }
+        let rect_in_window = self.common().rect_in_window;
+        for (rect_in_parent, child) in rects.into_iter().zip(self.common_mut().children.iter_mut())
+        {
+            child.rect_in_parent = rect_in_parent;
+            let child_rect_in_window = if let Some(rect_in_window) = rect_in_window {
+                rect_in_parent
+                    .map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left))
+            } else {
+                None
+            };
+            if child.widget.common().rect_in_window != child_rect_in_window {
+                child.widget.dispatch(
+                    GeometryChangeEvent {
+                        new_rect_in_window: child_rect_in_window,
+                    }
+                    .into(),
+                );
+            }
+        }
     }
 
     fn update_accessible(&mut self) {

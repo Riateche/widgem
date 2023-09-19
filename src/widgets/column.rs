@@ -1,23 +1,17 @@
 use std::cmp::{max, min};
 
 use crate::{
-    event::{GeometryChangeEvent, MountEvent},
     layout::SizeHint,
     types::{Point, Rect, Size},
 };
 
-use super::{MountPoint, Widget, WidgetCommon, WidgetExt};
+use super::{Widget, WidgetCommon};
 
 // TODO: get from style, apply scale
 const SPACING: i32 = 10;
 
-pub struct Child {
-    // TODO: add layout options
-    pub child: super::Child,
-}
-
 pub struct Column {
-    children: Vec<Child>,
+    // TODO: add layout options
     common: WidgetCommon,
 }
 
@@ -34,56 +28,35 @@ impl Column {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
-            children: Vec::new(),
             common: WidgetCommon::new(),
         }
     }
 
-    pub fn add(&mut self, mut widget: Box<dyn Widget>) {
-        let index_in_parent = self.children.len() as i32;
-        if let Some(mount_point) = &self.common.mount_point {
-            let address = mount_point.address.clone().join(widget.common().id);
-            widget.dispatch(
-                MountEvent(MountPoint {
-                    address,
-                    window: mount_point.window.clone(),
-                    index_in_parent,
-                })
-                .into(),
-            );
-        }
-        self.children.push(Child {
-            child: super::Child {
-                widget,
-                index_in_parent,
-                rect_in_parent: None,
-            },
-        });
+    pub fn add(&mut self, widget: Box<dyn Widget>) {
+        self.common.add_child(self.common.children.len(), widget);
     }
 }
 
 impl Widget for Column {
-    fn children_mut(&mut self) -> Box<dyn Iterator<Item = &mut super::Child> + '_> {
-        Box::new(self.children.iter_mut().map(|c| &mut c.child))
-    }
     fn common(&self) -> &WidgetCommon {
         &self.common
     }
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
-    fn layout(&mut self) {
+    fn layout(&mut self) -> Vec<Option<Rect>> {
         let Some(rect_in_window) = self.common().rect_in_window else {
-            return;
+            return Vec::new();
         };
         // TODO: implement shrinking/growing
         let mut current_y = 0;
-        for (i, child) in self.children.iter_mut().enumerate() {
+        let mut new_rects = Vec::new();
+        for (i, child) in self.common.children.iter_mut().enumerate() {
             if i != 0 {
                 current_y += SPACING;
             }
-            let child_size_x = child_size_x(rect_in_window.size.x, &mut child.child);
-            let child_hint_y = child.child.widget.size_hint_y(child_size_x);
+            let child_size_x = child_size_x(rect_in_window.size.x, child);
+            let child_hint_y = child.widget.size_hint_y(child_size_x);
             let child_rect = Rect {
                 top_left: Point { x: 0, y: current_y },
                 size: Size {
@@ -91,18 +64,10 @@ impl Widget for Column {
                     y: child_hint_y.preferred,
                 },
             };
-            child.child.rect_in_parent = Some(child_rect);
+            new_rects.push(Some(child_rect));
             current_y = child_rect.bottom_right().y;
-
-            let rect = child_rect.translate(rect_in_window.top_left);
-            child.child.widget.dispatch(
-                GeometryChangeEvent {
-                    new_rect_in_window: Some(rect),
-                }
-                .into(),
-            );
-            child.child.widget.layout();
         }
+        new_rects
     }
     fn size_hint_x(&mut self) -> SizeHint {
         let mut r = SizeHint {
@@ -110,8 +75,8 @@ impl Widget for Column {
             preferred: 0,
             is_fixed: true,
         };
-        for child in &mut self.children {
-            let child_hint = child.child.widget.size_hint_x();
+        for child in &mut self.common.children {
+            let child_hint = child.widget.size_hint_x();
             r.min = max(r.min, child_hint.min);
             r.preferred = max(r.preferred, child_hint.preferred);
             if !child_hint.is_fixed {
@@ -126,9 +91,9 @@ impl Widget for Column {
             preferred: 0,
             is_fixed: true,
         };
-        for (i, child) in self.children.iter_mut().enumerate() {
-            let child_size_x = child_size_x(size_x, &mut child.child);
-            let child_hint = child.child.widget.size_hint_y(child_size_x);
+        for (i, child) in self.common.children.iter_mut().enumerate() {
+            let child_size_x = child_size_x(size_x, child);
+            let child_hint = child.widget.size_hint_y(child_size_x);
             if i != 0 {
                 r.min += SPACING;
                 r.preferred += SPACING;
