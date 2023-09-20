@@ -44,24 +44,40 @@ impl Widget for Column {
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
+
     fn layout(&mut self) -> Vec<Option<Rect>> {
         let Some(rect_in_window) = self.common().rect_in_window else {
             return Vec::new();
         };
-        // TODO: implement shrinking/growing
+        let mut items_y = Vec::new();
+        let mut sizes_x = Vec::new();
+        for child in self.common.children.iter_mut() {
+            let child_size_x = child_size_x(rect_in_window.size.x, child);
+            let child_hint_y = child.widget.cached_size_hint_y(child_size_x);
+            sizes_x.push(child_size_x);
+            items_y.push(LayoutItem {
+                size_hint: child_hint_y,
+            });
+        }
         let mut current_y = 0;
         let mut new_rects = Vec::new();
-        for (i, child) in self.common.children.iter_mut().enumerate() {
+        // TODO: this is incorrect for extremely small sizes where not all items are visible
+        let available_size_y =
+            rect_in_window.size.y - self.common.children.len().saturating_sub(1) as i32 * SPACING;
+        let solved = solve_layout(&items_y, available_size_y);
+        for (i, (result_item, size_x)) in solved.into_iter().zip(sizes_x).enumerate() {
+            if result_item == 0 {
+                new_rects.push(None);
+                continue;
+            }
             if i != 0 {
                 current_y += SPACING;
             }
-            let child_size_x = child_size_x(rect_in_window.size.x, child);
-            let child_hint_y = child.widget.cached_size_hint_y(child_size_x);
             let child_rect = Rect {
                 top_left: Point { x: 0, y: current_y },
                 size: Size {
-                    x: child_size_x,
-                    y: child_hint_y.preferred,
+                    x: size_x,
+                    y: result_item,
                 },
             };
             new_rects.push(Some(child_rect));
@@ -69,6 +85,7 @@ impl Widget for Column {
         }
         new_rects
     }
+
     fn size_hint_x(&mut self) -> SizeHint {
         let mut r = SizeHint {
             min: 0,
@@ -106,4 +123,76 @@ impl Widget for Column {
         }
         r
     }
+}
+
+struct LayoutItem {
+    size_hint: SizeHint,
+    // TODO: params
+}
+
+#[allow(clippy::comparison_chain)]
+fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
+    if items.is_empty() {
+        return Vec::new();
+    }
+    let total_preferred: i32 = items.iter().map(|item| item.size_hint.preferred).sum();
+    let mut result = Vec::new();
+    if total_preferred == total {
+        return items.iter().map(|item| item.size_hint.preferred).collect();
+    } else if total_preferred > total {
+        let total_min: i32 = items.iter().map(|item| item.size_hint.min).sum();
+        let extra_per_item = max(0, total - total_min) / items.len() as i32;
+        let mut remaining = total;
+        for item in items {
+            let item_size = item.size_hint.min + extra_per_item;
+            let item_size = min(item_size, remaining);
+            result.push(item_size);
+            remaining -= item_size;
+            if remaining == 0 {
+                break;
+            }
+        }
+    } else if total_preferred < total {
+        let num_flexible = items.iter().filter(|item| !item.size_hint.is_fixed).count() as i32;
+        // let extra_per_flexible = if num_flexible != 0 {
+        //     max(0, total - total_preferred) / num_flexible
+        // } else {
+        //     0
+        // };
+        let mut remaining = total;
+        let mut extras = fare_split(num_flexible, max(0, total - total_preferred));
+        for item in items {
+            let item_size = if item.size_hint.is_fixed {
+                item.size_hint.preferred
+            } else {
+                item.size_hint.preferred + extras.pop().unwrap()
+            };
+            let item_size = min(item_size, remaining);
+            result.push(item_size);
+            remaining -= item_size;
+            if remaining == 0 {
+                break;
+            }
+        }
+    }
+    while result.len() < items.len() {
+        result.push(0);
+    }
+
+    result
+}
+
+fn fare_split(count: i32, total: i32) -> Vec<i32> {
+    if count == 0 {
+        return Vec::new();
+    }
+    let per_item = (total as f32) / (count as f32);
+    let mut prev = 0;
+    let mut results = Vec::new();
+    for i in 1..=count {
+        let next = (per_item * (i as f32)).round() as i32;
+        results.push(next - prev);
+        prev = next;
+    }
+    results
 }

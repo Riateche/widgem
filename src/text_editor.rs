@@ -121,7 +121,6 @@ impl TextEditor {
         let mut prev_index_in_chars = None;
         let mut total_chars_in_words = 0;
         for (i, word) in line.text().unicode_word_indices() {
-            // println!("word {i} {word:?}");
             let end_i = i + word.len();
             let index_in_chars = character_stats
                 .iter()
@@ -145,9 +144,7 @@ impl TextEditor {
         if run.line_i != 0 {
             warn!("invalid line_i in single line layout_runs");
         }
-        // println!("before: {character_stats:?}");
         for glyph in run.glyphs {
-            // println!("glyph {glyph:?}");
             if let Some(stats) = character_stats
                 .iter_mut()
                 .find(|s| s.bytes.does_intersect(&(glyph.start..glyph.end)))
@@ -160,12 +157,10 @@ impl TextEditor {
                 } else {
                     stats.pixels = Some(new_start..new_end);
                 }
-                // println!("found {stats:?}");
             } else {
                 warn!("no char found for glyph: {glyph:?}");
             }
         }
-        // println!("after: {character_stats:?}");
 
         AccessibleLine {
             text_direction: if run.rtl {
@@ -256,7 +251,6 @@ impl TextEditor {
         } else {
             focus
         };
-        // println!("TextSelection anchor {anchor:?}, focus {focus:?}");
         TextSelection { anchor, focus }
     }
 
@@ -338,7 +332,6 @@ impl TextEditor {
                 let line_y = (line_y + stroke_width / 2.0).round() - stroke_width / 2.0;
                 for glyph in run.glyphs {
                     if glyph.metadata & 0x1 != 0 {
-                        //println!("glyph ok");
                         let color = glyph.color_opt.unwrap_or(convert_color(self.text_color));
                         let glyph = line_straddler::Glyph {
                             line_y,
@@ -361,7 +354,6 @@ impl TextEditor {
             }
             lines.extend(alg.pop_line());
             for line in lines {
-                //println!("line ok {line:?}");
                 let mut path = PathBuilder::new();
                 path.move_to(line.start_x, line.y);
                 path.line_to(line.end_x, line.y);
@@ -400,7 +392,6 @@ impl TextEditor {
 
     // TODO: remove
     pub fn action(&mut self, mut action: Action, select: bool) {
-        // println!("action {:?}", action);
         match &mut action {
             Action::SetPreedit { attrs, .. } => {
                 if attrs.is_none() {
@@ -483,14 +474,12 @@ impl TextEditor {
                     .map_or(false, |ime_range| ime_range.contains(&click_cursor.index))
             {
                 // Click is inside IME preedit, so we ignore it.
-                //println!("click inside ime");
                 self.forbid_mouse_interaction = true;
             } else {
                 // Click is outside IME preedit, so we insert the preedit text
                 // as real text and cancel IME preedit.
                 self.interrupt_preedit();
                 self.shape_as_needed();
-                // println!("action click");
                 let x = pos.x;
                 let y = pos.y;
                 match ((num_clicks - 1) % 3) + 1 {

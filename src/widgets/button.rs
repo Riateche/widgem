@@ -28,6 +28,7 @@ pub struct Button {
     common: WidgetCommon,
 }
 
+const MIN_PADDING: Point = Point { x: 1, y: 0 };
 const PADDING: Point = Point { x: 10, y: 5 };
 
 impl Button {
@@ -231,7 +232,7 @@ impl Widget for Button {
 
     fn size_hint_x(&mut self) -> SizeHint {
         SizeHint {
-            min: self.editor.size().x,
+            min: self.editor.size().x + 2 * MIN_PADDING.x,
             preferred: self.editor.size().x + 2 * PADDING.x,
             is_fixed: true,
         }
@@ -240,7 +241,7 @@ impl Widget for Button {
     fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
         // TODO: use size_x, handle multiple lines
         SizeHint {
-            min: self.editor.size().y,
+            min: self.editor.size().y + 2 * MIN_PADDING.y,
             preferred: self.editor.size().y + 2 * PADDING.y,
             is_fixed: true,
         }

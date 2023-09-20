@@ -271,7 +271,6 @@ impl Widget for TextInput {
                     //     WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
                     // let window = Window::new(window, None);
                     // std::mem::forget(window);
-                    // println!("ok");
                 }
                 MouseButton::Middle => {
                     #[cfg(all(
@@ -351,7 +350,6 @@ impl Widget for TextInput {
 
     #[allow(clippy::if_same_then_else)]
     fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
-        // println!("text input on_keyboard_input, {:?}", event);
         if event.event.state == ElementState::Released {
             return true;
         }
@@ -441,11 +439,6 @@ impl Widget for TextInput {
             }
             Ime::Disabled => {}
         }
-        // println!("###");
-        // for line in &editor.buffer().lines {
-        //     println!("ok1 {:?}", line.text());
-        //     println!("ok2 {:?}", line.text_without_ime());
-        // }
         self.after_change();
         self.reset_blink_timer();
         true
@@ -507,7 +500,6 @@ impl Widget for TextInput {
             .as_ref()
             .expect("cannot handle event when unmounted");
 
-        println!("action in text input widget {:?}", event.action);
         match event.action {
             accesskit::Action::Default | accesskit::Action::Focus => {
                 send_window_request(
@@ -540,17 +532,6 @@ impl Widget for TextInput {
         for pos in &mut line.character_positions {
             *pos -= self.scroll_x as f32;
         }
-        // let line = AccessibleLine {
-        //     text: "abcd🦀".into(),
-        //     text_direction: accesskit::TextDirection::LeftToRight,
-        //     character_lengths: vec![1, 1, 1, 1, 4],
-        //     character_positions: vec![0.0, 20.0, 30.0, 40.0, 50.0],
-        //     character_widths: vec![10.0, 10.0, 10.0, 10.0, 10.0],
-        //     word_lengths: vec![4],
-        //     // line_top: todo!(),
-        //     // line_bottom: todo!(),
-        // };
-        // println!("line data {:?}", line);
         line_node.set_text_direction(line.text_direction);
         line_node.set_value(line.text);
         line_node.set_character_lengths(line.character_lengths);

@@ -10,7 +10,7 @@ use std::{
 
 use accesskit::ActionRequest;
 use derive_more::From;
-use log::warn;
+use log::{trace, warn};
 use tiny_skia::Pixmap;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
@@ -103,12 +103,10 @@ impl Window {
             let size_hint_x = widget.cached_size_hint_x();
             // TODO: adjust size_x for screen size
             let size_hint_y = widget.cached_size_hint_y(size_hint_x.preferred);
-            inner = inner
-                .with_inner_size(PhysicalSize::new(
-                    size_hint_x.preferred,
-                    size_hint_y.preferred,
-                ))
-                .with_min_inner_size(PhysicalSize::new(size_hint_x.min, size_hint_y.min));
+            inner = inner.with_inner_size(PhysicalSize::new(
+                size_hint_x.preferred,
+                size_hint_y.preferred,
+            )); //.with_min_inner_size(PhysicalSize::new(size_hint_x.min, size_hint_y.min));
         }
         let inner = with_window_target(|window_target| inner.build(window_target).unwrap());
         let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
@@ -200,7 +198,7 @@ impl Window {
     pub fn handle_event(&mut self, event: WindowEvent) {
         self.check_widget_tree_change_flag();
         if !self.accesskit_adapter.on_event(&self.inner, &event) {
-            println!("accesskit consumed event: {event:?}");
+            trace!("accesskit consumed event: {event:?}");
             return;
         }
         match event {
@@ -468,9 +466,8 @@ impl Window {
                 }
             }
             WindowEvent::Ime(ime) => {
-                println!("{ime:?}");
+                trace!("IME event: {ime:?}");
                 if let Ime::Enabled = &ime {
-                    //println!("reset ime position {:?}", self.ime_cursor_area);
                     self.inner.set_ime_cursor_area(
                         PhysicalPosition::new(
                             self.ime_cursor_area.top_left.x,
@@ -688,7 +685,6 @@ impl Window {
                 self.set_focus(request.widget_id, request.reason);
             }
             WindowRequest::SetImeCursorArea(request) => {
-                //println!("set new ime position {:?}", request.0);
                 if self.ime_cursor_area != request.0 {
                     self.inner.set_ime_cursor_area(
                         PhysicalPosition::new(request.0.top_left.x, request.0.top_left.y),

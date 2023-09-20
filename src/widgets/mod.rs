@@ -122,7 +122,6 @@ impl WidgetCommon {
             mount_point.index_in_parent,
         );
         self.mount_point = Some(mount_point);
-        self.clear_size_hint_cache();
         // TODO: set is_window_focused
     }
 
@@ -143,7 +142,6 @@ impl WidgetCommon {
         } else {
             warn!("widget was not mounted");
         }
-        self.clear_size_hint_cache();
         self.is_focused = false;
         self.is_window_focused = false;
     }
@@ -214,6 +212,7 @@ impl WidgetCommon {
     }
 
     pub fn size_hint_changed(&mut self) {
+        self.clear_size_hint_cache();
         let Some(mount_point) = &self.mount_point else {
             return;
         };

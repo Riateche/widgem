@@ -47,6 +47,13 @@ impl DrawEvent {
     }
 
     pub fn draw_subpixmap(&self, target_rect: Rect, pixmap: PixmapRef<'_>, pixmap_offset: Point) {
+        if target_rect.size.x < 0 || target_rect.size.y < 0 {
+            warn!("negative size rect in draw_subpixmap");
+            return;
+        }
+        if target_rect.is_empty() {
+            return;
+        }
         let target_rect = target_rect.translate(self.rect.top_left);
         let translation = target_rect.top_left - pixmap_offset;
         let patt_transform = Transform::from_translate(translation.x as f32, translation.y as f32);
@@ -236,9 +243,8 @@ impl DrawEvent {
 
     pub fn map_to_child(&self, rect_in_parent: Rect) -> Self {
         Self {
-            rect: rect_in_parent
-                .translate(self.rect.top_left)
-                .intersect(self.rect),
+            // TODO: clip on self.rect
+            rect: rect_in_parent.translate(self.rect.top_left),
             pixmap: Rc::clone(&self.pixmap),
         }
     }
