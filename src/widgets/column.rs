@@ -5,7 +5,7 @@ use crate::{
     types::{Point, Rect, Size},
 };
 
-use super::{Widget, WidgetCommon};
+use super::{Widget, WidgetCommon, WidgetExt};
 
 // TODO: get from style, apply scale
 const SPACING: i32 = 10;
@@ -16,7 +16,7 @@ pub struct Column {
 }
 
 fn child_size_x(layout_size_x: i32, child: &mut super::Child) -> i32 {
-    let hint = child.widget.size_hint_x();
+    let hint = child.widget.cached_size_hint_x();
     if hint.is_fixed {
         min(hint.preferred, layout_size_x)
     } else {
@@ -56,7 +56,7 @@ impl Widget for Column {
                 current_y += SPACING;
             }
             let child_size_x = child_size_x(rect_in_window.size.x, child);
-            let child_hint_y = child.widget.size_hint_y(child_size_x);
+            let child_hint_y = child.widget.cached_size_hint_y(child_size_x);
             let child_rect = Rect {
                 top_left: Point { x: 0, y: current_y },
                 size: Size {
@@ -76,7 +76,7 @@ impl Widget for Column {
             is_fixed: true,
         };
         for child in &mut self.common.children {
-            let child_hint = child.widget.size_hint_x();
+            let child_hint = child.widget.cached_size_hint_x();
             r.min = max(r.min, child_hint.min);
             r.preferred = max(r.preferred, child_hint.preferred);
             if !child_hint.is_fixed {
@@ -93,7 +93,7 @@ impl Widget for Column {
         };
         for (i, child) in self.common.children.iter_mut().enumerate() {
             let child_size_x = child_size_x(size_x, child);
-            let child_hint = child.widget.size_hint_y(child_size_x);
+            let child_hint = child.widget.cached_size_hint_y(child_size_x);
             if i != 0 {
                 r.min += SPACING;
                 r.preferred += SPACING;

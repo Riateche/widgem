@@ -5,7 +5,7 @@ use crate::{
     types::{Point, Rect, Size},
 };
 
-use super::{Widget, WidgetCommon};
+use super::{Widget, WidgetCommon, WidgetExt};
 
 const PADDING: Point = Point { x: 10, y: 10 };
 
@@ -34,7 +34,7 @@ impl Widget for PaddingBox {
 
     fn size_hint_x(&mut self) -> SizeHint {
         let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
-            content.widget.size_hint_x()
+            content.widget.cached_size_hint_x()
         } else {
             SizeHint {
                 min: 0,
@@ -50,7 +50,7 @@ impl Widget for PaddingBox {
     fn size_hint_y(&mut self, size_x: i32) -> SizeHint {
         let child_size_x = max(0, size_x - 2 * PADDING.x);
         let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
-            content.widget.size_hint_y(child_size_x)
+            content.widget.cached_size_hint_y(child_size_x)
         } else {
             SizeHint {
                 min: 0,

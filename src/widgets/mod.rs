@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     marker::PhantomData,
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -71,6 +72,10 @@ pub struct WidgetCommon {
     pub rect_in_window: Option<Rect>,
 
     pub children: Vec<Child>,
+
+    pub size_hint_x_cache: Option<SizeHint>,
+    // TODO: limit count
+    pub size_hint_y_cache: HashMap<i32, SizeHint>,
 }
 
 #[derive(Debug, Clone)]
@@ -95,6 +100,8 @@ impl WidgetCommon {
             rect_in_window: None,
             cursor_icon: CursorIcon::Default,
             children: Vec::new(),
+            size_hint_x_cache: None,
+            size_hint_y_cache: HashMap::new(),
         }
     }
 
@@ -115,6 +122,7 @@ impl WidgetCommon {
             mount_point.index_in_parent,
         );
         self.mount_point = Some(mount_point);
+        self.clear_size_hint_cache();
         // TODO: set is_window_focused
     }
 
@@ -135,6 +143,7 @@ impl WidgetCommon {
         } else {
             warn!("widget was not mounted");
         }
+        self.clear_size_hint_cache();
         self.is_focused = false;
         self.is_window_focused = false;
     }
@@ -168,6 +177,7 @@ impl WidgetCommon {
                 .common_mut()
                 .update_index_in_parent(i);
         }
+        self.size_hint_changed();
     }
 
     pub fn remove_child(&mut self, index: usize) -> Box<dyn Widget> {
@@ -181,6 +191,7 @@ impl WidgetCommon {
                 .common_mut()
                 .update_index_in_parent(i);
         }
+        self.size_hint_changed();
         widget
     }
 
@@ -200,6 +211,23 @@ impl WidgetCommon {
         } else {
             warn!("update_index_in_parent: not mounted");
         }
+    }
+
+    pub fn size_hint_changed(&mut self) {
+        let Some(mount_point) = &self.mount_point else {
+            return;
+        };
+        mount_point
+            .window
+            .0
+            .borrow_mut()
+            .pending_size_hint_invalidations
+            .push(mount_point.address.clone());
+    }
+
+    fn clear_size_hint_cache(&mut self) {
+        self.size_hint_x_cache = None;
+        self.size_hint_y_cache.clear();
     }
 }
 
@@ -340,6 +368,7 @@ pub trait Widget: Downcast {
     fn size_hint_x(&mut self) -> SizeHint;
     fn size_hint_y(&mut self, size_x: i32) -> SizeHint;
 
+    #[must_use]
     fn layout(&mut self) -> Vec<Option<Rect>> {
         if !self.common().children.is_empty() {
             warn!("no layout impl for widget with children");
@@ -359,6 +388,8 @@ pub trait WidgetExt {
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
     fn apply_layout(&mut self);
+    fn cached_size_hint_x(&mut self) -> SizeHint;
+    fn cached_size_hint_y(&mut self, size_x: i32) -> SizeHint;
 }
 
 impl<W: Widget + ?Sized> WidgetExt for W {
@@ -405,7 +436,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::CursorLeave(_) => {
                 self.common_mut().is_mouse_entered = false;
-                println!("leave!");
             }
             Event::WindowFocusChange(e) => {
                 self.common_mut().is_window_focused = e.focused;
@@ -456,9 +486,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::CursorMove(event) => {
                 if event.accepted_by().is_none() && accepted {
                     if let Some(rect_in_window) = self.common().rect_in_window {
-                        if event.is_enter() {
-                            println!("enter!");
-                        }
                         event.set_accepted_by(self.common().id, rect_in_window);
                         self.common_mut().is_mouse_entered = true;
                     } else {
@@ -552,6 +579,41 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             .accessible_nodes
             .update(self.common().id.0.into(), node);
     }
+
+    fn cached_size_hint_x(&mut self) -> SizeHint {
+        if let Some(cached) = &self.common().size_hint_x_cache {
+            *cached
+        } else {
+            let r = self.size_hint_x();
+            self.common_mut().size_hint_x_cache = Some(r);
+            r
+        }
+    }
+    fn cached_size_hint_y(&mut self, size_x: i32) -> SizeHint {
+        if let Some(cached) = self.common().size_hint_y_cache.get(&size_x) {
+            *cached
+        } else {
+            let r = self.size_hint_y(size_x);
+            self.common_mut().size_hint_y_cache.insert(size_x, r);
+            r
+        }
+    }
+}
+
+pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddress]) {
+    let common = widget.common_mut();
+    let Some(mount_point) = &common.mount_point else {
+        return;
+    };
+    for pending_addr in pending {
+        if pending_addr.starts_with(&mount_point.address) {
+            common.clear_size_hint_cache();
+            for child in &mut common.children {
+                invalidate_size_hint_cache(child.widget.as_mut(), pending);
+            }
+            return;
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -577,5 +639,10 @@ impl WidgetAddress {
         } else {
             None
         }
+    }
+    pub fn starts_with(&self, base: &WidgetAddress) -> bool {
+        self.window_id == base.window_id
+            && base.path.len() <= self.path.len()
+            && base.path == self.path[..self.path.len()]
     }
 }

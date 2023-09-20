@@ -2,6 +2,7 @@ use std::{
     cell::{Cell, RefCell},
     cmp::max,
     collections::HashSet,
+    mem,
     num::NonZeroU32,
     rc::Rc,
     time::{Duration, Instant},
@@ -29,7 +30,10 @@ use crate::{
     event_loop::{with_window_target, UserEvent},
     system::{send_window_request, with_system},
     types::{Point, Rect, Size},
-    widgets::{get_widget_by_id_mut, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt},
+    widgets::{
+        get_widget_by_id_mut, invalidate_size_hint_cache, MountPoint, RawWidgetId, Widget,
+        WidgetAddress, WidgetExt,
+    },
 };
 
 // TODO: get system setting
@@ -45,6 +49,7 @@ pub struct SharedWindowDataInner {
     pub is_window_focused: bool,
     pub accessible_nodes: AccessibleNodes,
     pub mouse_entered_widgets: Vec<(Rect, RawWidgetId)>,
+    pub pending_size_hint_invalidations: Vec<WidgetAddress>,
 }
 
 #[derive(Debug, Clone)]
@@ -95,9 +100,9 @@ pub fn create_window(
 impl Window {
     fn new(mut inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
         if let Some(widget) = &mut widget {
-            let size_hint_x = widget.size_hint_x();
+            let size_hint_x = widget.cached_size_hint_x();
             // TODO: adjust size_x for screen size
-            let size_hint_y = widget.size_hint_y(size_hint_x.preferred);
+            let size_hint_y = widget.cached_size_hint_y(size_hint_x.preferred);
             inner = inner
                 .with_inner_size(PhysicalSize::new(
                     size_hint_x.preferred,
@@ -116,6 +121,7 @@ impl Window {
             is_window_focused: false,
             accessible_nodes: AccessibleNodes::new(),
             mouse_entered_widgets: Vec::new(),
+            pending_size_hint_invalidations: Vec::new(),
         })));
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(inner.id()).join(widget.common().id);
@@ -159,6 +165,7 @@ impl Window {
             last_click_instant: None,
         };
         w.widget_tree_changed();
+        w.after_widget_activity();
 
         {
             let pixmap = Pixmap::decode_png(include_bytes!("../assets/icon.png")).unwrap();
@@ -494,7 +501,24 @@ impl Window {
             }
             _ => {}
         }
+        self.after_widget_activity();
+    }
+
+    pub fn after_widget_activity(&mut self) {
         self.push_accessible_updates();
+        let pending_size_hint_invalidations = mem::take(
+            &mut self
+                .shared_window_data
+                .0
+                .borrow_mut()
+                .pending_size_hint_invalidations,
+        );
+        if !pending_size_hint_invalidations.is_empty() {
+            if let Some(root_widget) = &mut self.root_widget {
+                invalidate_size_hint_cache(root_widget.as_mut(), &pending_size_hint_invalidations);
+                self.layout();
+            }
+        }
     }
 
     pub fn move_keyboard_focus(&mut self, direction: i32) {
@@ -553,7 +577,6 @@ impl Window {
 
     fn widget_tree_changed(&mut self) {
         self.refresh_focusable_widgets();
-        self.layout();
     }
 
     fn push_accessible_updates(&mut self) {
@@ -566,6 +589,7 @@ impl Window {
         self.accesskit_adapter.update(update);
     }
 
+    // TODO: find a way to update on mount/unmount while keeping correct order
     fn refresh_focusable_widgets(&mut self) {
         self.focusable_widgets.clear();
         if let Some(widget) = &mut self.root_widget {
@@ -655,7 +679,6 @@ impl Window {
                 }
                 .into(),
             );
-            root.layout();
         }
     }
 

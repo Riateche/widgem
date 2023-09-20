@@ -49,6 +49,7 @@ impl Button {
 
     pub fn set_text(&mut self, text: impl Display) {
         self.editor.set_text(&text.to_string(), Attrs::new());
+        self.common.size_hint_changed();
     }
 
     //TODO: needs some automatic redraw?

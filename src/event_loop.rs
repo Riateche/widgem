@@ -121,6 +121,7 @@ fn dispatch_widget_callback<Event>(
     };
     callback.func()(widget, event);
     widget.update_accessible();
+    window.after_widget_activity();
 }
 
 fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>) {
