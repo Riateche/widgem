@@ -14,13 +14,12 @@ use range_ext::intersect::Intersect;
 use strict_num::FiniteF32;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform};
 use unicode_segmentation::UnicodeSegmentation;
-use winit::window::WindowId;
 
 use crate::{
     event::FocusReason,
-    system::{send_window_request, with_system},
+    system::with_system,
     types::{Point, Size},
-    window::CancelImePreedit,
+    window::SharedWindowData,
 };
 
 pub struct TextEditor {
@@ -28,7 +27,7 @@ pub struct TextEditor {
     pixmap: Option<Pixmap>,
     text_color: Color,
     size: Size,
-    window_id: Option<WindowId>,
+    window: Option<SharedWindowData>,
     is_cursor_hidden: bool,
     forbid_mouse_interaction: bool,
 }
@@ -52,7 +51,7 @@ impl TextEditor {
             pixmap: None,
             text_color: system.palette.foreground,
             size: Size::default(),
-            window_id: None,
+            window: None,
             is_cursor_hidden: false,
             forbid_mouse_interaction: false,
         });
@@ -68,8 +67,8 @@ impl TextEditor {
         e
     }
 
-    pub fn set_window_id(&mut self, window_id: Option<WindowId>) {
-        self.window_id = window_id;
+    pub fn set_window(&mut self, window: Option<SharedWindowData>) {
+        self.window = window;
     }
 
     pub fn set_wrap(&mut self, wrap: Wrap) {
@@ -438,8 +437,8 @@ impl TextEditor {
                 false,
             );
             self.insert_string(&text, None);
-            if let Some(window_id) = self.window_id {
-                send_window_request(window_id, CancelImePreedit);
+            if let Some(window) = &self.window {
+                window.cancel_ime_preedit();
             } else {
                 warn!("no window id in text editor event handler");
             }

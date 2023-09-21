@@ -127,7 +127,7 @@ fn dispatch_widget_callback<Event>(
 fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>) {
     with_system(|system| {
         for window in system.new_windows.drain(..) {
-            windows.insert(window.inner.id(), window);
+            windows.insert(window.id, window);
         }
     });
 }
@@ -184,7 +184,12 @@ pub fn run<State: 'static>(
                 fetch_new_windows(&mut windows);
                 // TODO: smarter redraw
                 for window in windows.values() {
-                    window.inner.request_redraw();
+                    window
+                        .shared_window_data
+                        .0
+                        .borrow()
+                        .winit_window
+                        .request_redraw();
                 }
             }
 

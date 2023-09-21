@@ -17,9 +17,9 @@ use crate::{
         UnmountEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
-    system::{address, register_address, send_window_request, unregister_address},
+    system::{address, register_address, unregister_address},
     types::{Rect, Size},
-    window::{SetCursorIcon, SharedWindowData},
+    window::SharedWindowData,
 };
 
 pub mod button;
@@ -491,10 +491,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         warn!("no rect_in_window on CursorMove dispatch");
                     }
                     if let Some(mount_point) = &self.common().mount_point {
-                        send_window_request(
-                            mount_point.address.window_id,
-                            SetCursorIcon(self.common().cursor_icon),
-                        );
+                        mount_point
+                            .window
+                            .0
+                            .borrow()
+                            .winit_window
+                            .set_cursor_icon(self.common().cursor_icon);
                     }
                 }
             }

@@ -27,7 +27,7 @@ use crate::{
     text_editor::TextEditor,
     timer::TimerId,
     types::{Point, Rect, Size},
-    window::{SetFocusRequest, SetImeCursorAreaRequest},
+    window::SetFocusRequest,
 };
 
 use super::{Widget, WidgetCommon, WidgetExt};
@@ -245,11 +245,10 @@ impl Widget for TextInput {
                         x: 0,
                         y: self.editor.line_height().ceil() as i32,
                     };
-                let size = rect_in_window.size; // TODO: not actually correct
-                send_window_request(
-                    mount_point.address.window_id,
-                    SetImeCursorAreaRequest(Rect { top_left, size }),
-                );
+                let size = rect_in_window.size; // TODO: self.editor_viewport_rect.size
+                mount_point
+                    .window
+                    .set_ime_cursor_area(Rect { top_left, size });
             }
         }
     }
@@ -452,7 +451,7 @@ impl Widget for TextInput {
     }
 
     fn on_mount(&mut self, event: MountEvent) {
-        self.editor.set_window_id(Some(event.0.address.window_id));
+        self.editor.set_window(Some(event.0.window.clone()));
         self.reset_blink_timer();
 
         event.0.window.0.borrow_mut().accessible_nodes.mount(
@@ -478,7 +477,7 @@ impl Widget for TextInput {
             .borrow_mut()
             .accessible_nodes
             .update(self.accessible_line_id, None);
-        self.editor.set_window_id(None);
+        self.editor.set_window(None);
         self.reset_blink_timer();
     }
     fn on_focus_in(&mut self, event: FocusInEvent) {
