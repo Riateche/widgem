@@ -156,10 +156,11 @@ impl Window {
             ime_cursor_area: Rect::default(),
         })));
         if let Some(widget) = &mut widget {
-            let address = WidgetAddress::window_root(window_id).join(widget.common().id);
+            let address = WidgetAddress::window_root(window_id);
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
+                    parent_id: None,
                     window: shared_window_data.clone(),
                     index_in_parent: 0,
                 })
@@ -623,10 +624,11 @@ impl Window {
             old_widget.dispatch(UnmountEvent.into());
         }
         if let Some(widget) = &mut widget {
-            let address = WidgetAddress::window_root(self.id).join(widget.common().id);
+            let address = WidgetAddress::window_root(self.id);
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
+                    parent_id: None,
                     window: self.shared_window_data.clone(),
                     index_in_parent: 0,
                 })

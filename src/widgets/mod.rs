@@ -82,6 +82,7 @@ pub struct WidgetCommon {
 pub struct MountPoint {
     pub address: WidgetAddress,
     pub window: SharedWindowData,
+    pub parent_id: Option<RawWidgetId>,
     // Determines visual / accessible order.
     pub index_in_parent: usize,
     // TODO: separate event for updating index_in_parent without remounting
@@ -117,7 +118,7 @@ impl WidgetCommon {
         }
         mount_point.window.0.borrow_mut().widget_tree_changed = true;
         mount_point.window.0.borrow_mut().accessible_nodes.mount(
-            mount_point.address.parent_widget().map(|id| id.into()),
+            mount_point.parent_id.map(|id| id.into()),
             self.id.into(),
             mount_point.index_in_parent,
         );
@@ -135,10 +136,12 @@ impl WidgetCommon {
                 .borrow_mut()
                 .accessible_nodes
                 .update(self.id.0.into(), None);
-            mount_point.window.0.borrow_mut().accessible_nodes.unmount(
-                mount_point.address.parent_widget().map(|id| id.into()),
-                self.id.into(),
-            );
+            mount_point
+                .window
+                .0
+                .borrow_mut()
+                .accessible_nodes
+                .unmount(mount_point.parent_id.map(|id| id.into()), self.id.into());
         } else {
             warn!("widget was not mounted");
         }
@@ -152,11 +155,12 @@ impl WidgetCommon {
 
     pub fn add_child(&mut self, index: usize, mut widget: Box<dyn Widget>) {
         if let Some(mount_point) = &self.mount_point {
-            let address = mount_point.address.clone().join(widget.common().id);
+            let address = mount_point.address.clone().join(index);
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
                     window: mount_point.window.clone(),
+                    parent_id: Some(self.id),
                     index_in_parent: index,
                 })
                 .into(),
@@ -169,13 +173,25 @@ impl WidgetCommon {
                 rect_in_parent: None,
             },
         );
-        for i in index + 1..self.children.len() {
-            self.children[i]
-                .widget
-                .common_mut()
-                .update_index_in_parent(i);
-        }
+        self.remount_children(index + 1);
         self.size_hint_changed();
+    }
+
+    fn remount_children(&mut self, from_index: usize) {
+        if let Some(mount_point) = &self.mount_point {
+            for i in from_index..self.children.len() {
+                self.children[i].widget.dispatch(UnmountEvent.into());
+                self.children[i].widget.dispatch(
+                    MountEvent(MountPoint {
+                        address: mount_point.address.clone().join(i),
+                        window: mount_point.window.clone(),
+                        parent_id: Some(self.id),
+                        index_in_parent: i,
+                    })
+                    .into(),
+                );
+            }
+        }
     }
 
     pub fn remove_child(&mut self, index: usize) -> Box<dyn Widget> {
@@ -183,32 +199,9 @@ impl WidgetCommon {
         if self.mount_point.is_some() {
             widget.dispatch(UnmountEvent.into());
         }
-        for i in index..self.children.len() {
-            self.children[i]
-                .widget
-                .common_mut()
-                .update_index_in_parent(i);
-        }
+        self.remount_children(index);
         self.size_hint_changed();
         widget
-    }
-
-    fn update_index_in_parent(&mut self, index: usize) {
-        if let Some(mount_point) = &mut self.mount_point {
-            mount_point.index_in_parent = index;
-            mount_point
-                .window
-                .0
-                .borrow_mut()
-                .accessible_nodes
-                .update_index_in_parent(
-                    mount_point.address.parent_widget().map(|id| id.into()),
-                    self.id.into(),
-                    index,
-                );
-        } else {
-            warn!("update_index_in_parent: not mounted");
-        }
     }
 
     pub fn size_hint_changed(&mut self) {
@@ -243,16 +236,12 @@ pub fn get_widget_by_address_mut<'a>(
     root_widget: &'a mut dyn Widget,
     address: &WidgetAddress,
 ) -> Result<&'a mut dyn Widget, WidgetNotFound> {
-    if address.path.get(0).copied() != Some(root_widget.common().id) {
-        return Err(WidgetNotFound);
-    }
     let mut current_widget = root_widget;
-    for &id in &address.path[1..] {
+    for &index in &address.path {
         current_widget = current_widget
             .common_mut()
             .children
-            .iter_mut()
-            .find(|w| w.widget.common().id == id)
+            .get_mut(index)
             .ok_or(WidgetNotFound)?
             .widget
             .as_mut();
@@ -409,11 +398,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 let mount_point = event.0.clone();
                 self.common_mut().mount(mount_point.clone());
 
+                let id = self.common().id;
                 for (i, child) in self.common_mut().children.iter_mut().enumerate() {
-                    let child_address = mount_point.address.clone().join(child.widget.common().id);
+                    let child_address = mount_point.address.clone().join(i);
                     child.widget.dispatch(
                         MountEvent(MountPoint {
                             address: child_address,
+                            parent_id: Some(id),
                             window: mount_point.window.clone(),
                             index_in_parent: i,
                         })
@@ -620,7 +611,7 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
 #[derive(Debug, Clone)]
 pub struct WidgetAddress {
     pub window_id: WindowId,
-    pub path: Vec<RawWidgetId>,
+    pub path: Vec<usize>,
 }
 
 impl WidgetAddress {
@@ -630,16 +621,9 @@ impl WidgetAddress {
             path: Vec::new(),
         }
     }
-    pub fn join(mut self, id: RawWidgetId) -> Self {
-        self.path.push(id);
+    pub fn join(mut self, index: usize) -> Self {
+        self.path.push(index);
         self
-    }
-    pub fn parent_widget(&self) -> Option<RawWidgetId> {
-        if self.path.len() > 1 {
-            Some(self.path[self.path.len() - 2])
-        } else {
-            None
-        }
     }
     pub fn starts_with(&self, base: &WidgetAddress) -> bool {
         self.window_id == base.window_id
