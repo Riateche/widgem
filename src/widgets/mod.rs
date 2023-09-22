@@ -618,9 +618,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
                 self.common_mut().update();
             }
+            Event::FocusIn(_) | Event::FocusOut(_) => {
+                self.common_mut().update();
+            }
             Event::CursorLeave(_)
-            | Event::FocusIn(_)
-            | Event::FocusOut(_)
             | Event::KeyboardInput(_)
             | Event::Ime(_)
             | Event::Mount(_)
