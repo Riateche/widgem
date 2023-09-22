@@ -182,15 +182,6 @@ pub fn run<State: 'static>(
             while let Some(timer) = with_system(|system| system.timers.pop()) {
                 dispatch_widget_callback(&mut windows, &timer.callback, Instant::now());
                 fetch_new_windows(&mut windows);
-                // TODO: smarter redraw
-                for window in windows.values() {
-                    window
-                        .shared_window_data
-                        .0
-                        .borrow()
-                        .winit_window
-                        .request_redraw();
-                }
             }
 
             match event {

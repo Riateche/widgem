@@ -1,10 +1,10 @@
 use std::{
     cell::{Cell, RefCell},
-    cmp::max,
     collections::HashSet,
     mem,
     num::NonZeroU32,
     rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant},
 };
 
@@ -53,6 +53,8 @@ pub struct SharedWindowDataInner {
     pub winit_window: winit::window::Window,
     pub ime_allowed: bool,
     pub ime_cursor_area: Rect,
+
+    pub pending_redraw: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -88,6 +90,14 @@ impl SharedWindowData {
             this.winit_window.set_ime_allowed(true);
         }
     }
+
+    pub fn request_redraw(&self) {
+        let mut this = self.0.borrow_mut();
+        if !this.pending_redraw {
+            this.pending_redraw = true;
+            this.winit_window.request_redraw();
+        }
+    }
 }
 
 pub struct Window {
@@ -100,6 +110,8 @@ pub struct Window {
     // to maintain safety requirements.
     pub surface: softbuffer::Surface,
     pub softbuffer_context: softbuffer::Context,
+    pub pixmap: Rc<RefCell<Pixmap>>,
+
     pub shared_window_data: SharedWindowData,
 
     pub root_widget: Option<Box<dyn Widget>>,
@@ -122,6 +134,10 @@ pub fn create_window(
     with_system(|system| system.new_windows.push(w));
     id
 }
+
+// Extra size to avoid visual artifacts when resizing the window.
+// Must be > 0 to avoid panic on pixmap creation.
+const EXTRA_SURFACE_SIZE: u32 = 50;
 
 impl Window {
     fn new(mut inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
@@ -154,6 +170,7 @@ impl Window {
             winit_window,
             ime_allowed: false,
             ime_cursor_area: Rect::default(),
+            pending_redraw: true,
         })));
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(window_id);
@@ -179,11 +196,9 @@ impl Window {
             with_system(|system| system.event_loop_proxy.clone()),
         );
         // Window must be hidden until we initialize accesskit
-        shared_window_data
-            .0
-            .borrow_mut()
-            .winit_window
-            .set_visible(true);
+        shared_window_data.0.borrow().winit_window.set_visible(true);
+
+        let inner_size = shared_window_data.0.borrow().winit_window.inner_size();
 
         let mut w = Self {
             id: window_id,
@@ -191,6 +206,13 @@ impl Window {
             surface,
             softbuffer_context,
             root_widget: widget,
+            pixmap: Rc::new(RefCell::new(
+                Pixmap::new(
+                    inner_size.width + EXTRA_SURFACE_SIZE,
+                    inner_size.height + EXTRA_SURFACE_SIZE,
+                )
+                .unwrap(),
+            )),
             shared_window_data,
             focusable_widgets: Vec::new(),
             focused_widget: None,
@@ -246,15 +268,17 @@ impl Window {
             trace!("accesskit consumed event: {event:?}");
             return;
         }
+        // println!("{event:?}");
         match event {
             WindowEvent::RedrawRequested => {
                 let (width, height) = {
                     let size = &self.shared_window_data.0.borrow().winit_window.inner_size();
-                    // Extra size to avoid visual artifacts when resizing the window.
-                    (max(1, size.width) + 50, max(1, size.height) + 50)
+                    (
+                        size.width + EXTRA_SURFACE_SIZE,
+                        size.height + EXTRA_SURFACE_SIZE,
+                    )
                 };
 
-                // Resize surface if needed
                 self.surface
                     .resize(
                         NonZeroU32::new(width).unwrap(),
@@ -262,29 +286,43 @@ impl Window {
                     )
                     .unwrap();
 
+                {
+                    let mut pixmap = self.pixmap.borrow_mut();
+                    if pixmap.width() != width || pixmap.height() != height {
+                        *pixmap = Pixmap::new(width, height).unwrap();
+                    }
+                }
+
                 // Draw something in the window
                 let mut buffer = self.surface.buffer_mut().unwrap();
 
-                let pixmap = Pixmap::new(width, height).unwrap();
-                let pixmap = Rc::new(RefCell::new(pixmap));
-                let draw_event = DrawEvent::new(
-                    Rc::clone(&pixmap),
-                    Rect {
-                        top_left: Point::default(),
-                        size: Size {
-                            x: width as i32,
-                            y: height as i32,
-                        },
-                    },
+                let pending_redraw = self.shared_window_data.0.borrow().pending_redraw;
+                static X: AtomicU64 = AtomicU64::new(0);
+                println!(
+                    "redraw event {pending_redraw} {}",
+                    X.fetch_add(1, Ordering::Relaxed)
                 );
-                // TODO: option to turn off background, set style
-                let color = with_system(|system| system.palette.background);
-                pixmap.borrow_mut().fill(color);
-                if let Some(widget) = &mut self.root_widget {
-                    widget.dispatch(draw_event.into());
+                if pending_redraw {
+                    let draw_event = DrawEvent::new(
+                        Rc::clone(&self.pixmap),
+                        Rect {
+                            top_left: Point::default(),
+                            size: Size {
+                                x: width as i32,
+                                y: height as i32,
+                            },
+                        },
+                    );
+                    // TODO: option to turn off background, set style
+                    let color = with_system(|system| system.palette.background);
+                    self.pixmap.borrow_mut().fill(color);
+                    if let Some(widget) = &mut self.root_widget {
+                        widget.dispatch(draw_event.into());
+                    }
+                    self.shared_window_data.0.borrow_mut().pending_redraw = false;
                 }
 
-                buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
+                buffer.copy_from_slice(bytemuck::cast_slice(self.pixmap.borrow().data()));
 
                 // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
                 // iterate over the pixels and shift the pixels over.
@@ -298,11 +336,6 @@ impl Window {
             }
             WindowEvent::Resized(_) => {
                 self.layout();
-                self.shared_window_data
-                    .0
-                    .borrow()
-                    .winit_window
-                    .request_redraw();
             }
             WindowEvent::CloseRequested => {
                 // TODO: add option to confirm close or do something else
@@ -379,11 +412,6 @@ impl Window {
                         .winit_window
                         .set_cursor_icon(CursorIcon::Default);
                 }
-                self.shared_window_data
-                    .0
-                    .borrow()
-                    .winit_window
-                    .request_redraw(); // TODO: smarter redraw
             }
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.shared_window_data.0.borrow_mut().modifiers_state = modifiers.state();
@@ -471,12 +499,6 @@ impl Window {
                                 }
                             }
                         }
-
-                        self.shared_window_data
-                            .0
-                            .borrow()
-                            .winit_window
-                            .request_redraw(); // TODO: smarter redraw
                     }
                 } else {
                     warn!("no cursor position in mouse input handler");
@@ -503,11 +525,6 @@ impl Window {
                                 }
                                 .into(),
                             );
-                            self.shared_window_data
-                                .0
-                                .borrow()
-                                .winit_window
-                                .request_redraw(); // TODO: smarter redraw
                         }
                     }
                 }
@@ -552,11 +569,6 @@ impl Window {
                             get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
                         {
                             widget.dispatch(ImeEvent(ime).into());
-                            self.shared_window_data
-                                .0
-                                .borrow()
-                                .winit_window
-                                .request_redraw(); // TODO: smarter redraw
                         }
                     }
                 }
@@ -567,11 +579,6 @@ impl Window {
                 if let Some(root_widget) = &mut self.root_widget {
                     root_widget.dispatch(WindowFocusChangeEvent { focused }.into());
                 }
-                self.shared_window_data
-                    .0
-                    .borrow()
-                    .winit_window
-                    .request_redraw(); // TODO: smarter redraw
             }
             _ => {}
         }
@@ -729,11 +736,6 @@ impl Window {
         } else {
             warn!("set_focus: widget not found on second pass");
         }
-        self.shared_window_data
-            .0
-            .borrow()
-            .winit_window
-            .request_redraw(); // TODO: smarter redraw
     }
 
     fn unset_focus(&mut self) {
@@ -794,11 +796,6 @@ impl Window {
                     }
                     .into(),
                 );
-                self.shared_window_data
-                    .0
-                    .borrow()
-                    .winit_window
-                    .request_redraw(); // TODO: smarter redraw
             } else {
                 warn!("cannot dispatch accessible event (no such widget): {request:?}");
             }

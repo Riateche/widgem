@@ -8,8 +8,8 @@ use winit::event::MouseButton;
 use crate::{
     callback::Callback,
     draw::DrawEvent,
-    event::CursorMoveEvent,
     event::{AccessibleEvent, FocusReason, MouseInputEvent},
+    event::{CursorLeaveEvent, CursorMoveEvent},
     layout::SizeHint,
     system::{send_window_request, with_system},
     text_editor::TextEditor,
@@ -51,6 +51,7 @@ impl Button {
     pub fn set_text(&mut self, text: impl Display) {
         self.editor.set_text(&text.to_string(), Attrs::new());
         self.common.size_hint_changed();
+        self.common.update();
     }
 
     //TODO: needs some automatic redraw?
@@ -58,6 +59,7 @@ impl Button {
         if self.enabled != enabled {
             self.enabled = enabled;
             self.update_color();
+            self.common.update();
         }
     }
 
@@ -171,6 +173,7 @@ impl Widget for Button {
             if event.state().is_pressed() {
                 self.click();
             }
+            self.common.update();
         }
 
         let mount_point = &self
@@ -188,8 +191,15 @@ impl Widget for Button {
         true
     }
 
-    fn on_cursor_move(&mut self, _event: CursorMoveEvent) -> bool {
+    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> bool {
+        if event.is_enter() {
+            self.common.update();
+        }
         true
+    }
+
+    fn on_cursor_leave(&mut self, _event: CursorLeaveEvent) {
+        self.common.update();
     }
 
     fn common(&self) -> &WidgetCommon {

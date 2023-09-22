@@ -81,6 +81,7 @@ impl TextInput {
             .set_text(&sanitize(&text.to_string()), Attrs::new());
         self.after_change();
         self.reset_blink_timer();
+        self.common.update();
     }
 
     fn after_change(&mut self) {
@@ -121,7 +122,11 @@ impl TextInput {
                 self.scroll_x += cursor_x_in_viewport - (self.editor_viewport_rect.size.x - 1);
             }
         }
-        self.scroll_x = self.scroll_x.clamp(0, max_scroll);
+        let new_scroll = self.scroll_x.clamp(0, max_scroll);
+        if self.scroll_x != new_scroll {
+            self.scroll_x = new_scroll;
+            self.common.update();
+        }
     }
 
     fn reset_blink_timer(&mut self) {
@@ -139,11 +144,15 @@ impl TextInput {
             });
             self.blink_timer = Some(id);
         }
+        self.common.update();
     }
 
     fn toggle_cursor_hidden(&mut self) {
         self.editor
             .set_cursor_hidden(!self.editor.is_cursor_hidden());
+        if !self.editor.has_selection() {
+            self.common.update();
+        }
     }
 
     fn copy_to_clipboard(&mut self) {
@@ -175,6 +184,7 @@ impl TextInput {
             event.num_clicks(),
             mount_point.window.0.borrow().modifiers_state.shift_key(),
         );
+        self.common.update();
     }
 }
 
@@ -295,6 +305,7 @@ impl Widget for TextInput {
                             match r {
                                 Ok(text) => {
                                     self.editor.insert_string(&sanitize(&text), None);
+                                    self.common.update();
                                 }
                                 Err(err) => {
                                     warn!("clipboard error: {err}");
@@ -340,10 +351,15 @@ impl Widget for TextInput {
             .contains(&MouseButton::Left)
         {
             let pos = event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
+            let old_selection = (self.editor.select_opt(), self.editor.cursor());
             self.editor
                 .action(Action::Drag { x: pos.x, y: pos.y }, true);
+            let new_selection = (self.editor.select_opt(), self.editor.cursor());
+            if old_selection != new_selection {
+                self.after_change();
+                self.common.update();
+            }
         }
-        self.after_change();
         true
     }
 
@@ -415,6 +431,7 @@ impl Widget for TextInput {
             return false;
         }
         self.after_change();
+        self.common.update();
         self.reset_blink_timer();
         true
     }
@@ -439,6 +456,7 @@ impl Widget for TextInput {
             Ime::Disabled => {}
         }
         self.after_change();
+        self.common.update();
         self.reset_blink_timer();
         true
     }
@@ -482,14 +500,17 @@ impl Widget for TextInput {
     }
     fn on_focus_in(&mut self, event: FocusInEvent) {
         self.editor.on_focus_in(event.reason);
+        self.common.update();
         self.reset_blink_timer();
     }
     fn on_focus_out(&mut self, _event: FocusOutEvent) {
         self.editor.on_focus_out();
+        self.common.update();
         self.reset_blink_timer();
     }
     fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) {
         self.editor.on_window_focus_changed(event.focused);
+        self.common.update();
         self.reset_blink_timer();
     }
     fn on_accessible(&mut self, event: AccessibleEvent) {
@@ -517,6 +538,7 @@ impl Widget for TextInput {
                 };
                 self.editor.set_accessible_selection(data);
                 self.after_change();
+                self.common.update();
                 self.reset_blink_timer();
             }
             _ => {}

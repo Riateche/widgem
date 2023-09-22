@@ -527,6 +527,10 @@ impl TextEditor {
         self.is_cursor_hidden
     }
 
+    pub fn selection(&self) -> Option<(Cursor, Cursor)> {
+        self.editor.selection()
+    }
+
     pub fn selected_text(&mut self) -> Option<String> {
         // TODO: patch cosmic-text to remove mut and don't return empty selection
         self.editor.copy_selection().filter(|s| !s.is_empty())

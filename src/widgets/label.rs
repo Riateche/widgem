@@ -24,6 +24,7 @@ impl Label {
     pub fn set_text(&mut self, text: impl Display) {
         self.editor.set_text(&text.to_string(), Attrs::new());
         self.common.size_hint_changed();
+        self.common.update();
     }
 }
 

@@ -34,6 +34,7 @@ impl Column {
 
     pub fn add(&mut self, widget: Box<dyn Widget>) {
         self.common.add_child(self.common.children.len(), widget);
+        self.common.update();
     }
 }
 

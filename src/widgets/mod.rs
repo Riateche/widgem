@@ -76,6 +76,8 @@ pub struct WidgetCommon {
     pub size_hint_x_cache: Option<SizeHint>,
     // TODO: limit count
     pub size_hint_y_cache: HashMap<i32, SizeHint>,
+
+    pub pending_accessible_update: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -103,6 +105,7 @@ impl WidgetCommon {
             children: Vec::new(),
             size_hint_x_cache: None,
             size_hint_y_cache: HashMap::new(),
+            pending_accessible_update: false,
         }
     }
 
@@ -123,6 +126,7 @@ impl WidgetCommon {
             mount_point.index_in_parent,
         );
         self.mount_point = Some(mount_point);
+        self.update();
         // TODO: set is_window_focused
     }
 
@@ -151,6 +155,15 @@ impl WidgetCommon {
 
     pub fn size(&self) -> Option<Size> {
         self.rect_in_window.as_ref().map(|g| g.size)
+    }
+
+    // Request redraw and accessible update
+    pub fn update(&mut self) {
+        let Some(mount_point) = &self.mount_point else {
+            return;
+        };
+        mount_point.window.request_redraw();
+        self.pending_accessible_update = true;
     }
 
     pub fn add_child(&mut self, index: usize, mut widget: Box<dyn Widget>) {
@@ -509,8 +522,15 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::GeometryChange(_) => {
                 self.apply_layout();
+                self.common_mut().update();
             }
-            _ => {}
+            Event::CursorLeave(_)
+            | Event::FocusIn(_)
+            | Event::FocusOut(_)
+            | Event::KeyboardInput(_)
+            | Event::Ime(_)
+            | Event::Mount(_)
+            | Event::Accessible(_) => {}
         }
 
         self.update_accessible();
@@ -548,6 +568,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn update_accessible(&mut self) {
+        if !self.common().pending_accessible_update {
+            return;
+        }
         let node = self.accessible_node();
         let Some(mount_point) = self.common().mount_point.as_ref() else {
             return;
@@ -570,6 +593,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             .borrow_mut()
             .accessible_nodes
             .update(self.common().id.0.into(), node);
+        self.common_mut().pending_accessible_update = false;
     }
 
     fn cached_size_hint_x(&mut self) -> SizeHint {

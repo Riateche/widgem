@@ -23,6 +23,7 @@ impl Stack {
         let id = widget.common().id;
         self.common.add_child(index, widget);
         self.rects.insert(id, Some(rect));
+        self.common.update();
     }
 }
 
