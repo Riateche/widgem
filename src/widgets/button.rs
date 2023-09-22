@@ -24,7 +24,6 @@ pub struct Button {
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
     is_pressed: bool,
-    enabled: bool,
     common: WidgetCommon,
 }
 
@@ -37,30 +36,18 @@ impl Button {
         common.is_focusable = true;
         let mut editor = TextEditor::new(&text.to_string());
         editor.set_cursor_hidden(true);
-        let mut this = Self {
+        Self {
             editor,
             on_clicked: None,
-            enabled: true,
             is_pressed: false,
             common,
-        };
-        this.update_color();
-        this
+        }
     }
 
     pub fn set_text(&mut self, text: impl Display) {
         self.editor.set_text(&text.to_string(), Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
-    }
-
-    //TODO: needs some automatic redraw?
-    pub fn set_enabled(&mut self, enabled: bool) {
-        if self.enabled != enabled {
-            self.enabled = enabled;
-            self.update_color();
-            self.common.update();
-        }
     }
 
     pub fn on_clicked(&mut self, callback: Callback<String>) {
@@ -72,18 +59,12 @@ impl Button {
             on_clicked.invoke(self.editor.text());
         }
     }
-
-    fn update_color(&mut self) {
-        self.editor.set_text_color(if self.enabled {
-            with_system(|system| system.palette.foreground)
-        } else {
-            Color::from_rgba8(191, 191, 191, 255)
-        });
-    }
 }
 
 impl Widget for Button {
     fn on_draw(&mut self, event: DrawEvent) {
+        println!("draw button {}", self.common.is_enabled());
+
         let start = tiny_skia::Point {
             x: event.rect().top_left.x as f32,
             y: event.rect().top_left.y as f32,
@@ -92,7 +73,7 @@ impl Widget for Button {
             x: event.rect().top_left.x as f32,
             y: event.rect().top_left.y as f32 + event.rect().size.y as f32,
         };
-        let gradient = if !self.enabled {
+        let gradient = if !self.common.is_enabled() {
             LinearGradient::new(
                 start,
                 end,
@@ -138,7 +119,7 @@ impl Widget for Button {
             )
         }
         .expect("failed to create gradient");
-        let border_color = if self.enabled {
+        let border_color = if self.common.is_enabled() {
             if self.common.is_focused {
                 Color::from_rgba8(38, 112, 158, 255)
             } else {
@@ -158,6 +139,11 @@ impl Widget for Button {
             border_color,
         );
 
+        self.editor.set_text_color(if self.common.is_enabled() {
+            with_system(|system| system.style.palette.foreground)
+        } else {
+            Color::from_rgba8(191, 191, 191, 255)
+        });
         let editor_pixmap = self.editor.pixmap();
         let padding = Point {
             x: max(0, event.rect().size.x - editor_pixmap.width() as i32) / 2,
@@ -169,7 +155,7 @@ impl Widget for Button {
     fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
         // TODO: only on release, check buttons
         if event.button() == MouseButton::Left {
-            self.is_pressed = self.enabled && event.state().is_pressed();
+            self.is_pressed = self.common.is_enabled() && event.state().is_pressed();
             if event.state().is_pressed() {
                 self.click();
             }

@@ -1,6 +1,8 @@
 use std::{
     collections::HashMap,
+    fmt::{self, Debug},
     marker::PhantomData,
+    rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -14,10 +16,11 @@ use crate::{
     event::{
         AccessibleEvent, CursorLeaveEvent, CursorMoveEvent, Event, FocusInEvent, FocusOutEvent,
         GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
-        UnmountEvent, WindowFocusChangeEvent,
+        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
-    system::{address, register_address, unregister_address},
+    style::Style,
+    system::{address, register_address, unregister_address, with_system},
     types::{Rect, Size},
     window::SharedWindowData,
 };
@@ -49,12 +52,35 @@ impl From<RawWidgetId> for NodeId {
 
 pub struct WidgetId<T>(pub RawWidgetId, pub PhantomData<T>);
 
+impl<T> Debug for WidgetId<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
 impl<T> Clone for WidgetId<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 impl<T> Copy for WidgetId<T> {}
+
+#[derive(Debug, Clone)]
+pub struct WidgetScope {
+    pub is_visible: bool,
+    pub is_enabled: bool,
+    pub style: Rc<Style>,
+}
+
+impl WidgetScope {
+    pub fn root() -> Self {
+        Self {
+            is_visible: true,
+            is_enabled: true,
+            style: with_system(|s| s.style.clone()),
+        }
+    }
+}
 
 pub struct WidgetCommon {
     pub id: RawWidgetId,
@@ -78,6 +104,10 @@ pub struct WidgetCommon {
     pub size_hint_y_cache: HashMap<i32, SizeHint>,
 
     pub pending_accessible_update: bool,
+
+    pub is_explicitly_enabled: bool,
+    pub is_explicitly_visible: bool,
+    pub explicit_style: Option<Rc<Style>>,
 }
 
 #[derive(Debug, Clone)]
@@ -86,14 +116,18 @@ pub struct MountPoint {
     pub window: SharedWindowData,
     pub parent_id: Option<RawWidgetId>,
     // Determines visual / accessible order.
+    // TODO: remove, use address
     pub index_in_parent: usize,
-    // TODO: separate event for updating index_in_parent without remounting
+    pub parent_scope: WidgetScope,
 }
 
 impl WidgetCommon {
     pub fn new() -> Self {
         Self {
             id: RawWidgetId::new(),
+            is_explicitly_enabled: true,
+            is_explicitly_visible: true,
+            explicit_style: None,
             is_focusable: false,
             is_focused: false,
             is_mouse_entered: false,
@@ -153,6 +187,41 @@ impl WidgetCommon {
         self.is_window_focused = false;
     }
 
+    pub fn is_visible(&self) -> bool {
+        if let Some(mount_point) = &self.mount_point {
+            mount_point.parent_scope.is_visible && self.is_explicitly_visible
+        } else {
+            self.is_explicitly_visible
+        }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        if let Some(mount_point) = &self.mount_point {
+            mount_point.parent_scope.is_enabled && self.is_explicitly_enabled
+        } else {
+            self.is_explicitly_enabled
+        }
+    }
+
+    pub fn style(&self) -> Rc<Style> {
+        if let Some(mount_point) = &self.mount_point {
+            self.explicit_style
+                .as_ref()
+                .unwrap_or(&mount_point.parent_scope.style)
+                .clone()
+        } else {
+            with_system(|s| s.style.clone())
+        }
+    }
+
+    pub fn effective_scope(&self) -> WidgetScope {
+        WidgetScope {
+            is_visible: self.is_visible(),
+            is_enabled: self.is_enabled(),
+            style: self.style(),
+        }
+    }
+
     pub fn size(&self) -> Option<Size> {
         self.rect_in_window.as_ref().map(|g| g.size)
     }
@@ -175,6 +244,7 @@ impl WidgetCommon {
                     window: mount_point.window.clone(),
                     parent_id: Some(self.id),
                     index_in_parent: index,
+                    parent_scope: self.effective_scope(),
                 })
                 .into(),
             );
@@ -191,6 +261,7 @@ impl WidgetCommon {
     }
 
     fn remount_children(&mut self, from_index: usize) {
+        let scope = self.effective_scope();
         if let Some(mount_point) = &self.mount_point {
             for i in from_index..self.children.len() {
                 self.children[i].widget.dispatch(UnmountEvent.into());
@@ -200,6 +271,7 @@ impl WidgetCommon {
                         window: mount_point.window.clone(),
                         parent_id: Some(self.id),
                         index_in_parent: i,
+                        parent_scope: scope.clone(),
                     })
                     .into(),
                 );
@@ -304,6 +376,9 @@ pub trait Widget: Downcast {
     fn on_geometry_change(&mut self, event: GeometryChangeEvent) {
         let _ = event;
     }
+    fn on_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) {
+        let _ = event;
+    }
     fn on_mount(&mut self, event: MountEvent) {
         let _ = event;
     }
@@ -364,6 +439,10 @@ pub trait Widget: Downcast {
                 self.on_accessible(e);
                 true
             }
+            Event::WidgetScopeChange(e) => {
+                self.on_widget_scope_change(e);
+                true
+            }
         }
     }
     fn size_hint_x(&mut self) -> SizeHint;
@@ -391,6 +470,12 @@ pub trait WidgetExt {
     fn apply_layout(&mut self);
     fn cached_size_hint_x(&mut self) -> SizeHint;
     fn cached_size_hint_y(&mut self, size_x: i32) -> SizeHint;
+
+    // TODO: private
+    fn set_parent_scope(&mut self, scope: WidgetScope);
+    fn set_enabled(&mut self, enabled: bool);
+    fn set_visible(&mut self, visible: bool);
+    fn set_style(&mut self, style: Option<Rc<Style>>);
 }
 
 impl<W: Widget + ?Sized> WidgetExt for W {
@@ -412,6 +497,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().mount(mount_point.clone());
 
                 let id = self.common().id;
+                let scope = self.common().effective_scope();
                 for (i, child) in self.common_mut().children.iter_mut().enumerate() {
                     let child_address = mount_point.address.clone().join(i);
                     child.widget.dispatch(
@@ -420,6 +506,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                             parent_id: Some(id),
                             window: mount_point.window.clone(),
                             index_in_parent: i,
+                            parent_scope: scope.clone(),
                         })
                         .into(),
                     );
@@ -524,6 +611,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.apply_layout();
                 self.common_mut().update();
             }
+            Event::WidgetScopeChange(_) => {
+                let scope = self.common().effective_scope();
+                for child in &mut self.common_mut().children {
+                    child.widget.as_mut().set_parent_scope(scope.clone());
+                }
+                self.common_mut().update();
+            }
             Event::CursorLeave(_)
             | Event::FocusIn(_)
             | Event::FocusOut(_)
@@ -613,6 +707,30 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             self.common_mut().size_hint_y_cache.insert(size_x, r);
             r
         }
+    }
+
+    fn set_parent_scope(&mut self, scope: WidgetScope) {
+        if let Some(mount_point) = &mut self.common_mut().mount_point {
+            mount_point.parent_scope = scope;
+        } else {
+            warn!("set_parent_scope: widget is not mounted");
+        }
+        self.dispatch(WidgetScopeChangeEvent.into());
+    }
+
+    fn set_enabled(&mut self, enabled: bool) {
+        self.common_mut().is_explicitly_enabled = enabled;
+        self.dispatch(WidgetScopeChangeEvent.into());
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        self.common_mut().is_explicitly_visible = visible;
+        self.dispatch(WidgetScopeChangeEvent.into());
+    }
+
+    fn set_style(&mut self, style: Option<Rc<Style>>) {
+        self.common_mut().explicit_style = style;
+        self.dispatch(WidgetScopeChangeEvent.into());
     }
 }
 

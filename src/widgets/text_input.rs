@@ -231,9 +231,9 @@ impl Widget for TextInput {
                 },
                 2.0,
                 if self.common.is_focused {
-                    system.palette.focused_input_border
+                    system.style.palette.focused_input_border
                 } else {
-                    system.palette.unfocused_input_border
+                    system.style.palette.unfocused_input_border
                 },
                 1.0,
             );

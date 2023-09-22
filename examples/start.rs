@@ -33,6 +33,11 @@ impl AnotherState {
 struct State {
     another_state: AnotherState,
     button_id: WidgetId<Button>,
+    column2_id: WidgetId<Column>,
+    button21_id: WidgetId<Button>,
+    button22_id: WidgetId<Button>,
+    flag_column: bool,
+    flag_button21: bool,
 }
 
 impl State {
@@ -68,6 +73,17 @@ impl State {
         }));
         root.add(Box::new(btn2));
 
+        let mut column2 = Column::new();
+        let column2_id = column2.id();
+        let button21 = Button::new("btn21");
+        let button21_id = button21.id();
+        column2.add(Box::new(button21));
+        let button22 = Button::new("btn22");
+        let button22_id = button22.id();
+        column2.add(Box::new(button22));
+
+        root.add(Box::new(column2));
+
         let (another_state, btn3) =
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
         root.add(btn3);
@@ -80,6 +96,11 @@ impl State {
         State {
             another_state,
             button_id,
+            column2_id,
+            button21_id,
+            button22_id,
+            flag_column: true,
+            flag_button21: true,
         }
     }
 
@@ -91,6 +112,23 @@ impl State {
         println!("callback! {:?}, {}", data, k);
         let button = ctx.widget(self.button_id).unwrap();
         button.set_text(&format!("ok {k}"));
+
+        if k == 1 {
+            self.flag_column = !self.flag_column;
+            ctx.widget(self.column2_id)
+                .unwrap()
+                .set_enabled(self.flag_column);
+            println!("set enabled {:?} {:?}", self.column2_id, self.flag_column);
+        } else {
+            self.flag_button21 = !self.flag_button21;
+            ctx.widget(self.button21_id)
+                .unwrap()
+                .set_enabled(self.flag_button21);
+            println!(
+                "set enabled {:?} {:?}",
+                self.button21_id, self.flag_button21
+            );
+        }
     }
 }
 

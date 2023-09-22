@@ -49,7 +49,7 @@ impl TextEditor {
         let mut e = with_system(|system| Self {
             editor: Editor::new(Buffer::new(&mut system.font_system, system.font_metrics)),
             pixmap: None,
-            text_color: system.palette.foreground,
+            text_color: system.style.palette.foreground,
             size: Size::default(),
             window: None,
             is_cursor_hidden: false,
@@ -274,8 +274,10 @@ impl TextEditor {
     }
 
     pub fn set_text_color(&mut self, color: Color) {
-        self.text_color = color;
-        self.editor.buffer_mut().set_redraw(true);
+        if self.text_color != color {
+            self.text_color = color;
+            self.editor.buffer_mut().set_redraw(true);
+        }
     }
 
     pub fn shape_as_needed(&mut self) {

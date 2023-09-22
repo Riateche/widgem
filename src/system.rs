@@ -12,7 +12,7 @@ use winit::{event_loop::EventLoopProxy, window::WindowId};
 use crate::{
     callback::WidgetCallback,
     event_loop::UserEvent,
-    style::Palette,
+    style::Style,
     timer::{TimerId, Timers, WidgetTimer},
     widgets::{RawWidgetId, Widget, WidgetAddress, WidgetId},
     window::{Window, WindowRequest},
@@ -29,7 +29,7 @@ pub struct SharedSystemDataInner {
 
     // TODO: per-widget font metrics and palette (as part of the style)
     pub font_metrics: cosmic_text::Metrics,
-    pub palette: Palette,
+    pub style: Rc<Style>,
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,

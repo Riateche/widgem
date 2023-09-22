@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, marker::PhantomData, time::Instant};
+use std::{collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
 
 use accesskit_winit::ActionRequestEvent;
 use arboard::Clipboard;
@@ -19,7 +19,7 @@ use crate::{
         Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, InvokeCallbackEvent,
         WidgetCallback,
     },
-    style::Palette,
+    style::{Palette, Style},
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
     widgets::{
@@ -145,14 +145,16 @@ pub fn run<State: 'static>(
         swash_cache: SwashCache::new(),
         font_metrics: cosmic_text::Metrics::new(24.0, 30.0),
         event_loop_proxy: event_loop.create_proxy(),
-        palette: Palette {
-            foreground: Color::BLACK,
-            background: Color::WHITE,
-            unfocused_input_border: Color::from_rgba8(200, 200, 200, 255),
-            focused_input_border: Color::from_rgba8(100, 100, 255, 255),
-            // foreground: Color::WHITE,
-            // background: Color::BLACK,
-        },
+        style: Rc::new(Style {
+            palette: Palette {
+                foreground: Color::BLACK,
+                background: Color::WHITE,
+                unfocused_input_border: Color::from_rgba8(200, 200, 200, 255),
+                focused_input_border: Color::from_rgba8(100, 100, 255, 255),
+                // foreground: Color::WHITE,
+                // background: Color::BLACK,
+            },
+        }),
         timers: Timers::new(),
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
         new_windows: Vec::new(),
