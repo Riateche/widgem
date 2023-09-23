@@ -66,6 +66,7 @@ impl Widget for Column {
         let available_size_y =
             rect_in_window.size.y - self.common.children.len().saturating_sub(1) as i32 * SPACING;
         let solved = solve_layout(&items_y, available_size_y);
+        println!("{solved:?} sum={}", solved.iter().sum::<i32>());
         for (i, (result_item, size_x)) in solved.into_iter().zip(sizes_x).enumerate() {
             if result_item == 0 {
                 new_rects.push(None);
@@ -139,13 +140,20 @@ fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
     let total_preferred: i32 = items.iter().map(|item| item.size_hint.preferred).sum();
     let mut result = Vec::new();
     if total_preferred == total {
+        println!("all preferred");
         return items.iter().map(|item| item.size_hint.preferred).collect();
     } else if total_preferred > total {
+        println!("expand from min (total={total}, total_preferred={total_preferred})");
         let total_min: i32 = items.iter().map(|item| item.size_hint.min).sum();
-        let extra_per_item = max(0, total - total_min) / items.len() as i32;
+        let factor = if total_preferred == total_min {
+            0.0
+        } else {
+            (total - total_min) as f32 / (total_preferred - total_min) as f32
+        };
         let mut remaining = total;
         for item in items {
-            let item_size = item.size_hint.min + extra_per_item;
+            let item_size = item.size_hint.min
+                + ((item.size_hint.preferred - item.size_hint.min) as f32 * factor).round() as i32;
             let item_size = min(item_size, remaining);
             result.push(item_size);
             remaining -= item_size;
@@ -154,6 +162,7 @@ fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
             }
         }
     } else if total_preferred < total {
+        println!("expand from preferred");
         let num_flexible = items.iter().filter(|item| !item.size_hint.is_fixed).count() as i32;
         // let extra_per_flexible = if num_flexible != 0 {
         //     max(0, total - total_preferred) / num_flexible
