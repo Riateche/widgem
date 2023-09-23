@@ -63,7 +63,7 @@ impl Button {
 
 impl Widget for Button {
     fn on_draw(&mut self, event: DrawEvent) {
-        println!("draw button {}", self.common.is_enabled());
+        // println!("draw button {}", self.common.is_enabled());
 
         let start = tiny_skia::Point {
             x: event.rect().top_left.x as f32,

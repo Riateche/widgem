@@ -6,7 +6,6 @@ use cosmic_text::{FontSystem, SwashCache};
 use derive_more::From;
 use log::{trace, warn};
 use scoped_tls::scoped_thread_local;
-use tiny_skia::Color;
 use winit::{
     error::EventLoopError,
     event::Event,
@@ -19,7 +18,7 @@ use crate::{
         Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, InvokeCallbackEvent,
         WidgetCallback,
     },
-    style::{Palette, Style},
+    style::default_style,
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
     widgets::{
@@ -132,6 +131,18 @@ fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>) {
     });
 }
 
+fn default_scale<T>(window_target: &EventLoopWindowTarget<T>) -> f32 {
+    let monitor = window_target
+        .primary_monitor()
+        .or_else(|| window_target.available_monitors().next());
+    if let Some(monitor) = monitor {
+        monitor.scale_factor() as f32
+    } else {
+        warn!("unable to find any monitors");
+        1.0
+    }
+}
+
 pub fn run<State: 'static>(
     make_state: impl FnOnce(&mut CallbackContext<State>) -> State,
 ) -> Result<(), EventLoopError> {
@@ -143,22 +154,14 @@ pub fn run<State: 'static>(
         address_book: HashMap::new(),
         font_system: FontSystem::new(),
         swash_cache: SwashCache::new(),
-        font_metrics: cosmic_text::Metrics::new(24.0, 30.0),
         event_loop_proxy: event_loop.create_proxy(),
-        style: Rc::new(Style {
-            palette: Palette {
-                foreground: Color::BLACK,
-                background: Color::WHITE,
-                unfocused_input_border: Color::from_rgba8(200, 200, 200, 255),
-                focused_input_border: Color::from_rgba8(100, 100, 255, 255),
-                // foreground: Color::WHITE,
-                // background: Color::BLACK,
-            },
-        }),
+        style: Rc::new(default_style()),
         timers: Timers::new(),
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
         new_windows: Vec::new(),
         exit_after_last_window_closes: true,
+        // TODO: how to detect monitor scale change?
+        default_scale: default_scale(&event_loop),
     };
     SYSTEM.with(|system| {
         *system.0.borrow_mut() = Some(shared_system_data);

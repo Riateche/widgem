@@ -27,14 +27,13 @@ pub struct SharedSystemDataInner {
     pub font_system: FontSystem,
     pub swash_cache: SwashCache,
 
-    // TODO: per-widget font metrics and palette (as part of the style)
-    pub font_metrics: cosmic_text::Metrics,
     pub style: Rc<Style>,
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
     pub new_windows: Vec<Window>,
     pub exit_after_last_window_closes: bool,
+    pub default_scale: f32,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);

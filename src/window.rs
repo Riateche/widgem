@@ -4,7 +4,6 @@ use std::{
     mem,
     num::NonZeroU32,
     rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant},
 };
 
@@ -142,6 +141,7 @@ const EXTRA_SURFACE_SIZE: u32 = 50;
 impl Window {
     fn new(mut inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
         if let Some(widget) = &mut widget {
+            // TODO: propagate style without mounting?
             let size_hint_x = widget.cached_size_hint_x();
             // TODO: adjust size_x for screen size
             let size_hint_y = widget.cached_size_hint_y(size_hint_x.preferred);
@@ -298,11 +298,11 @@ impl Window {
                 let mut buffer = self.surface.buffer_mut().unwrap();
 
                 let pending_redraw = self.shared_window_data.0.borrow().pending_redraw;
-                static X: AtomicU64 = AtomicU64::new(0);
-                println!(
-                    "redraw event {pending_redraw} {}",
-                    X.fetch_add(1, Ordering::Relaxed)
-                );
+                // static X: AtomicU64 = AtomicU64::new(0);
+                // println!(
+                //     "redraw event {pending_redraw} {}",
+                //     X.fetch_add(1, Ordering::Relaxed)
+                // );
                 if pending_redraw {
                     let draw_event = DrawEvent::new(
                         Rc::clone(&self.pixmap),

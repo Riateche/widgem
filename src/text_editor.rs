@@ -26,6 +26,8 @@ pub struct TextEditor {
     editor: Editor,
     pixmap: Option<Pixmap>,
     text_color: Color,
+    selected_text_color: Color,
+    selected_text_background: Color,
     size: Size,
     window: Option<SharedWindowData>,
     is_cursor_hidden: bool,
@@ -47,24 +49,36 @@ pub struct AccessibleLine {
 impl TextEditor {
     pub fn new(text: &str) -> Self {
         let mut e = with_system(|system| Self {
-            editor: Editor::new(Buffer::new(&mut system.font_system, system.font_metrics)),
+            editor: Editor::new(Buffer::new(
+                &mut system.font_system,
+                system.style.font.to_metrics(system.default_scale),
+            )),
             pixmap: None,
-            text_color: system.style.palette.foreground,
+            // actual colors are set below
+            text_color: Color::TRANSPARENT,
+            selected_text_color: Color::TRANSPARENT,
+            selected_text_background: Color::TRANSPARENT,
             size: Size::default(),
             window: None,
             is_cursor_hidden: false,
             forbid_mouse_interaction: false,
         });
         e.set_text(text, Attrs::new());
-        // TODO: get from theme
-        e.editor
-            .set_selection_color(Some(cosmic_text::Color::rgb(61, 174, 233)));
-        e.editor
-            .set_selected_text_color(Some(cosmic_text::Color::rgb(255, 255, 255)));
+        with_system(|system| {
+            e.set_text_color(system.style.palette.foreground);
+            e.set_selected_text_color(system.style.palette.selected_text_color);
+            e.set_selected_text_background(system.style.palette.selected_text_background);
+        });
         e.adjust_size();
-        // let mut c = e.cursor();
-        // c.color = Some(cosmic_text::Color::rgb(0, 255, 0));
         e
+    }
+
+    pub fn set_font_metrics(&mut self, metrics: cosmic_text::Metrics) {
+        with_system(|system| {
+            self.editor
+                .buffer_mut()
+                .set_metrics(&mut system.font_system, metrics);
+        });
     }
 
     pub fn set_window(&mut self, window: Option<SharedWindowData>) {
@@ -277,6 +291,21 @@ impl TextEditor {
         if self.text_color != color {
             self.text_color = color;
             self.editor.buffer_mut().set_redraw(true);
+        }
+    }
+
+    pub fn set_selected_text_color(&mut self, color: Color) {
+        if self.selected_text_color != color {
+            self.selected_text_color = color;
+            self.editor
+                .set_selected_text_color(Some(convert_color(color)));
+        }
+    }
+
+    pub fn set_selected_text_background(&mut self, color: Color) {
+        if self.selected_text_background != color {
+            self.selected_text_background = color;
+            self.editor.set_selection_color(Some(convert_color(color)));
         }
     }
 

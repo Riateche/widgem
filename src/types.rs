@@ -3,6 +3,7 @@ use std::{
     ops::{Add, Sub, SubAssign},
 };
 
+// TODO: use PhysicalPixels?
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Point {
     pub x: i32,

@@ -187,6 +187,7 @@ impl DrawEvent {
         self.fill_path(&path, shader);
     }
 
+    // TODO: PhysicalPixels?
     pub fn stroke_rounded_rect(&self, rect: Rect, radius: f32, color: Color, width: f32) {
         let path = self.rounded_rect_path(rect, radius, width);
         self.stroke_path(&path, color, width);

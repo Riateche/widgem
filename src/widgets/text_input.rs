@@ -7,6 +7,7 @@ use std::{
 use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
 use cosmic_text::{Action, Attrs, Wrap};
 use log::warn;
+use tiny_skia::Color;
 use winit::{
     event::{ElementState, Ime, MouseButton},
     keyboard::Key,
@@ -19,10 +20,15 @@ use crate::{
     event::{
         AccessibleEvent, CursorMoveEvent, FocusInEvent, FocusOutEvent, FocusReason,
         GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
-        UnmountEvent, WindowFocusChangeEvent,
+        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
+    style::{
+        computed::ComputedBorderStyle,
+        defaults::{MIN_TEXT_INPUT_ASPECT_RATIO, PREFERRED_TEXT_INPUT_ASPECT_RATIO},
+        BackgroundStyle, PseudoClass, Style, TextInputStyle,
+    },
     system::{add_interval, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
@@ -30,21 +36,17 @@ use crate::{
     window::SetFocusRequest,
 };
 
-use super::{Widget, WidgetCommon, WidgetExt};
-
-const PADDING: i32 = 5;
-const MIN_ASPECT_RATIO: i32 = 2;
-const PREFERRED_ASPECT_RATIO: i32 = 10;
+use super::{MountPoint, Widget, WidgetCommon, WidgetExt};
 
 pub struct TextInput {
     editor: TextEditor,
     editor_viewport_rect: Rect,
-    ideal_editor_offset: Point,
     scroll_x: i32,
     common: WidgetCommon,
     blink_timer: Option<TimerId>,
     selected_text: String,
     accessible_line_id: NodeId,
+    computed_style: ComputedStyle,
 }
 
 // TODO: get system setting
@@ -52,6 +54,82 @@ const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
 fn sanitize(text: &str) -> String {
     text.replace('\n', " ")
+}
+
+#[derive(Debug)]
+struct ComputedStyleVariant {
+    min_padding: Point,
+    preferred_padding: Point,
+    min_aspect_ratio: f32,
+    preferred_aspect_ratio: f32,
+    font_metrics: cosmic_text::Metrics,
+    border: Option<ComputedBorderStyle>,
+    background: Option<BackgroundStyle>,
+    text_color: Color,
+    selected_text_color: Color,
+    selected_text_background: Color,
+}
+
+impl ComputedStyleVariant {
+    fn compute(style: &Style, classes: &[PseudoClass], scale: f32) -> Self {
+        let mut current = TextInputStyle::default();
+        println!("compute {classes:?}");
+        for item in style.text_input.filter(classes) {
+            println!("item {item:?}");
+            current.apply(item);
+        }
+        let mut font = style.font.clone();
+        font.apply(&current.font);
+        // TODO: get more default properties from style root?
+        // TODO: default border from style root
+        Self {
+            min_padding: current.min_padding.unwrap_or_default().to_physical(scale),
+            preferred_padding: current
+                .preferred_padding
+                .unwrap_or_default()
+                .to_physical(scale),
+            min_aspect_ratio: current
+                .min_aspect_ratio
+                .unwrap_or(MIN_TEXT_INPUT_ASPECT_RATIO),
+            preferred_aspect_ratio: current
+                .preferred_aspect_ratio
+                .unwrap_or(PREFERRED_TEXT_INPUT_ASPECT_RATIO),
+            font_metrics: font.to_metrics(scale),
+            border: current.border.to_physical(scale),
+            background: current.background,
+            text_color: current.text_color.unwrap_or(style.palette.foreground),
+            selected_text_color: current
+                .selected_text_color
+                .unwrap_or(style.palette.selected_text_color),
+            selected_text_background: current
+                .selected_text_background
+                .unwrap_or(style.palette.selected_text_background),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ComputedStyle {
+    normal: ComputedStyleVariant,
+    focused: ComputedStyleVariant,
+    // TODO: other pseudoclass combinations?
+}
+
+fn compute_style(mount_point: Option<&MountPoint>) -> ComputedStyle {
+    let (style, scale) = if let Some(mount_point) = mount_point {
+        (
+            mount_point.parent_scope.style.clone(),
+            mount_point.window.0.borrow().winit_window.scale_factor() as f32,
+        )
+    } else {
+        with_system(|system| (system.style.clone(), system.default_scale))
+    };
+    let c = ComputedStyle {
+        normal: ComputedStyleVariant::compute(&style, &[], scale),
+        focused: ComputedStyleVariant::compute(&style, &[PseudoClass::Focused], scale),
+    };
+    println!("{c:?}");
+    c
 }
 
 impl TextInput {
@@ -66,12 +144,11 @@ impl TextInput {
             editor,
             common,
             editor_viewport_rect: Rect::default(),
-            // TODO: get from theme
-            ideal_editor_offset: Point { x: 5, y: 5 },
             scroll_x: 0,
             blink_timer: None,
             selected_text: String::new(),
             accessible_line_id: accessible::new_id(),
+            computed_style: compute_style(None),
         }
     }
 
@@ -186,29 +263,51 @@ impl TextInput {
         );
         self.common.update();
     }
-}
 
-impl Widget for TextInput {
-    fn on_geometry_change(&mut self, event: GeometryChangeEvent) {
-        if let Some(new_rect_in_window) = event.new_rect_in_window {
-            let offset_y = max(0, new_rect_in_window.size.y - self.editor.size().y) / 2;
+    fn recompute_style(&mut self) {
+        self.computed_style = compute_style(self.common.mount_point.as_ref());
+        self.editor
+            .set_font_metrics(self.computed_style.normal.font_metrics);
+        self.editor
+            .set_text_color(self.computed_style.normal.text_color);
+        self.editor
+            .set_selected_text_color(self.computed_style.normal.selected_text_color);
+        self.editor
+            .set_selected_text_background(self.computed_style.normal.selected_text_background);
+        self.update_viewport_rect();
+        self.common.update();
+    }
+
+    fn update_viewport_rect(&mut self) {
+        if let Some(rect_in_window) = self.common.rect_in_window {
+            let offset_y = max(0, rect_in_window.size.y - self.editor.size().y) / 2;
             self.editor_viewport_rect = Rect {
                 top_left: Point {
-                    x: self.ideal_editor_offset.x,
+                    x: self.computed_style.normal.preferred_padding.x,
                     y: offset_y,
                 },
                 size: Size {
                     x: max(
                         0,
-                        new_rect_in_window.size.x - 2 * self.ideal_editor_offset.x,
+                        rect_in_window.size.x - 2 * self.computed_style.normal.preferred_padding.x,
                     ),
-                    y: min(new_rect_in_window.size.y, self.editor.size().y),
+                    y: min(rect_in_window.size.y, self.editor.size().y),
                 },
             };
             self.adjust_scroll();
             self.reset_blink_timer();
             // self.editor.set_size(new_geometry.rect_in_window.size);
         }
+    }
+}
+
+impl Widget for TextInput {
+    fn on_geometry_change(&mut self, _event: GeometryChangeEvent) {
+        self.update_viewport_rect();
+    }
+
+    fn on_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) {
+        self.recompute_style();
     }
 
     fn on_draw(&mut self, event: DrawEvent) {
@@ -223,21 +322,22 @@ impl Widget for TextInput {
             .as_ref()
             .expect("cannot draw when unmounted");
 
-        with_system(|system| {
+        let style = if self.common.is_focused {
+            &self.computed_style.focused
+        } else {
+            &self.computed_style.normal
+        };
+        if let Some(border) = &style.border {
             event.stroke_rounded_rect(
                 Rect {
                     top_left: Point::default(),
                     size: rect_in_window.size,
                 },
-                2.0,
-                if self.common.is_focused {
-                    system.style.palette.focused_input_border
-                } else {
-                    system.style.palette.unfocused_input_border
-                },
-                1.0,
+                border.radius.get() as f32,
+                border.color,
+                border.width.get() as f32,
             );
-        });
+        }
 
         let mut target_rect = self.editor_viewport_rect;
         target_rect.size.x = min(target_rect.size.x, self.editor.size().x);
@@ -469,6 +569,7 @@ impl Widget for TextInput {
     }
 
     fn on_mount(&mut self, event: MountEvent) {
+        self.recompute_style();
         self.editor.set_window(Some(event.0.window.clone()));
         self.reset_blink_timer();
 
@@ -479,6 +580,7 @@ impl Widget for TextInput {
         );
     }
     fn on_unmount(&mut self, _event: UnmountEvent) {
+        self.recompute_style();
         let Some(mount_point) = &self.common.mount_point else {
             warn!("on_unmount: no mount point");
             return;
@@ -587,19 +689,20 @@ impl Widget for TextInput {
     }
 
     fn size_hint_x(&mut self) -> SizeHint {
-        let size_hint_y = self.size_hint_y(0);
+        let size_y = self.editor.size().y as f32;
+        let style = &self.computed_style.normal;
         SizeHint {
-            min: size_hint_y.min * MIN_ASPECT_RATIO,
-            preferred: size_hint_y.preferred * PREFERRED_ASPECT_RATIO,
+            min: (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding.x,
+            preferred: (size_y * style.preferred_aspect_ratio).round() as i32
+                + style.preferred_padding.x,
             is_fixed: false,
         }
     }
 
     fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
-        let size = self.editor.size().y + 2 * PADDING;
         SizeHint {
-            min: self.editor.size().y,
-            preferred: size,
+            min: self.editor.size().y + 2 * self.computed_style.normal.min_padding.y,
+            preferred: self.editor.size().y + 2 * self.computed_style.normal.preferred_padding.y,
             is_fixed: true,
         }
     }
