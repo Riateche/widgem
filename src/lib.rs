@@ -1,4 +1,5 @@
 #![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_else_if)]
 
 pub mod accessible;
 pub mod callback;

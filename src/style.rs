@@ -37,6 +37,9 @@ impl PseudoClassCondition {
 pub struct PseudoClassRules<T>(Vec<(PseudoClassCondition, T)>);
 
 impl<T> PseudoClassRules<T> {
+    pub fn has_class(&self, class: PseudoClass) -> bool {
+        self.0.iter().any(|(rule, _)| rule.0.contains(&class))
+    }
     pub fn filter<'a: 'b, 'b>(
         &'a self,
         classes: &'b [PseudoClass],
@@ -285,6 +288,26 @@ pub fn default_style() -> Style {
                         ..Default::default()
                     },
                 ),
+                /*(
+                    PseudoClassCondition(vec![PseudoClass::MouseOver]),
+                    TextInputVariantStyle {
+                        border: BorderStyle {
+                            color: Some(Color::from_rgba8(255, 0, 0, 255)),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                ),
+                (
+                    PseudoClassCondition(vec![PseudoClass::Focused, PseudoClass::MouseOver]),
+                    TextInputVariantStyle {
+                        border: BorderStyle {
+                            color: Some(Color::from_rgba8(0, 255, 0, 255)),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                ),*/
             ]),
         },
         palette: Palette {

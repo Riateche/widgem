@@ -18,9 +18,9 @@ use crate::{
     accessible,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, CursorMoveEvent, FocusInEvent, FocusOutEvent, FocusReason,
-        GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
-        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        AccessibleEvent, CursorLeaveEvent, CursorMoveEvent, FocusInEvent, FocusOutEvent,
+        FocusReason, GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent,
+        MouseInputEvent, UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
@@ -59,10 +59,13 @@ struct ComputedStyle {
     min_aspect_ratio: f32,
     preferred_aspect_ratio: f32,
     font_metrics: cosmic_text::Metrics,
+    has_mouse_over: bool,
 
     normal: ComputedVariantStyle,
+    disabled: ComputedVariantStyle,
+    mouse_over: ComputedVariantStyle,
     focused: ComputedVariantStyle,
-    // TODO: other pseudoclass combinations?
+    focused_mouse_over: ComputedVariantStyle,
 }
 
 #[derive(Debug)]
@@ -119,9 +122,17 @@ fn compute_style(mount_point: Option<&MountPoint>) -> ComputedStyle {
         min_aspect_ratio: style.text_input.min_aspect_ratio,
         preferred_aspect_ratio: style.text_input.preferred_aspect_ratio,
         font_metrics: font.to_metrics(scale),
+        has_mouse_over: style.text_input.variants.has_class(PseudoClass::MouseOver),
 
         normal: ComputedVariantStyle::compute(&style, &[], scale),
         focused: ComputedVariantStyle::compute(&style, &[PseudoClass::Focused], scale),
+        disabled: ComputedVariantStyle::compute(&style, &[PseudoClass::Disabled], scale),
+        mouse_over: ComputedVariantStyle::compute(&style, &[PseudoClass::MouseOver], scale),
+        focused_mouse_over: ComputedVariantStyle::compute(
+            &style,
+            &[PseudoClass::Focused, PseudoClass::MouseOver],
+            scale,
+        ),
     };
     println!("{c:?}");
     c
@@ -317,10 +328,20 @@ impl Widget for TextInput {
             .as_ref()
             .expect("cannot draw when unmounted");
         let is_focused = self.common.is_focused && mount_point.window.0.borrow().is_window_focused;
-        let style = if is_focused {
-            &self.computed_style.focused
+        let style = if !self.common.is_enabled() {
+            &self.computed_style.disabled
+        } else if self.common.is_mouse_entered {
+            if is_focused {
+                &self.computed_style.focused_mouse_over
+            } else {
+                &self.computed_style.mouse_over
+            }
         } else {
-            &self.computed_style.normal
+            if is_focused {
+                &self.computed_style.focused
+            } else {
+                &self.computed_style.normal
+            }
         };
         if let Some(border) = &style.border {
             event.stroke_rounded_rect(
@@ -454,8 +475,24 @@ impl Widget for TextInput {
                 self.after_change();
                 self.common.update();
             }
+        } else if mount_point
+            .window
+            .0
+            .borrow()
+            .pressed_mouse_buttons
+            .is_empty()
+        {
+            if self.computed_style.has_mouse_over && event.is_enter() {
+                self.common.update();
+            }
         }
         true
+    }
+
+    fn on_cursor_leave(&mut self, _event: CursorLeaveEvent) {
+        if self.computed_style.has_mouse_over {
+            self.common.update();
+        }
     }
 
     #[allow(clippy::if_same_then_else)]
