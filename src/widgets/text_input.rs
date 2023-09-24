@@ -24,11 +24,7 @@ use crate::{
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
-    style::{
-        computed::ComputedBorderStyle,
-        defaults::{MIN_TEXT_INPUT_ASPECT_RATIO, PREFERRED_TEXT_INPUT_ASPECT_RATIO},
-        BackgroundStyle, PseudoClass, Style, TextInputStyle,
-    },
+    style::{computed::ComputedBorderStyle, Background, PseudoClass, Style, TextInputVariantStyle},
     system::{add_interval, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
@@ -57,44 +53,40 @@ fn sanitize(text: &str) -> String {
 }
 
 #[derive(Debug)]
-struct ComputedStyleVariant {
+struct ComputedStyle {
     min_padding: Point,
     preferred_padding: Point,
     min_aspect_ratio: f32,
     preferred_aspect_ratio: f32,
     font_metrics: cosmic_text::Metrics,
+
+    normal: ComputedVariantStyle,
+    focused: ComputedVariantStyle,
+    // TODO: other pseudoclass combinations?
+}
+
+#[derive(Debug)]
+struct ComputedVariantStyle {
     border: Option<ComputedBorderStyle>,
-    background: Option<BackgroundStyle>,
+    background: Option<Background>,
     text_color: Color,
     selected_text_color: Color,
     selected_text_background: Color,
 }
 
-impl ComputedStyleVariant {
+impl ComputedVariantStyle {
     fn compute(style: &Style, classes: &[PseudoClass], scale: f32) -> Self {
-        let mut current = TextInputStyle::default();
+        let mut current = TextInputVariantStyle::default();
         println!("compute {classes:?}");
-        for item in style.text_input.filter(classes) {
+        for item in style.text_input.variants.filter(classes) {
             println!("item {item:?}");
             current.apply(item);
         }
         let mut font = style.font.clone();
-        font.apply(&current.font);
+        font.apply(&style.text_input.font);
         // TODO: get more default properties from style root?
         // TODO: default border from style root
         Self {
-            min_padding: current.min_padding.unwrap_or_default().to_physical(scale),
-            preferred_padding: current
-                .preferred_padding
-                .unwrap_or_default()
-                .to_physical(scale),
-            min_aspect_ratio: current
-                .min_aspect_ratio
-                .unwrap_or(MIN_TEXT_INPUT_ASPECT_RATIO),
-            preferred_aspect_ratio: current
-                .preferred_aspect_ratio
-                .unwrap_or(PREFERRED_TEXT_INPUT_ASPECT_RATIO),
-            font_metrics: font.to_metrics(scale),
             border: current.border.to_physical(scale),
             background: current.background,
             text_color: current.text_color.unwrap_or(style.palette.foreground),
@@ -108,13 +100,6 @@ impl ComputedStyleVariant {
     }
 }
 
-#[derive(Debug)]
-struct ComputedStyle {
-    normal: ComputedStyleVariant,
-    focused: ComputedStyleVariant,
-    // TODO: other pseudoclass combinations?
-}
-
 fn compute_style(mount_point: Option<&MountPoint>) -> ComputedStyle {
     let (style, scale) = if let Some(mount_point) = mount_point {
         (
@@ -124,9 +109,19 @@ fn compute_style(mount_point: Option<&MountPoint>) -> ComputedStyle {
     } else {
         with_system(|system| (system.style.clone(), system.default_scale))
     };
+
+    let mut font = style.font.clone();
+    font.apply(&style.text_input.font);
+
     let c = ComputedStyle {
-        normal: ComputedStyleVariant::compute(&style, &[], scale),
-        focused: ComputedStyleVariant::compute(&style, &[PseudoClass::Focused], scale),
+        min_padding: style.text_input.min_padding.to_physical(scale),
+        preferred_padding: style.text_input.preferred_padding.to_physical(scale),
+        min_aspect_ratio: style.text_input.min_aspect_ratio,
+        preferred_aspect_ratio: style.text_input.preferred_aspect_ratio,
+        font_metrics: font.to_metrics(scale),
+
+        normal: ComputedVariantStyle::compute(&style, &[], scale),
+        focused: ComputedVariantStyle::compute(&style, &[PseudoClass::Focused], scale),
     };
     println!("{c:?}");
     c
@@ -267,7 +262,7 @@ impl TextInput {
     fn recompute_style(&mut self) {
         self.computed_style = compute_style(self.common.mount_point.as_ref());
         self.editor
-            .set_font_metrics(self.computed_style.normal.font_metrics);
+            .set_font_metrics(self.computed_style.font_metrics);
         self.editor
             .set_text_color(self.computed_style.normal.text_color);
         self.editor
@@ -283,13 +278,13 @@ impl TextInput {
             let offset_y = max(0, rect_in_window.size.y - self.editor.size().y) / 2;
             self.editor_viewport_rect = Rect {
                 top_left: Point {
-                    x: self.computed_style.normal.preferred_padding.x,
+                    x: self.computed_style.preferred_padding.x,
                     y: offset_y,
                 },
                 size: Size {
                     x: max(
                         0,
-                        rect_in_window.size.x - 2 * self.computed_style.normal.preferred_padding.x,
+                        rect_in_window.size.x - 2 * self.computed_style.preferred_padding.x,
                     ),
                     y: min(rect_in_window.size.y, self.editor.size().y),
                 },
@@ -690,7 +685,7 @@ impl Widget for TextInput {
 
     fn size_hint_x(&mut self) -> SizeHint {
         let size_y = self.editor.size().y as f32;
-        let style = &self.computed_style.normal;
+        let style = &self.computed_style;
         SizeHint {
             min: (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding.x,
             preferred: (size_y * style.preferred_aspect_ratio).round() as i32
@@ -701,8 +696,8 @@ impl Widget for TextInput {
 
     fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
         SizeHint {
-            min: self.editor.size().y + 2 * self.computed_style.normal.min_padding.y,
-            preferred: self.editor.size().y + 2 * self.computed_style.normal.preferred_padding.y,
+            min: self.editor.size().y + 2 * self.computed_style.min_padding.y,
+            preferred: self.editor.size().y + 2 * self.computed_style.preferred_padding.y,
             is_fixed: true,
         }
     }

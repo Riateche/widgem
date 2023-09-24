@@ -24,7 +24,7 @@ pub enum PseudoClass {
 }
 
 // just A && B && C for now
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PseudoClassCondition(Vec<PseudoClass>);
 
 impl PseudoClassCondition {
@@ -33,7 +33,7 @@ impl PseudoClassCondition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PseudoClassRules<T>(Vec<(PseudoClassCondition, T)>);
 
 impl<T> PseudoClassRules<T> {
@@ -48,35 +48,27 @@ impl<T> PseudoClassRules<T> {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TextInputStyle {
-    pub min_padding: Option<Padding>,
-    pub preferred_padding: Option<Padding>,
-    pub min_aspect_ratio: Option<f32>,
-    pub preferred_aspect_ratio: Option<f32>,
+    pub min_padding: Padding,
+    pub preferred_padding: Padding,
+    pub min_aspect_ratio: f32,
+    pub preferred_aspect_ratio: f32,
     pub font: FontStyle,
+    pub variants: PseudoClassRules<TextInputVariantStyle>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TextInputVariantStyle {
     pub border: BorderStyle,
-    pub background: Option<BackgroundStyle>,
+    pub background: Option<Background>,
     pub text_color: Option<Color>,
     pub selected_text_color: Option<Color>,
     pub selected_text_background: Option<Color>,
 }
 
-impl TextInputStyle {
+impl TextInputVariantStyle {
     pub fn apply(&mut self, other: &Self) {
-        if let Some(min_padding) = other.min_padding {
-            self.min_padding = Some(min_padding);
-        }
-        if let Some(preferred_padding) = other.preferred_padding {
-            self.preferred_padding = Some(preferred_padding);
-        }
-        if let Some(min_aspect_ratio) = other.min_aspect_ratio {
-            self.min_aspect_ratio = Some(min_aspect_ratio);
-        }
-        if let Some(preferred_aspect_ratio) = other.preferred_aspect_ratio {
-            self.preferred_aspect_ratio = Some(preferred_aspect_ratio);
-        }
-        self.font.apply(&other.font);
         self.border.apply(&other.border);
         if let Some(background) = &other.background {
             self.background = Some(background.clone());
@@ -99,12 +91,12 @@ pub struct ButtonStyle {
     pub preferred_padding: Option<Padding>,
     pub font: FontStyle,
     pub border: BorderStyle,
-    pub background: Option<BackgroundStyle>,
+    pub background: Option<Background>,
     pub text_color: Option<Color>,
 }
 
 #[derive(Debug, Clone)]
-pub enum BackgroundStyle {
+pub enum Background {
     Solid(Color),
     LinearGradient(()), // TODO
 }
@@ -131,7 +123,7 @@ impl Padding {
 pub struct Style {
     pub font: RootFontStyle,
     pub palette: Palette,
-    pub text_input: PseudoClassRules<TextInputStyle>,
+    pub text_input: TextInputStyle,
     pub button: PseudoClassRules<ButtonStyle>,
 }
 
@@ -265,33 +257,36 @@ pub fn default_style() -> Style {
             font_size: 13.lpx(),
             line_height: 18.lpx(),
         },
-        text_input: PseudoClassRules(vec![
-            (
-                PseudoClassCondition(vec![]),
-                TextInputStyle {
-                    min_padding: Some(Padding::new(1.lpx(), 0.lpx())),
-                    preferred_padding: Some(Padding::new(5.lpx(), 4.lpx())),
-                    min_aspect_ratio: Some(2.0),
-                    preferred_aspect_ratio: Some(10.0),
-                    border: BorderStyle {
-                        color: Some(Color::from_rgba8(200, 200, 200, 255)),
-                        width: Some(1.lpx()),
-                        radius: Some(2.lpx()),
-                    },
-                    ..Default::default()
-                },
-            ),
-            (
-                PseudoClassCondition(vec![PseudoClass::Focused]),
-                TextInputStyle {
-                    border: BorderStyle {
-                        color: Some(Color::from_rgba8(100, 100, 255, 255)),
+        text_input: TextInputStyle {
+            min_padding: Padding::new(1.lpx(), 0.lpx()),
+            preferred_padding: Padding::new(5.lpx(), 4.lpx()),
+            min_aspect_ratio: 2.0,
+            preferred_aspect_ratio: 10.0,
+            font: Default::default(),
+            variants: PseudoClassRules(vec![
+                (
+                    PseudoClassCondition(vec![]),
+                    TextInputVariantStyle {
+                        border: BorderStyle {
+                            color: Some(Color::from_rgba8(200, 200, 200, 255)),
+                            width: Some(1.lpx()),
+                            radius: Some(2.lpx()),
+                        },
                         ..Default::default()
                     },
-                    ..Default::default()
-                },
-            ),
-        ]),
+                ),
+                (
+                    PseudoClassCondition(vec![PseudoClass::Focused]),
+                    TextInputVariantStyle {
+                        border: BorderStyle {
+                            color: Some(Color::from_rgba8(100, 100, 255, 255)),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                ),
+            ]),
+        },
         palette: Palette {
             foreground: Color::BLACK,
             background: Color::WHITE,
@@ -309,7 +304,7 @@ pub fn default_style() -> Style {
                         width: Some(1.lpx()),
                         radius: Some(2.lpx()),
                     },
-                    background: Some(BackgroundStyle::LinearGradient(())),
+                    background: Some(Background::LinearGradient(())),
                     ..Default::default()
                 },
             ),
@@ -320,7 +315,7 @@ pub fn default_style() -> Style {
                         color: Some(Color::from_rgba8(38, 112, 158, 255)),
                         ..Default::default()
                     },
-                    background: Some(BackgroundStyle::LinearGradient(())),
+                    background: Some(Background::LinearGradient(())),
                     ..Default::default()
                 },
             ),
