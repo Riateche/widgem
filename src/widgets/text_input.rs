@@ -321,8 +321,8 @@ impl Widget for TextInput {
             .mount_point
             .as_ref()
             .expect("cannot draw when unmounted");
-
-        let style = if self.common.is_focused {
+        let is_focused = self.common.is_focused && mount_point.window.0.borrow().is_window_focused;
+        let style = if is_focused {
             &self.computed_style.focused
         } else {
             &self.computed_style.normal
@@ -344,7 +344,7 @@ impl Widget for TextInput {
 
         let scroll = Point::new(self.scroll_x, 0);
         event.draw_subpixmap(target_rect, self.editor.pixmap().as_ref(), scroll);
-        if self.common.is_focused {
+        if is_focused {
             if let Some(editor_cursor) = self.editor.cursor_position() {
                 // We specify an area below the input because on Windows
                 // the IME window obscures the specified area.
