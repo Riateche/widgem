@@ -19,7 +19,7 @@ use crate::{
         UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
-    style::Style,
+    style::{computed::ComputedStyle, Style},
     system::{address, register_address, unregister_address, with_system},
     types::{Rect, Size},
     window::SharedWindowData,
@@ -69,16 +69,16 @@ impl<T> Copy for WidgetId<T> {}
 pub struct WidgetScope {
     pub is_visible: bool,
     pub is_enabled: bool,
-    pub style: Rc<Style>,
+    pub style: Rc<ComputedStyle>,
 }
 
-impl WidgetScope {
-    pub fn root() -> Self {
-        Self {
+impl Default for WidgetScope {
+    fn default() -> Self {
+        with_system(|s| Self {
             is_visible: true,
             is_enabled: true,
-            style: with_system(|s| s.style.clone()),
-        }
+            style: s.default_style.clone(),
+        })
     }
 }
 
@@ -91,6 +91,7 @@ pub struct WidgetCommon {
     pub is_focused: bool,
     // TODO: set initial value in mount event
     pub is_window_focused: bool,
+    pub parent_scope: WidgetScope,
 
     pub is_mouse_entered: bool,
     pub mount_point: Option<MountPoint>,
@@ -107,18 +108,18 @@ pub struct WidgetCommon {
 
     pub is_explicitly_enabled: bool,
     pub is_explicitly_visible: bool,
-    pub explicit_style: Option<Rc<Style>>,
+    pub explicit_style: Option<Rc<ComputedStyle>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MountPoint {
     pub address: WidgetAddress,
     pub window: SharedWindowData,
+    // TODO: move out? unmounted widget can have parent
     pub parent_id: Option<RawWidgetId>,
     // Determines visual / accessible order.
     // TODO: remove, use address
     pub index_in_parent: usize,
-    pub parent_scope: WidgetScope,
 }
 
 impl WidgetCommon {
@@ -140,6 +141,7 @@ impl WidgetCommon {
             size_hint_x_cache: None,
             size_hint_y_cache: HashMap::new(),
             pending_accessible_update: false,
+            parent_scope: WidgetScope::default(),
         }
     }
 
@@ -188,37 +190,25 @@ impl WidgetCommon {
     }
 
     pub fn is_visible(&self) -> bool {
-        if let Some(mount_point) = &self.mount_point {
-            mount_point.parent_scope.is_visible && self.is_explicitly_visible
-        } else {
-            self.is_explicitly_visible
-        }
+        self.parent_scope.is_visible && self.is_explicitly_visible
     }
 
     pub fn is_enabled(&self) -> bool {
-        if let Some(mount_point) = &self.mount_point {
-            mount_point.parent_scope.is_enabled && self.is_explicitly_enabled
-        } else {
-            self.is_explicitly_enabled
-        }
+        self.parent_scope.is_enabled && self.is_explicitly_enabled
     }
 
-    pub fn style(&self) -> Rc<Style> {
-        if let Some(mount_point) = &self.mount_point {
-            self.explicit_style
-                .as_ref()
-                .unwrap_or(&mount_point.parent_scope.style)
-                .clone()
-        } else {
-            with_system(|s| s.style.clone())
-        }
+    pub fn style(&self) -> &Rc<ComputedStyle> {
+        self.explicit_style
+            .as_ref()
+            .unwrap_or(&self.parent_scope.style)
     }
 
     pub fn effective_scope(&self) -> WidgetScope {
         WidgetScope {
             is_visible: self.is_visible(),
             is_enabled: self.is_enabled(),
-            style: self.style(),
+            // TODO: allow overriding scale?
+            style: self.style().clone(),
         }
     }
 
@@ -244,10 +234,10 @@ impl WidgetCommon {
                     window: mount_point.window.clone(),
                     parent_id: Some(self.id),
                     index_in_parent: index,
-                    parent_scope: self.effective_scope(),
                 })
                 .into(),
             );
+            widget.set_parent_scope(self.effective_scope());
         }
         self.children.insert(
             index,
@@ -261,7 +251,6 @@ impl WidgetCommon {
     }
 
     fn remount_children(&mut self, from_index: usize) {
-        let scope = self.effective_scope();
         if let Some(mount_point) = &self.mount_point {
             for i in from_index..self.children.len() {
                 self.children[i].widget.dispatch(UnmountEvent.into());
@@ -271,7 +260,6 @@ impl WidgetCommon {
                         window: mount_point.window.clone(),
                         parent_id: Some(self.id),
                         index_in_parent: i,
-                        parent_scope: scope.clone(),
                     })
                     .into(),
                 );
@@ -283,6 +271,7 @@ impl WidgetCommon {
         let mut widget = self.children.remove(index).widget;
         if self.mount_point.is_some() {
             widget.dispatch(UnmountEvent.into());
+            widget.set_parent_scope(WidgetScope::default());
         }
         self.remount_children(index);
         self.size_hint_changed();
@@ -475,7 +464,7 @@ pub trait WidgetExt {
     fn set_parent_scope(&mut self, scope: WidgetScope);
     fn set_enabled(&mut self, enabled: bool);
     fn set_visible(&mut self, visible: bool);
-    fn set_style(&mut self, style: Option<Rc<Style>>);
+    fn set_style(&mut self, style: Option<Style>);
 }
 
 impl<W: Widget + ?Sized> WidgetExt for W {
@@ -497,7 +486,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().mount(mount_point.clone());
 
                 let id = self.common().id;
-                let scope = self.common().effective_scope();
                 for (i, child) in self.common_mut().children.iter_mut().enumerate() {
                     let child_address = mount_point.address.clone().join(i);
                     child.widget.dispatch(
@@ -506,7 +494,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                             parent_id: Some(id),
                             window: mount_point.window.clone(),
                             index_in_parent: i,
-                            parent_scope: scope.clone(),
                         })
                         .into(),
                     );
@@ -711,11 +698,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn set_parent_scope(&mut self, scope: WidgetScope) {
-        if let Some(mount_point) = &mut self.common_mut().mount_point {
-            mount_point.parent_scope = scope;
-        } else {
-            warn!("set_parent_scope: widget is not mounted");
-        }
+        self.common_mut().parent_scope = scope;
         self.dispatch(WidgetScopeChangeEvent.into());
     }
 
@@ -729,7 +712,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         self.dispatch(WidgetScopeChangeEvent.into());
     }
 
-    fn set_style(&mut self, style: Option<Rc<Style>>) {
+    fn set_style(&mut self, style: Option<Style>) {
+        let scale = self.common().parent_scope.style.scale;
+        let style = style.map(|style| Rc::new(ComputedStyle::new(style, scale)));
         self.common_mut().explicit_style = style;
         self.dispatch(WidgetScopeChangeEvent.into());
     }

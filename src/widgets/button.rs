@@ -139,8 +139,16 @@ impl Widget for Button {
             border_color,
         );
 
+        // let style = &self.common.style().text_input;
+        // let style = if self.common.is_enabled() {
+        //     // TODO: support more variants
+        //     &style.normal
+        // } else {
+        //     &style.disabled
+        // };
+
         self.editor.set_text_color(if self.common.is_enabled() {
-            with_system(|system| system.style.palette.foreground)
+            with_system(|system| system.default_style.style.palette.foreground)
         } else {
             Color::from_rgba8(191, 191, 191, 255)
         });

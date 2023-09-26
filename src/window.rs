@@ -31,7 +31,7 @@ use crate::{
     types::{Point, Rect, Size},
     widgets::{
         get_widget_by_id_mut, invalidate_size_hint_cache, MountPoint, RawWidgetId, Widget,
-        WidgetAddress, WidgetExt, WidgetScope,
+        WidgetAddress, WidgetExt,
     },
 };
 
@@ -180,7 +180,6 @@ impl Window {
                     parent_id: None,
                     window: shared_window_data.clone(),
                     index_in_parent: 0,
-                    parent_scope: WidgetScope::root(),
                 })
                 .into(),
             );
@@ -315,7 +314,7 @@ impl Window {
                         },
                     );
                     // TODO: option to turn off background, set style
-                    let color = with_system(|system| system.style.palette.background);
+                    let color = with_system(|system| system.default_style.style.palette.background);
                     self.pixmap.borrow_mut().fill(color);
                     if let Some(widget) = &mut self.root_widget {
                         widget.dispatch(draw_event.into());
@@ -639,7 +638,6 @@ impl Window {
                     parent_id: None,
                     window: self.shared_window_data.clone(),
                     index_in_parent: 0,
-                    parent_scope: WidgetScope::root(),
                 })
                 .into(),
             );

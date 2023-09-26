@@ -7,7 +7,6 @@ use std::{
 use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
 use cosmic_text::{Action, Attrs, Wrap};
 use log::warn;
-use tiny_skia::Color;
 use winit::{
     event::{ElementState, Ime, MouseButton},
     keyboard::Key,
@@ -24,7 +23,6 @@ use crate::{
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
-    style::{computed::ComputedBorderStyle, Background, PseudoClass, Style, TextInputVariantStyle},
     system::{add_interval, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
@@ -32,7 +30,7 @@ use crate::{
     window::SetFocusRequest,
 };
 
-use super::{MountPoint, Widget, WidgetCommon, WidgetExt};
+use super::{Widget, WidgetCommon, WidgetExt};
 
 pub struct TextInput {
     editor: TextEditor,
@@ -42,7 +40,6 @@ pub struct TextInput {
     blink_timer: Option<TimerId>,
     selected_text: String,
     accessible_line_id: NodeId,
-    computed_style: ComputedStyle,
 }
 
 // TODO: get system setting
@@ -50,92 +47,6 @@ const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
 fn sanitize(text: &str) -> String {
     text.replace('\n', " ")
-}
-
-#[derive(Debug)]
-struct ComputedStyle {
-    min_padding: Point,
-    preferred_padding: Point,
-    min_aspect_ratio: f32,
-    preferred_aspect_ratio: f32,
-    font_metrics: cosmic_text::Metrics,
-    has_mouse_over: bool,
-
-    normal: ComputedVariantStyle,
-    disabled: ComputedVariantStyle,
-    mouse_over: ComputedVariantStyle,
-    focused: ComputedVariantStyle,
-    focused_mouse_over: ComputedVariantStyle,
-}
-
-#[derive(Debug)]
-struct ComputedVariantStyle {
-    border: Option<ComputedBorderStyle>,
-    background: Option<Background>,
-    text_color: Color,
-    selected_text_color: Color,
-    selected_text_background: Color,
-}
-
-impl ComputedVariantStyle {
-    fn compute(style: &Style, classes: &[PseudoClass], scale: f32) -> Self {
-        let mut current = TextInputVariantStyle::default();
-        println!("compute {classes:?}");
-        for item in style.text_input.variants.filter(classes) {
-            println!("item {item:?}");
-            current.apply(item);
-        }
-        let mut font = style.font.clone();
-        font.apply(&style.text_input.font);
-        // TODO: get more default properties from style root?
-        // TODO: default border from style root
-        Self {
-            border: current.border.to_physical(scale),
-            background: current.background,
-            text_color: current.text_color.unwrap_or(style.palette.foreground),
-            selected_text_color: current
-                .selected_text_color
-                .unwrap_or(style.palette.selected_text_color),
-            selected_text_background: current
-                .selected_text_background
-                .unwrap_or(style.palette.selected_text_background),
-        }
-    }
-}
-
-fn compute_style(mount_point: Option<&MountPoint>) -> ComputedStyle {
-    let (style, scale) = if let Some(mount_point) = mount_point {
-        (
-            mount_point.parent_scope.style.clone(),
-            mount_point.window.0.borrow().winit_window.scale_factor() as f32,
-        )
-    } else {
-        with_system(|system| (system.style.clone(), system.default_scale))
-    };
-
-    let mut font = style.font.clone();
-    font.apply(&style.text_input.font);
-
-    let c = ComputedStyle {
-        min_padding: style.text_input.min_padding.to_physical(scale),
-        preferred_padding: style.text_input.preferred_padding.to_physical(scale),
-        min_aspect_ratio: style.text_input.min_aspect_ratio,
-        preferred_aspect_ratio: style.text_input.preferred_aspect_ratio,
-        font_metrics: font.to_metrics(scale),
-        has_mouse_over: style.text_input.variants.has_class(PseudoClass::MouseOver),
-
-        normal: ComputedVariantStyle::compute(&style, &[], scale),
-        focused: ComputedVariantStyle::compute(&style, &[PseudoClass::Focused], scale),
-        disabled: ComputedVariantStyle::compute(&style, &[PseudoClass::Disabled], scale),
-        mouse_over: ComputedVariantStyle::compute(&style, &[PseudoClass::MouseOver], scale),
-        focused_mouse_over: ComputedVariantStyle::compute(
-            &style,
-            &[PseudoClass::Focused, PseudoClass::MouseOver],
-            scale,
-        ),
-    };
-    println!("{c:?}");
-    c
 }
 
 impl TextInput {
@@ -154,7 +65,6 @@ impl TextInput {
             blink_timer: None,
             selected_text: String::new(),
             accessible_line_id: accessible::new_id(),
-            computed_style: compute_style(None),
         }
     }
 
@@ -270,33 +180,30 @@ impl TextInput {
         self.common.update();
     }
 
-    fn recompute_style(&mut self) {
-        self.computed_style = compute_style(self.common.mount_point.as_ref());
+    fn style_changed(&mut self) {
+        let style = &self.common.style().text_input;
+        self.editor.set_font_metrics(style.font_metrics);
+        // TODO: support color changes based on state
+        self.editor.set_text_color(style.normal.text_color);
         self.editor
-            .set_font_metrics(self.computed_style.font_metrics);
+            .set_selected_text_color(style.normal.selected_text_color);
         self.editor
-            .set_text_color(self.computed_style.normal.text_color);
-        self.editor
-            .set_selected_text_color(self.computed_style.normal.selected_text_color);
-        self.editor
-            .set_selected_text_background(self.computed_style.normal.selected_text_background);
+            .set_selected_text_background(style.normal.selected_text_background);
         self.update_viewport_rect();
         self.common.update();
     }
 
     fn update_viewport_rect(&mut self) {
+        let style = &self.common.style().text_input;
         if let Some(rect_in_window) = self.common.rect_in_window {
             let offset_y = max(0, rect_in_window.size.y - self.editor.size().y) / 2;
             self.editor_viewport_rect = Rect {
                 top_left: Point {
-                    x: self.computed_style.preferred_padding.x,
+                    x: style.preferred_padding.x,
                     y: offset_y,
                 },
                 size: Size {
-                    x: max(
-                        0,
-                        rect_in_window.size.x - 2 * self.computed_style.preferred_padding.x,
-                    ),
+                    x: max(0, rect_in_window.size.x - 2 * style.preferred_padding.x),
                     y: min(rect_in_window.size.y, self.editor.size().y),
                 },
             };
@@ -313,7 +220,7 @@ impl Widget for TextInput {
     }
 
     fn on_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) {
-        self.recompute_style();
+        self.style_changed();
     }
 
     fn on_draw(&mut self, event: DrawEvent) {
@@ -328,19 +235,21 @@ impl Widget for TextInput {
             .as_ref()
             .expect("cannot draw when unmounted");
         let is_focused = self.common.is_focused && mount_point.window.0.borrow().is_window_focused;
+        let style = &self.common.style().text_input;
+        // TODO: convenient getter
         let style = if !self.common.is_enabled() {
-            &self.computed_style.disabled
+            &style.disabled
         } else if self.common.is_mouse_entered {
             if is_focused {
-                &self.computed_style.focused_mouse_over
+                &style.focused_mouse_over
             } else {
-                &self.computed_style.mouse_over
+                &style.mouse_over
             }
         } else {
             if is_focused {
-                &self.computed_style.focused
+                &style.focused
             } else {
-                &self.computed_style.normal
+                &style.normal
             }
         };
         if let Some(border) = &style.border {
@@ -482,7 +391,7 @@ impl Widget for TextInput {
             .pressed_mouse_buttons
             .is_empty()
         {
-            if self.computed_style.has_mouse_over && event.is_enter() {
+            if self.common.style().text_input.has_mouse_over && event.is_enter() {
                 self.common.update();
             }
         }
@@ -490,7 +399,7 @@ impl Widget for TextInput {
     }
 
     fn on_cursor_leave(&mut self, _event: CursorLeaveEvent) {
-        if self.computed_style.has_mouse_over {
+        if self.common.style().text_input.has_mouse_over {
             self.common.update();
         }
     }
@@ -601,7 +510,6 @@ impl Widget for TextInput {
     }
 
     fn on_mount(&mut self, event: MountEvent) {
-        self.recompute_style();
         self.editor.set_window(Some(event.0.window.clone()));
         self.reset_blink_timer();
 
@@ -612,7 +520,6 @@ impl Widget for TextInput {
         );
     }
     fn on_unmount(&mut self, _event: UnmountEvent) {
-        self.recompute_style();
         let Some(mount_point) = &self.common.mount_point else {
             warn!("on_unmount: no mount point");
             return;
@@ -722,7 +629,8 @@ impl Widget for TextInput {
 
     fn size_hint_x(&mut self) -> SizeHint {
         let size_y = self.editor.size().y as f32;
-        let style = &self.computed_style;
+        let style = &self.common.style().text_input;
+
         SizeHint {
             min: (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding.x,
             preferred: (size_y * style.preferred_aspect_ratio).round() as i32
@@ -732,9 +640,11 @@ impl Widget for TextInput {
     }
 
     fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+        let style = &self.common.style().text_input;
+
         SizeHint {
-            min: self.editor.size().y + 2 * self.computed_style.min_padding.y,
-            preferred: self.editor.size().y + 2 * self.computed_style.preferred_padding.y,
+            min: self.editor.size().y + 2 * style.min_padding.y,
+            preferred: self.editor.size().y + 2 * style.preferred_padding.y,
             is_fixed: true,
         }
     }

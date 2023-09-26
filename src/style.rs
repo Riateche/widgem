@@ -8,7 +8,7 @@ use crate::types::Point;
 
 use self::computed::ComputedBorderStyle;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Palette {
     pub foreground: Color,
     pub background: Color,
@@ -88,11 +88,16 @@ impl TextInputVariantStyle {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ButtonStyle {
-    pub min_padding: Option<Padding>,
-    pub preferred_padding: Option<Padding>,
+    pub min_padding: Padding,
+    pub preferred_padding: Padding,
     pub font: FontStyle,
+    pub variants: PseudoClassRules<ButtonVariantStyle>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ButtonVariantStyle {
     pub border: BorderStyle,
     pub background: Option<Background>,
     pub text_color: Option<Color>,
@@ -122,12 +127,12 @@ impl Padding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Style {
     pub font: RootFontStyle,
     pub palette: Palette,
     pub text_input: TextInputStyle,
-    pub button: PseudoClassRules<ButtonStyle>,
+    pub button: ButtonStyle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Default)]
@@ -316,32 +321,36 @@ pub fn default_style() -> Style {
             selected_text_color: Color::from_rgba8(255, 255, 255, 255),
             selected_text_background: Color::from_rgba8(48, 140, 198, 255),
         },
-        button: PseudoClassRules(vec![
-            (
-                PseudoClassCondition(vec![]),
-                ButtonStyle {
-                    min_padding: Some(Padding::new(1.lpx(), 0.lpx())),
-                    preferred_padding: Some(Padding::new(5.lpx(), 5.lpx())),
-                    border: BorderStyle {
-                        color: Some(Color::from_rgba8(171, 171, 171, 255)),
-                        width: Some(1.lpx()),
-                        radius: Some(2.lpx()),
-                    },
-                    background: Some(Background::LinearGradient(())),
-                    ..Default::default()
-                },
-            ),
-            (
-                PseudoClassCondition(vec![PseudoClass::Focused]),
-                ButtonStyle {
-                    border: BorderStyle {
-                        color: Some(Color::from_rgba8(38, 112, 158, 255)),
+        button: ButtonStyle {
+            min_padding: Padding::new(1.lpx(), 0.lpx()),
+            preferred_padding: Padding::new(5.lpx(), 5.lpx()),
+            font: Default::default(),
+            variants: PseudoClassRules(vec![
+                (
+                    PseudoClassCondition(vec![]),
+                    ButtonVariantStyle {
+                        border: BorderStyle {
+                            color: Some(Color::from_rgba8(171, 171, 171, 255)),
+                            width: Some(1.lpx()),
+                            radius: Some(2.lpx()),
+                        },
+                        background: Some(Background::LinearGradient(())),
+
                         ..Default::default()
                     },
-                    background: Some(Background::LinearGradient(())),
-                    ..Default::default()
-                },
-            ),
-        ]),
+                ),
+                (
+                    PseudoClassCondition(vec![PseudoClass::Focused]),
+                    ButtonVariantStyle {
+                        border: BorderStyle {
+                            color: Some(Color::from_rgba8(38, 112, 158, 255)),
+                            ..Default::default()
+                        },
+                        background: Some(Background::LinearGradient(())),
+                        ..Default::default()
+                    },
+                ),
+            ]),
+        },
     }
 }

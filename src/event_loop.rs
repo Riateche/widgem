@@ -18,7 +18,7 @@ use crate::{
         Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, InvokeCallbackEvent,
         WidgetCallback,
     },
-    style::default_style,
+    style::{computed::ComputedStyle, default_style},
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
     widgets::{
@@ -155,13 +155,15 @@ pub fn run<State: 'static>(
         font_system: FontSystem::new(),
         swash_cache: SwashCache::new(),
         event_loop_proxy: event_loop.create_proxy(),
-        style: Rc::new(default_style()),
+        // TODO: how to detect monitor scale change?
+        default_style: Rc::new(ComputedStyle::new(
+            default_style(),
+            default_scale(&event_loop),
+        )),
         timers: Timers::new(),
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
         new_windows: Vec::new(),
         exit_after_last_window_closes: true,
-        // TODO: how to detect monitor scale change?
-        default_scale: default_scale(&event_loop),
     };
     SYSTEM.with(|system| {
         *system.0.borrow_mut() = Some(shared_system_data);

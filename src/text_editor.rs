@@ -51,7 +51,7 @@ impl TextEditor {
         let mut e = with_system(|system| Self {
             editor: Editor::new(Buffer::new(
                 &mut system.font_system,
-                system.style.font.to_metrics(system.default_scale),
+                system.default_style.font_metrics,
             )),
             pixmap: None,
             // actual colors are set below
@@ -65,9 +65,10 @@ impl TextEditor {
         });
         e.set_text(text, Attrs::new());
         with_system(|system| {
-            e.set_text_color(system.style.palette.foreground);
-            e.set_selected_text_color(system.style.palette.selected_text_color);
-            e.set_selected_text_background(system.style.palette.selected_text_background);
+            let palette = &system.default_style.style.palette;
+            e.set_text_color(palette.foreground);
+            e.set_selected_text_color(palette.selected_text_color);
+            e.set_selected_text_background(palette.selected_text_background);
         });
         e.adjust_size();
         e

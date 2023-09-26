@@ -12,7 +12,7 @@ use winit::{event_loop::EventLoopProxy, window::WindowId};
 use crate::{
     callback::WidgetCallback,
     event_loop::UserEvent,
-    style::Style,
+    style::computed::ComputedStyle,
     timer::{TimerId, Timers, WidgetTimer},
     widgets::{RawWidgetId, Widget, WidgetAddress, WidgetId},
     window::{Window, WindowRequest},
@@ -27,13 +27,12 @@ pub struct SharedSystemDataInner {
     pub font_system: FontSystem,
     pub swash_cache: SwashCache,
 
-    pub style: Rc<Style>,
+    pub default_style: Rc<ComputedStyle>,
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
     pub new_windows: Vec<Window>,
     pub exit_after_last_window_closes: bool,
-    pub default_scale: f32,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);
