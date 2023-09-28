@@ -1,16 +1,18 @@
+use std::collections::HashMap;
+
 use tiny_skia::Color;
 
-use super::{PhysicalPixels, Style};
+use super::{ClassRules, ElementState, PhysicalPixels, Style, VariantStyle};
 
 pub mod text_input {
     use tiny_skia::Color;
 
     use crate::{
-        style::{Background, PseudoClass, Style, TextInputVariantStyle},
+        style::{Background, Style, TextInputVariantStyle},
         types::Point,
     };
 
-    use super::ComputedBorderStyle;
+    use super::{ComputedBorderStyle, ComputedStyleVariants};
 
     #[derive(Debug, Clone)]
     pub struct ComputedStyle {
@@ -19,13 +21,7 @@ pub mod text_input {
         pub min_aspect_ratio: f32,
         pub preferred_aspect_ratio: f32,
         pub font_metrics: cosmic_text::Metrics,
-        pub has_mouse_over: bool,
-
-        pub normal: ComputedVariantStyle,
-        pub disabled: ComputedVariantStyle,
-        pub mouse_over: ComputedVariantStyle,
-        pub focused: ComputedVariantStyle,
-        pub focused_mouse_over: ComputedVariantStyle,
+        pub variants: ComputedStyleVariants<TextInputVariantStyle>,
     }
 
     #[derive(Debug, Clone)]
@@ -38,31 +34,6 @@ pub mod text_input {
         pub selected_text_background: Color,
     }
 
-    impl ComputedVariantStyle {
-        fn compute(style: &Style, classes: &[PseudoClass], scale: f32) -> Self {
-            let mut current = TextInputVariantStyle::default();
-            for item in style.text_input.variants.filter(classes) {
-                println!("item {item:?}");
-                current.apply(item);
-            }
-            let mut font = style.font.clone();
-            font.apply(&style.text_input.font);
-            // TODO: get more default properties from style root?
-            // TODO: default border from style root
-            Self {
-                border: current.border.to_physical(scale),
-                background: current.background,
-                text_color: current.text_color.unwrap_or(style.palette.foreground),
-                selected_text_color: current
-                    .selected_text_color
-                    .unwrap_or(style.palette.selected_text_color),
-                selected_text_background: current
-                    .selected_text_background
-                    .unwrap_or(style.palette.selected_text_background),
-            }
-        }
-    }
-
     pub fn compute_style(style: &Style, scale: f32) -> ComputedStyle {
         let mut font = style.font.clone();
         font.apply(&style.text_input.font);
@@ -73,18 +44,43 @@ pub mod text_input {
             min_aspect_ratio: style.text_input.min_aspect_ratio,
             preferred_aspect_ratio: style.text_input.preferred_aspect_ratio,
             font_metrics: font.to_metrics(scale),
-            has_mouse_over: style.text_input.variants.has_class(PseudoClass::MouseOver),
-
-            normal: ComputedVariantStyle::compute(style, &[], scale),
-            focused: ComputedVariantStyle::compute(style, &[PseudoClass::Focused], scale),
-            disabled: ComputedVariantStyle::compute(style, &[PseudoClass::Disabled], scale),
-            mouse_over: ComputedVariantStyle::compute(style, &[PseudoClass::MouseOver], scale),
-            focused_mouse_over: ComputedVariantStyle::compute(
-                style,
-                &[PseudoClass::Focused, PseudoClass::MouseOver],
-                scale,
-            ),
+            variants: ComputedStyleVariants::new(&style.text_input.variants, style, scale),
         }
+    }
+}
+
+pub mod button {
+    use tiny_skia::Color;
+
+    use crate::style::Background;
+
+    use super::ComputedBorderStyle;
+
+    #[derive(Debug, Clone)]
+    pub struct ComputedVariantStyle {
+        pub border: Option<ComputedBorderStyle>,
+        #[allow(dead_code)] // TODO: implement
+        pub background: Option<Background>,
+        pub text_color: Color,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ComputedStyleVariants<T: VariantStyle>(HashMap<T::State, T::Computed>);
+
+impl<T: VariantStyle> ComputedStyleVariants<T> {
+    pub fn new(rules: &ClassRules<T>, style: &Style, scale: f32) -> Self {
+        let mut map = HashMap::new();
+        for variant in T::State::all() {
+            let computed = rules.get(&variant).compute(style, scale);
+            map.insert(variant, computed);
+        }
+
+        Self(map)
+    }
+
+    pub fn get(&self, state: &T::State) -> &T::Computed {
+        self.0.get(state).expect("unexpected state")
     }
 }
 

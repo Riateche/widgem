@@ -62,11 +62,11 @@ pub struct SharedWindowData(pub Rc<RefCell<SharedWindowDataInner>>);
 impl SharedWindowData {
     pub fn pop_mouse_entered_widget(&self, grabber: Option<RawWidgetId>) -> Option<RawWidgetId> {
         let mut this = self.0.borrow_mut();
-        let pos = this.cursor_position?;
+        let pos = this.cursor_position;
         let list = &mut this.mouse_entered_widgets;
-        let index = list
-            .iter()
-            .position(|(rect, id)| !rect.contains(pos) && Some(*id) != grabber)?;
+        let index = list.iter().position(|(rect, id)| {
+            pos.map_or(true, |pos| !rect.contains(pos)) && Some(*id) != grabber
+        })?;
         Some(list.remove(index).1)
     }
 
@@ -348,6 +348,7 @@ impl Window {
             WindowEvent::CursorLeft { .. } => {
                 self.shared_window_data.0.borrow_mut().cursor_entered = false;
                 self.shared_window_data.0.borrow_mut().cursor_position = None;
+                self.dispatch_cursor_leave();
             }
             WindowEvent::CursorMoved {
                 position,

@@ -17,12 +17,13 @@ use crate::{
     accessible,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, CursorLeaveEvent, CursorMoveEvent, FocusInEvent, FocusOutEvent,
-        FocusReason, GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent,
-        MouseInputEvent, UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        AccessibleEvent, CursorMoveEvent, FocusInEvent, FocusOutEvent, FocusReason,
+        GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
+        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
+    style::{computed::text_input::ComputedVariantStyle, TextInputState},
     system::{add_interval, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
@@ -180,15 +181,28 @@ impl TextInput {
         self.common.update();
     }
 
+    fn current_variant_style(&self) -> &ComputedVariantStyle {
+        let state = if self.common.is_enabled() {
+            TextInputState::Enabled {
+                focused: self.common.is_focused && self.common.is_window_focused,
+                mouse_over: self.common.is_mouse_entered,
+            }
+        } else {
+            TextInputState::Disabled
+        };
+        self.common.style().text_input.variants.get(&state)
+    }
+
     fn style_changed(&mut self) {
         let style = &self.common.style().text_input;
         self.editor.set_font_metrics(style.font_metrics);
+        let style = self.current_variant_style().clone();
         // TODO: support color changes based on state
-        self.editor.set_text_color(style.normal.text_color);
+        self.editor.set_text_color(style.text_color);
         self.editor
-            .set_selected_text_color(style.normal.selected_text_color);
+            .set_selected_text_color(style.selected_text_color);
         self.editor
-            .set_selected_text_background(style.normal.selected_text_background);
+            .set_selected_text_background(style.selected_text_background);
         self.update_viewport_rect();
         self.common.update();
     }
@@ -235,23 +249,9 @@ impl Widget for TextInput {
             .as_ref()
             .expect("cannot draw when unmounted");
         let is_focused = self.common.is_focused && mount_point.window.0.borrow().is_window_focused;
-        let style = &self.common.style().text_input;
-        // TODO: convenient getter
-        let style = if !self.common.is_enabled() {
-            &style.disabled
-        } else if self.common.is_mouse_entered {
-            if is_focused {
-                &style.focused_mouse_over
-            } else {
-                &style.mouse_over
-            }
-        } else {
-            if is_focused {
-                &style.focused
-            } else {
-                &style.normal
-            }
-        };
+        //let style = &self.common.style().text_input;
+        let style = self.current_variant_style().clone();
+
         if let Some(border) = &style.border {
             event.stroke_rounded_rect(
                 Rect {
@@ -384,24 +384,8 @@ impl Widget for TextInput {
                 self.after_change();
                 self.common.update();
             }
-        } else if mount_point
-            .window
-            .0
-            .borrow()
-            .pressed_mouse_buttons
-            .is_empty()
-        {
-            if self.common.style().text_input.has_mouse_over && event.is_enter() {
-                self.common.update();
-            }
         }
         true
-    }
-
-    fn on_cursor_leave(&mut self, _event: CursorLeaveEvent) {
-        if self.common.style().text_input.has_mouse_over {
-            self.common.update();
-        }
     }
 
     #[allow(clippy::if_same_then_else)]

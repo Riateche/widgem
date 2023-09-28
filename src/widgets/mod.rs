@@ -563,6 +563,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::CursorMove(event) => {
                 if event.accepted_by().is_none() && accepted {
                     if let Some(rect_in_window) = self.common().rect_in_window {
+                        if event.is_enter() {
+                            self.common_mut().update();
+                        }
                         event.set_accepted_by(self.common().id, rect_in_window);
                         self.common_mut().is_mouse_entered = true;
                     } else {
@@ -605,14 +608,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
                 self.common_mut().update();
             }
-            Event::FocusIn(_) | Event::FocusOut(_) => {
+            Event::FocusIn(_) | Event::FocusOut(_) | Event::CursorLeave(_) => {
                 self.common_mut().update();
             }
-            Event::CursorLeave(_)
-            | Event::KeyboardInput(_)
-            | Event::Ime(_)
-            | Event::Mount(_)
-            | Event::Accessible(_) => {}
+            Event::KeyboardInput(_) | Event::Ime(_) | Event::Mount(_) | Event::Accessible(_) => {}
         }
 
         self.update_accessible();
