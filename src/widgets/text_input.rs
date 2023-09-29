@@ -18,9 +18,9 @@ use crate::{
     accessible,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, CursorMoveEvent, FocusInEvent, FocusOutEvent, FocusReason,
-        GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
-        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        AccessibleEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangeEvent, ImeEvent,
+        KeyboardInputEvent, MountEvent, MouseInputEvent, MouseMoveEvent, UnmountEvent,
+        WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
@@ -203,7 +203,7 @@ impl TextInput {
         let state = if self.common.is_enabled() {
             TextInputState::Enabled {
                 focused: self.common.is_focused(),
-                mouse_over: self.common.is_mouse_entered,
+                mouse_over: self.common.is_mouse_over,
             }
         } else {
             TextInputState::Disabled
@@ -345,7 +345,7 @@ impl Widget for TextInput {
         Ok(true)
     }
 
-    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> Result<bool> {
+    fn on_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let mount_point = self.common.mount_point_or_err()?;
         if mount_point
             .window

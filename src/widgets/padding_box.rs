@@ -64,7 +64,6 @@ impl Widget for PaddingBox {
     }
 
     fn layout(&mut self) -> Vec<Option<Rect>> {
-        println!("padding box layout");
         if self.common.children.is_empty() {
             return Vec::new();
         }

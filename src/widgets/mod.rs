@@ -1,4 +1,5 @@
 use std::{
+    cell::Cell,
     collections::HashMap,
     fmt::{self, Debug},
     marker::PhantomData,
@@ -15,13 +16,15 @@ use winit::window::{CursorIcon, WindowId};
 use crate::{
     draw::DrawEvent,
     event::{
-        AccessibleEvent, CursorLeaveEvent, CursorMoveEvent, Event, FocusInEvent, FocusOutEvent,
-        GeometryChangeEvent, ImeEvent, KeyboardInputEvent, MountEvent, MouseInputEvent,
-        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        AccessibleEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangeEvent, ImeEvent,
+        KeyboardInputEvent, MountEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
+        MouseMoveEvent, UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     style::{computed::ComputedStyle, Style},
-    system::{address, register_address, report_error, unregister_address, with_system},
+    system::{
+        address, register_address, report_error, unregister_address, with_system, ReportError,
+    },
     types::{Rect, Size},
     window::SharedWindowData,
 };
@@ -94,7 +97,7 @@ pub struct WidgetCommon {
     pub is_window_focused: bool,
     pub parent_scope: WidgetScope,
 
-    pub is_mouse_entered: bool,
+    pub is_mouse_over: bool,
     pub mount_point: Option<MountPoint>,
     // Present if the widget is mounted, not hidden, and only after layout.
     pub rect_in_window: Option<Rect>,
@@ -132,7 +135,7 @@ impl WidgetCommon {
             explicit_style: None,
             is_focusable: false,
             is_focused: false,
-            is_mouse_entered: false,
+            is_mouse_over: false,
             is_window_focused: false,
             enable_ime: false,
             mount_point: None,
@@ -360,11 +363,15 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(false)
     }
-    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> Result<bool> {
+    fn on_mouse_enter(&mut self, event: MouseEnterEvent) -> Result<bool> {
         let _ = event;
         Ok(false)
     }
-    fn on_cursor_leave(&mut self, event: CursorLeaveEvent) -> Result<()> {
+    fn on_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
+        let _ = event;
+        Ok(false)
+    }
+    fn on_mouse_leave(&mut self, event: MouseLeaveEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
@@ -412,8 +419,9 @@ pub trait Widget: Downcast {
     fn on_event(&mut self, event: Event) -> Result<bool> {
         match event {
             Event::MouseInput(e) => self.on_mouse_input(e),
-            Event::CursorMove(e) => self.on_cursor_move(e),
-            Event::CursorLeave(e) => self.on_cursor_leave(e).map(|()| true),
+            Event::MouseEnter(e) => self.on_mouse_enter(e),
+            Event::MouseMove(e) => self.on_mouse_move(e),
+            Event::MouseLeave(e) => self.on_mouse_leave(e).map(|()| true),
             Event::KeyboardInput(e) => self.on_keyboard_input(e),
             Event::Ime(e) => self.on_ime(e),
             Event::Draw(e) => self.on_draw(e).map(|()| true),
@@ -507,8 +515,8 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::FocusOut(_) => {
                 self.common_mut().is_focused = false;
             }
-            Event::CursorLeave(_) => {
-                self.common_mut().is_mouse_entered = false;
+            Event::MouseLeave(_) => {
+                self.common_mut().is_mouse_over = false;
             }
             Event::WindowFocusChange(e) => {
                 self.common_mut().is_window_focused = e.focused;
@@ -525,23 +533,48 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
                 }
             }
-            Event::CursorMove(event) => {
+            Event::MouseMove(event) => {
                 for child in &mut self.common_mut().children {
                     if let Some(rect_in_parent) = child.rect_in_parent {
                         if rect_in_parent.contains(event.pos) {
-                            let widget_id = child.widget.common().id;
-                            let event = CursorMoveEvent {
+                            let event = MouseMoveEvent {
                                 pos: event.pos - rect_in_parent.top_left,
                                 device_id: event.device_id,
                                 accepted_by: event.accepted_by.clone(),
-                                widget_id,
-                                window: event.window.clone(),
                             };
                             if child.widget.dispatch(event.into()) {
                                 accepted = true;
                                 break;
                             }
                         }
+                    }
+                }
+
+                if !accepted {
+                    let is_enter = if let Some(mount_point) =
+                        self.common().mount_point_or_err().or_report_err()
+                    {
+                        let self_id = self.common().id;
+                        !mount_point
+                            .window
+                            .0
+                            .borrow()
+                            .mouse_entered_widgets
+                            .iter()
+                            .any(|(_, id)| *id == self_id)
+                    } else {
+                        false
+                    };
+
+                    if is_enter {
+                        self.dispatch(
+                            MouseEnterEvent {
+                                device_id: event.device_id,
+                                pos: event.pos,
+                                accepted_by: event.accepted_by.clone(),
+                            }
+                            .into(),
+                        );
                     }
                 }
             }
@@ -562,26 +595,11 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     event.set_accepted_by(self.common().id);
                 }
             }
-            Event::CursorMove(event) => {
-                if event.accepted_by().is_none() && accepted {
-                    if let Some(rect_in_window) = self.common().rect_in_window {
-                        if event.is_enter() {
-                            self.common_mut().update();
-                        }
-                        event.set_accepted_by(self.common().id, rect_in_window);
-                        self.common_mut().is_mouse_entered = true;
-                    } else {
-                        warn!("no rect_in_window on CursorMove dispatch");
-                    }
-                    if let Some(mount_point) = &self.common().mount_point {
-                        mount_point
-                            .window
-                            .0
-                            .borrow()
-                            .winit_window
-                            .set_cursor_icon(self.common().cursor_icon);
-                    }
-                }
+            Event::MouseEnter(event) => {
+                accept_mouse_event(self, true, &event.accepted_by);
+            }
+            Event::MouseMove(event) => {
+                accept_mouse_event(self, false, &event.accepted_by);
             }
             Event::Unmount(_) => {
                 self.common_mut().unmount();
@@ -610,7 +628,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
                 self.common_mut().update();
             }
-            Event::FocusIn(_) | Event::FocusOut(_) | Event::CursorLeave(_) => {
+            Event::FocusIn(_) | Event::FocusOut(_) | Event::MouseLeave(_) => {
                 self.common_mut().update();
             }
             Event::KeyboardInput(_) | Event::Ime(_) | Event::Mount(_) | Event::Accessible(_) => {}
@@ -621,7 +639,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn apply_layout(&mut self) {
-        println!("apply_layout");
         let mut rects = self.layout();
         if rects.is_empty() {
             rects = self.common().children.iter().map(|_| None).collect();
@@ -720,21 +737,48 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 }
 
+fn accept_mouse_event(
+    widget: &mut (impl Widget + ?Sized),
+    is_enter: bool,
+    accepted_by: &Rc<Cell<Option<RawWidgetId>>>,
+) {
+    if accepted_by.get().is_none() {
+        let Some(rect_in_window) = widget.common().rect_in_window_or_err().or_report_err() else {
+            return;
+        };
+        let Some(mount_point) = widget.common().mount_point_or_err().or_report_err() else {
+            return;
+        };
+        let id = widget.common().id;
+        accepted_by.set(Some(id));
+
+        mount_point
+            .window
+            .0
+            .borrow()
+            .winit_window
+            .set_cursor_icon(widget.common().cursor_icon);
+        if is_enter {
+            mount_point
+                .window
+                .0
+                .borrow_mut()
+                .mouse_entered_widgets
+                .push((rect_in_window, id));
+
+            widget.common_mut().is_mouse_over = true;
+            widget.common_mut().update();
+        }
+    }
+}
+
 pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddress]) {
     let common = widget.common_mut();
     let Some(mount_point) = &common.mount_point else {
         return;
     };
     for pending_addr in pending {
-        println!(
-            "test3a check {:?} | {:?} = {}",
-            pending_addr,
-            mount_point.address,
-            pending_addr.starts_with(&mount_point.address)
-        );
-
         if pending_addr.starts_with(&mount_point.address) {
-            println!("test3 clear {:?}", common.id);
             common.clear_size_hint_cache();
             for child in &mut common.children {
                 invalidate_size_hint_cache(child.widget.as_mut(), pending);

@@ -47,7 +47,6 @@ impl Widget for Column {
     }
 
     fn layout(&mut self) -> Vec<Option<Rect>> {
-        println!("column layout");
         let Some(rect_in_window) = self.common().rect_in_window else {
             return Vec::new();
         };
@@ -67,7 +66,6 @@ impl Widget for Column {
         let available_size_y =
             rect_in_window.size.y - self.common.children.len().saturating_sub(1) as i32 * SPACING;
         let solved = solve_layout(&items_y, available_size_y);
-        println!("{solved:?} sum={}", solved.iter().sum::<i32>());
         for (i, (result_item, size_x)) in solved.into_iter().zip(sizes_x).enumerate() {
             if result_item == 0 {
                 new_rects.push(None);
@@ -141,10 +139,8 @@ fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
     let total_preferred: i32 = items.iter().map(|item| item.size_hint.preferred).sum();
     let mut result = Vec::new();
     if total_preferred == total {
-        println!("all preferred");
         return items.iter().map(|item| item.size_hint.preferred).collect();
     } else if total_preferred > total {
-        println!("expand from min (total={total}, total_preferred={total_preferred})");
         let total_min: i32 = items.iter().map(|item| item.size_hint.min).sum();
         let factor = if total_preferred == total_min {
             0.0
@@ -163,13 +159,7 @@ fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
             }
         }
     } else if total_preferred < total {
-        println!("expand from preferred");
         let num_flexible = items.iter().filter(|item| !item.size_hint.is_fixed).count() as i32;
-        // let extra_per_flexible = if num_flexible != 0 {
-        //     max(0, total - total_preferred) / num_flexible
-        // } else {
-        //     0
-        // };
         let mut remaining = total;
         let mut extras = fare_split(num_flexible, max(0, total - total_preferred));
         for item in items {

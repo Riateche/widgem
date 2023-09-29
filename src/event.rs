@@ -11,7 +11,6 @@ use crate::{
     draw::DrawEvent,
     types::{Point, Rect},
     widgets::{MountPoint, RawWidgetId},
-    window::SharedWindowData,
 };
 
 use derive_more::From;
@@ -19,8 +18,9 @@ use derive_more::From;
 #[derive(Debug, Clone, From)]
 pub enum Event {
     MouseInput(MouseInputEvent),
-    CursorMove(CursorMoveEvent),
-    CursorLeave(CursorLeaveEvent),
+    MouseEnter(MouseEnterEvent),
+    MouseMove(MouseMoveEvent),
+    MouseLeave(MouseLeaveEvent),
     KeyboardInput(KeyboardInputEvent),
     Ime(ImeEvent),
     Draw(DrawEvent),
@@ -85,30 +85,13 @@ impl MouseInputEvent {
 }
 
 #[derive(Debug, Clone, TypedBuilder)]
-pub struct CursorMoveEvent {
+pub struct MouseMoveEvent {
     pub device_id: DeviceId,
     pub pos: Point,
     pub accepted_by: Rc<Cell<Option<RawWidgetId>>>,
-    pub widget_id: RawWidgetId,
-    pub window: SharedWindowData,
 }
 
-impl CursorMoveEvent {
-    pub(crate) fn accepted_by(&self) -> Option<RawWidgetId> {
-        self.accepted_by.get()
-    }
-
-    pub(crate) fn set_accepted_by(&self, id: RawWidgetId, rect_in_window: Rect) {
-        self.accepted_by.set(Some(id));
-        if self.is_enter() {
-            self.window
-                .0
-                .borrow_mut()
-                .mouse_entered_widgets
-                .push((rect_in_window, id));
-        }
-    }
-
+impl MouseMoveEvent {
     pub fn device_id(&self) -> DeviceId {
         self.device_id
     }
@@ -116,20 +99,17 @@ impl CursorMoveEvent {
     pub fn pos(&self) -> Point {
         self.pos
     }
+}
 
-    pub fn is_enter(&self) -> bool {
-        !self
-            .window
-            .0
-            .borrow()
-            .mouse_entered_widgets
-            .iter()
-            .any(|(_, id)| *id == self.widget_id)
-    }
+#[derive(Debug, Clone, TypedBuilder)]
+pub struct MouseEnterEvent {
+    pub device_id: DeviceId,
+    pub pos: Point,
+    pub accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct CursorLeaveEvent;
+pub struct MouseLeaveEvent;
 
 #[derive(Debug, Clone)]
 pub struct KeyboardInputEvent {

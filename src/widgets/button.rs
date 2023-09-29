@@ -8,7 +8,7 @@ use winit::event::MouseButton;
 use crate::{
     callback::Callback,
     draw::DrawEvent,
-    event::{AccessibleEvent, CursorMoveEvent, FocusReason, MouseInputEvent},
+    event::{AccessibleEvent, FocusReason, MouseEnterEvent, MouseInputEvent},
     layout::SizeHint,
     style::button::{ButtonState, ComputedVariantStyle},
     system::send_window_request,
@@ -45,7 +45,6 @@ impl Button {
     }
 
     pub fn set_text(&mut self, text: impl Display) {
-        println!("button set text");
         self.editor.set_text(&text.to_string(), Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
@@ -65,7 +64,7 @@ impl Button {
         let state = if self.common.is_enabled() {
             ButtonState::Enabled {
                 focused: self.common.is_focused(),
-                mouse_over: self.common.is_mouse_entered,
+                mouse_over: self.common.is_mouse_over,
                 pressed: self.is_pressed,
             }
         } else {
@@ -98,7 +97,7 @@ impl Widget for Button {
         Ok(())
     }
 
-    fn on_cursor_move(&mut self, _event: CursorMoveEvent) -> Result<bool> {
+    fn on_mouse_enter(&mut self, _event: MouseEnterEvent) -> Result<bool> {
         Ok(true)
     }
 
@@ -167,7 +166,6 @@ impl Widget for Button {
     }
 
     fn size_hint_x(&mut self) -> SizeHint {
-        println!("test1 {:?}: {:?}", self.common.id, self.editor.size().x);
         SizeHint {
             min: self.editor.size().x + 2 * MIN_PADDING.x,
             preferred: self.editor.size().x + 2 * PADDING.x,
