@@ -37,7 +37,7 @@ pub mod padding_box;
 pub mod stack;
 pub mod text_input;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RawWidgetId(pub u64);
 
 impl RawWidgetId {
@@ -113,6 +113,8 @@ pub struct WidgetCommon {
     pub is_explicitly_enabled: bool,
     pub is_explicitly_visible: bool,
     pub explicit_style: Option<Rc<ComputedStyle>>,
+
+    pub is_registered_as_focusable: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -146,6 +148,8 @@ impl WidgetCommon {
             size_hint_y_cache: HashMap::new(),
             pending_accessible_update: false,
             parent_scope: WidgetScope::default(),
+
+            is_registered_as_focusable: false,
         }
     }
 
@@ -159,7 +163,6 @@ impl WidgetCommon {
         if old.is_some() {
             warn!("widget address was already registered");
         }
-        mount_point.window.0.borrow_mut().widget_tree_changed = true;
         mount_point.window.0.borrow_mut().accessible_nodes.mount(
             mount_point.parent_id.map(|id| id.into()),
             self.id.into(),
@@ -167,13 +170,19 @@ impl WidgetCommon {
         );
         self.mount_point = Some(mount_point);
         self.update();
+        self.register_focusable();
         // TODO: set is_window_focused
     }
 
     pub fn unmount(&mut self) {
         if let Some(mount_point) = self.mount_point.take() {
+            if self.is_registered_as_focusable {
+                mount_point
+                    .window
+                    .remove_focusable_widget(mount_point.address.clone(), self.id);
+                self.is_registered_as_focusable = false;
+            }
             unregister_address(self.id);
-            mount_point.window.0.borrow_mut().widget_tree_changed = true;
             mount_point
                 .window
                 .0
@@ -199,6 +208,10 @@ impl WidgetCommon {
 
     pub fn is_enabled(&self) -> bool {
         self.parent_scope.is_enabled && self.is_explicitly_enabled
+    }
+
+    pub fn is_focusable(&self) -> bool {
+        self.is_focusable && self.is_enabled()
     }
 
     pub fn is_focused(&self) -> bool {
@@ -310,6 +323,42 @@ impl WidgetCommon {
 
     pub fn rect_in_window_or_err(&self) -> Result<Rect> {
         self.rect_in_window.context("no rect_in_window")
+    }
+
+    fn register_focusable(&mut self) {
+        let is_focusable = self.is_focusable();
+        if is_focusable != self.is_registered_as_focusable {
+            if let Some(mount_point) = &self.mount_point {
+                if is_focusable {
+                    mount_point
+                        .window
+                        .add_focusable_widget(mount_point.address.clone(), self.id);
+                } else {
+                    mount_point
+                        .window
+                        .remove_focusable_widget(mount_point.address.clone(), self.id);
+                }
+                self.is_registered_as_focusable = is_focusable;
+            } else {
+                warn!("register_focusable: no mount point");
+                self.is_registered_as_focusable = false;
+            }
+        }
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.is_explicitly_enabled = enabled;
+        self.register_focusable();
+    }
+
+    pub fn set_focusable(&mut self, focusable: bool) {
+        self.is_focusable = focusable;
+        self.register_focusable();
+    }
+
+    pub fn set_parent_scope(&mut self, scope: WidgetScope) {
+        self.parent_scope = scope;
+        self.register_focusable();
     }
 }
 
@@ -726,12 +775,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn set_parent_scope(&mut self, scope: WidgetScope) {
-        self.common_mut().parent_scope = scope;
+        self.common_mut().set_parent_scope(scope);
         self.dispatch(WidgetScopeChangeEvent.into());
     }
 
     fn set_enabled(&mut self, enabled: bool) {
-        self.common_mut().is_explicitly_enabled = enabled;
+        self.common_mut().set_enabled(enabled);
         self.dispatch(WidgetScopeChangeEvent.into());
     }
 
@@ -799,7 +848,7 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WidgetAddress {
     pub window_id: WindowId,
     pub path: Vec<usize>,

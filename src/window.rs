@@ -27,7 +27,7 @@ use crate::{
         UnmountEvent, WindowFocusChangeEvent,
     },
     event_loop::{with_window_target, UserEvent},
-    system::with_system,
+    system::{address, with_system},
     types::{Point, Rect, Size},
     widgets::{
         get_widget_by_id_mut, invalidate_size_hint_cache, MountPoint, RawWidgetId, Widget,
@@ -40,7 +40,6 @@ const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 
 #[derive(Debug)]
 pub struct SharedWindowDataInner {
-    pub widget_tree_changed: bool,
     pub cursor_position: Option<Point>,
     pub cursor_entered: bool,
     pub modifiers_state: ModifiersState,
@@ -54,6 +53,9 @@ pub struct SharedWindowDataInner {
     pub ime_cursor_area: Rect,
 
     pub pending_redraw: bool,
+
+    pub focusable_widgets: Vec<(WidgetAddress, RawWidgetId)>,
+    pub focusable_widgets_changed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -97,6 +99,43 @@ impl SharedWindowData {
             this.winit_window.request_redraw();
         }
     }
+
+    pub fn add_focusable_widget(&self, addr: WidgetAddress, id: RawWidgetId) {
+        let mut this = self.0.borrow_mut();
+        let pair = (addr, id);
+        if let Err(index) = this.focusable_widgets.binary_search(&pair) {
+            this.focusable_widgets.insert(index, pair);
+            this.focusable_widgets_changed = true;
+        }
+    }
+
+    pub fn remove_focusable_widget(&self, addr: WidgetAddress, id: RawWidgetId) {
+        let mut this = self.0.borrow_mut();
+        let pair = (addr, id);
+        if let Ok(index) = this.focusable_widgets.binary_search(&pair) {
+            this.focusable_widgets.remove(index);
+            this.focusable_widgets_changed = true;
+        }
+    }
+
+    fn move_keyboard_focus(
+        &self,
+        focused_widget: &(WidgetAddress, RawWidgetId),
+        direction: i32,
+    ) -> Option<(WidgetAddress, RawWidgetId)> {
+        let this = self.0.borrow();
+        if this.focusable_widgets.is_empty() {
+            return None;
+        }
+        if let Ok(index) = this.focusable_widgets.binary_search(focused_widget) {
+            let new_index =
+                (index as i32 + direction).rem_euclid(this.focusable_widgets.len() as i32);
+            Some(this.focusable_widgets[new_index as usize].clone())
+        } else {
+            warn!("focused widget is unknown");
+            this.focusable_widgets.get(0).cloned()
+        }
+    }
 }
 
 pub struct Window {
@@ -115,8 +154,7 @@ pub struct Window {
 
     pub root_widget: Option<Box<dyn Widget>>,
 
-    pub focusable_widgets: Vec<RawWidgetId>,
-    pub focused_widget: Option<RawWidgetId>,
+    pub focused_widget: Option<(WidgetAddress, RawWidgetId)>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
 
     num_clicks: u32,
@@ -158,7 +196,6 @@ impl Window {
             unsafe { softbuffer::Surface::new(&softbuffer_context, &winit_window) }.unwrap();
         let window_id = winit_window.id();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
-            widget_tree_changed: false,
             cursor_position: None,
             cursor_entered: false,
             modifiers_state: ModifiersState::default(),
@@ -171,6 +208,8 @@ impl Window {
             ime_allowed: false,
             ime_cursor_area: Rect::default(),
             pending_redraw: true,
+            focusable_widgets: Vec::new(),
+            focusable_widgets_changed: false,
         })));
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(window_id);
@@ -214,14 +253,12 @@ impl Window {
                 .unwrap(),
             )),
             shared_window_data,
-            focusable_widgets: Vec::new(),
             focused_widget: None,
             mouse_grabber_widget: None,
             num_clicks: 0,
             last_click_button: None,
             last_click_instant: None,
         };
-        w.widget_tree_changed();
         w.after_widget_activity();
 
         {
@@ -260,7 +297,6 @@ impl Window {
     }
 
     pub fn handle_event(&mut self, event: WindowEvent) {
-        self.check_widget_tree_change_flag();
         if !self
             .accesskit_adapter
             .on_event(&self.shared_window_data.0.borrow().winit_window, &event)
@@ -505,11 +541,10 @@ impl Window {
                 is_synthetic,
                 event,
             } => {
-                // TODO: deduplicate with ReceivedCharacter
                 if let Some(root_widget) = &mut self.root_widget {
-                    if let Some(focused_widget) = self.focused_widget {
+                    if let Some(focused_widget) = &self.focused_widget {
                         if let Ok(widget) =
-                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget.1)
                         {
                             let modifiers = self.shared_window_data.0.borrow().modifiers_state;
                             widget.dispatch(
@@ -560,9 +595,9 @@ impl Window {
                 }
                 // TODO: deduplicate with ReceivedCharacter
                 if let Some(root_widget) = &mut self.root_widget {
-                    if let Some(focused_widget) = self.focused_widget {
+                    if let Some(focused_widget) = &self.focused_widget {
                         if let Ok(widget) =
-                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget.1)
                         {
                             widget.dispatch(ImeEvent(ime).into());
                         }
@@ -596,28 +631,46 @@ impl Window {
                 self.layout();
             }
         }
+
+        if self
+            .shared_window_data
+            .0
+            .borrow_mut()
+            .focusable_widgets_changed
+        {
+            //println!("focusable_widgets_changed!");
+            self.shared_window_data
+                .0
+                .borrow_mut()
+                .focusable_widgets_changed = false;
+
+            if let Some(focused_widget) = &self.focused_widget {
+                if self
+                    .shared_window_data
+                    .0
+                    .borrow()
+                    .focusable_widgets
+                    .binary_search(focused_widget)
+                    .is_err()
+                {
+                    self.unset_focus();
+                }
+            }
+            self.check_auto_focus();
+        }
+        // TODO: may need another turn of `after_widget_activity()`
     }
 
     pub fn move_keyboard_focus(&mut self, direction: i32) {
-        if self.focusable_widgets.is_empty() {
-            return;
-        }
-        let reason = FocusReason::Tab;
-        if let Some(focused_widget) = self.focused_widget {
-            if let Some(index) = self
-                .focusable_widgets
-                .iter()
-                .position(|i| *i == focused_widget)
+        if let Some(focused_widget) = &self.focused_widget {
+            if let Some(new_addr_id) = self
+                .shared_window_data
+                .move_keyboard_focus(focused_widget, direction)
             {
-                let new_index =
-                    (index as i32 + direction).rem_euclid(self.focusable_widgets.len() as i32);
-                self.set_focus(self.focusable_widgets[new_index as usize], reason);
+                self.set_focus(new_addr_id, FocusReason::Tab);
             } else {
-                warn!("focused widget is unknown");
                 self.unset_focus();
             }
-        } else {
-            warn!("no focused widget");
         }
         self.check_auto_focus();
     }
@@ -639,22 +692,6 @@ impl Window {
             );
         }
         self.root_widget = widget;
-        self.widget_tree_changed();
-    }
-
-    fn check_widget_tree_change_flag(&mut self) {
-        {
-            let mut shared = self.shared_window_data.0.borrow_mut();
-            if !shared.widget_tree_changed {
-                return;
-            }
-            shared.widget_tree_changed = false;
-        }
-        self.widget_tree_changed();
-    }
-
-    fn widget_tree_changed(&mut self) {
-        self.refresh_focusable_widgets();
     }
 
     fn push_accessible_updates(&mut self) {
@@ -667,34 +704,27 @@ impl Window {
         self.accesskit_adapter.update(update);
     }
 
-    // TODO: find a way to update on mount/unmount while keeping correct order
-    fn refresh_focusable_widgets(&mut self) {
-        self.focusable_widgets.clear();
-        if let Some(widget) = &mut self.root_widget {
-            populate_focusable_widgets(widget.as_mut(), &mut self.focusable_widgets);
-        }
-        if let Some(focused_widget) = &self.focused_widget {
-            if !self.focusable_widgets.contains(focused_widget) {
-                self.unset_focus();
-            }
-        }
-        self.check_auto_focus();
-    }
-
     fn check_auto_focus(&mut self) {
         if self.focused_widget.is_none() {
-            if let Some(&id) = self.focusable_widgets.get(0) {
+            let id = self
+                .shared_window_data
+                .0
+                .borrow()
+                .focusable_widgets
+                .get(0)
+                .cloned();
+            if let Some(id) = id {
                 self.set_focus(id, FocusReason::Auto);
             }
         }
     }
 
-    fn set_focus(&mut self, widget_id: RawWidgetId, reason: FocusReason) {
+    fn set_focus(&mut self, widget_addr_id: (WidgetAddress, RawWidgetId), reason: FocusReason) {
         let Some(root_widget) = &mut self.root_widget else {
             warn!("set_focus: no root widget");
             return;
         };
-        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_addr_id.1) {
             if !widget.common().is_focusable {
                 warn!("cannot focus widget that is not focusable");
                 return;
@@ -716,19 +746,19 @@ impl Window {
                 .borrow_mut()
                 .accessible_nodes
                 .set_focus(None);
-            if let Ok(old_widget) = get_widget_by_id_mut(root_widget.as_mut(), old_widget_id) {
+            if let Ok(old_widget) = get_widget_by_id_mut(root_widget.as_mut(), old_widget_id.1) {
                 old_widget.dispatch(FocusOutEvent.into());
             }
         }
 
-        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_addr_id.1) {
             widget.dispatch(FocusInEvent { reason }.into());
-            self.focused_widget = Some(widget_id);
             self.shared_window_data
                 .0
                 .borrow_mut()
                 .accessible_nodes
-                .set_focus(Some(widget_id.into()));
+                .set_focus(Some(widget_addr_id.1.into()));
+            self.focused_widget = Some(widget_addr_id);
         } else {
             warn!("set_focus: widget not found on second pass");
         }
@@ -770,7 +800,23 @@ impl Window {
     pub fn handle_request(&mut self, request: WindowRequest) {
         match request {
             WindowRequest::SetFocus(request) => {
-                self.set_focus(request.widget_id, request.reason);
+                let Some(addr) = address(request.widget_id) else {
+                    warn!("cannot focus unmounted widget");
+                    return;
+                };
+                let pair = (addr, request.widget_id);
+                if self
+                    .shared_window_data
+                    .0
+                    .borrow()
+                    .focusable_widgets
+                    .binary_search(&pair)
+                    .is_err()
+                {
+                    warn!("cannot focus widget: not registered as focusable");
+                    return;
+                }
+                self.set_focus(pair, request.reason);
             }
         }
         self.push_accessible_updates();
@@ -798,17 +844,6 @@ impl Window {
         } else {
             warn!("cannot dispatch accessible event (no root widget): {request:?}");
         }
-    }
-}
-
-// TODO: update on mount/unmount instead
-// TODO: not mut
-fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidgetId>) {
-    if widget.common().is_focusable {
-        output.push(widget.common().id);
-    }
-    for child in &mut widget.common_mut().children {
-        populate_focusable_widgets(child.widget.as_mut(), output);
     }
 }
 
