@@ -5,6 +5,7 @@ use std::{
 };
 
 use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
+use anyhow::Result;
 use cosmic_text::{Action, Attrs, Wrap};
 use log::warn;
 use winit::{
@@ -24,7 +25,7 @@ use crate::{
     layout::SizeHint,
     shortcut::standard_shortcuts,
     style::text_input::{ComputedVariantStyle, TextInputState},
-    system::{add_interval, send_window_request, with_system},
+    system::{add_interval, report_error, send_window_request, with_system, ReportError},
     text_editor::TextEditor,
     timer::TimerId,
     types::{Point, Rect, Size},
@@ -78,6 +79,45 @@ impl TextInput {
         self.common.update();
     }
 
+    #[cfg(all(
+        unix,
+        not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
+    ))]
+    fn copy_selection(&self) {
+        use arboard::{LinuxClipboardKind, SetExtLinux};
+
+        if !self.selected_text.is_empty() {
+            with_system(|system| {
+                system
+                    .clipboard
+                    .set()
+                    .clipboard(LinuxClipboardKind::Primary)
+                    .text(&self.selected_text)
+            })
+            .or_report_err();
+        }
+    }
+
+    fn paste_selection(&mut self) {
+        use arboard::{GetExtLinux, LinuxClipboardKind};
+
+        if self.editor.is_mouse_interaction_forbidden() {
+            return;
+        }
+        let text = with_system(|system| {
+            system
+                .clipboard
+                .get()
+                .clipboard(LinuxClipboardKind::Primary)
+                .text()
+        })
+        .or_report_err();
+        if let Some(text) = text {
+            self.editor.insert_string(&sanitize(&text), None);
+            self.common.update();
+        }
+    }
+
     fn after_change(&mut self) {
         self.adjust_scroll();
         let new_selected_text = self.editor.selected_text().unwrap_or_default();
@@ -87,22 +127,7 @@ impl TextInput {
                 unix,
                 not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
             ))]
-            {
-                use arboard::{LinuxClipboardKind, SetExtLinux};
-
-                if !self.selected_text.is_empty() {
-                    let r = with_system(|system| {
-                        system
-                            .clipboard
-                            .set()
-                            .clipboard(LinuxClipboardKind::Primary)
-                            .text(&self.selected_text)
-                    });
-                    if let Err(err) = r {
-                        warn!("clipboard error: {err}");
-                    }
-                }
-            }
+            self.copy_selection();
         }
     }
 
@@ -131,35 +156,30 @@ impl TextInput {
         self.editor.set_cursor_hidden(!focused);
         if focused {
             let id = add_interval(CURSOR_BLINK_INTERVAL, self.id(), |this, _| {
-                this.toggle_cursor_hidden();
+                this.toggle_cursor_hidden()
             });
             self.blink_timer = Some(id);
         }
         self.common.update();
     }
 
-    fn toggle_cursor_hidden(&mut self) {
+    fn toggle_cursor_hidden(&mut self) -> Result<()> {
         self.editor
             .set_cursor_hidden(!self.editor.is_cursor_hidden());
         if !self.editor.has_selection() {
             self.common.update();
         }
+        Ok(())
     }
 
     fn copy_to_clipboard(&mut self) {
         if let Some(text) = self.editor.selected_text() {
-            if let Err(err) = with_system(|system| system.clipboard.set_text(text)) {
-                warn!("clipboard error: {err}");
-            }
+            with_system(|system| system.clipboard.set_text(text)).or_report_err();
         }
     }
 
-    fn handle_main_click(&mut self, event: MouseInputEvent) {
-        let mount_point = &self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted");
+    fn handle_main_click(&mut self, event: MouseInputEvent) -> Result<()> {
+        let mount_point = self.common.mount_point_or_err()?;
 
         if !self.common.is_focused {
             send_window_request(
@@ -176,6 +196,7 @@ impl TextInput {
             mount_point.window.0.borrow().modifiers_state.shift_key(),
         );
         self.common.update();
+        Ok(())
     }
 
     fn current_variant_style(&self) -> &ComputedVariantStyle {
@@ -220,33 +241,25 @@ impl TextInput {
             };
             self.adjust_scroll();
             self.reset_blink_timer();
-            // self.editor.set_size(new_geometry.rect_in_window.size);
         }
     }
 }
 
 impl Widget for TextInput {
-    fn on_geometry_change(&mut self, _event: GeometryChangeEvent) {
+    fn on_geometry_change(&mut self, _event: GeometryChangeEvent) -> Result<()> {
         self.update_viewport_rect();
+        Ok(())
     }
 
-    fn on_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) {
+    fn on_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
         self.style_changed();
+        Ok(())
     }
 
-    fn on_draw(&mut self, event: DrawEvent) {
-        let Some(rect_in_window) = self.common.rect_in_window else {
-            warn!("no geometry in draw event");
-            return;
-        };
-
-        let mount_point = &self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot draw when unmounted");
+    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
+        let rect_in_window = self.common.rect_in_window_or_err()?;
+        let mount_point = self.common.mount_point_or_err()?;
         let is_focused = self.common.is_focused();
-        //let style = &self.common.style().text_input;
         let style = self.current_variant_style().clone();
 
         if let Some(border) = &style.border {
@@ -283,25 +296,17 @@ impl Widget for TextInput {
                     .set_ime_cursor_area(Rect { top_left, size });
             }
         }
+        Ok(())
     }
 
-    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
+    fn on_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
         if event.state() == ElementState::Pressed {
             match event.button() {
                 MouseButton::Left => {
-                    self.handle_main_click(event);
+                    self.handle_main_click(event)?;
                 }
                 MouseButton::Right => {
-                    // let builder = WindowBuilder::new()
-                    //     .with_title("test_window")
-                    //     .with_position(PhysicalPosition::new(100, 10))
-                    //     .with_inner_size(PhysicalSize::new(300, 300))
-                    //     .with_decorations(false)
-                    //     .with_visible(false);
-                    // let window =
-                    //     WINDOW_TARGET.with(|window_target| builder.build(window_target).unwrap());
-                    // let window = Window::new(window, None);
-                    // std::mem::forget(window);
+                    // TODO: context menu
                 }
                 MouseButton::Middle => {
                     #[cfg(all(
@@ -313,27 +318,8 @@ impl Widget for TextInput {
                         ))
                     ))]
                     {
-                        use arboard::{GetExtLinux, LinuxClipboardKind};
-
-                        self.handle_main_click(event);
-                        if !self.editor.is_mouse_interaction_forbidden() {
-                            let r = with_system(|system| {
-                                system
-                                    .clipboard
-                                    .get()
-                                    .clipboard(LinuxClipboardKind::Primary)
-                                    .text()
-                            });
-                            match r {
-                                Ok(text) => {
-                                    self.editor.insert_string(&sanitize(&text), None);
-                                    self.common.update();
-                                }
-                                Err(err) => {
-                                    warn!("clipboard error: {err}");
-                                }
-                            }
-                        }
+                        self.handle_main_click(event)?;
+                        self.paste_selection();
                     }
                 }
                 _ => {}
@@ -356,15 +342,11 @@ impl Widget for TextInput {
         }
         self.after_change();
         self.reset_blink_timer();
-        true
+        Ok(true)
     }
 
-    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> bool {
-        let mount_point = self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted");
+    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> Result<bool> {
+        let mount_point = self.common.mount_point_or_err()?;
         if mount_point
             .window
             .0
@@ -382,13 +364,13 @@ impl Widget for TextInput {
                 self.common.update();
             }
         }
-        true
+        Ok(true)
     }
 
     #[allow(clippy::if_same_then_else)]
-    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
+    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
         if event.event.state == ElementState::Released {
-            return true;
+            return Ok(true);
         }
 
         let shortcuts = standard_shortcuts();
@@ -409,7 +391,7 @@ impl Widget for TextInput {
             let r = with_system(|system| system.clipboard.get_text());
             match r {
                 Ok(text) => self.editor.insert_string(&sanitize(&text), None),
-                Err(err) => warn!("clipboard error: {err}"),
+                Err(err) => report_error(err),
             }
         } else if shortcuts.undo.matches(&event) {
             // TODO
@@ -446,19 +428,19 @@ impl Widget for TextInput {
             self.editor.action(Action::DeleteEndOfWord, false);
         } else if let Some(text) = event.event.text {
             if [Key::Tab, Key::Enter, Key::Escape].contains(&event.event.logical_key) {
-                return false;
+                return Ok(false);
             }
             self.editor.insert_string(&sanitize(&text), None);
         } else {
-            return false;
+            return Ok(false);
         }
         self.after_change();
         self.common.update();
         self.reset_blink_timer();
-        true
+        Ok(true)
     }
 
-    fn on_ime(&mut self, event: ImeEvent) -> bool {
+    fn on_ime(&mut self, event: ImeEvent) -> Result<bool> {
         match event.0.clone() {
             Ime::Enabled => {}
             Ime::Preedit(preedit, cursor) => {
@@ -480,7 +462,7 @@ impl Widget for TextInput {
         self.after_change();
         self.common.update();
         self.reset_blink_timer();
-        true
+        Ok(true)
     }
 
     fn common(&self) -> &WidgetCommon {
@@ -490,7 +472,7 @@ impl Widget for TextInput {
         &mut self.common
     }
 
-    fn on_mount(&mut self, event: MountEvent) {
+    fn on_mount(&mut self, event: MountEvent) -> Result<()> {
         self.editor.set_window(Some(event.0.window.clone()));
         self.reset_blink_timer();
 
@@ -499,12 +481,10 @@ impl Widget for TextInput {
             self.accessible_line_id,
             0,
         );
+        Ok(())
     }
-    fn on_unmount(&mut self, _event: UnmountEvent) {
-        let Some(mount_point) = &self.common.mount_point else {
-            warn!("on_unmount: no mount point");
-            return;
-        };
+    fn on_unmount(&mut self, _event: UnmountEvent) -> Result<()> {
+        let mount_point = self.common.mount_point_or_err()?;
         mount_point
             .window
             .0
@@ -519,28 +499,28 @@ impl Widget for TextInput {
             .update(self.accessible_line_id, None);
         self.editor.set_window(None);
         self.reset_blink_timer();
+        Ok(())
     }
-    fn on_focus_in(&mut self, event: FocusInEvent) {
+    fn on_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         self.editor.on_focus_in(event.reason);
         self.common.update();
         self.reset_blink_timer();
+        Ok(())
     }
-    fn on_focus_out(&mut self, _event: FocusOutEvent) {
+    fn on_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
         self.editor.on_focus_out();
         self.common.update();
         self.reset_blink_timer();
+        Ok(())
     }
-    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) {
+    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
         self.editor.on_window_focus_changed(event.focused);
         self.common.update();
         self.reset_blink_timer();
+        Ok(())
     }
-    fn on_accessible(&mut self, event: AccessibleEvent) {
-        let mount_point = &self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted");
+    fn on_accessible(&mut self, event: AccessibleEvent) -> Result<()> {
+        let mount_point = self.common.mount_point_or_err()?;
 
         match event.action {
             accesskit::Action::Default | accesskit::Action::Focus => {
@@ -556,7 +536,7 @@ impl Widget for TextInput {
             accesskit::Action::SetTextSelection => {
                 let Some(ActionData::SetTextSelection(data)) = event.data else {
                     warn!("expected SetTextSelection in data, got {:?}", event.data);
-                    return;
+                    return Ok(());
                 };
                 self.editor.set_accessible_selection(data);
                 self.after_change();
@@ -565,6 +545,7 @@ impl Widget for TextInput {
             }
             _ => {}
         }
+        Ok(())
     }
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         let Some(mount_point) = self.common.mount_point.as_ref() else {

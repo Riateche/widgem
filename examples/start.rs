@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use anyhow::Result;
 use salvation::{
     event_loop::{self, CallbackContext},
     widgets::{
@@ -25,6 +26,7 @@ impl AnotherState {
                 WindowBuilder::new().with_title("example"),
                 Some(Box::new(Label::new(format!("counter: {}", state.counter)))),
             );
+            Ok(())
         }));
         (another_state, Box::new(btn))
     }
@@ -61,16 +63,12 @@ impl State {
 
         let mut btn1 = Button::new("btn1");
         let button_id = btn1.id();
-        btn1.on_clicked(ctx.callback(|state, ctx, event| {
-            state.button_clicked2(ctx, event, 1);
-        }));
+        btn1.on_clicked(ctx.callback(|state, ctx, event| state.button_clicked2(ctx, event, 1)));
         root.add(Box::new(btn1));
 
         let mut btn2 = Button::new("btn2");
         // btn2.on_clicked(ctx.callback_maker.add(Self::button_clicked));
-        btn2.on_clicked(ctx.callback(|state, ctx, event| {
-            state.button_clicked2(ctx, event, 2);
-        }));
+        btn2.on_clicked(ctx.callback(|state, ctx, event| state.button_clicked2(ctx, event, 2)));
         root.add(Box::new(btn2));
 
         let mut column2 = Column::new();
@@ -108,7 +106,12 @@ impl State {
     //     println!("callback! {:?}", data);
     // }
 
-    fn button_clicked2(&mut self, ctx: &mut CallbackContext<Self>, data: String, k: u32) {
+    fn button_clicked2(
+        &mut self,
+        ctx: &mut CallbackContext<Self>,
+        data: String,
+        k: u32,
+    ) -> Result<()> {
         println!("callback! {:?}, {}", data, k);
         let button = ctx.widget(self.button_id).unwrap();
         button.set_text(&format!("ok {}", if k == 1 { "1" } else { "22222" }));
@@ -129,6 +132,7 @@ impl State {
                 self.button21_id, self.flag_button21
             );
         }
+        Ok(())
     }
 }
 

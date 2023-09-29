@@ -7,6 +7,7 @@ use std::{
 };
 
 use accesskit::NodeId;
+use anyhow::{Context, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use log::warn;
 use winit::window::{CursorIcon, WindowId};
@@ -20,7 +21,7 @@ use crate::{
     },
     layout::SizeHint,
     style::{computed::ComputedStyle, Style},
-    system::{address, register_address, unregister_address, with_system},
+    system::{address, register_address, report_error, unregister_address, with_system},
     types::{Rect, Size},
     window::SharedWindowData,
 };
@@ -299,6 +300,14 @@ impl WidgetCommon {
         self.size_hint_x_cache = None;
         self.size_hint_y_cache.clear();
     }
+
+    pub fn mount_point_or_err(&self) -> Result<&MountPoint> {
+        self.mount_point.as_ref().context("no mount point")
+    }
+
+    pub fn rect_in_window_or_err(&self) -> Result<Rect> {
+        self.rect_in_window.context("no rect_in_window")
+    }
 }
 
 impl Default for WidgetCommon {
@@ -343,104 +352,86 @@ pub struct Child {
 pub trait Widget: Downcast {
     fn common(&self) -> &WidgetCommon;
     fn common_mut(&mut self) -> &mut WidgetCommon;
-    fn on_draw(&mut self, event: DrawEvent) {
+    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
+    fn on_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
         let _ = event;
-        false
+        Ok(false)
     }
-    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> bool {
+    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> Result<bool> {
         let _ = event;
-        false
+        Ok(false)
     }
-    fn on_cursor_leave(&mut self, event: CursorLeaveEvent) {
+    fn on_cursor_leave(&mut self, event: CursorLeaveEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> bool {
+    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
         let _ = event;
-        false
+        Ok(false)
     }
-    fn on_ime(&mut self, event: ImeEvent) -> bool {
+    fn on_ime(&mut self, event: ImeEvent) -> Result<bool> {
         let _ = event;
-        false
+        Ok(false)
     }
     // TODO: we don't need accept/reject for some event types
-    fn on_geometry_change(&mut self, event: GeometryChangeEvent) {
+    fn on_geometry_change(&mut self, event: GeometryChangeEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) {
+    fn on_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_mount(&mut self, event: MountEvent) {
+    fn on_mount(&mut self, event: MountEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_unmount(&mut self, event: UnmountEvent) {
+    fn on_unmount(&mut self, event: UnmountEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_focus_in(&mut self, event: FocusInEvent) {
+    fn on_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_focus_out(&mut self, event: FocusOutEvent) {
+    fn on_focus_out(&mut self, event: FocusOutEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) {
+    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_accessible(&mut self, event: AccessibleEvent) {
+    fn on_accessible(&mut self, event: AccessibleEvent) -> Result<()> {
         let _ = event;
+        Ok(())
     }
-    fn on_event(&mut self, event: Event) -> bool {
+    fn on_event(&mut self, event: Event) -> Result<bool> {
         match event {
             Event::MouseInput(e) => self.on_mouse_input(e),
             Event::CursorMove(e) => self.on_cursor_move(e),
-            Event::CursorLeave(e) => {
-                self.on_cursor_leave(e);
-                true
-            }
+            Event::CursorLeave(e) => self.on_cursor_leave(e).map(|()| true),
             Event::KeyboardInput(e) => self.on_keyboard_input(e),
             Event::Ime(e) => self.on_ime(e),
-            Event::Draw(e) => {
-                self.on_draw(e);
-                true
-            }
-            Event::GeometryChange(e) => {
-                self.on_geometry_change(e);
-                true
-            }
-            Event::Mount(e) => {
-                self.on_mount(e);
-                true
-            }
-            Event::Unmount(e) => {
-                self.on_unmount(e);
-                true
-            }
-            Event::FocusIn(e) => {
-                self.on_focus_in(e);
-                true
-            }
-            Event::FocusOut(e) => {
-                self.on_focus_out(e);
-                true
-            }
-            Event::WindowFocusChange(e) => {
-                self.on_window_focus_change(e);
-                true
-            }
-            Event::Accessible(e) => {
-                self.on_accessible(e);
-                true
-            }
-            Event::WidgetScopeChange(e) => {
-                self.on_widget_scope_change(e);
-                true
-            }
+            Event::Draw(e) => self.on_draw(e).map(|()| true),
+            Event::GeometryChange(e) => self.on_geometry_change(e).map(|()| true),
+            Event::Mount(e) => self.on_mount(e).map(|()| true),
+            Event::Unmount(e) => self.on_unmount(e).map(|()| true),
+            Event::FocusIn(e) => self.on_focus_in(e).map(|()| true),
+            Event::FocusOut(e) => self.on_focus_out(e).map(|()| true),
+            Event::WindowFocusChange(e) => self.on_window_focus_change(e).map(|()| true),
+            Event::Accessible(e) => self.on_accessible(e).map(|()| true),
+            Event::WidgetScopeChange(e) => self.on_widget_scope_change(e).map(|()| true),
         }
     }
+    // TODO: result?
     fn size_hint_x(&mut self) -> SizeHint;
     fn size_hint_y(&mut self, size_x: i32) -> SizeHint;
 
+    // TODO: result?
     #[must_use]
     fn layout(&mut self) -> Vec<Option<Rect>> {
         if !self.common().children.is_empty() {
@@ -448,6 +439,7 @@ pub trait Widget: Downcast {
         }
         Vec::new()
     }
+    // TODO: result?
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         None
     }
@@ -556,7 +548,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             _ => {}
         }
         if !accepted {
-            accepted = self.on_event(event.clone());
+            accepted = match self.on_event(event.clone()) {
+                Ok(r) => r,
+                Err(err) => {
+                    report_error(err);
+                    false
+                }
+            }
         }
         match event {
             Event::MouseInput(event) => {

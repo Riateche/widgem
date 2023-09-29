@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use anyhow::Result;
 use cosmic_text::Attrs;
 
 use crate::{draw::DrawEvent, layout::SizeHint, text_editor::TextEditor, types::Point};
@@ -29,8 +30,9 @@ impl Label {
 }
 
 impl Widget for Label {
-    fn on_draw(&mut self, event: DrawEvent) {
+    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
         event.draw_pixmap(Point::default(), self.editor.pixmap().as_ref());
+        Ok(())
     }
 
     fn common(&self) -> &WidgetCommon {

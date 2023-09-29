@@ -1,14 +1,14 @@
 use std::{any::Any, collections::HashMap, marker::PhantomData, rc::Rc};
 
+use anyhow::Result;
 use log::warn;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
     event_loop::{CallbackContext, UserEvent},
+    system::ReportError,
     widgets::{RawWidgetId, Widget},
 };
-
-pub type CallbackFn<State, Event> = dyn Fn(&mut State, &mut CallbackContext<State>, Event);
 
 pub struct Callback<Event> {
     sender: EventLoopProxy<UserEvent>,
@@ -37,7 +37,8 @@ impl<Event: Send + 'static> Callback<Event> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CallbackId(u64);
 
-pub type CallbackDataFn<State> = dyn FnMut(&mut State, &mut CallbackContext<State>, Box<dyn Any>);
+pub type CallbackDataFn<State> =
+    dyn FnMut(&mut State, &mut CallbackContext<State>, Box<dyn Any>) -> Result<()>;
 
 struct CallbackData<State> {
     func: Box<CallbackDataFn<State>>,
@@ -94,7 +95,7 @@ impl<State> Callbacks<State> {
         event: InvokeCallbackEvent,
     ) {
         if let Some(data) = self.callbacks.get_mut(&event.callback_id) {
-            (data.func)(state, ctx, event.event);
+            (data.func)(state, ctx, event.event).or_report_err();
         } else {
             warn!("unknown callback id");
         }
@@ -119,7 +120,7 @@ impl InvokeCallbackEvent {
     }
 }
 
-pub type WidgetCallbackFn<Event> = dyn Fn(&mut dyn Widget, Event);
+pub type WidgetCallbackFn<Event> = dyn Fn(&mut dyn Widget, Event) -> Result<()>;
 
 #[allow(clippy::type_complexity)]
 #[derive(Clone)]

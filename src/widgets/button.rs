@@ -1,14 +1,14 @@
 use std::{cmp::max, fmt::Display};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
+use anyhow::Result;
 use cosmic_text::Attrs;
 use winit::event::MouseButton;
 
 use crate::{
     callback::Callback,
     draw::DrawEvent,
-    event::{AccessibleEvent, FocusReason, MouseInputEvent},
-    event::{CursorLeaveEvent, CursorMoveEvent},
+    event::{AccessibleEvent, CursorMoveEvent, FocusReason, MouseInputEvent},
     layout::SizeHint,
     style::button::{ButtonState, ComputedVariantStyle},
     system::send_window_request,
@@ -76,7 +76,7 @@ impl Button {
 }
 
 impl Widget for Button {
-    fn on_draw(&mut self, event: DrawEvent) {
+    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
         let style = self.current_variant_style().clone();
 
         event.stroke_and_fill_rounded_rect(
@@ -95,9 +95,14 @@ impl Widget for Button {
             y: max(0, event.rect().size.y - editor_pixmap.height() as i32) / 2,
         };
         event.draw_pixmap(padding, editor_pixmap.as_ref());
+        Ok(())
     }
 
-    fn on_mouse_input(&mut self, event: MouseInputEvent) -> bool {
+    fn on_cursor_move(&mut self, _event: CursorMoveEvent) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn on_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
         // TODO: only on release, check buttons
         if event.button() == MouseButton::Left {
             self.is_pressed = self.common.is_enabled() && event.state().is_pressed();
@@ -119,18 +124,7 @@ impl Widget for Button {
                 reason: FocusReason::Mouse,
             },
         );
-        true
-    }
-
-    fn on_cursor_move(&mut self, event: CursorMoveEvent) -> bool {
-        if event.is_enter() {
-            self.common.update();
-        }
-        true
-    }
-
-    fn on_cursor_leave(&mut self, _event: CursorLeaveEvent) {
-        self.common.update();
+        Ok(true)
     }
 
     fn common(&self) -> &WidgetCommon {
@@ -139,7 +133,7 @@ impl Widget for Button {
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
-    fn on_accessible(&mut self, event: AccessibleEvent) {
+    fn on_accessible(&mut self, event: AccessibleEvent) -> Result<()> {
         let mount_point = &self
             .common
             .mount_point
@@ -160,6 +154,7 @@ impl Widget for Button {
             }
             _ => {}
         }
+        Ok(())
     }
 
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {

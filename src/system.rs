@@ -5,8 +5,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+use anyhow::Result;
 use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
+use log::warn;
 use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
@@ -65,14 +67,14 @@ pub fn send_window_request(window_id: WindowId, request: impl Into<WindowRequest
 
 pub fn add_timer<W: Widget, F>(duration: Duration, widget_id: WidgetId<W>, func: F) -> TimerId
 where
-    F: Fn(&mut W, Instant) + 'static,
+    F: Fn(&mut W, Instant) -> Result<()> + 'static,
 {
     add_timer_or_interval(duration, None, widget_id, func)
 }
 
 pub fn add_interval<W: Widget, F>(interval: Duration, widget_id: WidgetId<W>, func: F) -> TimerId
 where
-    F: Fn(&mut W, Instant) + 'static,
+    F: Fn(&mut W, Instant) -> Result<()> + 'static,
 {
     add_timer_or_interval(interval, Some(interval), widget_id, func)
 }
@@ -84,7 +86,7 @@ pub fn add_timer_or_interval<W: Widget, F>(
     func: F,
 ) -> TimerId
 where
-    F: Fn(&mut W, Instant) + 'static,
+    F: Fn(&mut W, Instant) -> Result<()> + 'static,
 {
     with_system(|system| {
         system.timers.add(
@@ -103,4 +105,25 @@ where
             },
         )
     })
+}
+
+pub fn report_error(error: impl Into<anyhow::Error>) {
+    // TODO: display popup error message or custom hook
+    warn!("{:?}", error.into());
+}
+
+pub trait ReportError {
+    type Output;
+    fn or_report_err(self) -> Option<Self::Output>;
+}
+
+impl<T, E> ReportError for Result<T, E>
+where
+    E: Into<anyhow::Error>,
+{
+    type Output = T;
+
+    fn or_report_err(self) -> Option<Self::Output> {
+        self.map_err(|err| report_error(err)).ok()
+    }
 }

@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use anyhow::Result;
 use png::DecodingError;
 use tiny_skia::Pixmap;
 
@@ -29,10 +30,11 @@ impl Image {
 }
 
 impl Widget for Image {
-    fn on_draw(&mut self, event: DrawEvent) {
+    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
         if let Some(pixmap) = &self.pixmap {
             event.draw_pixmap(Point::default(), pixmap.as_ref());
         }
+        Ok(())
     }
 
     fn common(&self) -> &WidgetCommon {

@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
 
 use accesskit_winit::ActionRequestEvent;
+use anyhow::{anyhow, Result};
 use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
 use derive_more::From;
@@ -19,7 +20,7 @@ use crate::{
         WidgetCallback,
     },
     style::{computed::ComputedStyle, defaults::default_style},
-    system::{address, with_system, SharedSystemDataInner, SYSTEM},
+    system::{address, with_system, ReportError, SharedSystemDataInner, SYSTEM},
     timer::Timers,
     widgets::{
         get_widget_by_address_mut, RawWidgetId, Widget, WidgetExt, WidgetId, WidgetNotFound,
@@ -48,6 +49,8 @@ impl<'a, State> CallbackContext<'a, State> {
                     if let Some(another_state) = mapper(state) {
                         let mut new_ctx = ctx.map_state::<AnotherState>(mapper.clone());
                         f(another_state, &mut new_ctx, any_event)
+                    } else {
+                        Ok(())
                     }
                 }))
             }),
@@ -56,13 +59,13 @@ impl<'a, State> CallbackContext<'a, State> {
 
     pub fn callback<Event: 'static>(
         &mut self,
-        mut callback: impl FnMut(&mut State, &mut CallbackContext<State>, Event) + 'static,
+        mut callback: impl FnMut(&mut State, &mut CallbackContext<State>, Event) -> Result<()> + 'static,
     ) -> Callback<Event> {
         let callback_id = (self.add_callback)(Box::new(move |state, ctx, any_event| {
             let event = *any_event
                 .downcast::<Event>()
-                .expect("event downcast failed");
-            callback(state, ctx, event);
+                .map_err(|_| anyhow!("event downcast failed"))?;
+            callback(state, ctx, event)
         }));
         let event_loop_proxy = with_system(|s| s.event_loop_proxy.clone());
         Callback::new(event_loop_proxy, callback_id)
@@ -118,7 +121,7 @@ fn dispatch_widget_callback<Event>(
     let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &address) else {
         return;
     };
-    callback.func()(widget, event);
+    callback.func()(widget, event).or_report_err();
     widget.update_accessible();
     window.after_widget_activity();
 }
