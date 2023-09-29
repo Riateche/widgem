@@ -18,7 +18,7 @@ use crate::{
         Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, InvokeCallbackEvent,
         WidgetCallback,
     },
-    style::{computed::ComputedStyle, default_style},
+    style::{computed::ComputedStyle, defaults::default_style},
     system::{address, with_system, SharedSystemDataInner, SYSTEM},
     timer::Timers,
     widgets::{

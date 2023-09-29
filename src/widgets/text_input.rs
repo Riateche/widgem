@@ -23,7 +23,7 @@ use crate::{
     },
     layout::SizeHint,
     shortcut::standard_shortcuts,
-    style::{computed::text_input::ComputedVariantStyle, TextInputState},
+    style::text_input::{ComputedVariantStyle, TextInputState},
     system::{add_interval, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,

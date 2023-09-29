@@ -1,7 +1,50 @@
+use derive_more::{From, Into};
 use std::{
     cmp::{max, min},
     ops::{Add, Sub, SubAssign},
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Default)]
+pub struct LogicalPixels(i32);
+
+impl LogicalPixels {
+    pub fn get(self) -> i32 {
+        self.0
+    }
+
+    pub fn to_physical(self, scale: f32) -> PhysicalPixels {
+        ((self.0 as f32 * scale).round() as i32).ppx()
+    }
+}
+
+pub trait LpxSuffix {
+    fn lpx(self) -> LogicalPixels;
+}
+
+impl LpxSuffix for i32 {
+    fn lpx(self) -> LogicalPixels {
+        LogicalPixels(self)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into)]
+pub struct PhysicalPixels(i32);
+
+impl PhysicalPixels {
+    pub fn get(self) -> i32 {
+        self.0
+    }
+}
+
+pub trait PpxSuffix {
+    fn ppx(self) -> PhysicalPixels;
+}
+
+impl PpxSuffix for i32 {
+    fn ppx(self) -> PhysicalPixels {
+        PhysicalPixels(self)
+    }
+}
 
 // TODO: use PhysicalPixels?
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
