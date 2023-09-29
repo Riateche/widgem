@@ -623,6 +623,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn apply_layout(&mut self) {
+        println!("apply_layout");
         let mut rects = self.layout();
         if rects.is_empty() {
             rects = self.common().children.iter().map(|_| None).collect();
@@ -641,14 +642,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             } else {
                 None
             };
-            if child.widget.common().rect_in_window != child_rect_in_window {
-                child.widget.dispatch(
-                    GeometryChangeEvent {
-                        new_rect_in_window: child_rect_in_window,
-                    }
-                    .into(),
-                );
-            }
+            child.widget.dispatch(
+                GeometryChangeEvent {
+                    new_rect_in_window: child_rect_in_window,
+                }
+                .into(),
+            );
         }
     }
 
@@ -729,7 +728,15 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
         return;
     };
     for pending_addr in pending {
+        println!(
+            "test3a check {:?} | {:?} = {}",
+            pending_addr,
+            mount_point.address,
+            pending_addr.starts_with(&mount_point.address)
+        );
+
         if pending_addr.starts_with(&mount_point.address) {
+            println!("test3 clear {:?}", common.id);
             common.clear_size_hint_cache();
             for child in &mut common.children {
                 invalidate_size_hint_cache(child.widget.as_mut(), pending);
@@ -759,6 +766,6 @@ impl WidgetAddress {
     pub fn starts_with(&self, base: &WidgetAddress) -> bool {
         self.window_id == base.window_id
             && base.path.len() <= self.path.len()
-            && base.path == self.path[..self.path.len()]
+            && base.path == self.path[..base.path.len()]
     }
 }

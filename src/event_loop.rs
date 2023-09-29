@@ -223,6 +223,9 @@ pub fn run<State: 'static>(
                             callbacks.call(&mut state, &mut ctx, event);
                         }
                         callbacks.add_all(&mut callback_maker);
+                        for window in windows.values_mut() {
+                            window.after_widget_activity();
+                        }
                     }
                     UserEvent::ActionRequest(request) => {
                         trace!("accesskit request: {:?}", request);

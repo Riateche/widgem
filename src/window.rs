@@ -271,6 +271,7 @@ impl Window {
         // println!("{event:?}");
         match event {
             WindowEvent::RedrawRequested => {
+                println!("window redraw");
                 let (width, height) = {
                     let size = &self.shared_window_data.0.borrow().winit_window.inner_size();
                     (
@@ -596,6 +597,7 @@ impl Window {
                 .pending_size_hint_invalidations,
         );
         if !pending_size_hint_invalidations.is_empty() {
+            println!("test2 {:?}", pending_size_hint_invalidations);
             if let Some(root_widget) = &mut self.root_widget {
                 invalidate_size_hint_cache(root_widget.as_mut(), &pending_size_hint_invalidations);
                 self.layout();
@@ -757,6 +759,7 @@ impl Window {
     fn layout(&mut self) {
         if let Some(root) = &mut self.root_widget {
             let inner_size = self.shared_window_data.0.borrow().winit_window.inner_size();
+            println!("root.dispatch GeometryChangeEvent");
             root.dispatch(
                 GeometryChangeEvent {
                     new_rect_in_window: Some(Rect {

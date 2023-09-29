@@ -45,6 +45,7 @@ impl Button {
     }
 
     pub fn set_text(&mut self, text: impl Display) {
+        println!("button set text");
         self.editor.set_text(&text.to_string(), Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
@@ -76,82 +77,6 @@ impl Button {
 
 impl Widget for Button {
     fn on_draw(&mut self, event: DrawEvent) {
-        // println!("draw button {}", self.common.is_enabled());
-
-        /*let start = tiny_skia::Point {
-            x: event.rect().top_left.x as f32,
-            y: event.rect().top_left.y as f32,
-        };
-        let end = tiny_skia::Point {
-            x: event.rect().top_left.x as f32,
-            y: event.rect().top_left.y as f32 + event.rect().size.y as f32,
-        };
-        let gradient = if !self.common.is_enabled() {
-            LinearGradient::new(
-                start,
-                end,
-                vec![
-                    GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
-                    GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
-                ],
-                SpreadMode::Pad,
-                Transform::default(),
-            )
-        } else if self.is_pressed {
-            LinearGradient::new(
-                start,
-                end,
-                vec![GradientStop::new(
-                    1.0,
-                    Color::from_rgba8(219, 219, 219, 255),
-                )],
-                SpreadMode::Pad,
-                Transform::default(),
-            )
-        } else if self.common.is_mouse_entered {
-            LinearGradient::new(
-                start,
-                end,
-                vec![
-                    GradientStop::new(1.0, Color::from_rgba8(254, 254, 254, 255)),
-                    GradientStop::new(1.0, Color::from_rgba8(247, 247, 247, 255)),
-                ],
-                SpreadMode::Pad,
-                Transform::default(),
-            )
-        } else {
-            LinearGradient::new(
-                start,
-                end,
-                vec![
-                    GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
-                    GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
-                ],
-                SpreadMode::Pad,
-                Transform::default(),
-            )
-        }
-        .expect("failed to create gradient");
-        let border_color = if self.common.is_enabled() {
-            if self.common.is_focused {
-                Color::from_rgba8(38, 112, 158, 255)
-            } else {
-                Color::from_rgba8(171, 171, 171, 255)
-            }
-        } else {
-            Color::from_rgba8(196, 196, 196, 255)
-        };
-        event.stroke_and_fill_rounded_rect(
-            Rect {
-                top_left: Point::default(),
-                size: event.rect().size,
-            },
-            2.0,
-            1.0,
-            gradient,
-            border_color,
-        );*/
-
         let style = self.current_variant_style().clone();
 
         event.stroke_and_fill_rounded_rect(
@@ -162,14 +87,6 @@ impl Widget for Button {
             style.border.as_ref(),
             style.background.as_ref(),
         );
-
-        // let style = &self.common.style().text_input;
-        // let style = if self.common.is_enabled() {
-        //     // TODO: support more variants
-        //     &style.normal
-        // } else {
-        //     &style.disabled
-        // };
 
         self.editor.set_text_color(style.text_color);
         let editor_pixmap = self.editor.pixmap();
@@ -255,6 +172,7 @@ impl Widget for Button {
     }
 
     fn size_hint_x(&mut self) -> SizeHint {
+        println!("test1 {:?}: {:?}", self.common.id, self.editor.size().x);
         SizeHint {
             min: self.editor.size().x + 2 * MIN_PADDING.x,
             preferred: self.editor.size().x + 2 * PADDING.x,

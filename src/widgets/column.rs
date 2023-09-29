@@ -47,6 +47,7 @@ impl Widget for Column {
     }
 
     fn layout(&mut self) -> Vec<Option<Rect>> {
+        println!("column layout");
         let Some(rect_in_window) = self.common().rect_in_window else {
             return Vec::new();
         };

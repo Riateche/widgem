@@ -111,7 +111,7 @@ impl State {
     fn button_clicked2(&mut self, ctx: &mut CallbackContext<Self>, data: String, k: u32) {
         println!("callback! {:?}, {}", data, k);
         let button = ctx.widget(self.button_id).unwrap();
-        button.set_text(&format!("ok {k}"));
+        button.set_text(&format!("ok {}", if k == 1 { "1" } else { "22222" }));
 
         if k == 1 {
             self.flag_column = !self.flag_column;

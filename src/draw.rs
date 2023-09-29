@@ -178,7 +178,6 @@ impl DrawEvent {
         border: Option<&ComputedBorderStyle>,
         background: Option<&Background>,
     ) {
-        println!("stroke_and_fill_rounded_rect {border:?} {background:?}");
         let path = self.rounded_rect_path(
             rect,
             border.map_or(0.0, |b| b.radius.get() as f32),
