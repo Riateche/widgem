@@ -4,7 +4,7 @@ use tiny_skia::Color;
 
 use crate::types::PhysicalPixels;
 
-use super::{condition::ClassRules, text_input, ElementState, Style, VariantStyle};
+use super::{button, condition::ClassRules, text_input, ElementState, Style, VariantStyle};
 
 #[derive(Debug, Clone)]
 pub struct ComputedStyleVariants<T: VariantStyle>(HashMap<T::State, T::Computed>);
@@ -39,6 +39,7 @@ pub struct ComputedStyle {
 
     pub font_metrics: cosmic_text::Metrics,
     pub text_input: text_input::ComputedStyle,
+    pub button: button::ComputedStyle,
 }
 
 impl ComputedStyle {
@@ -46,6 +47,7 @@ impl ComputedStyle {
         Self {
             font_metrics: style.font.to_metrics(scale),
             text_input: text_input::ComputedStyle::new(&style, scale),
+            button: button::ComputedStyle::new(&style, scale),
             style,
             scale,
         }

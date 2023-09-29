@@ -197,6 +197,10 @@ impl WidgetCommon {
         self.parent_scope.is_enabled && self.is_explicitly_enabled
     }
 
+    pub fn is_focused(&self) -> bool {
+        self.is_focused && self.is_window_focused
+    }
+
     pub fn style(&self) -> &Rc<ComputedStyle> {
         self.explicit_style
             .as_ref()

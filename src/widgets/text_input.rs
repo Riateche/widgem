@@ -127,10 +127,7 @@ impl TextInput {
         if let Some(id) = self.blink_timer.take() {
             id.cancel();
         }
-        let Some(mount_point) = &self.common.mount_point else {
-            return;
-        };
-        let focused = self.common.is_focused && mount_point.window.0.borrow().is_window_focused;
+        let focused = self.common.is_focused();
         self.editor.set_cursor_hidden(!focused);
         if focused {
             let id = add_interval(CURSOR_BLINK_INTERVAL, self.id(), |this, _| {
@@ -184,7 +181,7 @@ impl TextInput {
     fn current_variant_style(&self) -> &ComputedVariantStyle {
         let state = if self.common.is_enabled() {
             TextInputState::Enabled {
-                focused: self.common.is_focused && self.common.is_window_focused,
+                focused: self.common.is_focused(),
                 mouse_over: self.common.is_mouse_entered,
             }
         } else {
@@ -248,7 +245,7 @@ impl Widget for TextInput {
             .mount_point
             .as_ref()
             .expect("cannot draw when unmounted");
-        let is_focused = self.common.is_focused && mount_point.window.0.borrow().is_window_focused;
+        let is_focused = self.common.is_focused();
         //let style = &self.common.style().text_input;
         let style = self.current_variant_style().clone();
 

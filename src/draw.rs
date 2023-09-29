@@ -2,11 +2,14 @@ use std::{cell::RefCell, rc::Rc};
 
 use log::warn;
 use tiny_skia::{
-    BlendMode, Color, FillRule, FilterQuality, Paint, Path, PathBuilder, Pattern, Pixmap,
-    PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
+    BlendMode, Color, FillRule, FilterQuality, LinearGradient, Paint, Path, PathBuilder, Pattern,
+    Pixmap, PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
 };
 
-use crate::types::{Point, Rect};
+use crate::{
+    style::{computed::ComputedBorderStyle, Background},
+    types::{Point, Rect},
+};
 
 fn rounded_line_in_square_corner(
     path_builder: &mut PathBuilder,
@@ -172,14 +175,36 @@ impl DrawEvent {
     pub fn stroke_and_fill_rounded_rect(
         &self,
         rect: Rect,
-        radius: f32,
-        width: f32,
-        shader: Shader,
-        border_color: Color,
+        border: Option<&ComputedBorderStyle>,
+        background: Option<&Background>,
     ) {
-        let path = self.rounded_rect_path(rect, radius, width);
-        self.fill_path(&path, shader);
-        self.stroke_path(&path, border_color, width);
+        println!("stroke_and_fill_rounded_rect {border:?} {background:?}");
+        let path = self.rounded_rect_path(
+            rect,
+            border.map_or(0.0, |b| b.radius.get() as f32),
+            border.map_or(0.0, |b| b.width.get() as f32),
+        );
+        if let Some(background) = background {
+            let global_rect = rect.translate(self.rect.top_left);
+            let shader = match background {
+                Background::Solid(color) => Shader::SolidColor(*color),
+                Background::LinearGradient(gradient) => LinearGradient::new(
+                    global_rect.relative_pos(gradient.start).into(),
+                    global_rect.relative_pos(gradient.end).into(),
+                    gradient.stops.clone(),
+                    gradient.mode,
+                    Transform::default(),
+                )
+                .unwrap_or_else(|| {
+                    warn!("failed to create gradient");
+                    Shader::SolidColor(Color::TRANSPARENT)
+                }),
+            };
+            self.fill_path(&path, shader);
+        }
+        if let Some(border) = border {
+            self.stroke_path(&path, border.color, border.width.get() as f32);
+        }
     }
 
     pub fn fill_rounded_rect(&self, rect: Rect, radius: f32, width: f32, shader: Shader) {

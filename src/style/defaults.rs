@@ -1,4 +1,4 @@
-use tiny_skia::Color;
+use tiny_skia::{Color, GradientStop, SpreadMode};
 
 use crate::types::LpxSuffix;
 
@@ -6,10 +6,21 @@ use super::{
     button::{ButtonClass, ButtonVariantStyle},
     condition::{ClassCondition, ClassRules},
     text_input::{TextInputClass, TextInputVariantStyle},
-    Background, BorderStyle, ButtonStyle, Padding, Palette, RootFontStyle, Style, TextInputStyle,
+    Background, BorderStyle, ButtonStyle, LinearGradient, Padding, Palette, RelativeOffset,
+    RootFontStyle, Style, TextInputStyle,
 };
 
 pub fn default_style() -> Style {
+    let button_gradient = LinearGradient {
+        start: RelativeOffset { x: 0.0, y: 0.0 },
+        end: RelativeOffset { x: 0.0, y: 1.0 },
+        stops: vec![
+            GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
+            GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
+        ],
+        mode: SpreadMode::Pad,
+    };
+
     Style {
         font: RootFontStyle {
             font_size: 13.lpx(),
@@ -80,12 +91,39 @@ pub fn default_style() -> Style {
                     ClassCondition::always(),
                     ButtonVariantStyle {
                         border: BorderStyle {
-                            color: Some(Color::from_rgba8(171, 171, 171, 255)),
+                            color: Some(Color::from_rgba8(196, 196, 196, 255)),
                             width: Some(1.lpx()),
                             radius: Some(2.lpx()),
                         },
-                        background: Some(Background::LinearGradient(())),
+                        background: Some(Background::LinearGradient(button_gradient.clone())),
 
+                        ..Default::default()
+                    },
+                ),
+                (
+                    ClassCondition::not(ButtonClass::Enabled),
+                    ButtonVariantStyle {
+                        text_color: Some(Color::from_rgba8(191, 191, 191, 255)),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    ClassCondition::has(ButtonClass::MouseOver),
+                    ButtonVariantStyle {
+                        background: Some(Background::LinearGradient(LinearGradient {
+                            stops: vec![
+                                GradientStop::new(1.0, Color::from_rgba8(254, 254, 254, 255)),
+                                GradientStop::new(1.0, Color::from_rgba8(247, 247, 247, 255)),
+                            ],
+                            ..button_gradient
+                        })),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    ClassCondition::has(ButtonClass::Pressed),
+                    ButtonVariantStyle {
+                        background: Some(Background::Solid(Color::from_rgba8(219, 219, 219, 255))),
                         ..Default::default()
                     },
                 ),
@@ -94,9 +132,8 @@ pub fn default_style() -> Style {
                     ButtonVariantStyle {
                         border: BorderStyle {
                             color: Some(Color::from_rgba8(38, 112, 158, 255)),
-                            ..Default::default()
+                            ..BorderStyle::default()
                         },
-                        background: Some(Background::LinearGradient(())),
                         ..Default::default()
                     },
                 ),

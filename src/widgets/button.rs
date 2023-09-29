@@ -2,7 +2,6 @@ use std::{cmp::max, fmt::Display};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use cosmic_text::Attrs;
-use tiny_skia::{Color, GradientStop, LinearGradient, SpreadMode, Transform};
 use winit::event::MouseButton;
 
 use crate::{
@@ -11,7 +10,8 @@ use crate::{
     event::{AccessibleEvent, FocusReason, MouseInputEvent},
     event::{CursorLeaveEvent, CursorMoveEvent},
     layout::SizeHint,
-    system::{send_window_request, with_system},
+    style::button::{ButtonState, ComputedVariantStyle},
+    system::send_window_request,
     text_editor::TextEditor,
     types::{Point, Rect},
     window::SetFocusRequest,
@@ -59,13 +59,26 @@ impl Button {
             on_clicked.invoke(self.editor.text());
         }
     }
+
+    fn current_variant_style(&self) -> &ComputedVariantStyle {
+        let state = if self.common.is_enabled() {
+            ButtonState::Enabled {
+                focused: self.common.is_focused(),
+                mouse_over: self.common.is_mouse_entered,
+                pressed: self.is_pressed,
+            }
+        } else {
+            ButtonState::Disabled
+        };
+        self.common.style().button.variants.get(&state)
+    }
 }
 
 impl Widget for Button {
     fn on_draw(&mut self, event: DrawEvent) {
         // println!("draw button {}", self.common.is_enabled());
 
-        let start = tiny_skia::Point {
+        /*let start = tiny_skia::Point {
             x: event.rect().top_left.x as f32,
             y: event.rect().top_left.y as f32,
         };
@@ -137,6 +150,17 @@ impl Widget for Button {
             1.0,
             gradient,
             border_color,
+        );*/
+
+        let style = self.current_variant_style().clone();
+
+        event.stroke_and_fill_rounded_rect(
+            Rect {
+                top_left: Point::default(),
+                size: event.rect().size,
+            },
+            style.border.as_ref(),
+            style.background.as_ref(),
         );
 
         // let style = &self.common.style().text_input;
@@ -147,11 +171,7 @@ impl Widget for Button {
         //     &style.disabled
         // };
 
-        self.editor.set_text_color(if self.common.is_enabled() {
-            with_system(|system| system.default_style.style.palette.foreground)
-        } else {
-            Color::from_rgba8(191, 191, 191, 255)
-        });
+        self.editor.set_text_color(style.text_color);
         let editor_pixmap = self.editor.pixmap();
         let padding = Point {
             x: max(0, event.rect().size.x - editor_pixmap.width() as i32) / 2,

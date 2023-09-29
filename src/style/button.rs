@@ -1,9 +1,12 @@
 use itertools::Itertools;
 use tiny_skia::Color;
 
+use crate::types::Point;
+
 use super::{
-    computed::ComputedBorderStyle, condition::ClassRules, Background, BorderStyle, ElementState,
-    FontStyle, Padding, Style, VariantStyle,
+    computed::{ComputedBorderStyle, ComputedStyleVariants},
+    condition::ClassRules,
+    Background, BorderStyle, ElementState, FontStyle, Padding, Style, VariantStyle,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -108,4 +111,26 @@ pub struct ComputedVariantStyle {
     #[allow(dead_code)] // TODO: implement
     pub background: Option<Background>,
     pub text_color: Color,
+}
+
+#[derive(Debug, Clone)]
+pub struct ComputedStyle {
+    pub min_padding: Point,
+    pub preferred_padding: Point,
+    pub font_metrics: cosmic_text::Metrics,
+    pub variants: ComputedStyleVariants<ButtonVariantStyle>,
+}
+
+impl ComputedStyle {
+    pub fn new(style: &Style, scale: f32) -> ComputedStyle {
+        let mut font = style.font.clone();
+        font.apply(&style.button.font);
+
+        ComputedStyle {
+            min_padding: style.button.min_padding.to_physical(scale),
+            preferred_padding: style.button.preferred_padding.to_physical(scale),
+            font_metrics: font.to_metrics(scale),
+            variants: ComputedStyleVariants::new(&style.button.variants, style, scale),
+        }
+    }
 }

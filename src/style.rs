@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use std::hash::Hash;
-use tiny_skia::Color;
+use tiny_skia::{Color, GradientStop, SpreadMode};
 
 pub mod button;
 pub mod computed;
@@ -34,10 +34,25 @@ pub trait VariantStyle: Default {
     fn compute(&self, style: &Style, scale: f32) -> Self::Computed;
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RelativeOffset {
+    // from 0 to 1
+    pub x: f32,
+    pub y: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct LinearGradient {
+    pub start: RelativeOffset,
+    pub end: RelativeOffset,
+    pub stops: Vec<GradientStop>,
+    pub mode: SpreadMode,
+}
+
 #[derive(Debug, Clone)]
 pub enum Background {
     Solid(Color),
-    LinearGradient(()), // TODO
+    LinearGradient(LinearGradient), // TODO
 }
 
 #[derive(Debug, Clone, Copy, Default)]

@@ -4,6 +4,8 @@ use std::{
     ops::{Add, Sub, SubAssign},
 };
 
+use crate::style::RelativeOffset;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Default)]
 pub struct LogicalPixels(i32);
 
@@ -86,6 +88,12 @@ impl SubAssign for Point {
     }
 }
 
+impl From<Point> for tiny_skia::Point {
+    fn from(value: Point) -> Self {
+        tiny_skia::Point::from_xy(value.x as f32, value.y as f32)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Size {
     pub x: i32,
@@ -143,5 +151,14 @@ impl Rect {
             return Rect::default();
         }
         Self { top_left, size }
+    }
+
+    pub fn relative_pos(&self, offset: RelativeOffset) -> Point {
+        let x = self.top_left.x as f32 + offset.x * self.size.x as f32;
+        let y = self.top_left.y as f32 + offset.y * self.size.y as f32;
+        Point {
+            x: x.round() as i32,
+            y: y.round() as i32,
+        }
     }
 }
