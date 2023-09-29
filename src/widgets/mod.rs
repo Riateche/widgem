@@ -481,6 +481,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
 
     fn dispatch(&mut self, event: Event) -> bool {
         let mut accepted = false;
+        let mut should_dispatch = true;
         match &event {
             Event::GeometryChange(event) => {
                 self.common_mut().rect_in_window = event.new_rect_in_window;
@@ -515,72 +516,82 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::FocusOut(_) => {
                 self.common_mut().is_focused = false;
             }
-            Event::MouseLeave(_) => {
-                self.common_mut().is_mouse_over = false;
-            }
             Event::WindowFocusChange(e) => {
                 self.common_mut().is_window_focused = e.focused;
             }
             Event::MouseInput(event) => {
-                for child in &mut self.common_mut().children {
-                    if let Some(rect_in_parent) = child.rect_in_parent {
-                        if let Some(child_event) = event.map_to_child(rect_in_parent) {
-                            if child.widget.dispatch(child_event.into()) {
-                                accepted = true;
-                                break;
+                should_dispatch = self.common().is_enabled();
+                if should_dispatch {
+                    for child in &mut self.common_mut().children {
+                        if let Some(rect_in_parent) = child.rect_in_parent {
+                            if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                                if child.widget.dispatch(child_event.into()) {
+                                    accepted = true;
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
+            Event::MouseEnter(_) | Event::KeyboardInput(_) | Event::Ime(_) => {
+                should_dispatch = self.common().is_enabled();
+            }
             Event::MouseMove(event) => {
-                for child in &mut self.common_mut().children {
-                    if let Some(rect_in_parent) = child.rect_in_parent {
-                        if rect_in_parent.contains(event.pos) {
-                            let event = MouseMoveEvent {
-                                pos: event.pos - rect_in_parent.top_left,
-                                device_id: event.device_id,
-                                accepted_by: event.accepted_by.clone(),
-                            };
-                            if child.widget.dispatch(event.into()) {
-                                accepted = true;
-                                break;
+                should_dispatch = self.common().is_enabled();
+                if should_dispatch {
+                    for child in &mut self.common_mut().children {
+                        if let Some(rect_in_parent) = child.rect_in_parent {
+                            if rect_in_parent.contains(event.pos) {
+                                let event = MouseMoveEvent {
+                                    pos: event.pos - rect_in_parent.top_left,
+                                    device_id: event.device_id,
+                                    accepted_by: event.accepted_by.clone(),
+                                };
+                                if child.widget.dispatch(event.into()) {
+                                    accepted = true;
+                                    break;
+                                }
                             }
                         }
                     }
-                }
 
-                if !accepted {
-                    let is_enter = if let Some(mount_point) =
-                        self.common().mount_point_or_err().or_report_err()
-                    {
-                        let self_id = self.common().id;
-                        !mount_point
-                            .window
-                            .0
-                            .borrow()
-                            .mouse_entered_widgets
-                            .iter()
-                            .any(|(_, id)| *id == self_id)
-                    } else {
-                        false
-                    };
+                    if !accepted {
+                        let is_enter = if let Some(mount_point) =
+                            self.common().mount_point_or_err().or_report_err()
+                        {
+                            let self_id = self.common().id;
+                            !mount_point
+                                .window
+                                .0
+                                .borrow()
+                                .mouse_entered_widgets
+                                .iter()
+                                .any(|(_, id)| *id == self_id)
+                        } else {
+                            false
+                        };
 
-                    if is_enter {
-                        self.dispatch(
-                            MouseEnterEvent {
-                                device_id: event.device_id,
-                                pos: event.pos,
-                                accepted_by: event.accepted_by.clone(),
-                            }
-                            .into(),
-                        );
+                        if is_enter {
+                            self.dispatch(
+                                MouseEnterEvent {
+                                    device_id: event.device_id,
+                                    pos: event.pos,
+                                    accepted_by: event.accepted_by.clone(),
+                                }
+                                .into(),
+                            );
+                        }
                     }
                 }
+            }
+            Event::MouseLeave(_) => {
+                self.common_mut().is_mouse_over = false;
+                should_dispatch = self.common().is_enabled();
             }
             _ => {}
         }
-        if !accepted {
+        if !accepted && should_dispatch {
             accepted = match self.on_event(event.clone()) {
                 Ok(r) => r,
                 Err(err) => {

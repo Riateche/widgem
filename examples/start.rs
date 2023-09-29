@@ -73,8 +73,13 @@ impl State {
 
         let mut column2 = Column::new();
         let column2_id = column2.id();
-        let button21 = Button::new("btn21");
+        let mut button21 = Button::new("btn21");
         let button21_id = button21.id();
+        button21.on_clicked(ctx.callback(|_, _, _| {
+            println!("click!");
+            Ok(())
+        }));
+
         column2.add(Box::new(button21));
         let button22 = Button::new("btn22");
         let button22_id = button22.id();
