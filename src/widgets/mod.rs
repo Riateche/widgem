@@ -89,6 +89,8 @@ impl Default for WidgetScope {
     }
 }
 
+pub type EventFilterFn = dyn Fn(Event) -> Result<bool>;
+
 pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
@@ -118,6 +120,9 @@ pub struct WidgetCommon {
     pub explicit_style: Option<Rc<ComputedStyle>>,
 
     pub is_registered_as_focusable: bool,
+    // TODO: multiple filters?
+    // TODO: accept/reject event from filter; option to run filter after on_event
+    pub event_filter: Option<Box<EventFilterFn>>,
 }
 
 #[derive(Debug, Clone)]
@@ -153,6 +158,7 @@ impl WidgetCommon {
             parent_scope: WidgetScope::default(),
 
             is_registered_as_focusable: false,
+            event_filter: None,
         }
     }
 
@@ -698,12 +704,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             _ => {}
         }
         if !accepted && should_dispatch {
-            accepted = match self.on_event(event.clone()) {
-                Ok(r) => r,
-                Err(err) => {
-                    report_error(err);
-                    false
-                }
+            if let Some(event_filter) = &mut self.common_mut().event_filter {
+                accepted = event_filter(event.clone()).or_report_err().unwrap_or(false);
+            }
+            if !accepted {
+                accepted = self
+                    .on_event(event.clone())
+                    .or_report_err()
+                    .unwrap_or(false);
             }
         }
         match event {
