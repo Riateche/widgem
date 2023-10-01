@@ -155,9 +155,10 @@ impl TextInput {
         let focused = self.common.is_focused();
         self.editor.set_cursor_hidden(!focused);
         if focused {
-            let id = add_interval(CURSOR_BLINK_INTERVAL, self.id(), |this, _| {
-                this.toggle_cursor_hidden()
-            });
+            let id = add_interval(
+                CURSOR_BLINK_INTERVAL,
+                self.callback(|this, _| this.toggle_cursor_hidden()),
+            );
             self.blink_timer = Some(id);
         }
         self.common.update();

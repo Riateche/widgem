@@ -7,12 +7,12 @@ use std::{
 
 use priority_queue::PriorityQueue;
 
-use crate::{callback::WidgetCallback, system::with_system};
+use crate::{callback::Callback, system::with_system};
 
 #[derive(Default)]
 pub struct Timers {
     queue: PriorityQueue<TimerId, Reverse<Instant>>,
-    timers: HashMap<TimerId, WidgetTimer>,
+    timers: HashMap<TimerId, Timer>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,9 +31,9 @@ impl TimerId {
 }
 
 #[derive(Clone)]
-pub struct WidgetTimer {
+pub struct Timer {
     pub interval: Option<Duration>,
-    pub callback: WidgetCallback<Instant>,
+    pub callback: Callback<Instant>,
 }
 
 impl Timers {
@@ -41,13 +41,13 @@ impl Timers {
         Self::default()
     }
 
-    pub fn add(&mut self, instant: Instant, timer: WidgetTimer) -> TimerId {
+    pub fn add(&mut self, instant: Instant, timer: Timer) -> TimerId {
         let id = TimerId::new();
         self.add_with_id(instant, timer, id);
         id
     }
 
-    fn add_with_id(&mut self, instant: Instant, timer: WidgetTimer, id: TimerId) {
+    fn add_with_id(&mut self, instant: Instant, timer: Timer, id: TimerId) {
         self.queue.push(id, Reverse(instant));
         self.timers.insert(id, timer);
     }
@@ -61,7 +61,7 @@ impl Timers {
         self.queue.peek().map(|(_item, instant)| instant.0)
     }
 
-    pub fn pop(&mut self) -> Option<WidgetTimer> {
+    pub fn pop(&mut self) -> Option<Timer> {
         let next = self.next_instant()?;
         if next > Instant::now() {
             return None;

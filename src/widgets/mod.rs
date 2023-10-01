@@ -11,9 +11,11 @@ use accesskit::NodeId;
 use anyhow::{Context, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use log::warn;
+use thiserror::Error;
 use winit::window::{CursorIcon, WindowId};
 
 use crate::{
+    callback::{widget_callback, Callback},
     draw::DrawEvent,
     event::{
         AccessibleEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangeEvent, ImeEvent,
@@ -404,7 +406,8 @@ impl Default for WidgetCommon {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
+#[error("widget not found")]
 pub struct WidgetNotFound;
 
 pub fn get_widget_by_address_mut<'a>(
@@ -524,7 +527,6 @@ pub trait Widget: Downcast {
     fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint>;
 
     // TODO: result?
-    #[must_use]
     fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
         if !self.common().children.is_empty() {
             warn!("missing layout impl for widget with children");
@@ -542,6 +544,13 @@ pub trait WidgetExt {
     fn id(&self) -> WidgetId<Self>
     where
         Self: Sized;
+
+    fn callback<F, E>(&self, func: F) -> Callback<E>
+    where
+        F: Fn(&mut Self, E) -> Result<()> + 'static,
+        E: 'static,
+        Self: Sized;
+
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
     fn apply_layout(&mut self);
@@ -565,6 +574,15 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         Self: Sized,
     {
         WidgetId(self.common().id, PhantomData)
+    }
+
+    fn callback<F, E>(&self, func: F) -> Callback<E>
+    where
+        F: Fn(&mut Self, E) -> Result<()> + 'static,
+        E: 'static,
+        Self: Sized,
+    {
+        widget_callback(self.id(), func)
     }
 
     fn dispatch(&mut self, event: Event) -> bool {
@@ -752,7 +770,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             return;
         };
-        let mut rects = self
+        let rects = self
             .layout()
             .or_report_err()
             .unwrap_or_else(|| self.common().children.iter().map(|_| None).collect());

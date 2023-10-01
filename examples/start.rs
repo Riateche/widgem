@@ -1,8 +1,11 @@
 #![allow(dead_code)]
 
+use std::time::Duration;
+
 use anyhow::Result;
 use salvation::{
     event_loop::{self, CallbackContext},
+    system::add_interval,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
         scroll_bar::ScrollBar, text_input::TextInput, Widget, WidgetExt, WidgetId,
@@ -40,6 +43,7 @@ struct State {
     button22_id: WidgetId<Button>,
     flag_column: bool,
     flag_button21: bool,
+    i: i32,
 }
 
 impl State {
@@ -98,6 +102,10 @@ impl State {
             Some(Box::new(PaddingBox::new(Box::new(root)))),
             // Some(Box::new(root)),
         );
+        add_interval(
+            Duration::from_secs(2),
+            ctx.callback(|this, ctx, _| this.inc(ctx)),
+        );
         State {
             another_state,
             button_id,
@@ -106,7 +114,15 @@ impl State {
             button22_id,
             flag_column: true,
             flag_button21: true,
+            i: 0,
         }
+    }
+
+    fn inc(&mut self, ctx: &mut CallbackContext<Self>) -> Result<()> {
+        self.i += 1;
+        ctx.widget(self.button21_id)?
+            .set_text(format!("i = {}", self.i));
+        Ok(())
     }
 
     // fn button_clicked(&mut self, _ctx: &mut CallbackContext<Self>, data: String) {

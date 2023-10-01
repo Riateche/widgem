@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 
-use super::{button::Button, column::Column, Widget, WidgetCommon, WidgetExt};
+use super::{button::Button, Widget, WidgetCommon, WidgetExt};
 
 pub struct ScrollBar {
     common: WidgetCommon,

@@ -1,26 +1,55 @@
-use std::{any::Any, collections::HashMap, marker::PhantomData, rc::Rc};
+use std::{
+    any::Any,
+    collections::HashMap,
+    marker::PhantomData,
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use log::warn;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
     event_loop::{CallbackContext, UserEvent},
-    system::ReportError,
-    widgets::{RawWidgetId, Widget},
+    system::{with_system, ReportError},
+    widgets::{RawWidgetId, Widget, WidgetId},
 };
+
+#[derive(Debug, Clone, Copy)]
+pub enum CallbackKind {
+    State,
+    Widget,
+}
 
 pub struct Callback<Event> {
     sender: EventLoopProxy<UserEvent>,
     callback_id: CallbackId,
+    kind: CallbackKind,
     _marker: PhantomData<Event>,
 }
 
+impl<Event> Clone for Callback<Event> {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+            callback_id: self.callback_id,
+            kind: self.kind,
+            _marker: self._marker,
+        }
+    }
+}
+
 impl<Event> Callback<Event> {
-    pub fn new(sender: EventLoopProxy<UserEvent>, callback_id: CallbackId) -> Self {
+    pub(crate) fn new(
+        sender: EventLoopProxy<UserEvent>,
+        callback_id: CallbackId,
+        kind: CallbackKind,
+    ) -> Self {
         Self {
             sender,
             callback_id,
+            kind,
             _marker: PhantomData,
         }
     }
@@ -28,14 +57,25 @@ impl<Event> Callback<Event> {
 
 impl<Event: Send + 'static> Callback<Event> {
     pub fn invoke(&self, event: Event) {
-        let event =
-            UserEvent::InvokeCallback(InvokeCallbackEvent::new(self.callback_id, Box::new(event)));
+        let event = UserEvent::InvokeCallback(InvokeCallbackEvent::new(
+            self.callback_id,
+            self.kind,
+            Box::new(event),
+        ));
         let _ = self.sender.send_event(event);
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CallbackId(u64);
+
+impl CallbackId {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+        Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
 
 pub type CallbackDataFn<State> =
     dyn FnMut(&mut State, &mut CallbackContext<State>, Box<dyn Any>) -> Result<()>;
@@ -46,21 +86,18 @@ struct CallbackData<State> {
 }
 
 pub struct CallbackMaker<State> {
-    next_id: CallbackId,
     new_callbacks: Vec<(CallbackId, CallbackData<State>)>,
 }
 
 impl<State> CallbackMaker<State> {
     pub fn new() -> Self {
         Self {
-            next_id: CallbackId(1),
             new_callbacks: Vec::new(),
         }
     }
 
     pub fn add(&mut self, callback: Box<CallbackDataFn<State>>) -> CallbackId {
-        let callback_id = self.next_id;
-        self.next_id.0 += 1;
+        let callback_id = CallbackId::new();
         self.new_callbacks
             .push((callback_id, CallbackData { func: callback }));
         callback_id
@@ -110,35 +147,54 @@ impl<State> Default for Callbacks<State> {
 
 #[derive(Debug)]
 pub struct InvokeCallbackEvent {
-    callback_id: CallbackId,
-    event: Box<dyn Any + Send>,
+    pub callback_id: CallbackId,
+    pub kind: CallbackKind,
+    pub event: Box<dyn Any + Send>,
 }
 
 impl InvokeCallbackEvent {
-    pub fn new(callback_id: CallbackId, event: Box<dyn Any + Send>) -> Self {
-        Self { callback_id, event }
+    pub fn new(callback_id: CallbackId, kind: CallbackKind, event: Box<dyn Any + Send>) -> Self {
+        Self {
+            callback_id,
+            kind,
+            event,
+        }
     }
 }
 
-pub type WidgetCallbackFn<Event> = dyn Fn(&mut dyn Widget, Event) -> Result<()>;
+pub type WidgetCallbackDataFn = dyn Fn(&mut dyn Widget, Box<dyn Any + Send>) -> Result<()>;
 
-#[allow(clippy::type_complexity)]
 #[derive(Clone)]
-pub struct WidgetCallback<Event> {
-    widget_id: RawWidgetId,
-    func: Rc<WidgetCallbackFn<Event>>,
+pub struct WidgetCallbackData {
+    pub widget_id: RawWidgetId,
+    pub func: Rc<WidgetCallbackDataFn>,
+    // TODO: weak ref for cleanup
 }
 
-impl<Event> WidgetCallback<Event> {
-    pub fn new(widget_id: RawWidgetId, func: Rc<WidgetCallbackFn<Event>>) -> Self {
-        Self { widget_id, func }
-    }
-
-    pub fn widget_id(&self) -> RawWidgetId {
-        self.widget_id
-    }
-
-    pub fn func(&self) -> &WidgetCallbackFn<Event> {
-        self.func.as_ref()
+pub fn widget_callback<W, E, F>(widget_id: WidgetId<W>, func: F) -> Callback<E>
+where
+    W: Widget,
+    F: Fn(&mut W, E) -> Result<()> + 'static,
+    E: 'static,
+{
+    let callback_id = CallbackId::new();
+    let data = WidgetCallbackData {
+        widget_id: widget_id.0,
+        func: Rc::new(move |widget, any_event| {
+            let widget = widget
+                .downcast_mut::<W>()
+                .context("widget downcast failed")?;
+            let event = any_event
+                .downcast::<E>()
+                .map_err(|_| anyhow!("event downcast failed"))?;
+            func(widget, *event)
+        }),
+    };
+    with_system(|s| s.widget_callbacks.insert(callback_id, data));
+    Callback {
+        sender: with_system(|s| s.event_loop_proxy.clone()),
+        callback_id,
+        kind: CallbackKind::Widget,
+        _marker: PhantomData,
     }
 }

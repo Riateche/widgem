@@ -12,11 +12,11 @@ use log::warn;
 use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
-    callback::WidgetCallback,
+    callback::{Callback, CallbackId, WidgetCallbackData},
     event_loop::UserEvent,
     style::computed::ComputedStyle,
-    timer::{TimerId, Timers, WidgetTimer},
-    widgets::{RawWidgetId, Widget, WidgetAddress, WidgetId},
+    timer::{Timer, TimerId, Timers},
+    widgets::{RawWidgetId, WidgetAddress},
     window::{Window, WindowRequest},
 };
 
@@ -35,6 +35,8 @@ pub struct SharedSystemDataInner {
     pub clipboard: Clipboard,
     pub new_windows: Vec<Window>,
     pub exit_after_last_window_closes: bool,
+
+    pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);
@@ -65,45 +67,23 @@ pub fn send_window_request(window_id: WindowId, request: impl Into<WindowRequest
     });
 }
 
-pub fn add_timer<W: Widget, F>(duration: Duration, widget_id: WidgetId<W>, func: F) -> TimerId
-where
-    F: Fn(&mut W, Instant) -> Result<()> + 'static,
-{
-    add_timer_or_interval(duration, None, widget_id, func)
+pub fn add_timer(duration: Duration, callback: Callback<Instant>) -> TimerId {
+    add_timer_or_interval(duration, None, callback)
 }
 
-pub fn add_interval<W: Widget, F>(interval: Duration, widget_id: WidgetId<W>, func: F) -> TimerId
-where
-    F: Fn(&mut W, Instant) -> Result<()> + 'static,
-{
-    add_timer_or_interval(interval, Some(interval), widget_id, func)
+pub fn add_interval(interval: Duration, callback: Callback<Instant>) -> TimerId {
+    add_timer_or_interval(interval, Some(interval), callback)
 }
 
-pub fn add_timer_or_interval<W: Widget, F>(
+pub fn add_timer_or_interval(
     duration: Duration,
     interval: Option<Duration>,
-    widget_id: WidgetId<W>,
-    func: F,
-) -> TimerId
-where
-    F: Fn(&mut W, Instant) -> Result<()> + 'static,
-{
+    callback: Callback<Instant>,
+) -> TimerId {
     with_system(|system| {
-        system.timers.add(
-            Instant::now() + duration,
-            WidgetTimer {
-                interval,
-                callback: WidgetCallback::new(
-                    widget_id.0,
-                    Rc::new(move |widget, event| {
-                        func(
-                            widget.downcast_mut::<W>().expect("widget type mismatch"),
-                            event,
-                        )
-                    }),
-                ),
-            },
-        )
+        system
+            .timers
+            .add(Instant::now() + duration, Timer { interval, callback })
     })
 }
 

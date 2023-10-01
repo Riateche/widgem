@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
+use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
 
 use accesskit_winit::ActionRequestEvent;
 use anyhow::{anyhow, Result};
@@ -16,8 +16,8 @@ use winit::{
 
 use crate::{
     callback::{
-        Callback, CallbackDataFn, CallbackId, CallbackMaker, Callbacks, InvokeCallbackEvent,
-        WidgetCallback,
+        Callback, CallbackDataFn, CallbackId, CallbackKind, CallbackMaker, Callbacks,
+        InvokeCallbackEvent,
     },
     style::{computed::ComputedStyle, defaults::default_style},
     system::{address, with_system, ReportError, SharedSystemDataInner, SYSTEM},
@@ -68,7 +68,7 @@ impl<'a, State> CallbackContext<'a, State> {
             callback(state, ctx, event)
         }));
         let event_loop_proxy = with_system(|s| s.event_loop_proxy.clone());
-        Callback::new(event_loop_proxy, callback_id)
+        Callback::new(event_loop_proxy, callback_id, CallbackKind::State)
     }
 
     pub fn widget<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
@@ -104,12 +104,16 @@ where
     WINDOW_TARGET.with(f)
 }
 
-fn dispatch_widget_callback<Event>(
+fn dispatch_widget_callback(
     windows: &mut HashMap<WindowId, Window>,
-    callback: &WidgetCallback<Event>,
-    event: Event,
+    callback_id: CallbackId,
+    event: Box<dyn Any + Send>,
 ) {
-    let Some(address) = address(callback.widget_id()) else {
+    let Some(callback) = with_system(|s| s.widget_callbacks.get(&callback_id).cloned()) else {
+        warn!("unknown widget callback id");
+        return;
+    };
+    let Some(address) = address(callback.widget_id) else {
         return;
     };
     let Some(window) = windows.get_mut(&address.window_id) else {
@@ -121,7 +125,7 @@ fn dispatch_widget_callback<Event>(
     let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &address) else {
         return;
     };
-    callback.func()(widget, event).or_report_err();
+    (callback.func)(widget, event).or_report_err();
     widget.update_accessible();
     window.after_widget_activity();
 }
@@ -167,6 +171,7 @@ pub fn run<State: 'static>(
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
         new_windows: Vec::new(),
         exit_after_last_window_closes: true,
+        widget_callbacks: HashMap::new(),
     };
     SYSTEM.with(|system| {
         *system.0.borrow_mut() = Some(shared_system_data);
@@ -190,8 +195,7 @@ pub fn run<State: 'static>(
         WINDOW_TARGET.set(window_target, || {
             fetch_new_windows(&mut windows);
             while let Some(timer) = with_system(|system| system.timers.pop()) {
-                dispatch_widget_callback(&mut windows, &timer.callback, Instant::now());
-                fetch_new_windows(&mut windows);
+                timer.callback.invoke(Instant::now());
             }
 
             match event {
@@ -215,21 +219,26 @@ pub fn run<State: 'static>(
                             }
                         }
                     }
-                    UserEvent::InvokeCallback(event) => {
-                        {
-                            let mut ctx = CallbackContext {
-                                windows: &mut windows,
-                                add_callback: Box::new(|f| callback_maker.add(f)),
-                                marker: PhantomData,
-                            };
+                    UserEvent::InvokeCallback(event) => match event.kind {
+                        CallbackKind::State => {
+                            {
+                                let mut ctx = CallbackContext {
+                                    windows: &mut windows,
+                                    add_callback: Box::new(|f| callback_maker.add(f)),
+                                    marker: PhantomData,
+                                };
 
-                            callbacks.call(&mut state, &mut ctx, event);
+                                callbacks.call(&mut state, &mut ctx, event);
+                            }
+                            callbacks.add_all(&mut callback_maker);
+                            for window in windows.values_mut() {
+                                window.after_widget_activity();
+                            }
                         }
-                        callbacks.add_all(&mut callback_maker);
-                        for window in windows.values_mut() {
-                            window.after_widget_activity();
+                        CallbackKind::Widget => {
+                            dispatch_widget_callback(&mut windows, event.callback_id, event.event);
                         }
-                    }
+                    },
                     UserEvent::ActionRequest(request) => {
                         trace!("accesskit request: {:?}", request);
                         if let Some(window) = windows.get_mut(&request.window_id) {
