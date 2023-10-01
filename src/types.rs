@@ -100,6 +100,12 @@ pub struct Size {
     pub y: i32,
 }
 
+impl Size {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Rect {
     pub top_left: Point,
@@ -107,6 +113,14 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn from_xywh(x: i32, y: i32, w: i32, h: i32) -> Rect {
+        Self::from_pos_size(Point::new(x, y), Size::new(w, h))
+    }
+
+    pub fn from_pos_size(top_left: Point, size: Size) -> Self {
+        Self { top_left, size }
+    }
+
     #[must_use]
     pub fn translate(&self, delta: Point) -> Self {
         Self {
@@ -161,4 +175,10 @@ impl Rect {
             y: y.round() as i32,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Axis {
+    X,
+    Y,
 }

@@ -5,7 +5,7 @@ use salvation::{
     event_loop::{self, CallbackContext},
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
-        text_input::TextInput, Widget, WidgetExt, WidgetId,
+        scroll_bar::ScrollBar, text_input::TextInput, Widget, WidgetExt, WidgetId,
     },
     window::create_window,
 };
@@ -90,6 +90,8 @@ impl State {
         let (another_state, btn3) =
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
         root.add(btn3);
+
+        root.add(ScrollBar::new().boxed());
 
         create_window(
             WindowBuilder::new().with_title("example"),

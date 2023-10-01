@@ -34,6 +34,7 @@ pub mod column;
 pub mod image;
 pub mod label;
 pub mod padding_box;
+pub mod scroll_bar;
 pub mod stack;
 pub mod text_input;
 
@@ -325,6 +326,10 @@ impl WidgetCommon {
         self.rect_in_window.context("no rect_in_window")
     }
 
+    pub fn size_or_err(&self) -> Result<Size> {
+        Ok(self.rect_in_window.context("no rect_in_window")?.size)
+    }
+
     fn register_focusable(&mut self) {
         let is_focusable = self.is_focusable();
         if is_focusable != self.is_registered_as_focusable {
@@ -360,6 +365,37 @@ impl WidgetCommon {
         self.parent_scope = scope;
         self.register_focusable();
     }
+
+    /*pub fn only_child_size_hint_x(&mut self) -> Result<SizeHint> {
+        if self.children.is_empty() {
+            bail!("no children");
+        }
+        if self.children.len() > 1 {
+            warn!("more than one child found, using first child's size hint");
+        }
+        Ok(self.children[0].widget.cached_size_hint_x())
+    }
+
+    pub fn only_child_size_hint_y(&mut self, size_x: i32) -> Result<SizeHint> {
+        if self.children.is_empty() {
+            bail!("no children");
+        }
+        if self.children.len() > 1 {
+            warn!("more than one child found, using first child's size hint");
+        }
+        Ok(self.children[0].widget.cached_size_hint_y(size_x))
+    }
+
+    pub fn layout_child_as_self(&self) -> Vec<Option<Rect>> {
+        let rect = self
+            .rect_in_window_or_err()
+            .or_report_err()
+            .map(|rect| Rect {
+                top_left: Point::default(),
+                size: rect.size,
+            });
+        self.children.iter().map(|_| rect).collect()
+    }*/
 }
 
 impl Default for WidgetCommon {
@@ -484,17 +520,16 @@ pub trait Widget: Downcast {
             Event::WidgetScopeChange(e) => self.on_widget_scope_change(e).map(|()| true),
         }
     }
-    // TODO: result?
-    fn size_hint_x(&mut self) -> SizeHint;
-    fn size_hint_y(&mut self, size_x: i32) -> SizeHint;
+    fn size_hint_x(&mut self) -> Result<SizeHint>;
+    fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint>;
 
     // TODO: result?
     #[must_use]
-    fn layout(&mut self) -> Vec<Option<Rect>> {
+    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
         if !self.common().children.is_empty() {
-            warn!("no layout impl for widget with children");
+            warn!("missing layout impl for widget with children");
         }
-        Vec::new()
+        Ok(Vec::new())
     }
     // TODO: result?
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
@@ -518,6 +553,10 @@ pub trait WidgetExt {
     fn set_enabled(&mut self, enabled: bool);
     fn set_visible(&mut self, visible: bool);
     fn set_style(&mut self, style: Option<Style>);
+
+    fn boxed(self) -> Box<dyn Widget>
+    where
+        Self: Sized;
 }
 
 impl<W: Widget + ?Sized> WidgetExt for W {
@@ -699,24 +738,33 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn apply_layout(&mut self) {
-        let mut rects = self.layout();
-        if rects.is_empty() {
-            rects = self.common().children.iter().map(|_| None).collect();
-        }
+        let Some(rect_in_window) = self.common().rect_in_window else {
+            for child in &mut self.common_mut().children {
+                if child.rect_in_parent.is_some() {
+                    child.rect_in_parent = None;
+                    child.widget.dispatch(
+                        GeometryChangeEvent {
+                            new_rect_in_window: None,
+                        }
+                        .into(),
+                    );
+                }
+            }
+            return;
+        };
+        let mut rects = self
+            .layout()
+            .or_report_err()
+            .unwrap_or_else(|| self.common().children.iter().map(|_| None).collect());
         if rects.len() != self.common().children.len() {
             warn!("invalid length in layout output");
             return;
         }
-        let rect_in_window = self.common().rect_in_window;
         for (rect_in_parent, child) in rects.into_iter().zip(self.common_mut().children.iter_mut())
         {
             child.rect_in_parent = rect_in_parent;
-            let child_rect_in_window = if let Some(rect_in_window) = rect_in_window {
-                rect_in_parent
-                    .map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left))
-            } else {
-                None
-            };
+            let child_rect_in_window = rect_in_parent
+                .map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left));
             child.widget.dispatch(
                 GeometryChangeEvent {
                     new_rect_in_window: child_rect_in_window,
@@ -759,7 +807,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         if let Some(cached) = &self.common().size_hint_x_cache {
             *cached
         } else {
-            let r = self.size_hint_x();
+            let r = self
+                .size_hint_x()
+                .or_report_err()
+                .unwrap_or_else(SizeHint::new_fallback);
             self.common_mut().size_hint_x_cache = Some(r);
             r
         }
@@ -768,7 +819,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         if let Some(cached) = self.common().size_hint_y_cache.get(&size_x) {
             *cached
         } else {
-            let r = self.size_hint_y(size_x);
+            let r = self
+                .size_hint_y(size_x)
+                .or_report_err()
+                .unwrap_or_else(SizeHint::new_fallback);
             self.common_mut().size_hint_y_cache.insert(size_x, r);
             r
         }
@@ -794,6 +848,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let style = style.map(|style| Rc::new(ComputedStyle::new(style, scale)));
         self.common_mut().explicit_style = style;
         self.dispatch(WidgetScopeChangeEvent.into());
+    }
+
+    fn boxed(self) -> Box<dyn Widget>
+    where
+        Self: Sized,
+    {
+        Box::new(self)
     }
 }
 

@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::cmp::max;
 
 use crate::{
@@ -32,7 +33,7 @@ impl Widget for PaddingBox {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self) -> SizeHint {
+    fn size_hint_x(&mut self) -> Result<SizeHint> {
         let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
             content.widget.cached_size_hint_x()
         } else {
@@ -44,10 +45,10 @@ impl Widget for PaddingBox {
         };
         size_hint.min += PADDING.x * 2;
         size_hint.preferred += PADDING.x * 2;
-        size_hint
+        Ok(size_hint)
     }
 
-    fn size_hint_y(&mut self, size_x: i32) -> SizeHint {
+    fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint> {
         let child_size_x = max(0, size_x - 2 * PADDING.x);
         let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
             content.widget.cached_size_hint_y(child_size_x)
@@ -60,17 +61,15 @@ impl Widget for PaddingBox {
         };
         size_hint.min += PADDING.y * 2;
         size_hint.preferred += PADDING.y * 2;
-        size_hint
+        Ok(size_hint)
     }
 
-    fn layout(&mut self) -> Vec<Option<Rect>> {
+    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
         if self.common.children.is_empty() {
-            return Vec::new();
+            return Ok(Vec::new());
         }
 
-        let Some(self_rect) = self.common.rect_in_window else {
-            return Vec::new();
-        };
+        let self_rect = self.common.rect_in_window_or_err()?;
         let rect = Rect {
             top_left: PADDING,
             size: Size {
@@ -78,6 +77,6 @@ impl Widget for PaddingBox {
                 y: max(0, self_rect.size.y - 2 * PADDING.y),
             },
         };
-        vec![Some(rect)]
+        Ok(vec![Some(rect)])
     }
 }

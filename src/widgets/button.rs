@@ -165,20 +165,20 @@ impl Widget for Button {
         Some(node)
     }
 
-    fn size_hint_x(&mut self) -> SizeHint {
-        SizeHint {
+    fn size_hint_x(&mut self) -> Result<SizeHint> {
+        Ok(SizeHint {
             min: self.editor.size().x + 2 * MIN_PADDING.x,
             preferred: self.editor.size().x + 2 * PADDING.x,
             is_fixed: true,
-        }
+        })
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
         // TODO: use size_x, handle multiple lines
-        SizeHint {
+        Ok(SizeHint {
             min: self.editor.size().y + 2 * MIN_PADDING.y,
             preferred: self.editor.size().y + 2 * PADDING.y,
             is_fixed: true,
-        }
+        })
     }
 }

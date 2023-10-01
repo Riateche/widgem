@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::collections::HashMap;
 
 use crate::{layout::SizeHint, types::Rect};
@@ -34,15 +35,15 @@ impl Widget for Stack {
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
-    fn layout(&mut self) -> Vec<Option<Rect>> {
+    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
         let mut new_rects = Vec::new();
         for child in &mut self.common.children {
             new_rects.push(self.rects.get(&child.widget.common().id).copied().flatten());
         }
-        new_rects
+        Ok(new_rects)
     }
 
-    fn size_hint_x(&mut self) -> SizeHint {
+    fn size_hint_x(&mut self) -> Result<SizeHint> {
         let max = self
             .common
             .children
@@ -51,14 +52,14 @@ impl Widget for Stack {
             .map(|rect| rect.bottom_right().x)
             .max()
             .unwrap_or(0);
-        SizeHint {
+        Ok(SizeHint {
             min: max,
             preferred: max,
             is_fixed: true,
-        }
+        })
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
         let max = self
             .common
             .children
@@ -67,10 +68,10 @@ impl Widget for Stack {
             .map(|rect| rect.bottom_right().y)
             .max()
             .unwrap_or(0);
-        SizeHint {
+        Ok(SizeHint {
             min: max,
             preferred: max,
             is_fixed: true,
-        }
+        })
     }
 }

@@ -589,25 +589,25 @@ impl Widget for TextInput {
         Some(node)
     }
 
-    fn size_hint_x(&mut self) -> SizeHint {
+    fn size_hint_x(&mut self) -> Result<SizeHint> {
         let size_y = self.editor.size().y as f32;
         let style = &self.common.style().text_input;
 
-        SizeHint {
+        Ok(SizeHint {
             min: (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding.x,
             preferred: (size_y * style.preferred_aspect_ratio).round() as i32
                 + style.preferred_padding.x,
             is_fixed: false,
-        }
+        })
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
         let style = &self.common.style().text_input;
 
-        SizeHint {
+        Ok(SizeHint {
             min: self.editor.size().y + 2 * style.min_padding.y,
             preferred: self.editor.size().y + 2 * style.preferred_padding.y,
             is_fixed: true,
-        }
+        })
     }
 }

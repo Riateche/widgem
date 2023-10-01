@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::cmp::{max, min};
 
 use crate::{
@@ -46,10 +47,8 @@ impl Widget for Column {
         &mut self.common
     }
 
-    fn layout(&mut self) -> Vec<Option<Rect>> {
-        let Some(rect_in_window) = self.common().rect_in_window else {
-            return Vec::new();
-        };
+    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
+        let rect_in_window = self.common().rect_in_window_or_err()?;
         let mut items_y = Vec::new();
         let mut sizes_x = Vec::new();
         for child in self.common.children.iter_mut() {
@@ -84,10 +83,10 @@ impl Widget for Column {
             new_rects.push(Some(child_rect));
             current_y = child_rect.bottom_right().y;
         }
-        new_rects
+        Ok(new_rects)
     }
 
-    fn size_hint_x(&mut self) -> SizeHint {
+    fn size_hint_x(&mut self) -> Result<SizeHint> {
         let mut r = SizeHint {
             min: 0,
             preferred: 0,
@@ -101,9 +100,9 @@ impl Widget for Column {
                 r.is_fixed = false;
             }
         }
-        r
+        Ok(r)
     }
-    fn size_hint_y(&mut self, size_x: i32) -> SizeHint {
+    fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint> {
         let mut r = SizeHint {
             min: 0,
             preferred: 0,
@@ -122,7 +121,7 @@ impl Widget for Column {
                 r.is_fixed = false;
             }
         }
-        r
+        Ok(r)
     }
 }
 

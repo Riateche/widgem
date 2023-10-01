@@ -44,23 +44,23 @@ impl Widget for Image {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self) -> SizeHint {
+    fn size_hint_x(&mut self) -> Result<SizeHint> {
         let size = self.pixmap.as_ref().map_or(0, |p| p.width() as i32);
 
-        SizeHint {
+        Ok(SizeHint {
             min: size,
             preferred: size,
             is_fixed: true,
-        }
+        })
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
         let size = self.pixmap.as_ref().map_or(0, |p| p.height() as i32);
 
-        SizeHint {
+        Ok(SizeHint {
             min: size,
             preferred: size,
             is_fixed: true,
-        }
+        })
     }
 }

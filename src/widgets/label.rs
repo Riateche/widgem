@@ -42,20 +42,20 @@ impl Widget for Label {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self) -> SizeHint {
-        SizeHint {
+    fn size_hint_x(&mut self) -> Result<SizeHint> {
+        Ok(SizeHint {
             min: self.editor.size().x,
             preferred: self.editor.size().x,
             is_fixed: true,
-        }
+        })
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> SizeHint {
+    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
         // TODO: use size_x, handle multiple lines
-        SizeHint {
+        Ok(SizeHint {
             min: self.editor.size().y,
             preferred: self.editor.size().y,
             is_fixed: true,
-        }
+        })
     }
 }
