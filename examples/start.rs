@@ -44,6 +44,7 @@ struct State {
     flag_column: bool,
     flag_button21: bool,
     i: i32,
+    label2_id: WidgetId<Label>,
 }
 
 impl State {
@@ -95,7 +96,16 @@ impl State {
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
         root.add(btn3);
 
-        root.add(ScrollBar::new().boxed());
+        let mut scroll_bar = ScrollBar::new();
+        scroll_bar.on_value_changed(ctx.callback(|this, ctx, value| {
+            ctx.widget(this.label2_id)?
+                .set_text(format!("value={value}"));
+            Ok(())
+        }));
+        root.add(scroll_bar.boxed());
+        let label2 = Label::new("ok");
+        let label2_id = label2.id();
+        root.add(label2.boxed());
 
         create_window(
             WindowBuilder::new().with_title("example"),
@@ -115,6 +125,7 @@ impl State {
             flag_column: true,
             flag_button21: true,
             i: 0,
+            label2_id,
         }
     }
 

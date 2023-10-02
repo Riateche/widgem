@@ -22,9 +22,9 @@ use crate::{
     accessible::AccessibleNodes,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangeEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
-        UnmountEvent, WindowFocusChangeEvent,
+        AccessibleEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent, KeyboardInputEvent,
+        LayoutEvent, MountEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, UnmountEvent,
+        WindowFocusChangeEvent,
     },
     event_loop::{with_window_target, UserEvent},
     system::{address, with_system},
@@ -371,7 +371,7 @@ impl Window {
                 buffer.present().unwrap();
             }
             WindowEvent::Resized(_) => {
-                self.layout();
+                self.layout(Vec::new());
             }
             WindowEvent::CloseRequested => {
                 // TODO: add option to confirm close or do something else
@@ -420,6 +420,7 @@ impl Window {
                                     MouseMoveEvent {
                                         device_id,
                                         pos: pos_in_widget,
+                                        pos_in_window,
                                         accepted_by: accepted_by.clone(),
                                     }
                                     .into(),
@@ -431,6 +432,7 @@ impl Window {
                             MouseMoveEvent {
                                 device_id,
                                 pos: pos_in_window,
+                                pos_in_window,
                                 accepted_by: accepted_by.clone(),
                             }
                             .into(),
@@ -499,6 +501,7 @@ impl Window {
                                         .button(button)
                                         .num_clicks(self.num_clicks)
                                         .pos(pos_in_widget)
+                                        .pos_in_window(pos_in_window)
                                         .accepted_by(Rc::clone(&accepted_by))
                                         .build();
                                     mouse_grabber_widget.dispatch(event.into());
@@ -521,6 +524,7 @@ impl Window {
                                 .button(button)
                                 .num_clicks(self.num_clicks)
                                 .pos(pos_in_window)
+                                .pos_in_window(pos_in_window)
                                 .accepted_by(Rc::clone(&accepted_by))
                                 .build();
                             root_widget.dispatch(event.into());
@@ -628,7 +632,7 @@ impl Window {
         if !pending_size_hint_invalidations.is_empty() {
             if let Some(root_widget) = &mut self.root_widget {
                 invalidate_size_hint_cache(root_widget.as_mut(), &pending_size_hint_invalidations);
-                self.layout();
+                self.layout(pending_size_hint_invalidations);
             }
         }
 
@@ -779,11 +783,11 @@ impl Window {
             .set_focus(None);
     }
 
-    fn layout(&mut self) {
+    fn layout(&mut self, changed_size_hints: Vec<WidgetAddress>) {
         if let Some(root) = &mut self.root_widget {
             let inner_size = self.shared_window_data.0.borrow().winit_window.inner_size();
             root.dispatch(
-                GeometryChangeEvent {
+                LayoutEvent {
                     new_rect_in_window: Some(Rect {
                         top_left: Point::default(),
                         size: Size {
@@ -791,6 +795,7 @@ impl Window {
                             y: inner_size.height as i32,
                         },
                     }),
+                    changed_size_hints,
                 }
                 .into(),
             );

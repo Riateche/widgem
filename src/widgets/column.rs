@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::cmp::{max, min};
 
 use crate::{
+    event::LayoutEvent,
     layout::SizeHint,
     types::{Point, Rect, Size},
 };
@@ -47,7 +48,7 @@ impl Widget for Column {
         &mut self.common
     }
 
-    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
+    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let rect_in_window = self.common().rect_in_window_or_err()?;
         let mut items_y = Vec::new();
         let mut sizes_x = Vec::new();
@@ -60,14 +61,13 @@ impl Widget for Column {
             });
         }
         let mut current_y = 0;
-        let mut new_rects = Vec::new();
         // TODO: this is incorrect for extremely small sizes where not all items are visible
         let available_size_y =
             rect_in_window.size.y - self.common.children.len().saturating_sub(1) as i32 * SPACING;
         let solved = solve_layout(&items_y, available_size_y);
         for (i, (result_item, size_x)) in solved.into_iter().zip(sizes_x).enumerate() {
             if result_item == 0 {
-                new_rects.push(None);
+                self.common.set_child_rect(i, None)?;
                 continue;
             }
             if i != 0 {
@@ -80,10 +80,10 @@ impl Widget for Column {
                     y: result_item,
                 },
             };
-            new_rects.push(Some(child_rect));
+            self.common.set_child_rect(i, Some(child_rect))?;
             current_y = child_rect.bottom_right().y;
         }
-        Ok(new_rects)
+        Ok(())
     }
 
     fn size_hint_x(&mut self) -> Result<SizeHint> {

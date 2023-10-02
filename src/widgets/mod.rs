@@ -18,15 +18,13 @@ use crate::{
     callback::{widget_callback, Callback},
     draw::DrawEvent,
     event::{
-        AccessibleEvent, Event, FocusInEvent, FocusOutEvent, GeometryChangeEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-        MouseMoveEvent, UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        AccessibleEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent,
+        LayoutEvent, MountEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
+        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
     style::{computed::ComputedStyle, Style},
-    system::{
-        address, register_address, report_error, unregister_address, with_system, ReportError,
-    },
+    system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Rect, Size},
     window::SharedWindowData,
 };
@@ -108,6 +106,7 @@ pub struct WidgetCommon {
     pub rect_in_window: Option<Rect>,
 
     pub children: Vec<Child>,
+    pub current_layout_event: Option<LayoutEvent>,
 
     pub size_hint_x_cache: Option<SizeHint>,
     // TODO: limit count
@@ -159,6 +158,7 @@ impl WidgetCommon {
 
             is_registered_as_focusable: false,
             event_filter: None,
+            current_layout_event: None,
         }
     }
 
@@ -274,6 +274,7 @@ impl WidgetCommon {
             Child {
                 widget,
                 rect_in_parent: None,
+                rect_set_during_layout: false,
             },
         );
         self.remount_children(index + 1);
@@ -306,6 +307,45 @@ impl WidgetCommon {
         self.remount_children(index);
         self.size_hint_changed();
         widget
+    }
+
+    pub fn set_child_rect(&mut self, index: usize, rect_in_parent: Option<Rect>) -> Result<()> {
+        let child = self
+            .children
+            .get_mut(index)
+            .context("set_child_rect: invalid child index")?;
+
+        let rect_in_window = if let Some(rect_in_window) = self.rect_in_window {
+            rect_in_parent.map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left))
+        } else {
+            None
+        };
+        child.rect_in_parent = rect_in_parent;
+        let rect_changed = child.widget.common().rect_in_window != rect_in_window;
+        if let Some(event) = &self.current_layout_event {
+            let mount_point = child.widget.common().mount_point_or_err()?;
+            if rect_changed || event.size_hints_changed_within(&mount_point.address) {
+                child.widget.dispatch(
+                    LayoutEvent {
+                        new_rect_in_window: rect_in_window,
+                        changed_size_hints: event.changed_size_hints.clone(),
+                    }
+                    .into(),
+                );
+            }
+            child.rect_set_during_layout = true;
+        } else {
+            if rect_changed {
+                child.widget.dispatch(
+                    LayoutEvent {
+                        new_rect_in_window: rect_in_window,
+                        changed_size_hints: Vec::new(),
+                    }
+                    .into(),
+                );
+            }
+        }
+        Ok(())
     }
 
     pub fn size_hint_changed(&mut self) {
@@ -444,6 +484,7 @@ pub fn get_widget_by_id_mut(
 pub struct Child {
     pub widget: Box<dyn Widget>,
     pub rect_in_parent: Option<Rect>,
+    pub rect_set_during_layout: bool,
 }
 
 pub trait Widget: Downcast {
@@ -477,8 +518,7 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(false)
     }
-    // TODO: we don't need accept/reject for some event types
-    fn on_geometry_change(&mut self, event: GeometryChangeEvent) -> Result<()> {
+    fn on_layout(&mut self, event: LayoutEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
@@ -519,7 +559,7 @@ pub trait Widget: Downcast {
             Event::KeyboardInput(e) => self.on_keyboard_input(e),
             Event::Ime(e) => self.on_ime(e),
             Event::Draw(e) => self.on_draw(e).map(|()| true),
-            Event::GeometryChange(e) => self.on_geometry_change(e).map(|()| true),
+            Event::Layout(e) => self.on_layout(e).map(|()| true),
             Event::Mount(e) => self.on_mount(e).map(|()| true),
             Event::Unmount(e) => self.on_unmount(e).map(|()| true),
             Event::FocusIn(e) => self.on_focus_in(e).map(|()| true),
@@ -532,13 +572,6 @@ pub trait Widget: Downcast {
     fn size_hint_x(&mut self) -> Result<SizeHint>;
     fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint>;
 
-    // TODO: result?
-    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
-        if !self.common().children.is_empty() {
-            warn!("missing layout impl for widget with children");
-        }
-        Ok(Vec::new())
-    }
     // TODO: result?
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         None
@@ -559,7 +592,6 @@ pub trait WidgetExt {
 
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
-    fn apply_layout(&mut self);
     fn cached_size_hint_x(&mut self) -> SizeHint;
     fn cached_size_hint_y(&mut self, size_x: i32) -> SizeHint;
 
@@ -595,9 +627,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let mut accepted = false;
         let mut should_dispatch = true;
         match &event {
-            Event::GeometryChange(event) => {
-                self.common_mut().rect_in_window = event.new_rect_in_window;
-            }
             Event::Mount(event) => {
                 let mount_point = event.0.clone();
                 self.common_mut().mount(mount_point.clone());
@@ -657,6 +686,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                             if rect_in_parent.contains(event.pos) {
                                 let event = MouseMoveEvent {
                                     pos: event.pos - rect_in_parent.top_left,
+                                    pos_in_window: event.pos_in_window(),
                                     device_id: event.device_id,
                                     accepted_by: event.accepted_by.clone(),
                                 };
@@ -701,6 +731,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().is_mouse_over = false;
                 should_dispatch = self.common().is_enabled();
             }
+            Event::Layout(event) => {
+                self.common_mut().rect_in_window = event.new_rect_in_window;
+                self.common_mut().current_layout_event = Some(event.clone());
+                for child in &mut self.common_mut().children {
+                    child.rect_set_during_layout = false;
+                }
+            }
             _ => {}
         }
         if !accepted && should_dispatch {
@@ -742,10 +779,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     child.widget.dispatch(event.clone().into());
                 }
             }
-            Event::GeometryChange(_) => {
-                self.apply_layout();
-                self.common_mut().update();
-            }
             Event::WidgetScopeChange(_) => {
                 let scope = self.common().effective_scope();
                 for child in &mut self.common_mut().children {
@@ -756,48 +789,25 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::FocusIn(_) | Event::FocusOut(_) | Event::MouseLeave(_) => {
                 self.common_mut().update();
             }
+            Event::Layout(_) => {
+                let len = self.common().children.len();
+                for i in 0..len {
+                    if !self.common().children[i].rect_set_during_layout {
+                        let rect_in_parent = self.common().children[i].rect_in_parent;
+                        self.common_mut()
+                            .set_child_rect(i, rect_in_parent)
+                            .or_report_err();
+                    }
+                    self.common_mut().children[i].rect_set_during_layout = false;
+                }
+                self.common_mut().current_layout_event = None;
+                self.common_mut().update();
+            }
             Event::KeyboardInput(_) | Event::Ime(_) | Event::Mount(_) | Event::Accessible(_) => {}
         }
 
         self.update_accessible();
         accepted
-    }
-
-    fn apply_layout(&mut self) {
-        let Some(rect_in_window) = self.common().rect_in_window else {
-            for child in &mut self.common_mut().children {
-                if child.rect_in_parent.is_some() {
-                    child.rect_in_parent = None;
-                    child.widget.dispatch(
-                        GeometryChangeEvent {
-                            new_rect_in_window: None,
-                        }
-                        .into(),
-                    );
-                }
-            }
-            return;
-        };
-        let rects = self
-            .layout()
-            .or_report_err()
-            .unwrap_or_else(|| self.common().children.iter().map(|_| None).collect());
-        if rects.len() != self.common().children.len() {
-            warn!("invalid length in layout output");
-            return;
-        }
-        for (rect_in_parent, child) in rects.into_iter().zip(self.common_mut().children.iter_mut())
-        {
-            child.rect_in_parent = rect_in_parent;
-            let child_rect_in_window = rect_in_parent
-                .map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left));
-            child.widget.dispatch(
-                GeometryChangeEvent {
-                    new_rect_in_window: child_rect_in_window,
-                }
-                .into(),
-            );
-        }
     }
 
     fn update_accessible(&mut self) {

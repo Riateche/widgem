@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 
-use crate::{layout::SizeHint, types::Rect};
+use crate::{event::LayoutEvent, layout::SizeHint, system::ReportError, types::Rect};
 
 use super::{RawWidgetId, Widget, WidgetCommon};
 
@@ -23,6 +23,9 @@ impl Stack {
         let index = self.common.children.len();
         let id = widget.common().id;
         self.common.add_child(index, widget);
+        self.common
+            .set_child_rect(index, Some(rect))
+            .or_report_err();
         self.rects.insert(id, Some(rect));
         self.common.update();
     }
@@ -35,12 +38,8 @@ impl Widget for Stack {
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
-    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
-        let mut new_rects = Vec::new();
-        for child in &mut self.common.children {
-            new_rects.push(self.rects.get(&child.widget.common().id).copied().flatten());
-        }
-        Ok(new_rects)
+    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        Ok(())
     }
 
     fn size_hint_x(&mut self) -> Result<SizeHint> {

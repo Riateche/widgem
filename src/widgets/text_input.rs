@@ -18,8 +18,8 @@ use crate::{
     accessible,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangeEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, MouseMoveEvent, UnmountEvent,
+        AccessibleEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent, KeyboardInputEvent,
+        LayoutEvent, MountEvent, MouseInputEvent, MouseMoveEvent, UnmountEvent,
         WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
@@ -247,7 +247,7 @@ impl TextInput {
 }
 
 impl Widget for TextInput {
-    fn on_geometry_change(&mut self, _event: GeometryChangeEvent) -> Result<()> {
+    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         self.update_viewport_rect();
         Ok(())
     }

@@ -10,7 +10,7 @@ use winit::{
 use crate::{
     draw::DrawEvent,
     types::{Point, Rect},
-    widgets::{MountPoint, RawWidgetId},
+    widgets::{MountPoint, RawWidgetId, WidgetAddress},
 };
 
 use derive_more::From;
@@ -24,7 +24,7 @@ pub enum Event {
     KeyboardInput(KeyboardInputEvent),
     Ime(ImeEvent),
     Draw(DrawEvent),
-    GeometryChange(GeometryChangeEvent),
+    Layout(LayoutEvent),
     Mount(MountEvent),
     Unmount(UnmountEvent),
     FocusIn(FocusInEvent),
@@ -40,7 +40,9 @@ pub struct MouseInputEvent {
     state: ElementState,
     button: MouseButton,
     num_clicks: u32,
+    // pos in current widget coordinates
     pos: Point,
+    pos_in_window: Point,
     accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
@@ -63,6 +65,10 @@ impl MouseInputEvent {
 
     pub fn pos(&self) -> Point {
         self.pos
+    }
+
+    pub fn pos_in_window(&self) -> Point {
+        self.pos_in_window
     }
 
     pub(crate) fn accepted_by(&self) -> Option<RawWidgetId> {
@@ -88,6 +94,7 @@ impl MouseInputEvent {
 pub struct MouseMoveEvent {
     pub device_id: DeviceId,
     pub pos: Point,
+    pub pos_in_window: Point,
     pub accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
@@ -98,6 +105,10 @@ impl MouseMoveEvent {
 
     pub fn pos(&self) -> Point {
         self.pos
+    }
+
+    pub fn pos_in_window(&self) -> Point {
+        self.pos_in_window
     }
 }
 
@@ -123,8 +134,18 @@ pub struct KeyboardInputEvent {
 pub struct ImeEvent(pub Ime);
 
 #[derive(Debug, Clone)]
-pub struct GeometryChangeEvent {
+pub struct LayoutEvent {
+    // None means widget is hidden
     pub new_rect_in_window: Option<Rect>,
+    pub changed_size_hints: Vec<WidgetAddress>,
+}
+
+impl LayoutEvent {
+    pub(crate) fn size_hints_changed_within(&self, addr: &WidgetAddress) -> bool {
+        self.changed_size_hints
+            .iter()
+            .any(|changed| changed.starts_with(addr))
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::cmp::max;
 
 use crate::{
+    event::LayoutEvent,
     layout::SizeHint,
     types::{Point, Rect, Size},
 };
@@ -64,12 +65,14 @@ impl Widget for PaddingBox {
         Ok(size_hint)
     }
 
-    fn layout(&mut self) -> Result<Vec<Option<Rect>>> {
+    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         if self.common.children.is_empty() {
-            return Ok(Vec::new());
+            return Ok(());
         }
 
-        let self_rect = self.common.rect_in_window_or_err()?;
+        let Some(self_rect) = self.common.rect_in_window else {
+            return Ok(());
+        };
         let rect = Rect {
             top_left: PADDING,
             size: Size {
@@ -77,6 +80,7 @@ impl Widget for PaddingBox {
                 y: max(0, self_rect.size.y - 2 * PADDING.y),
             },
         };
-        Ok(vec![Some(rect)])
+        self.common.set_child_rect(0, Some(rect))?;
+        Ok(())
     }
 }
