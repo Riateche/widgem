@@ -51,8 +51,8 @@ impl State {
     fn new(ctx: &mut CallbackContext<Self>) -> Self {
         let mut root = Column::new();
 
-        root.add(TextInput::new("Hello, Rust! 🦀\n").boxed());
-        root.add(TextInput::new("Hebrew name Sarah: שרה.").boxed());
+        root.add_child(TextInput::new("Hello, Rust! 🦀\n").boxed());
+        root.add_child(TextInput::new("Hebrew name Sarah: שרה.").boxed());
 
         /*
         let btn = Button::new("btn1")
@@ -70,44 +70,50 @@ impl State {
 
         */
 
-        let (button_id, btn1) = Button::new("btn1")
+        let btn1 = Button::new("btn1")
             .with_on_clicked(ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)))
             .split_id();
 
-        //btn1.with_text("abc");
+        root.add_child(btn1.widget.boxed());
 
-        root.add(btn1.boxed());
+        root.add_child(
+            Button::new("btn2")
+                .with_on_clicked(
+                    ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 2)),
+                )
+                .boxed(),
+        );
 
-        let mut btn2 = Button::new("btn2");
-        btn2.on_clicked(ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 2)));
-        root.add(btn2.boxed());
+        let button21 = Button::new("btn21")
+            .with_on_clicked(ctx.callback(|_, _, _| {
+                println!("click!");
+                Ok(())
+            }))
+            .split_id();
 
-        let (column2_id, mut column2) = Column::new().split_id();
-        let (button21_id, mut button21) = Button::new("btn21").split_id();
-        button21.on_clicked(ctx.callback(|_, _, _| {
-            println!("click!");
-            Ok(())
-        }));
+        let button22 = Button::new("btn22").split_id();
 
-        column2.add(button21.boxed());
-        let (button22_id, button22) = Button::new("btn22").split_id();
-        column2.add(button22.boxed());
-
-        root.add(column2.boxed());
+        let column2 = Column::new()
+            .with_child(button21.widget.boxed())
+            .with_child(button22.widget.boxed())
+            .split_id();
+        root.add_child(column2.widget.boxed());
 
         let (another_state, btn3) =
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
-        root.add(btn3);
+        root.add_child(btn3);
 
-        let mut scroll_bar = ScrollBar::new();
-        scroll_bar.on_value_changed(ctx.callback(|this, ctx, value| {
-            ctx.widget(this.label2_id)?
-                .set_text(format!("value={value}"));
-            Ok(())
-        }));
-        root.add(scroll_bar.boxed());
-        let (label2_id, label2) = Label::new("ok").split_id();
-        root.add(label2.boxed());
+        root.add_child(
+            ScrollBar::new()
+                .with_on_value_changed(ctx.callback(|this, ctx, value| {
+                    ctx.widget(this.label2_id)?
+                        .set_text(format!("value={value}"));
+                    Ok(())
+                }))
+                .boxed(),
+        );
+        let label2 = Label::new("ok").split_id();
+        root.add_child(label2.widget.boxed());
 
         create_window(
             WindowBuilder::new().with_title("example"),
@@ -119,14 +125,14 @@ impl State {
         );
         State {
             another_state,
-            button_id,
-            column2_id,
-            button21_id,
-            button22_id,
+            button_id: btn1.id,
+            column2_id: column2.id,
+            button21_id: button21.id,
+            button22_id: button22.id,
             flag_column: true,
             flag_button21: true,
             i: 0,
-            label2_id,
+            label2_id: label2.id,
         }
     }
 

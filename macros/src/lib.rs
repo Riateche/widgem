@@ -17,10 +17,13 @@ pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
             if !is_ref_mut_self(first_arg) {
                 continue;
             }
-            println!("found fn: {:?}", item.sig.ident);
+            //println!("found fn: {:?}", item.sig.ident);
             let mut new_fn = item.clone();
             let mut stripped_name = item.sig.ident.to_string();
             if let Some(x) = stripped_name.strip_prefix("set_") {
+                stripped_name = x.into();
+            }
+            if let Some(x) = stripped_name.strip_prefix("add_") {
                 stripped_name = x.into();
             }
             new_fn.sig.ident =

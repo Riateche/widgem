@@ -1,4 +1,5 @@
 use anyhow::Result;
+use salvation_macros::impl_with;
 use std::cmp::{max, min};
 
 use crate::{
@@ -26,6 +27,7 @@ fn child_size_x(layout_size_x: i32, child: &mut super::Child) -> i32 {
     }
 }
 
+#[impl_with]
 impl Column {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -34,7 +36,7 @@ impl Column {
         }
     }
 
-    pub fn add(&mut self, widget: Box<dyn Widget>) {
+    pub fn add_child(&mut self, widget: Box<dyn Widget>) {
         self.common.add_child(self.common.children.len(), widget);
         self.common.update();
     }

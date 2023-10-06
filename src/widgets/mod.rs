@@ -579,6 +579,11 @@ pub trait Widget: Downcast {
 }
 impl_downcast!(Widget);
 
+pub struct WidgetWithId<W> {
+    pub id: WidgetId<W>,
+    pub widget: W,
+}
+
 pub trait WidgetExt {
     fn id(&self) -> WidgetId<Self>
     where
@@ -590,11 +595,14 @@ pub trait WidgetExt {
         E: 'static,
         Self: Sized;
 
-    fn split_id(self) -> (WidgetId<Self>, Self)
+    fn split_id(self) -> WidgetWithId<Self>
     where
         Self: Sized,
     {
-        (self.id(), self)
+        WidgetWithId {
+            id: self.id(),
+            widget: self,
+        }
     }
 
     fn dispatch(&mut self, event: Event) -> bool;

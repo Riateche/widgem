@@ -8,6 +8,7 @@ use crate::{
 };
 use anyhow::Result;
 use log::warn;
+use salvation_macros::impl_with;
 use winit::event::{ElementState, MouseButton};
 
 use super::{button::Button, Widget, WidgetCommon, WidgetExt};
@@ -25,6 +26,7 @@ pub struct ScrollBar {
     value_changed: Option<Callback<i32>>,
 }
 
+#[impl_with]
 impl ScrollBar {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
