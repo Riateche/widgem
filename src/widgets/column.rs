@@ -48,7 +48,7 @@ impl Widget for Column {
         &mut self.common
     }
 
-    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let rect_in_window = self.common().rect_in_window_or_err()?;
         let mut items_y = Vec::new();
         let mut sizes_x = Vec::new();

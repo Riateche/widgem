@@ -30,7 +30,7 @@ impl Label {
 }
 
 impl Widget for Label {
-    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
+    fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         event.draw_pixmap(Point::default(), self.editor.pixmap().as_ref());
         Ok(())
     }

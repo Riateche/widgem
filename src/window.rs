@@ -22,9 +22,9 @@ use crate::{
     accessible::AccessibleNodes,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent, KeyboardInputEvent,
-        LayoutEvent, MountEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, UnmountEvent,
-        WindowFocusChangeEvent,
+        AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
+        KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseLeaveEvent,
+        MouseMoveEvent, UnmountEvent, WindowFocusChangeEvent,
     },
     event_loop::{with_window_target, UserEvent},
     system::{address, with_system},
@@ -837,7 +837,7 @@ impl Window {
         if let Some(root_widget) = &mut self.root_widget {
             if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
                 widget.dispatch(
-                    AccessibleEvent {
+                    AccessibleActionEvent {
                         action: request.action,
                         data: request.data,
                     }

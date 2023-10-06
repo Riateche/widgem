@@ -38,7 +38,7 @@ impl Widget for Stack {
     fn common_mut(&mut self) -> &mut WidgetCommon {
         &mut self.common
     }
-    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         Ok(())
     }
 

@@ -18,7 +18,7 @@ use crate::{
     callback::{widget_callback, Callback},
     draw::DrawEvent,
     event::{
-        AccessibleEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent,
+        AccessibleActionEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent,
         LayoutEvent, MountEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
         UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
@@ -490,83 +490,83 @@ pub struct Child {
 pub trait Widget: Downcast {
     fn common(&self) -> &WidgetCommon;
     fn common_mut(&mut self) -> &mut WidgetCommon;
-    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
+    fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
+    fn handle_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
         let _ = event;
         Ok(false)
     }
-    fn on_mouse_enter(&mut self, event: MouseEnterEvent) -> Result<bool> {
+    fn handle_mouse_enter(&mut self, event: MouseEnterEvent) -> Result<bool> {
         let _ = event;
         Ok(false)
     }
-    fn on_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
+    fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let _ = event;
         Ok(false)
     }
-    fn on_mouse_leave(&mut self, event: MouseLeaveEvent) -> Result<()> {
+    fn handle_mouse_leave(&mut self, event: MouseLeaveEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
+    fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
         let _ = event;
         Ok(false)
     }
-    fn on_ime(&mut self, event: ImeEvent) -> Result<bool> {
+    fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
         let _ = event;
         Ok(false)
     }
-    fn on_layout(&mut self, event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) -> Result<()> {
+    fn handle_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_mount(&mut self, event: MountEvent) -> Result<()> {
+    fn handle_mount(&mut self, event: MountEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_unmount(&mut self, event: UnmountEvent) -> Result<()> {
+    fn handle_unmount(&mut self, event: UnmountEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
+    fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_focus_out(&mut self, event: FocusOutEvent) -> Result<()> {
+    fn handle_focus_out(&mut self, event: FocusOutEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
+    fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_accessible(&mut self, event: AccessibleEvent) -> Result<()> {
+    fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
         let _ = event;
         Ok(())
     }
-    fn on_event(&mut self, event: Event) -> Result<bool> {
+    fn handle_event(&mut self, event: Event) -> Result<bool> {
         match event {
-            Event::MouseInput(e) => self.on_mouse_input(e),
-            Event::MouseEnter(e) => self.on_mouse_enter(e),
-            Event::MouseMove(e) => self.on_mouse_move(e),
-            Event::MouseLeave(e) => self.on_mouse_leave(e).map(|()| true),
-            Event::KeyboardInput(e) => self.on_keyboard_input(e),
-            Event::Ime(e) => self.on_ime(e),
-            Event::Draw(e) => self.on_draw(e).map(|()| true),
-            Event::Layout(e) => self.on_layout(e).map(|()| true),
-            Event::Mount(e) => self.on_mount(e).map(|()| true),
-            Event::Unmount(e) => self.on_unmount(e).map(|()| true),
-            Event::FocusIn(e) => self.on_focus_in(e).map(|()| true),
-            Event::FocusOut(e) => self.on_focus_out(e).map(|()| true),
-            Event::WindowFocusChange(e) => self.on_window_focus_change(e).map(|()| true),
-            Event::Accessible(e) => self.on_accessible(e).map(|()| true),
-            Event::WidgetScopeChange(e) => self.on_widget_scope_change(e).map(|()| true),
+            Event::MouseInput(e) => self.handle_mouse_input(e),
+            Event::MouseEnter(e) => self.handle_mouse_enter(e),
+            Event::MouseMove(e) => self.handle_mouse_move(e),
+            Event::MouseLeave(e) => self.handle_mouse_leave(e).map(|()| true),
+            Event::KeyboardInput(e) => self.handle_keyboard_input(e),
+            Event::Ime(e) => self.handle_ime(e),
+            Event::Draw(e) => self.handle_draw(e).map(|()| true),
+            Event::Layout(e) => self.handle_layout(e).map(|()| true),
+            Event::Mount(e) => self.handle_mount(e).map(|()| true),
+            Event::Unmount(e) => self.handle_unmount(e).map(|()| true),
+            Event::FocusIn(e) => self.handle_focus_in(e).map(|()| true),
+            Event::FocusOut(e) => self.handle_focus_out(e).map(|()| true),
+            Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
+            Event::Accessible(e) => self.handle_accessible_action(e).map(|()| true),
+            Event::WidgetScopeChange(e) => self.handle_widget_scope_change(e).map(|()| true),
         }
     }
     fn size_hint_x(&mut self) -> Result<SizeHint>;
@@ -589,6 +589,13 @@ pub trait WidgetExt {
         F: Fn(&mut Self, E) -> Result<()> + 'static,
         E: 'static,
         Self: Sized;
+
+    fn split_id(self) -> (WidgetId<Self>, Self)
+    where
+        Self: Sized,
+    {
+        (self.id(), self)
+    }
 
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
@@ -746,7 +753,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             if !accepted {
                 accepted = self
-                    .on_event(event.clone())
+                    .handle_event(event.clone())
                     .or_report_err()
                     .unwrap_or(false);
             }

@@ -30,7 +30,7 @@ pub enum Event {
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
     WindowFocusChange(WindowFocusChangeEvent),
-    Accessible(AccessibleEvent),
+    Accessible(AccessibleActionEvent),
     WidgetScopeChange(WidgetScopeChangeEvent),
 }
 
@@ -176,7 +176,7 @@ pub struct WindowFocusChangeEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct AccessibleEvent {
+pub struct AccessibleActionEvent {
     pub action: Action,
     pub data: Option<ActionData>,
 }

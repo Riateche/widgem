@@ -65,7 +65,7 @@ impl Widget for PaddingBox {
         Ok(size_hint)
     }
 
-    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         if self.common.children.is_empty() {
             return Ok(());
         }

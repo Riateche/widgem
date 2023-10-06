@@ -18,8 +18,8 @@ use crate::{
     accessible,
     draw::DrawEvent,
     event::{
-        AccessibleEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent, KeyboardInputEvent,
-        LayoutEvent, MountEvent, MouseInputEvent, MouseMoveEvent, UnmountEvent,
+        AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
+        KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseMoveEvent, UnmountEvent,
         WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::SizeHint,
@@ -247,17 +247,17 @@ impl TextInput {
 }
 
 impl Widget for TextInput {
-    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         self.update_viewport_rect();
         Ok(())
     }
 
-    fn on_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
+    fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
         self.style_changed();
         Ok(())
     }
 
-    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
+    fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let rect_in_window = self.common.rect_in_window_or_err()?;
         let mount_point = self.common.mount_point_or_err()?;
         let is_focused = self.common.is_focused();
@@ -300,7 +300,7 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn on_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
+    fn handle_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
         if event.state() == ElementState::Pressed {
             match event.button() {
                 MouseButton::Left => {
@@ -346,7 +346,7 @@ impl Widget for TextInput {
         Ok(true)
     }
 
-    fn on_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
+    fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let mount_point = self.common.mount_point_or_err()?;
         if mount_point
             .window
@@ -369,7 +369,7 @@ impl Widget for TextInput {
     }
 
     #[allow(clippy::if_same_then_else)]
-    fn on_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
+    fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
         if event.event.state == ElementState::Released {
             return Ok(true);
         }
@@ -441,7 +441,7 @@ impl Widget for TextInput {
         Ok(true)
     }
 
-    fn on_ime(&mut self, event: ImeEvent) -> Result<bool> {
+    fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
         match event.0.clone() {
             Ime::Enabled => {}
             Ime::Preedit(preedit, cursor) => {
@@ -473,7 +473,7 @@ impl Widget for TextInput {
         &mut self.common
     }
 
-    fn on_mount(&mut self, event: MountEvent) -> Result<()> {
+    fn handle_mount(&mut self, event: MountEvent) -> Result<()> {
         self.editor.set_window(Some(event.0.window.clone()));
         self.reset_blink_timer();
 
@@ -484,7 +484,7 @@ impl Widget for TextInput {
         );
         Ok(())
     }
-    fn on_unmount(&mut self, _event: UnmountEvent) -> Result<()> {
+    fn handle_unmount(&mut self, _event: UnmountEvent) -> Result<()> {
         let mount_point = self.common.mount_point_or_err()?;
         mount_point
             .window
@@ -502,25 +502,25 @@ impl Widget for TextInput {
         self.reset_blink_timer();
         Ok(())
     }
-    fn on_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
+    fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         self.editor.on_focus_in(event.reason);
         self.common.update();
         self.reset_blink_timer();
         Ok(())
     }
-    fn on_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
+    fn handle_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
         self.editor.on_focus_out();
         self.common.update();
         self.reset_blink_timer();
         Ok(())
     }
-    fn on_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
+    fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
         self.editor.on_window_focus_changed(event.focused);
         self.common.update();
         self.reset_blink_timer();
         Ok(())
     }
-    fn on_accessible(&mut self, event: AccessibleEvent) -> Result<()> {
+    fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
         let mount_point = self.common.mount_point_or_err()?;
 
         match event.action {

@@ -30,7 +30,7 @@ impl Image {
 }
 
 impl Widget for Image {
-    fn on_draw(&mut self, event: DrawEvent) -> Result<()> {
+    fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         if let Some(pixmap) = &self.pixmap {
             event.draw_pixmap(Point::default(), pixmap.as_ref());
         }

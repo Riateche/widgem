@@ -192,7 +192,7 @@ impl Widget for ScrollBar {
         }
     }
 
-    fn on_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let Some(size) = self.common.size() else {
             return Ok(());
         };

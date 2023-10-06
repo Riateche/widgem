@@ -27,11 +27,11 @@ impl AnotherState {
             println!("counter: {}", state.counter);
             create_window(
                 WindowBuilder::new().with_title("example"),
-                Some(Box::new(Label::new(format!("counter: {}", state.counter)))),
+                Some(Label::new(format!("counter: {}", state.counter)).boxed()),
             );
             Ok(())
         }));
-        (another_state, Box::new(btn))
+        (another_state, btn.boxed())
     }
 }
 
@@ -50,47 +50,50 @@ struct State {
 impl State {
     fn new(ctx: &mut CallbackContext<Self>) -> Self {
         let mut root = Column::new();
-        // let w1 =
-        //     Image::load_png("1.png").unwrap();
-        // root.add(
-        //     Rect {
-        //         top_left: Point { x: 20, y: 30 },
-        //         size: Size { x: 300, y: 300 },
-        //     },
-        //     Box::new(w1),
-        // );
 
-        // let w2 = TextInput::new("Hello, Rust! 🦀 one two three four five\n");
-        let w2 = TextInput::new("Hello, Rust! 🦀\n");
-        root.add(Box::new(w2));
-        let w3 = TextInput::new("Hebrew \nname Sarah: שרה, spelled");
-        root.add(Box::new(w3));
+        root.add(TextInput::new("Hello, Rust! 🦀\n").boxed());
+        root.add(TextInput::new("Hebrew name Sarah: שרה.").boxed());
 
-        let mut btn1 = Button::new("btn1");
-        let button_id = btn1.id();
-        btn1.on_clicked(ctx.callback(|state, ctx, event| state.button_clicked2(ctx, event, 1)));
-        root.add(Box::new(btn1));
+        /*
+        let btn = Button::new("btn1")
+            .with_icon(icon)
+            .with_alignment(Al::Right)
+            .with_on_clicked(slot)
+            .split_id()
+            .boxed();
+        root.add(btn.widget);
+
+        Self {
+            btn_id: btn.id,
+        }
+
+
+        */
+
+        let (button_id, btn1) = Button::new("btn1")
+            .with_on_clicked(ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)))
+            .split_id();
+
+        //btn1.with_text("abc");
+
+        root.add(btn1.boxed());
 
         let mut btn2 = Button::new("btn2");
-        // btn2.on_clicked(ctx.callback_maker.add(Self::button_clicked));
-        btn2.on_clicked(ctx.callback(|state, ctx, event| state.button_clicked2(ctx, event, 2)));
-        root.add(Box::new(btn2));
+        btn2.on_clicked(ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 2)));
+        root.add(btn2.boxed());
 
-        let mut column2 = Column::new();
-        let column2_id = column2.id();
-        let mut button21 = Button::new("btn21");
-        let button21_id = button21.id();
+        let (column2_id, mut column2) = Column::new().split_id();
+        let (button21_id, mut button21) = Button::new("btn21").split_id();
         button21.on_clicked(ctx.callback(|_, _, _| {
             println!("click!");
             Ok(())
         }));
 
-        column2.add(Box::new(button21));
-        let button22 = Button::new("btn22");
-        let button22_id = button22.id();
-        column2.add(Box::new(button22));
+        column2.add(button21.boxed());
+        let (button22_id, button22) = Button::new("btn22").split_id();
+        column2.add(button22.boxed());
 
-        root.add(Box::new(column2));
+        root.add(column2.boxed());
 
         let (another_state, btn3) =
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
@@ -103,14 +106,12 @@ impl State {
             Ok(())
         }));
         root.add(scroll_bar.boxed());
-        let label2 = Label::new("ok");
-        let label2_id = label2.id();
+        let (label2_id, label2) = Label::new("ok").split_id();
         root.add(label2.boxed());
 
         create_window(
             WindowBuilder::new().with_title("example"),
-            Some(Box::new(PaddingBox::new(Box::new(root)))),
-            // Some(Box::new(root)),
+            Some(PaddingBox::new(root.boxed()).boxed()),
         );
         add_interval(
             Duration::from_secs(2),
@@ -136,30 +137,23 @@ impl State {
         Ok(())
     }
 
-    // fn button_clicked(&mut self, _ctx: &mut CallbackContext<Self>, data: String) {
-    //     println!("callback! {:?}", data);
-    // }
-
-    fn button_clicked2(
+    fn button_clicked(
         &mut self,
         ctx: &mut CallbackContext<Self>,
         data: String,
         k: u32,
     ) -> Result<()> {
         println!("callback! {:?}, {}", data, k);
-        let button = ctx.widget(self.button_id).unwrap();
+        let button = ctx.widget(self.button_id)?;
         button.set_text(&format!("ok {}", if k == 1 { "1" } else { "22222" }));
 
         if k == 1 {
             self.flag_column = !self.flag_column;
-            ctx.widget(self.column2_id)
-                .unwrap()
-                .set_enabled(self.flag_column);
+            ctx.widget(self.column2_id)?.set_enabled(self.flag_column);
             println!("set enabled {:?} {:?}", self.column2_id, self.flag_column);
         } else {
             self.flag_button21 = !self.flag_button21;
-            ctx.widget(self.button21_id)
-                .unwrap()
+            ctx.widget(self.button21_id)?
                 .set_enabled(self.flag_button21);
             println!(
                 "set enabled {:?} {:?}",
