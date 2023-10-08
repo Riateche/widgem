@@ -71,6 +71,11 @@ impl ScrollBar {
         this
     }
 
+    pub fn set_axis(&mut self, axis: Axis) {
+        self.axis = axis;
+        self.common.size_hint_changed();
+    }
+
     pub fn on_value_changed(&mut self, callback: Callback<i32>) {
         self.value_changed = Some(callback);
     }
@@ -127,26 +132,53 @@ impl ScrollBar {
 
     fn slider_moved(&mut self, pos_in_window: Point) -> Result<()> {
         if let Some((start_mouse_pos, start_slider_pos)) = &self.slider_grab_pos {
-            let new_pos = start_slider_pos - start_mouse_pos.x + pos_in_window.x;
-            self.current_slider_pos = new_pos.clamp(0, self.max_slider_pos);
-            self.current_value = if self.max_slider_pos == 0 {
-                self.min_value
-            } else {
-                ((self.current_slider_pos as f32) / (self.max_slider_pos as f32)
-                    * (self.max_value - self.min_value) as f32)
-                    .round() as i32
-                    + self.min_value
-            };
-            if let Some(value_changed) = &self.value_changed {
-                value_changed.invoke(self.current_value);
+            match self.axis {
+                Axis::X => {
+                    let new_pos = start_slider_pos - start_mouse_pos.x + pos_in_window.x;
+                    self.current_slider_pos = new_pos.clamp(0, self.max_slider_pos);
+                    self.current_value = if self.max_slider_pos == 0 {
+                        self.min_value
+                    } else {
+                        ((self.current_slider_pos as f32) / (self.max_slider_pos as f32)
+                            * (self.max_value - self.min_value) as f32)
+                            .round() as i32
+                            + self.min_value
+                    };
+                    if let Some(value_changed) = &self.value_changed {
+                        value_changed.invoke(self.current_value);
+                    }
+                    self.common.set_child_rect(
+                        1,
+                        Some(
+                            self.starting_slider_rect
+                                .translate(Point::new(self.current_slider_pos, 0)),
+                        ),
+                    )?;
+                }
+                Axis::Y => {
+                    // TODO: deduplicate
+                    let new_pos = start_slider_pos - start_mouse_pos.y + pos_in_window.y;
+                    self.current_slider_pos = new_pos.clamp(0, self.max_slider_pos);
+                    self.current_value = if self.max_slider_pos == 0 {
+                        self.min_value
+                    } else {
+                        ((self.current_slider_pos as f32) / (self.max_slider_pos as f32)
+                            * (self.max_value - self.min_value) as f32)
+                            .round() as i32
+                            + self.min_value
+                    };
+                    if let Some(value_changed) = &self.value_changed {
+                        value_changed.invoke(self.current_value);
+                    }
+                    self.common.set_child_rect(
+                        1,
+                        Some(
+                            self.starting_slider_rect
+                                .translate(Point::new(0, self.current_slider_pos)),
+                        ),
+                    )?;
+                }
             }
-            self.common.set_child_rect(
-                1,
-                Some(
-                    self.starting_slider_rect
-                        .translate(Point::new(self.current_slider_pos, 0)),
-                ),
-            )?;
         }
         Ok(())
     }
@@ -175,7 +207,14 @@ impl Widget for ScrollBar {
                 preferred: hints.x0.preferred + hints.x1.preferred + hints.x2.preferred + 80,
                 is_fixed: false,
             }),
-            Axis::Y => todo!(),
+            Axis::Y => Ok(SizeHint {
+                min: max(hints.x0.min, max(hints.x1.min, hints.x2.min)),
+                preferred: max(
+                    hints.x0.preferred,
+                    max(hints.x1.preferred, hints.x2.preferred),
+                ),
+                is_fixed: true,
+            }),
         }
     }
 
@@ -190,7 +229,11 @@ impl Widget for ScrollBar {
                 ),
                 is_fixed: true,
             }),
-            Axis::Y => todo!(),
+            Axis::Y => Ok(SizeHint {
+                min: hints.y0.min + hints.y1.min + hints.y2.min + 40,
+                preferred: hints.y0.preferred + hints.y1.preferred + hints.y2.preferred + 80,
+                is_fixed: false,
+            }),
         }
     }
 
@@ -234,7 +277,40 @@ impl Widget for ScrollBar {
                 )?;
                 self.common.set_child_rect(2, Some(button2_rect))?;
             }
-            Axis::Y => todo!(),
+            Axis::Y => {
+                self.common.set_child_rect(
+                    0,
+                    Some(Rect::from_xywh(
+                        0,
+                        0,
+                        hints.x0.preferred,
+                        hints.y0.preferred,
+                    )),
+                )?;
+                self.starting_slider_rect = Rect::from_xywh(
+                    0,
+                    hints.y0.preferred,
+                    hints.x1.preferred,
+                    hints.y1.preferred,
+                );
+                let button2_rect = Rect::from_xywh(
+                    0,
+                    size.y - hints.y2.preferred,
+                    hints.x2.preferred,
+                    hints.y2.preferred,
+                );
+                self.max_slider_pos =
+                    button2_rect.top_left.y - self.starting_slider_rect.bottom_right().y;
+                self.current_slider_pos = self.value_to_slider_pos();
+                self.common.set_child_rect(
+                    1,
+                    Some(
+                        self.starting_slider_rect
+                            .translate(Point::new(0, self.current_slider_pos)),
+                    ),
+                )?;
+                self.common.set_child_rect(2, Some(button2_rect))?;
+            }
         }
         Ok(())
     }
@@ -248,44 +324,3 @@ struct SizeHints {
     y1: SizeHint,
     y2: SizeHint,
 }
-
-/*struct ScrollBarSlider {
-    common: WidgetCommon,
-}
-
-impl ScrollBarSlider {
-    pub fn new() -> Self {
-        Self {
-            common: WidgetCommon::new(),
-        }
-    }
-}
-
-impl Widget for ScrollBarSlider {
-    fn common(&self) -> &super::WidgetCommon {
-        &self.common
-    }
-
-    fn common_mut(&mut self) -> &mut super::WidgetCommon {
-        &mut self.common
-    }
-
-    fn size_hint_x(&mut self) -> Result<SizeHint> {
-        // TODO: from style
-        Ok(SizeHint {
-            min: 20,
-            preferred: 40,
-            is_fixed: true,
-        })
-    }
-
-    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
-        // TODO: from style
-        Ok(SizeHint {
-            min: 20,
-            preferred: 40,
-            is_fixed: false,
-        })
-    }
-}
-*/

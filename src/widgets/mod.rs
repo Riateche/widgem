@@ -34,6 +34,7 @@ pub mod column;
 pub mod image;
 pub mod label;
 pub mod padding_box;
+pub mod scroll_area;
 pub mod scroll_bar;
 pub mod stack;
 pub mod text_input;

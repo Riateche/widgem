@@ -6,6 +6,7 @@ use anyhow::Result;
 use salvation::{
     event_loop::{self, CallbackContext},
     system::add_interval,
+    types::Axis,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
         scroll_bar::ScrollBar, text_input::TextInput, Widget, WidgetExt, WidgetId,
@@ -105,6 +106,7 @@ impl State {
 
         root.add_child(
             ScrollBar::new()
+                .with_axis(Axis::Y)
                 .with_on_value_changed(ctx.callback(|this, ctx, value| {
                     ctx.widget(this.label2_id)?
                         .set_text(format!("value={value}"));
