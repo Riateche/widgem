@@ -3,7 +3,7 @@ use std::cmp::max;
 use crate::{
     callback::Callback,
     event::{Event, LayoutEvent},
-    layout::SizeHint,
+    layout::SizeHintMode,
     types::{Axis, Point, Rect},
 };
 use anyhow::Result;
@@ -80,20 +80,20 @@ impl ScrollBar {
         self.value_changed = Some(callback);
     }
 
-    fn size_hints(&mut self) -> SizeHints {
-        let hint0_x = self.common.children[0].widget.cached_size_hint_x();
-        let hint1_x = self.common.children[1].widget.cached_size_hint_x();
-        let hint2_x = self.common.children[2].widget.cached_size_hint_x();
+    fn size_hints(&mut self, mode: SizeHintMode) -> SizeHints {
+        let hint0_x = self.common.children[0].widget.cached_size_hint_x(mode);
+        let hint1_x = self.common.children[1].widget.cached_size_hint_x(mode);
+        let hint2_x = self.common.children[2].widget.cached_size_hint_x(mode);
 
         let hint0_y = self.common.children[0]
             .widget
-            .cached_size_hint_y(hint0_x.preferred);
+            .cached_size_hint_y(hint0_x, mode);
         let hint1_y = self.common.children[1]
             .widget
-            .cached_size_hint_y(hint1_x.preferred);
+            .cached_size_hint_y(hint1_x, mode);
         let hint2_y = self.common.children[2]
             .widget
-            .cached_size_hint_y(hint2_x.preferred);
+            .cached_size_hint_y(hint2_x, mode);
         SizeHints {
             x0: hint0_x,
             x1: hint1_x,
@@ -199,72 +199,40 @@ impl Widget for ScrollBar {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self) -> Result<SizeHint> {
-        let hints = self.size_hints();
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        let hints = self.size_hints(mode);
         match self.axis {
-            Axis::X => Ok(SizeHint {
-                min: hints.x0.min + hints.x1.min + hints.x2.min + 40,
-                preferred: hints.x0.preferred + hints.x1.preferred + hints.x2.preferred + 80,
-                is_fixed: false,
-            }),
-            Axis::Y => Ok(SizeHint {
-                min: max(hints.x0.min, max(hints.x1.min, hints.x2.min)),
-                preferred: max(
-                    hints.x0.preferred,
-                    max(hints.x1.preferred, hints.x2.preferred),
-                ),
-                is_fixed: true,
-            }),
+            Axis::X => Ok(hints.x0 + hints.x1 + hints.x2 + 40),
+            Axis::Y => Ok(max(hints.x0, max(hints.x1, hints.x2))),
         }
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
-        let hints = self.size_hints();
+    fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
+        let hints = self.size_hints(mode);
         match self.axis {
-            Axis::X => Ok(SizeHint {
-                min: max(hints.y0.min, max(hints.y1.min, hints.y2.min)),
-                preferred: max(
-                    hints.y0.preferred,
-                    max(hints.y1.preferred, hints.y2.preferred),
-                ),
-                is_fixed: true,
-            }),
-            Axis::Y => Ok(SizeHint {
-                min: hints.y0.min + hints.y1.min + hints.y2.min + 40,
-                preferred: hints.y0.preferred + hints.y1.preferred + hints.y2.preferred + 80,
-                is_fixed: false,
-            }),
+            Axis::X => Ok(max(hints.y0, max(hints.y1, hints.y2))),
+            Axis::Y => Ok(hints.y0 + hints.y1 + hints.y2 + 40),
         }
+    }
+
+    fn is_size_hint_x_fixed(&mut self) -> bool {
+        self.axis == Axis::Y
+    }
+    fn is_size_hint_y_fixed(&mut self) -> bool {
+        self.axis == Axis::X
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let Some(size) = self.common.size() else {
             return Ok(());
         };
-        let hints = self.size_hints();
+        let hints = self.size_hints(SizeHintMode::Preferred);
         match self.axis {
             Axis::X => {
-                self.common.set_child_rect(
-                    0,
-                    Some(Rect::from_xywh(
-                        0,
-                        0,
-                        hints.x0.preferred,
-                        hints.y0.preferred,
-                    )),
-                )?;
-                self.starting_slider_rect = Rect::from_xywh(
-                    hints.x0.preferred,
-                    0,
-                    hints.x1.preferred,
-                    hints.y1.preferred,
-                );
-                let button2_rect = Rect::from_xywh(
-                    size.x - hints.x2.preferred,
-                    0,
-                    hints.x2.preferred,
-                    hints.y2.preferred,
-                );
+                self.common
+                    .set_child_rect(0, Some(Rect::from_xywh(0, 0, hints.x0, hints.y0)))?;
+                self.starting_slider_rect = Rect::from_xywh(hints.x0, 0, hints.x1, hints.y1);
+                let button2_rect = Rect::from_xywh(size.x - hints.x2, 0, hints.x2, hints.y2);
                 self.max_slider_pos =
                     button2_rect.top_left.x - self.starting_slider_rect.bottom_right().x;
                 self.current_slider_pos = self.value_to_slider_pos();
@@ -278,27 +246,10 @@ impl Widget for ScrollBar {
                 self.common.set_child_rect(2, Some(button2_rect))?;
             }
             Axis::Y => {
-                self.common.set_child_rect(
-                    0,
-                    Some(Rect::from_xywh(
-                        0,
-                        0,
-                        hints.x0.preferred,
-                        hints.y0.preferred,
-                    )),
-                )?;
-                self.starting_slider_rect = Rect::from_xywh(
-                    0,
-                    hints.y0.preferred,
-                    hints.x1.preferred,
-                    hints.y1.preferred,
-                );
-                let button2_rect = Rect::from_xywh(
-                    0,
-                    size.y - hints.y2.preferred,
-                    hints.x2.preferred,
-                    hints.y2.preferred,
-                );
+                self.common
+                    .set_child_rect(0, Some(Rect::from_xywh(0, 0, hints.x0, hints.y0)))?;
+                self.starting_slider_rect = Rect::from_xywh(0, hints.y0, hints.x1, hints.y1);
+                let button2_rect = Rect::from_xywh(0, size.y - hints.y2, hints.x2, hints.y2);
                 self.max_slider_pos =
                     button2_rect.top_left.y - self.starting_slider_rect.bottom_right().y;
                 self.current_slider_pos = self.value_to_slider_pos();
@@ -317,10 +268,10 @@ impl Widget for ScrollBar {
 }
 
 struct SizeHints {
-    x0: SizeHint,
-    x1: SizeHint,
-    x2: SizeHint,
-    y0: SizeHint,
-    y1: SizeHint,
-    y2: SizeHint,
+    x0: i32,
+    x1: i32,
+    x2: i32,
+    y0: i32,
+    y1: i32,
+    y2: i32,
 }

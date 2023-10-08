@@ -22,7 +22,7 @@ use crate::{
         KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseMoveEvent, UnmountEvent,
         WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
-    layout::SizeHint,
+    layout::SizeHintMode,
     shortcut::standard_shortcuts,
     style::text_input::{ComputedVariantStyle, TextInputState},
     system::{add_interval, report_error, send_window_request, with_system, ReportError},
@@ -590,25 +590,30 @@ impl Widget for TextInput {
         Some(node)
     }
 
-    fn size_hint_x(&mut self) -> Result<SizeHint> {
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let size_y = self.editor.size().y as f32;
         let style = &self.common.style().text_input;
-
-        Ok(SizeHint {
-            min: (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding.x,
-            preferred: (size_y * style.preferred_aspect_ratio).round() as i32
-                + style.preferred_padding.x,
-            is_fixed: false,
-        })
+        let r = match mode {
+            SizeHintMode::Min => {
+                (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding.x
+            }
+            SizeHintMode::Preferred => {
+                (size_y * style.preferred_aspect_ratio).round() as i32 + style.preferred_padding.x
+            }
+        };
+        Ok(r)
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
+    fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let style = &self.common.style().text_input;
+        let padding = match mode {
+            SizeHintMode::Min => style.min_padding,
+            SizeHintMode::Preferred => style.preferred_padding,
+        };
+        Ok(self.editor.size().y + 2 * padding.y)
+    }
 
-        Ok(SizeHint {
-            min: self.editor.size().y + 2 * style.min_padding.y,
-            preferred: self.editor.size().y + 2 * style.preferred_padding.y,
-            is_fixed: true,
-        })
+    fn is_size_hint_x_fixed(&mut self) -> bool {
+        false
     }
 }

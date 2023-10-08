@@ -1,10 +1,13 @@
 use std::cmp::max;
 
 use anyhow::Result;
-use log::warn;
 use salvation_macros::impl_with;
 
-use crate::{event::LayoutEvent, layout::SizeHint, types::Axis};
+use crate::{
+    event::LayoutEvent,
+    layout::{SizeHintMode, FALLBACK_SIZE_HINT},
+    types::Axis,
+};
 
 use super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt};
 
@@ -75,22 +78,15 @@ impl Widget for ScrollArea {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self) -> Result<SizeHint> {
-        let xscroll_x = self.common.children[0].widget.cached_size_hint_x();
-        let yscroll_x = self.common.children[1].widget.cached_size_hint_x();
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        let xscroll_x = self.common.children[0].widget.cached_size_hint_x(mode);
+        let yscroll_x = self.common.children[1].widget.cached_size_hint_x(mode);
         let content_x = if let Some(child) = self.common.children.get_mut(2) {
-            child.widget.cached_size_hint_x()
+            child.widget.cached_size_hint_x(mode)
         } else {
-            SizeHint::new_fallback()
+            FALLBACK_SIZE_HINT
         };
-        Ok(SizeHint {
-            min: max(yscroll_x.min, xscroll_x.min + content_x.min),
-            preferred: max(
-                yscroll_x.preferred,
-                xscroll_x.preferred + content_x.preferred,
-            ),
-            is_fixed: false,
-        })
+        Ok(max(yscroll_x, xscroll_x + content_x))
 
         // let hints = self.size_hints();
         // match self.axis {
@@ -103,7 +99,7 @@ impl Widget for ScrollArea {
         // }
     }
 
-    fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint> {
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         // let yscroll_x = self.common.children[1].widget.cached_size_hint_x();
         // let yscroll_size_x = min(size_x, yscroll_x.
         // let hints = self.size_hints();
@@ -119,6 +115,13 @@ impl Widget for ScrollArea {
         //     Axis::Y => todo!(),
         // }
         todo!()
+    }
+
+    fn is_size_hint_x_fixed(&mut self) -> bool {
+        false
+    }
+    fn is_size_hint_y_fixed(&mut self) -> bool {
+        false
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
@@ -168,10 +171,10 @@ impl Widget for ScrollArea {
 }
 
 struct SizeHints {
-    xscroll_x: SizeHint,
-    yscroll_x: SizeHint,
-    content_x: SizeHint,
-    xscroll_y: SizeHint,
-    yscroll_y: SizeHint,
-    content_y: SizeHint,
+    xscroll_x: i32,
+    yscroll_x: i32,
+    content_x: i32,
+    xscroll_y: i32,
+    yscroll_y: i32,
+    content_y: i32,
 }

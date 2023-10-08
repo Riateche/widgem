@@ -10,7 +10,7 @@ use crate::{
     callback::Callback,
     draw::DrawEvent,
     event::{AccessibleActionEvent, FocusReason, MouseEnterEvent, MouseInputEvent},
-    layout::SizeHint,
+    layout::SizeHintMode,
     style::button::{ButtonState, ComputedVariantStyle},
     system::send_window_request,
     text_editor::TextEditor,
@@ -167,20 +167,20 @@ impl Widget for Button {
         Some(node)
     }
 
-    fn size_hint_x(&mut self) -> Result<SizeHint> {
-        Ok(SizeHint {
-            min: self.editor.size().x + 2 * MIN_PADDING.x,
-            preferred: self.editor.size().x + 2 * PADDING.x,
-            is_fixed: true,
-        })
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        let padding = match mode {
+            SizeHintMode::Min => MIN_PADDING,
+            SizeHintMode::Preferred => PADDING,
+        };
+        Ok(self.editor.size().x + 2 * padding.x)
     }
 
-    fn size_hint_y(&mut self, _size_x: i32) -> Result<SizeHint> {
+    fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         // TODO: use size_x, handle multiple lines
-        Ok(SizeHint {
-            min: self.editor.size().y + 2 * MIN_PADDING.y,
-            preferred: self.editor.size().y + 2 * PADDING.y,
-            is_fixed: true,
-        })
+        let padding = match mode {
+            SizeHintMode::Min => MIN_PADDING,
+            SizeHintMode::Preferred => PADDING,
+        };
+        Ok(self.editor.size().y + 2 * padding.x)
     }
 }

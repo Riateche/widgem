@@ -4,7 +4,7 @@ use std::cmp::{max, min};
 
 use crate::{
     event::LayoutEvent,
-    layout::SizeHint,
+    layout::{SizeHintMode, SizeHints},
     types::{Point, Rect, Size},
 };
 
@@ -19,9 +19,9 @@ pub struct Column {
 }
 
 fn child_size_x(layout_size_x: i32, child: &mut super::Child) -> i32 {
-    let hint = child.widget.cached_size_hint_x();
-    if hint.is_fixed {
-        min(hint.preferred, layout_size_x)
+    if child.widget.cached_size_hint_x_fixed() {
+        let hint = child.widget.cached_size_hint_x(SizeHintMode::Preferred);
+        min(hint, layout_size_x)
     } else {
         layout_size_x
     }
@@ -56,10 +56,10 @@ impl Widget for Column {
         let mut sizes_x = Vec::new();
         for child in self.common.children.iter_mut() {
             let child_size_x = child_size_x(rect_in_window.size.x, child);
-            let child_hint_y = child.widget.cached_size_hint_y(child_size_x);
+            let child_hints_y = child.widget.cached_size_hints_y(child_size_x);
             sizes_x.push(child_size_x);
             items_y.push(LayoutItem {
-                size_hint: child_hint_y,
+                size_hints: child_hints_y,
             });
         }
         let mut current_y = 0;
@@ -88,47 +88,40 @@ impl Widget for Column {
         Ok(())
     }
 
-    fn size_hint_x(&mut self) -> Result<SizeHint> {
-        let mut r = SizeHint {
-            min: 0,
-            preferred: 0,
-            is_fixed: true,
-        };
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        let mut r = 0;
         for child in &mut self.common.children {
-            let child_hint = child.widget.cached_size_hint_x();
-            r.min = max(r.min, child_hint.min);
-            r.preferred = max(r.preferred, child_hint.preferred);
-            if !child_hint.is_fixed {
-                r.is_fixed = false;
-            }
+            r = max(r, child.widget.cached_size_hint_x(mode));
         }
         Ok(r)
     }
-    fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint> {
-        let mut r = SizeHint {
-            min: 0,
-            preferred: 0,
-            is_fixed: true,
-        };
+    fn is_size_hint_x_fixed(&mut self) -> bool {
+        self.common
+            .children
+            .iter_mut()
+            .all(|child| child.widget.cached_size_hint_x_fixed())
+    }
+    fn is_size_hint_y_fixed(&mut self) -> bool {
+        self.common
+            .children
+            .iter_mut()
+            .all(|child| child.widget.cached_size_hint_y_fixed())
+    }
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+        let mut r = 0;
         for (i, child) in self.common.children.iter_mut().enumerate() {
             let child_size_x = child_size_x(size_x, child);
-            let child_hint = child.widget.cached_size_hint_y(child_size_x);
             if i != 0 {
-                r.min += SPACING;
-                r.preferred += SPACING;
+                r += SPACING;
             }
-            r.min += child_hint.min;
-            r.preferred += child_hint.preferred;
-            if !child_hint.is_fixed {
-                r.is_fixed = false;
-            }
+            r += child.widget.cached_size_hint_y(child_size_x, mode);
         }
         Ok(r)
     }
 }
 
 struct LayoutItem {
-    size_hint: SizeHint,
+    size_hints: SizeHints,
     // TODO: params
 }
 
@@ -137,12 +130,12 @@ fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
     if items.is_empty() {
         return Vec::new();
     }
-    let total_preferred: i32 = items.iter().map(|item| item.size_hint.preferred).sum();
+    let total_preferred: i32 = items.iter().map(|item| item.size_hints.preferred).sum();
     let mut result = Vec::new();
     if total_preferred == total {
-        return items.iter().map(|item| item.size_hint.preferred).collect();
+        return items.iter().map(|item| item.size_hints.preferred).collect();
     } else if total_preferred > total {
-        let total_min: i32 = items.iter().map(|item| item.size_hint.min).sum();
+        let total_min: i32 = items.iter().map(|item| item.size_hints.min).sum();
         let factor = if total_preferred == total_min {
             0.0
         } else {
@@ -150,8 +143,9 @@ fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
         };
         let mut remaining = total;
         for item in items {
-            let item_size = item.size_hint.min
-                + ((item.size_hint.preferred - item.size_hint.min) as f32 * factor).round() as i32;
+            let item_size = item.size_hints.min
+                + ((item.size_hints.preferred - item.size_hints.min) as f32 * factor).round()
+                    as i32;
             let item_size = min(item_size, remaining);
             result.push(item_size);
             remaining -= item_size;
@@ -160,14 +154,17 @@ fn solve_layout(items: &[LayoutItem], total: i32) -> Vec<i32> {
             }
         }
     } else if total_preferred < total {
-        let num_flexible = items.iter().filter(|item| !item.size_hint.is_fixed).count() as i32;
+        let num_flexible = items
+            .iter()
+            .filter(|item| !item.size_hints.is_fixed)
+            .count() as i32;
         let mut remaining = total;
         let mut extras = fare_split(num_flexible, max(0, total - total_preferred));
         for item in items {
-            let item_size = if item.size_hint.is_fixed {
-                item.size_hint.preferred
+            let item_size = if item.size_hints.is_fixed {
+                item.size_hints.preferred
             } else {
-                item.size_hint.preferred + extras.pop().unwrap()
+                item.size_hints.preferred + extras.pop().unwrap()
             };
             let item_size = min(item_size, remaining);
             result.push(item_size);

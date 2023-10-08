@@ -3,7 +3,7 @@ use std::cmp::max;
 
 use crate::{
     event::LayoutEvent,
-    layout::SizeHint,
+    layout::SizeHintMode,
     types::{Point, Rect, Size},
 };
 
@@ -34,35 +34,21 @@ impl Widget for PaddingBox {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self) -> Result<SizeHint> {
-        let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
-            content.widget.cached_size_hint_x()
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        if let Some(content) = self.common.children.get_mut(0) {
+            Ok(content.widget.cached_size_hint_x(mode) + PADDING.x * 2)
         } else {
-            SizeHint {
-                min: 0,
-                preferred: 0,
-                is_fixed: true,
-            }
-        };
-        size_hint.min += PADDING.x * 2;
-        size_hint.preferred += PADDING.x * 2;
-        Ok(size_hint)
+            Ok(0)
+        }
     }
 
-    fn size_hint_y(&mut self, size_x: i32) -> Result<SizeHint> {
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let child_size_x = max(0, size_x - 2 * PADDING.x);
-        let mut size_hint = if let Some(content) = self.common.children.get_mut(0) {
-            content.widget.cached_size_hint_y(child_size_x)
+        if let Some(content) = self.common.children.get_mut(0) {
+            Ok(content.widget.cached_size_hint_y(child_size_x, mode) + PADDING.y * 2)
         } else {
-            SizeHint {
-                min: 0,
-                preferred: 0,
-                is_fixed: true,
-            }
-        };
-        size_hint.min += PADDING.y * 2;
-        size_hint.preferred += PADDING.y * 2;
-        Ok(size_hint)
+            Ok(0)
+        }
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
