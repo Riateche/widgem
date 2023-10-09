@@ -9,7 +9,8 @@ use salvation::{
     types::Axis,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
-        scroll_bar::ScrollBar, text_input::TextInput, Widget, WidgetExt, WidgetId,
+        scroll_area::ScrollArea, scroll_bar::ScrollBar, text_input::TextInput, Widget, WidgetExt,
+        WidgetId,
     },
     window::create_window,
 };
@@ -104,18 +105,20 @@ impl State {
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
         root.add_child(btn3);
 
-        root.add_child(
-            ScrollBar::new()
-                .with_axis(Axis::Y)
-                .with_on_value_changed(ctx.callback(|this, ctx, value| {
-                    ctx.widget(this.label2_id)?
-                        .set_text(format!("value={value}"));
-                    Ok(())
-                }))
-                .boxed(),
-        );
+        // root.add_child(
+        //     ScrollBar::new()
+        //         .with_axis(Axis::Y)
+        //         .with_on_value_changed(ctx.callback(|this, ctx, value| {
+        //             ctx.widget(this.label2_id)?
+        //                 .set_text(format!("value={value}"));
+        //             Ok(())
+        //         }))
+        //         .boxed(),
+        // );
         let label2 = Label::new("ok").split_id();
         root.add_child(label2.widget.boxed());
+
+        root.add_child(ScrollArea::new().boxed());
 
         create_window(
             WindowBuilder::new().with_title("example"),

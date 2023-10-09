@@ -5,9 +5,10 @@ use crate::{
         grid::{self, GridAxisOptions, GridOptions},
         LayoutItemOptions, SizeHintMode,
     },
-    types::{Axis, Point, Rect},
+    types::{Axis, Point, Rect, Size},
 };
 use anyhow::Result;
+use log::warn;
 use salvation_macros::impl_with;
 use winit::event::{ElementState, MouseButton};
 
@@ -26,6 +27,8 @@ pub struct ScrollBar {
     value_changed: Option<Callback<i32>>,
 }
 
+const SLIDER_LENGTH: i32 = 60;
+
 #[impl_with]
 impl ScrollBar {
     pub fn new() -> Self {
@@ -37,12 +40,9 @@ impl ScrollBar {
         );
         let mut slider = Button::new("|||");
 
-        slider.common_mut().event_filter = Some(Box::new(|event| {
-            println!("filtered event: {event:?}");
-            Ok(false)
-        }));
+        let axis = Axis::X;
         common.add_child(
-            Pager::new().boxed(),
+            Pager::new(axis).boxed(),
             LayoutItemOptions::from_pos_in_grid(1, 0),
         );
         common.add_child(
@@ -52,7 +52,7 @@ impl ScrollBar {
         common.add_child(slider.boxed(), LayoutItemOptions::default());
         let mut this = Self {
             common,
-            axis: Axis::X,
+            axis,
             current_slider_pos: 0,
             max_slider_pos: 0,
             starting_slider_rect: Rect::default(),
@@ -65,7 +65,7 @@ impl ScrollBar {
 
         let slider_pressed = this.callback(Self::slider_pressed);
         let slider_moved = this.callback(Self::slider_moved);
-        this.common.children[1].widget.common_mut().event_filter = Some(Box::new(move |event| {
+        this.common.children[3].widget.common_mut().event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseInput(e) => {
                     if e.button() == MouseButton::Left {
@@ -101,6 +101,11 @@ impl ScrollBar {
                     .unwrap();
             }
         }
+        self.common.children[1]
+            .widget
+            .downcast_mut::<Pager>()
+            .unwrap()
+            .set_axis(axis);
     }
 
     pub fn on_value_changed(&mut self, callback: Callback<i32>) {
@@ -137,7 +142,7 @@ impl ScrollBar {
                         value_changed.invoke(self.current_value);
                     }
                     self.common.set_child_rect(
-                        1,
+                        3,
                         Some(
                             self.starting_slider_rect
                                 .translate(Point::new(self.current_slider_pos, 0)),
@@ -160,7 +165,7 @@ impl ScrollBar {
                         value_changed.invoke(self.current_value);
                     }
                     self.common.set_child_rect(
-                        1,
+                        3,
                         Some(
                             self.starting_slider_rect
                                 .translate(Point::new(0, self.current_slider_pos)),
@@ -188,6 +193,20 @@ impl ScrollBar {
             },
         }
     }
+
+    fn value_to_slider_pos(&self) -> i32 {
+        if self.min_value > self.max_value {
+            warn!("invalid scroll bar range");
+            return 0;
+        }
+        if self.min_value == self.max_value {
+            return 0;
+        }
+        let pos = (self.current_value - self.min_value) as f32
+            / (self.max_value - self.min_value) as f32
+            * self.max_slider_pos as f32;
+        pos.round() as i32
+    }
 }
 
 impl Default for ScrollBar {
@@ -210,6 +229,45 @@ impl Widget for ScrollBar {
         let size = self.common.size_or_err()?;
         let rects = grid::layout(&mut self.common.children, &options, size)?;
         self.common.set_child_rects(&rects)?;
+        let pager_rect = rects.get(&1).unwrap();
+
+        //let slider_size_x = self.common.children[3].widget.cached_size_hint_x(SizeHintMode::Preferred)
+        match self.axis {
+            Axis::X => {
+                self.starting_slider_rect = Rect::from_pos_size(
+                    pager_rect.top_left,
+                    Size::new(SLIDER_LENGTH, pager_rect.size.y),
+                );
+                self.max_slider_pos =
+                    pager_rect.bottom_right().x - self.starting_slider_rect.bottom_right().x;
+
+                self.current_slider_pos = self.value_to_slider_pos();
+                self.common.set_child_rect(
+                    3,
+                    Some(
+                        self.starting_slider_rect
+                            .translate(Point::new(self.current_slider_pos, 0)),
+                    ),
+                )?;
+            }
+            Axis::Y => {
+                self.starting_slider_rect = Rect::from_pos_size(
+                    pager_rect.top_left,
+                    Size::new(pager_rect.size.x, SLIDER_LENGTH),
+                );
+                self.max_slider_pos =
+                    pager_rect.bottom_right().y - self.starting_slider_rect.bottom_right().y;
+
+                self.current_slider_pos = self.value_to_slider_pos();
+                self.common.set_child_rect(
+                    3,
+                    Some(
+                        self.starting_slider_rect
+                            .translate(Point::new(0, self.current_slider_pos)),
+                    ),
+                )?;
+            }
+        }
         Ok(())
     }
 
@@ -233,13 +291,20 @@ impl Widget for ScrollBar {
 
 struct Pager {
     common: WidgetCommon,
+    axis: Axis,
 }
 
 impl Pager {
-    pub fn new() -> Self {
+    pub fn new(axis: Axis) -> Self {
         Self {
             common: WidgetCommon::new(),
+            axis,
         }
+    }
+
+    pub fn set_axis(&mut self, axis: Axis) {
+        self.axis = axis;
+        self.common.size_hint_changed();
     }
 }
 
@@ -254,15 +319,21 @@ impl Widget for Pager {
 
     // TODO: from theme?
     fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
+        match self.axis {
+            Axis::X => Ok(SLIDER_LENGTH * 2),
+            Axis::Y => Ok(45),
+        }
     }
     fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
+        match self.axis {
+            Axis::X => Ok(45),
+            Axis::Y => Ok(SLIDER_LENGTH * 2),
+        }
     }
     fn is_size_hint_x_fixed(&mut self) -> bool {
-        false
+        self.axis == Axis::Y
     }
     fn is_size_hint_y_fixed(&mut self) -> bool {
-        false
+        self.axis == Axis::X
     }
 }
