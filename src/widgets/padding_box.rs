@@ -17,12 +17,12 @@ pub struct PaddingBox {
 }
 
 impl PaddingBox {
-    pub fn new(content: Box<dyn Widget>, options: LayoutItemOptions) -> Self {
+    pub fn new(content: Box<dyn Widget>) -> Self {
         let mut common = WidgetCommon::new();
-        common.add_child(content, options);
+        common.add_child(content, LayoutItemOptions::from_pos_in_grid(0, 0));
         Self { common }
     }
-    // TODO: method to set content
+    // TODO: method to set content and options
 }
 
 impl Widget for PaddingBox {

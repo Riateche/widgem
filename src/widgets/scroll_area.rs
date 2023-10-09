@@ -25,12 +25,11 @@ impl ScrollArea {
             ScrollBar::new().with_axis(Axis::Y).boxed(),
             Default::default(),
         );
-        let mut this = Self { common };
-
+        // let mut this = Self { common };
         // let slider_pressed = this.callback(Self::slider_pressed);
         // let slider_moved = this.callback(Self::slider_moved);
-
-        this
+        // this
+        Self { common }
     }
 
     // pub fn on_value_changed(&mut self, callback: Callback<i32>) {
@@ -102,7 +101,7 @@ impl Widget for ScrollArea {
         // }
     }
 
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
         // let yscroll_x = self.common.children[1].widget.cached_size_hint_x();
         // let yscroll_size_x = min(size_x, yscroll_x.
         // let hints = self.size_hints();
@@ -128,9 +127,9 @@ impl Widget for ScrollArea {
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
-        let Some(size) = self.common.size() else {
-            return Ok(());
-        };
+        // let Some(size) = self.common.size() else {
+        //     return Ok(());
+        // };
         // let hints = self.size_hints();
         // match self.axis {
         //     Axis::X => {
@@ -171,13 +170,4 @@ impl Widget for ScrollArea {
         // }
         Ok(())
     }
-}
-
-struct SizeHints {
-    xscroll_x: i32,
-    yscroll_x: i32,
-    content_x: i32,
-    xscroll_y: i32,
-    yscroll_y: i32,
-    content_y: i32,
 }

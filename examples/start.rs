@@ -52,14 +52,8 @@ impl State {
     fn new(ctx: &mut CallbackContext<Self>) -> Self {
         let mut root = Column::new();
 
-        root.add_child(
-            TextInput::new("Hello, Rust! 🦀\n").boxed(),
-            Default::default(),
-        );
-        root.add_child(
-            TextInput::new("Hebrew name Sarah: שרה.").boxed(),
-            Default::default(),
-        );
+        root.add_child(TextInput::new("Hello, Rust! 🦀\n").boxed());
+        root.add_child(TextInput::new("Hebrew name Sarah: שרה.").boxed());
 
         /*
         let btn = Button::new("btn1")
@@ -81,7 +75,7 @@ impl State {
             .with_on_clicked(ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)))
             .split_id();
 
-        root.add_child(btn1.widget.boxed(), Default::default());
+        root.add_child(btn1.widget.boxed());
 
         root.add_child(
             Button::new("btn2")
@@ -89,7 +83,6 @@ impl State {
                     ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 2)),
                 )
                 .boxed(),
-            Default::default(),
         );
 
         let button21 = Button::new("btn21")
@@ -102,14 +95,14 @@ impl State {
         let button22 = Button::new("btn22").split_id();
 
         let column2 = Column::new()
-            .with_child(button21.widget.boxed(), Default::default())
-            .with_child(button22.widget.boxed(), Default::default())
+            .with_child(button21.widget.boxed())
+            .with_child(button22.widget.boxed())
             .split_id();
-        root.add_child(column2.widget.boxed(), Default::default());
+        root.add_child(column2.widget.boxed());
 
         let (another_state, btn3) =
             AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
-        root.add_child(btn3, Default::default());
+        root.add_child(btn3);
 
         root.add_child(
             ScrollBar::new()
@@ -120,14 +113,13 @@ impl State {
                     Ok(())
                 }))
                 .boxed(),
-            Default::default(),
         );
         let label2 = Label::new("ok").split_id();
-        root.add_child(label2.widget.boxed(), Default::default());
+        root.add_child(label2.widget.boxed());
 
         create_window(
             WindowBuilder::new().with_title("example"),
-            Some(PaddingBox::new(root.boxed(), Default::default()).boxed()),
+            Some(PaddingBox::new(root.boxed()).boxed()),
         );
         add_interval(
             Duration::from_secs(2),

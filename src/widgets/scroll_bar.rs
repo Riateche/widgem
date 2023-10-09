@@ -1,13 +1,13 @@
-use std::cmp::max;
-
 use crate::{
     callback::Callback,
     event::{Event, LayoutEvent},
-    layout::SizeHintMode,
+    layout::{
+        grid::{self, GridAxisOptions, GridOptions},
+        LayoutItemOptions, SizeHintMode,
+    },
     types::{Axis, Point, Rect},
 };
 use anyhow::Result;
-use log::warn;
 use salvation_macros::impl_with;
 use winit::event::{ElementState, MouseButton};
 
@@ -31,15 +31,25 @@ impl ScrollBar {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
         // TODO: icons, localized name
-        common.add_child(Button::new("<").boxed(), Default::default());
+        common.add_child(
+            Button::new("<").boxed(),
+            LayoutItemOptions::from_pos_in_grid(0, 0),
+        );
         let mut slider = Button::new("|||");
 
         slider.common_mut().event_filter = Some(Box::new(|event| {
             println!("filtered event: {event:?}");
             Ok(false)
         }));
-        common.add_child(slider.boxed(), Default::default());
-        common.add_child(Button::new(">").boxed(), Default::default());
+        common.add_child(
+            Pager::new().boxed(),
+            LayoutItemOptions::from_pos_in_grid(1, 0),
+        );
+        common.add_child(
+            Button::new(">").boxed(),
+            LayoutItemOptions::from_pos_in_grid(2, 0),
+        );
+        common.add_child(slider.boxed(), LayoutItemOptions::default());
         let mut this = Self {
             common,
             axis: Axis::X,
@@ -73,49 +83,28 @@ impl ScrollBar {
 
     pub fn set_axis(&mut self, axis: Axis) {
         self.axis = axis;
-        self.common.size_hint_changed();
+        match axis {
+            Axis::X => {
+                self.common
+                    .set_child_options(1, LayoutItemOptions::from_pos_in_grid(1, 0))
+                    .unwrap();
+                self.common
+                    .set_child_options(2, LayoutItemOptions::from_pos_in_grid(2, 0))
+                    .unwrap();
+            }
+            Axis::Y => {
+                self.common
+                    .set_child_options(1, LayoutItemOptions::from_pos_in_grid(0, 1))
+                    .unwrap();
+                self.common
+                    .set_child_options(2, LayoutItemOptions::from_pos_in_grid(0, 2))
+                    .unwrap();
+            }
+        }
     }
 
     pub fn on_value_changed(&mut self, callback: Callback<i32>) {
         self.value_changed = Some(callback);
-    }
-
-    fn size_hints(&mut self, mode: SizeHintMode) -> SizeHints {
-        let hint0_x = self.common.children[0].widget.cached_size_hint_x(mode);
-        let hint1_x = self.common.children[1].widget.cached_size_hint_x(mode);
-        let hint2_x = self.common.children[2].widget.cached_size_hint_x(mode);
-
-        let hint0_y = self.common.children[0]
-            .widget
-            .cached_size_hint_y(hint0_x, mode);
-        let hint1_y = self.common.children[1]
-            .widget
-            .cached_size_hint_y(hint1_x, mode);
-        let hint2_y = self.common.children[2]
-            .widget
-            .cached_size_hint_y(hint2_x, mode);
-        SizeHints {
-            x0: hint0_x,
-            x1: hint1_x,
-            x2: hint2_x,
-            y0: hint0_y,
-            y1: hint1_y,
-            y2: hint2_y,
-        }
-    }
-
-    fn value_to_slider_pos(&self) -> i32 {
-        if self.min_value > self.max_value {
-            warn!("invalid scroll bar range");
-            return 0;
-        }
-        if self.min_value == self.max_value {
-            return 0;
-        }
-        let pos = (self.current_value - self.min_value) as f32
-            / (self.max_value - self.min_value) as f32
-            * self.max_slider_pos as f32;
-        pos.round() as i32
     }
 
     fn slider_pressed(&mut self, (pos_in_window, state): (Point, ElementState)) -> Result<()> {
@@ -182,6 +171,23 @@ impl ScrollBar {
         }
         Ok(())
     }
+
+    fn grid_options(&self) -> GridOptions {
+        GridOptions {
+            x: GridAxisOptions {
+                min_padding: 0,
+                min_spacing: 0,
+                preferred_padding: 0,
+                preferred_spacing: 0,
+            },
+            y: GridAxisOptions {
+                min_padding: 0,
+                min_spacing: 0,
+                preferred_padding: 0,
+                preferred_spacing: 0,
+            },
+        }
+    }
 }
 
 impl Default for ScrollBar {
@@ -199,79 +205,64 @@ impl Widget for ScrollBar {
         &mut self.common
     }
 
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        let options = self.grid_options();
+        let size = self.common.size_or_err()?;
+        let rects = grid::layout(&mut self.common.children, &options, size)?;
+        self.common.set_child_rects(&rects)?;
+        Ok(())
+    }
+
     fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let hints = self.size_hints(mode);
-        match self.axis {
-            Axis::X => Ok(hints.x0 + hints.x1 + hints.x2 + 40),
-            Axis::Y => Ok(max(hints.x0, max(hints.x1, hints.x2))),
-        }
+        let options = self.grid_options();
+        grid::size_hint_x(&mut self.common.children, &options, mode)
     }
-
-    fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
-        let hints = self.size_hints(mode);
-        match self.axis {
-            Axis::X => Ok(max(hints.y0, max(hints.y1, hints.y2))),
-            Axis::Y => Ok(hints.y0 + hints.y1 + hints.y2 + 40),
-        }
-    }
-
     fn is_size_hint_x_fixed(&mut self) -> bool {
-        self.axis == Axis::Y
+        let options = self.grid_options();
+        grid::is_size_hint_x_fixed(&mut self.common.children, &options)
     }
     fn is_size_hint_y_fixed(&mut self) -> bool {
-        self.axis == Axis::X
+        let options = self.grid_options();
+        grid::is_size_hint_y_fixed(&mut self.common.children, &options)
     }
-
-    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
-        let Some(size) = self.common.size() else {
-            return Ok(());
-        };
-        let hints = self.size_hints(SizeHintMode::Preferred);
-        match self.axis {
-            Axis::X => {
-                self.common
-                    .set_child_rect(0, Some(Rect::from_xywh(0, 0, hints.x0, hints.y0)))?;
-                self.starting_slider_rect = Rect::from_xywh(hints.x0, 0, hints.x1, hints.y1);
-                let button2_rect = Rect::from_xywh(size.x - hints.x2, 0, hints.x2, hints.y2);
-                self.max_slider_pos =
-                    button2_rect.top_left.x - self.starting_slider_rect.bottom_right().x;
-                self.current_slider_pos = self.value_to_slider_pos();
-                self.common.set_child_rect(
-                    1,
-                    Some(
-                        self.starting_slider_rect
-                            .translate(Point::new(self.current_slider_pos, 0)),
-                    ),
-                )?;
-                self.common.set_child_rect(2, Some(button2_rect))?;
-            }
-            Axis::Y => {
-                self.common
-                    .set_child_rect(0, Some(Rect::from_xywh(0, 0, hints.x0, hints.y0)))?;
-                self.starting_slider_rect = Rect::from_xywh(0, hints.y0, hints.x1, hints.y1);
-                let button2_rect = Rect::from_xywh(0, size.y - hints.y2, hints.x2, hints.y2);
-                self.max_slider_pos =
-                    button2_rect.top_left.y - self.starting_slider_rect.bottom_right().y;
-                self.current_slider_pos = self.value_to_slider_pos();
-                self.common.set_child_rect(
-                    1,
-                    Some(
-                        self.starting_slider_rect
-                            .translate(Point::new(0, self.current_slider_pos)),
-                    ),
-                )?;
-                self.common.set_child_rect(2, Some(button2_rect))?;
-            }
-        }
-        Ok(())
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+        let options = self.grid_options();
+        grid::size_hint_y(&mut self.common.children, &options, size_x, mode)
     }
 }
 
-struct SizeHints {
-    x0: i32,
-    x1: i32,
-    x2: i32,
-    y0: i32,
-    y1: i32,
-    y2: i32,
+struct Pager {
+    common: WidgetCommon,
+}
+
+impl Pager {
+    pub fn new() -> Self {
+        Self {
+            common: WidgetCommon::new(),
+        }
+    }
+}
+
+impl Widget for Pager {
+    fn common(&self) -> &WidgetCommon {
+        &self.common
+    }
+
+    fn common_mut(&mut self) -> &mut WidgetCommon {
+        &mut self.common
+    }
+
+    // TODO: from theme?
+    fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+        Ok(0)
+    }
+    fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+        Ok(0)
+    }
+    fn is_size_hint_x_fixed(&mut self) -> bool {
+        false
+    }
+    fn is_size_hint_y_fixed(&mut self) -> bool {
+        false
+    }
 }

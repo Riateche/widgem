@@ -1,5 +1,6 @@
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::collapsible_else_if)]
+#![allow(clippy::comparison_chain)]
 
 pub mod accessible;
 pub mod callback;

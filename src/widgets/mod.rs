@@ -1,6 +1,6 @@
 use std::{
     cell::Cell,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fmt::{self, Debug},
     marker::PhantomData,
     rc::Rc,
@@ -376,6 +376,14 @@ impl WidgetCommon {
                     .into(),
                 );
             }
+        }
+        Ok(())
+    }
+
+    pub fn set_child_rects(&mut self, rects: &BTreeMap<usize, Rect>) -> Result<()> {
+        let len = self.children.len();
+        for index in 0..len {
+            self.set_child_rect(index, rects.get(&index).copied())?;
         }
         Ok(())
     }
