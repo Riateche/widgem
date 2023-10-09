@@ -4,7 +4,7 @@ use std::cmp::{max, min};
 
 use crate::{
     event::LayoutEvent,
-    layout::{SizeHintMode, SizeHints},
+    layout::{LayoutItemOptions, SizeHintMode, SizeHints},
     types::{Point, Rect, Size},
 };
 
@@ -36,8 +36,8 @@ impl Column {
         }
     }
 
-    pub fn add_child(&mut self, widget: Box<dyn Widget>) {
-        self.common.add_child(self.common.children.len(), widget);
+    pub fn add_child(&mut self, widget: Box<dyn Widget>, options: LayoutItemOptions) {
+        self.common.add_child(widget, options);
         self.common.update();
     }
 }

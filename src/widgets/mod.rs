@@ -8,7 +8,7 @@ use std::{
 };
 
 use accesskit::NodeId;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use log::warn;
 use thiserror::Error;
@@ -22,7 +22,7 @@ use crate::{
         LayoutEvent, MountEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
         UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
-    layout::{SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
+    layout::{LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
     style::{computed::ComputedStyle, Style},
     system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Rect, Size},
@@ -260,7 +260,23 @@ impl WidgetCommon {
         self.pending_accessible_update = true;
     }
 
-    pub fn add_child(&mut self, index: usize, mut widget: Box<dyn Widget>) {
+    pub fn add_child(&mut self, widget: Box<dyn Widget>, options: LayoutItemOptions) -> usize {
+        let index = self.children.len();
+        self.insert_child(index, widget, options)
+            .expect("should never fail with correct index");
+        index
+    }
+
+    // TODO: fn replace_child
+    pub fn insert_child(
+        &mut self,
+        index: usize,
+        mut widget: Box<dyn Widget>,
+        options: LayoutItemOptions,
+    ) -> Result<()> {
+        if index > self.children.len() {
+            bail!("index out of bounds");
+        }
         if let Some(mount_point) = &self.mount_point {
             let address = mount_point.address.clone().join(index);
             widget.dispatch(
@@ -278,12 +294,23 @@ impl WidgetCommon {
             index,
             Child {
                 widget,
+                options,
                 rect_in_parent: None,
                 rect_set_during_layout: false,
             },
         );
         self.remount_children(index + 1);
         self.size_hint_changed();
+        Ok(())
+    }
+
+    pub fn set_child_options(&mut self, index: usize, options: LayoutItemOptions) -> Result<()> {
+        if index >= self.children.len() {
+            bail!("index out of bounds");
+        }
+        self.children[index].options = options;
+        self.size_hint_changed();
+        Ok(())
     }
 
     fn remount_children(&mut self, from_index: usize) {
@@ -490,6 +517,7 @@ pub fn get_widget_by_id_mut(
 
 pub struct Child {
     pub widget: Box<dyn Widget>,
+    pub options: LayoutItemOptions,
     pub rect_in_parent: Option<Rect>,
     pub rect_set_during_layout: bool,
 }

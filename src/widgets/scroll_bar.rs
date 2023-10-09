@@ -31,15 +31,15 @@ impl ScrollBar {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
         // TODO: icons, localized name
-        common.add_child(0, Button::new("<").boxed());
+        common.add_child(Button::new("<").boxed(), Default::default());
         let mut slider = Button::new("|||");
 
         slider.common_mut().event_filter = Some(Box::new(|event| {
             println!("filtered event: {event:?}");
             Ok(false)
         }));
-        common.add_child(1, slider.boxed());
-        common.add_child(2, Button::new(">").boxed());
+        common.add_child(slider.boxed(), Default::default());
+        common.add_child(Button::new(">").boxed(), Default::default());
         let mut this = Self {
             common,
             axis: Axis::X,

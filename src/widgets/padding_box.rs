@@ -3,7 +3,7 @@ use std::cmp::max;
 
 use crate::{
     event::LayoutEvent,
-    layout::SizeHintMode,
+    layout::{LayoutItemOptions, SizeHintMode},
     types::{Point, Rect, Size},
 };
 
@@ -17,9 +17,9 @@ pub struct PaddingBox {
 }
 
 impl PaddingBox {
-    pub fn new(content: Box<dyn Widget>) -> Self {
+    pub fn new(content: Box<dyn Widget>, options: LayoutItemOptions) -> Self {
         let mut common = WidgetCommon::new();
-        common.add_child(0, content);
+        common.add_child(content, options);
         Self { common }
     }
     // TODO: method to set content

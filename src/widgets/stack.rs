@@ -19,10 +19,10 @@ impl Stack {
         }
     }
 
+    // TODO: impl explicit rect setting for universal grid layout?
     pub fn add(&mut self, rect: Rect, widget: Box<dyn Widget>) {
-        let index = self.common.children.len();
         let id = widget.common().id;
-        self.common.add_child(index, widget);
+        let index = self.common.add_child(widget, Default::default());
         self.common
             .set_child_rect(index, Some(rect))
             .or_report_err();

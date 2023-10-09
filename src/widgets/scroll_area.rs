@@ -20,8 +20,11 @@ impl ScrollArea {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
         // TODO: icons, localized name
-        common.add_child(0, ScrollBar::new().boxed());
-        common.add_child(1, ScrollBar::new().with_axis(Axis::Y).boxed());
+        common.add_child(ScrollBar::new().boxed(), Default::default());
+        common.add_child(
+            ScrollBar::new().with_axis(Axis::Y).boxed(),
+            Default::default(),
+        );
         let mut this = Self { common };
 
         // let slider_pressed = this.callback(Self::slider_pressed);
