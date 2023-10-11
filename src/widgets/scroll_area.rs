@@ -22,7 +22,6 @@ pub struct ScrollArea {
 const INDEX_SCROLL_BAR_X: usize = 0;
 const INDEX_SCROLL_BAR_Y: usize = 1;
 const INDEX_VIEWPORT: usize = 2;
-const INDEX_CONTENT: usize = 3;
 
 #[impl_with]
 impl ScrollArea {
@@ -33,14 +32,25 @@ impl ScrollArea {
     }
 
     fn has_content(&self) -> bool {
-        self.common.children.len() > INDEX_CONTENT
+        !self.common.children[INDEX_VIEWPORT]
+            .widget
+            .common()
+            .children
+            .is_empty()
     }
 
     pub fn set_content(&mut self, content: Box<dyn Widget>) {
         if self.has_content() {
-            self.common.remove_child(INDEX_CONTENT).unwrap();
+            self.common.children[INDEX_VIEWPORT]
+                .widget
+                .common_mut()
+                .remove_child(0)
+                .unwrap();
         }
-        self.common.add_child(content, LayoutItemOptions::default());
+        self.common.children[INDEX_VIEWPORT]
+            .widget
+            .common_mut()
+            .add_child(content, LayoutItemOptions::default());
     }
     // TODO: take_content; default impl for empty scroll area
 
@@ -96,6 +106,8 @@ impl ScrollArea {
         let options = self.grid_options();
         let size = self.common.size_or_err()?;
         let mut rects = grid::layout(&mut self.common.children, &options, size)?;
+        self.common.set_child_rects(&rects)?;
+
         if self.has_content() {
             let value_x = self.common.children[INDEX_SCROLL_BAR_X]
                 .widget
@@ -110,15 +122,23 @@ impl ScrollArea {
             println!("value_x={value_x}, value_y={value_y}");
 
             let viewport_rect = *rects.get(&INDEX_VIEWPORT).unwrap();
-            let content_size_x = self.common.children[INDEX_CONTENT]
+            let content_size_x = self.common.children[INDEX_VIEWPORT]
+                .widget
+                .common_mut()
+                .children[0]
                 .widget
                 .cached_size_hint_x(SizeHintMode::Preferred);
-            let content_size_y = self.common.children[INDEX_CONTENT]
+            let content_size_y = self.common.children[INDEX_VIEWPORT]
+                .widget
+                .common_mut()
+                .children[0]
                 .widget
                 .cached_size_hint_y(content_size_x, SizeHintMode::Preferred);
-            let content_rect = Rect::from_xywh(-value_x, -value_y, content_size_x, content_size_y)
-                .translate(viewport_rect.top_left);
-            rects.insert(INDEX_CONTENT, content_rect);
+            let content_rect = Rect::from_xywh(-value_x, -value_y, content_size_x, content_size_y);
+            self.common.children[INDEX_VIEWPORT]
+                .widget
+                .common_mut()
+                .set_child_rect(0, Some(content_rect))?;
 
             let max_value_x = max(0, content_size_x - viewport_rect.size.x);
             let max_value_y = max(0, content_size_y - viewport_rect.size.y);
@@ -134,7 +154,6 @@ impl ScrollArea {
                 .unwrap()
                 .set_value_range(0..=max_value_y);
         }
-        self.common.set_child_rects(&rects)?;
         Ok(())
     }
 }
