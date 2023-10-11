@@ -105,7 +105,7 @@ impl ScrollArea {
     fn relayout(&mut self) -> Result<()> {
         let options = self.grid_options();
         let size = self.common.size_or_err()?;
-        let mut rects = grid::layout(&mut self.common.children, &options, size)?;
+        let rects = grid::layout(&mut self.common.children, &options, size)?;
         self.common.set_child_rects(&rects)?;
 
         if self.has_content() {
@@ -119,7 +119,6 @@ impl ScrollArea {
                 .downcast_ref::<ScrollBar>()
                 .unwrap()
                 .value();
-            println!("value_x={value_x}, value_y={value_y}");
 
             let viewport_rect = *rects.get(&INDEX_VIEWPORT).unwrap();
             let content_size_x = self.common.children[INDEX_VIEWPORT]
@@ -142,7 +141,6 @@ impl ScrollArea {
 
             let max_value_x = max(0, content_size_x - viewport_rect.size.x);
             let max_value_y = max(0, content_size_y - viewport_rect.size.y);
-            println!("max_value_x={max_value_x}, max_value_y={max_value_y}");
             self.common.children[INDEX_SCROLL_BAR_X]
                 .widget
                 .downcast_mut::<ScrollBar>()

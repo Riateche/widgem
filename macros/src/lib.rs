@@ -35,7 +35,6 @@ pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let old_name = &item.sig.ident;
             let mut arg_names = Vec::new();
             for (index, arg) in item.sig.inputs.iter().enumerate() {
-                println!("arg {arg:?}");
                 match arg {
                     FnArg::Typed(arg) => {
                         let ty = &arg.ty;

@@ -78,12 +78,13 @@ impl Button {
 
 impl Widget for Button {
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
+        let size = self.common.size_or_err()?;
         let style = self.current_variant_style().clone();
 
         event.stroke_and_fill_rounded_rect(
             Rect {
                 top_left: Point::default(),
-                size: event.rect().size,
+                size,
             },
             style.border.as_ref(),
             style.background.as_ref(),
@@ -92,8 +93,8 @@ impl Widget for Button {
         self.editor.set_text_color(style.text_color);
         let editor_pixmap = self.editor.pixmap();
         let padding = Point {
-            x: max(0, event.rect().size.x - editor_pixmap.width() as i32) / 2,
-            y: max(0, event.rect().size.y - editor_pixmap.height() as i32) / 2,
+            x: max(0, size.x - editor_pixmap.width() as i32) / 2,
+            y: max(0, size.y - editor_pixmap.height() as i32) / 2,
         };
         event.draw_pixmap(padding, editor_pixmap.as_ref());
         Ok(())

@@ -341,6 +341,7 @@ impl Window {
                 if pending_redraw {
                     let draw_event = DrawEvent::new(
                         Rc::clone(&self.pixmap),
+                        Point::default(),
                         Rect {
                             top_left: Point::default(),
                             size: Size {

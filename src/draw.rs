@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use log::warn;
 use tiny_skia::{
-    BlendMode, Color, FillRule, FilterQuality, LinearGradient, Paint, Path, PathBuilder, Pattern,
-    Pixmap, PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
+    BlendMode, Color, FillRule, FilterQuality, LinearGradient, Mask, Paint, Path, PathBuilder,
+    Pattern, Pixmap, PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
 };
 
 use crate::{
@@ -29,23 +29,45 @@ fn rounded_line_in_square_corner(
 #[derive(Debug, Clone)]
 pub struct DrawEvent {
     pixmap: Rc<RefCell<Pixmap>>,
-    rect: Rect,
+    mask: Mask,
+    top_left: Point,
+    mask_rect: Rect,
 }
 
 impl DrawEvent {
-    pub fn new(pixmap: Rc<RefCell<Pixmap>>, rect: Rect) -> Self {
-        Self { pixmap, rect }
+    pub fn new(pixmap: Rc<RefCell<Pixmap>>, top_left: Point, mask_rect: Rect) -> Self {
+        let mut mask = Mask::new(pixmap.borrow().width(), pixmap.borrow().height()).unwrap();
+        mask.fill_path(
+            &PathBuilder::from_rect(
+                tiny_skia::Rect::from_xywh(
+                    mask_rect.top_left.x as f32,
+                    mask_rect.top_left.y as f32,
+                    mask_rect.size.x as f32,
+                    mask_rect.size.y as f32,
+                )
+                .unwrap(),
+            ),
+            FillRule::default(),
+            false,
+            Transform::default(),
+        );
+
+        Self {
+            pixmap,
+            mask,
+            top_left,
+            mask_rect,
+        }
     }
 
     pub fn draw_pixmap(&self, pos: Point, pixmap: PixmapRef<'_>) {
         self.pixmap.borrow_mut().draw_pixmap(
-            pos.x + self.rect.top_left.x,
-            pos.y + self.rect.top_left.y,
+            pos.x + self.top_left.x,
+            pos.y + self.top_left.y,
             pixmap,
             &PixmapPaint::default(),
             Transform::default(),
-            // TODO: mask?
-            None,
+            Some(&self.mask),
         )
     }
 
@@ -57,7 +79,7 @@ impl DrawEvent {
         if target_rect.is_empty() {
             return;
         }
-        let target_rect = target_rect.translate(self.rect.top_left);
+        let target_rect = target_rect.translate(self.top_left);
         let translation = target_rect.top_left - pixmap_offset;
         let patt_transform = Transform::from_translate(translation.x as f32, translation.y as f32);
         let paint = Paint {
@@ -83,7 +105,7 @@ impl DrawEvent {
             .unwrap(),
             &paint,
             Transform::default(),
-            None,
+            Some(&self.mask),
         );
     }
 
@@ -93,7 +115,7 @@ impl DrawEvent {
             warn!("radius is bigger than fits in rectangle");
             radius = 0.0;
         }
-        let top_left_point = self.rect.top_left + rect.top_left;
+        let top_left_point = self.top_left + rect.top_left;
         let top_left = tiny_skia::Point {
             x: top_left_point.x as f32 + width / 2.0,
             y: top_left_point.y as f32 + width / 2.0,
@@ -152,8 +174,7 @@ impl DrawEvent {
                 ..Stroke::default()
             },
             Transform::default(),
-            // TODO: mask?
-            None,
+            Some(&self.mask),
         );
     }
 
@@ -167,8 +188,7 @@ impl DrawEvent {
             },
             FillRule::default(),
             Transform::default(),
-            // TODO: mask?
-            None,
+            Some(&self.mask),
         );
     }
 
@@ -184,7 +204,7 @@ impl DrawEvent {
             border.map_or(0.0, |b| b.width.get() as f32),
         );
         if let Some(background) = background {
-            let global_rect = rect.translate(self.rect.top_left);
+            let global_rect = rect.translate(self.top_left);
             let shader = match background {
                 Background::Solid(color) => Shader::SolidColor(*color),
                 Background::LinearGradient(gradient) => LinearGradient::new(
@@ -219,7 +239,7 @@ impl DrawEvent {
 
     // TODO: add at least width
     pub fn stroke_rect(&self, rect: Rect, color: Color) {
-        let top_left = self.rect.top_left + rect.top_left;
+        let top_left = self.top_left + rect.top_left;
         let path = PathBuilder::from_rect(
             tiny_skia::Rect::from_xywh(
                 top_left.x as f32 + 0.5,
@@ -237,13 +257,12 @@ impl DrawEvent {
             },
             &Stroke::default(),
             Transform::default(),
-            // TODO: mask?
-            None,
+            Some(&self.mask),
         );
     }
 
     pub fn fill_rect(&self, rect: Rect, color: Color) {
-        let top_left = self.rect.top_left + rect.top_left;
+        let top_left = self.top_left + rect.top_left;
         self.pixmap.borrow_mut().fill_rect(
             tiny_skia::Rect::from_xywh(
                 top_left.x as f32,
@@ -257,20 +276,17 @@ impl DrawEvent {
                 ..Paint::default()
             },
             Transform::default(),
-            // TODO: mask?
-            None,
+            Some(&self.mask),
         );
     }
 
-    pub fn rect(&self) -> Rect {
-        self.rect
-    }
-
-    pub fn map_to_child(&self, rect_in_parent: Rect) -> Self {
-        Self {
-            // TODO: clip on self.rect
-            rect: rect_in_parent.translate(self.rect.top_left),
-            pixmap: Rc::clone(&self.pixmap),
+    pub fn map_to_child(&self, rect_in_parent: Rect) -> Option<Self> {
+        let rect = rect_in_parent.translate(self.top_left);
+        let mask_rect = self.mask_rect.intersect(rect);
+        if mask_rect.is_empty() {
+            return None;
         }
+
+        Some(Self::new(Rc::clone(&self.pixmap), rect.top_left, mask_rect))
     }
 }

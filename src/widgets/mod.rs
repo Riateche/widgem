@@ -846,8 +846,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::Draw(event) => {
                 for child in &mut self.common_mut().children {
                     if let Some(rect_in_parent) = child.rect_in_parent {
-                        let child_event = event.map_to_child(rect_in_parent);
-                        child.widget.dispatch(child_event.into());
+                        if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                            child.widget.dispatch(child_event.into());
+                        }
                     }
                 }
             }
