@@ -1,6 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, FnArg, Ident, ImplItem, ItemImpl, Pat, Visibility};
+use syn::{
+    parse_macro_input, parse_quote, spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Pat,
+    Visibility,
+};
 
 #[proc_macro_attribute]
 pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -28,22 +31,30 @@ pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
             new_fn.sig.ident =
                 Ident::new(&format!("with_{}", stripped_name), item.sig.ident.span());
+            let mut new_inputs = Vec::new();
             let old_name = &item.sig.ident;
             let mut arg_names = Vec::new();
-            for arg in item.sig.inputs.iter().skip(1) {
-                if let FnArg::Typed(arg) = arg {
-                    if let Pat::Ident(ident) = &*arg.pat {
+            for (index, arg) in item.sig.inputs.iter().enumerate() {
+                println!("arg {arg:?}");
+                match arg {
+                    FnArg::Typed(arg) => {
+                        let ty = &arg.ty;
+                        let ident = if let Pat::Ident(ident) = &*arg.pat {
+                            ident.ident.clone()
+                        } else {
+                            Ident::new(&format!("arg{index}"), arg.span())
+                        };
+                        new_inputs.push(quote! { #ident: #ty });
                         arg_names.push(ident);
-                    } else {
-                        // TODO: generate new ident
-                        panic!("arbitrary patterns are not supported");
                     }
-                } else {
-                    panic!("unexpected receiver arg");
+                    FnArg::Receiver(_) => {
+                        new_inputs.push(quote! { mut self });
+                    }
                 }
             }
             new_fn.sig.output = parse_quote! { -> Self };
-            *new_fn.sig.inputs.first_mut().unwrap() = parse_quote! { mut self };
+            new_fn.sig.inputs = parse_quote! { #(#new_inputs),* };
+            // *new_fn.sig.inputs.first_mut().unwrap() = parse_quote! { mut self };
             new_fn.block = parse_quote! { {
                 self.#old_name(#(#arg_names,)*);
                 self

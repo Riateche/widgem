@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use crate::{
     callback::Callback,
     event::{Event, LayoutEvent},
@@ -20,8 +22,7 @@ pub struct ScrollBar {
     current_slider_pos: i32,
     max_slider_pos: i32,
     starting_slider_rect: Rect,
-    min_value: i32,
-    max_value: i32,
+    value_range: RangeInclusive<i32>,
     current_value: i32,
     slider_grab_pos: Option<(Point, i32)>,
     value_changed: Option<Callback<i32>>,
@@ -38,7 +39,7 @@ impl ScrollBar {
             Button::new("<").boxed(),
             LayoutItemOptions::from_pos_in_grid(0, 0),
         );
-        let mut slider = Button::new("|||");
+        let slider = Button::new("|||");
 
         let axis = Axis::X;
         common.add_child(
@@ -56,8 +57,7 @@ impl ScrollBar {
             current_slider_pos: 0,
             max_slider_pos: 0,
             starting_slider_rect: Rect::default(),
-            min_value: 0,
-            max_value: 100,
+            value_range: 0..=100,
             current_value: 20, // TODO
             slider_grab_pos: None,
             value_changed: None,
@@ -131,12 +131,12 @@ impl ScrollBar {
                     let new_pos = start_slider_pos - start_mouse_pos.x + pos_in_window.x;
                     self.current_slider_pos = new_pos.clamp(0, self.max_slider_pos);
                     self.current_value = if self.max_slider_pos == 0 {
-                        self.min_value
+                        *self.value_range.start()
                     } else {
                         ((self.current_slider_pos as f32) / (self.max_slider_pos as f32)
-                            * (self.max_value - self.min_value) as f32)
+                            * (*self.value_range.end() - *self.value_range.start()) as f32)
                             .round() as i32
-                            + self.min_value
+                            + self.value_range.start()
                     };
                     if let Some(value_changed) = &self.value_changed {
                         value_changed.invoke(self.current_value);
@@ -154,12 +154,12 @@ impl ScrollBar {
                     let new_pos = start_slider_pos - start_mouse_pos.y + pos_in_window.y;
                     self.current_slider_pos = new_pos.clamp(0, self.max_slider_pos);
                     self.current_value = if self.max_slider_pos == 0 {
-                        self.min_value
+                        *self.value_range.start()
                     } else {
                         ((self.current_slider_pos as f32) / (self.max_slider_pos as f32)
-                            * (self.max_value - self.min_value) as f32)
+                            * (*self.value_range.end() - *self.value_range.start()) as f32)
                             .round() as i32
-                            + self.min_value
+                            + *self.value_range.start()
                     };
                     if let Some(value_changed) = &self.value_changed {
                         value_changed.invoke(self.current_value);
@@ -175,6 +175,57 @@ impl ScrollBar {
             }
         }
         Ok(())
+    }
+
+    pub fn set_value_range(&mut self, mut range: RangeInclusive<i32>) {
+        if range.end() < range.start() {
+            warn!("invalid scroll bar range");
+            range = *range.start()..=*range.start();
+        }
+        if self.value_range == range {
+            return;
+        }
+        self.value_range = range;
+        if self.current_value < *self.value_range.start()
+            || self.current_value > *self.value_range.end()
+        {
+            self.set_value(
+                self.current_value
+                    .clamp(*self.value_range.start(), *self.value_range.end()),
+            );
+        } else {
+            self.update_slider_pos();
+        }
+    }
+
+    pub fn set_value(&mut self, mut value: i32) {
+        if value < *self.value_range.start() || value > *self.value_range.end() {
+            warn!("scroll bar value out of bounds");
+            value = value.clamp(*self.value_range.start(), *self.value_range.end());
+        }
+        if self.current_value == value {
+            return;
+        }
+        self.current_value = value;
+        if let Some(value_changed) = &self.value_changed {
+            value_changed.invoke(self.current_value);
+        }
+        self.update_slider_pos();
+    }
+
+    fn update_slider_pos(&mut self) {
+        self.current_slider_pos = self.value_to_slider_pos();
+        let shift = match self.axis {
+            Axis::X => Point::new(self.current_slider_pos, 0),
+            Axis::Y => Point::new(0, self.current_slider_pos),
+        };
+        self.common
+            .set_child_rect(3, Some(self.starting_slider_rect.translate(shift)))
+            .unwrap();
+    }
+
+    pub fn value(&self) -> i32 {
+        self.current_value
     }
 
     fn grid_options(&self) -> GridOptions {
@@ -195,15 +246,15 @@ impl ScrollBar {
     }
 
     fn value_to_slider_pos(&self) -> i32 {
-        if self.min_value > self.max_value {
+        if *self.value_range.start() > *self.value_range.end() {
             warn!("invalid scroll bar range");
             return 0;
         }
-        if self.min_value == self.max_value {
+        if *self.value_range.start() == *self.value_range.end() {
             return 0;
         }
-        let pos = (self.current_value - self.min_value) as f32
-            / (self.max_value - self.min_value) as f32
+        let pos = (self.current_value - *self.value_range.start()) as f32
+            / (*self.value_range.end() - *self.value_range.start()) as f32
             * self.max_slider_pos as f32;
         pos.round() as i32
     }
@@ -240,15 +291,6 @@ impl Widget for ScrollBar {
                 );
                 self.max_slider_pos =
                     pager_rect.bottom_right().x - self.starting_slider_rect.bottom_right().x;
-
-                self.current_slider_pos = self.value_to_slider_pos();
-                self.common.set_child_rect(
-                    3,
-                    Some(
-                        self.starting_slider_rect
-                            .translate(Point::new(self.current_slider_pos, 0)),
-                    ),
-                )?;
             }
             Axis::Y => {
                 self.starting_slider_rect = Rect::from_pos_size(
@@ -257,17 +299,9 @@ impl Widget for ScrollBar {
                 );
                 self.max_slider_pos =
                     pager_rect.bottom_right().y - self.starting_slider_rect.bottom_right().y;
-
-                self.current_slider_pos = self.value_to_slider_pos();
-                self.common.set_child_rect(
-                    3,
-                    Some(
-                        self.starting_slider_rect
-                            .translate(Point::new(0, self.current_slider_pos)),
-                    ),
-                )?;
             }
         }
+        self.update_slider_pos();
         Ok(())
     }
 

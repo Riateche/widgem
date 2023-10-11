@@ -58,6 +58,12 @@ impl From<RawWidgetId> for NodeId {
 
 pub struct WidgetId<T>(pub RawWidgetId, pub PhantomData<T>);
 
+impl<T> WidgetId<T> {
+    pub fn new(id: RawWidgetId) -> Self {
+        Self(id, PhantomData)
+    }
+}
+
 impl<T> Debug for WidgetId<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.0)
@@ -330,7 +336,10 @@ impl WidgetCommon {
         }
     }
 
-    pub fn remove_child(&mut self, index: usize) -> Box<dyn Widget> {
+    pub fn remove_child(&mut self, index: usize) -> Result<Box<dyn Widget>> {
+        if index >= self.children.len() {
+            bail!("invalid child index");
+        }
         let mut widget = self.children.remove(index).widget;
         if self.mount_point.is_some() {
             widget.dispatch(UnmountEvent.into());
@@ -338,7 +347,7 @@ impl WidgetCommon {
         }
         self.remount_children(index);
         self.size_hint_changed();
-        widget
+        Ok(widget)
     }
 
     pub fn set_child_rect(&mut self, index: usize, rect_in_parent: Option<Rect>) -> Result<()> {

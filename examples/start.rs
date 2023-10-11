@@ -6,11 +6,9 @@ use anyhow::Result;
 use salvation::{
     event_loop::{self, CallbackContext},
     system::add_interval,
-    types::Axis,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
-        scroll_area::ScrollArea, scroll_bar::ScrollBar, text_input::TextInput, Widget, WidgetExt,
-        WidgetId,
+        scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetExt, WidgetId,
     },
     window::create_window,
 };
@@ -118,7 +116,12 @@ impl State {
         let label2 = Label::new("ok").split_id();
         root.add_child(label2.widget.boxed());
 
-        root.add_child(ScrollArea::new().boxed());
+        let mut content = Column::new();
+        for i in 1..=20 {
+            content.add_child(Button::new(format!("btn{i}")).boxed());
+        }
+
+        root.add_child(ScrollArea::new(content.boxed()).boxed());
 
         create_window(
             WindowBuilder::new().with_title("example"),
