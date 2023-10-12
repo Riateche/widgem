@@ -444,7 +444,6 @@ impl WidgetCommon {
                 }
                 self.is_registered_as_focusable = is_focusable;
             } else {
-                warn!("register_focusable: no mount point");
                 self.is_registered_as_focusable = false;
             }
         }

@@ -146,8 +146,9 @@ impl State {
 
     fn inc(&mut self, ctx: &mut CallbackContext<Self>) -> Result<()> {
         self.i += 1;
-        ctx.widget(self.button21_id)?
-            .set_text(format!("i = {}", self.i));
+        if let Ok(widget) = ctx.widget(self.button21_id) {
+            widget.set_text(format!("i = {}", self.i));
+        }
         Ok(())
     }
 
