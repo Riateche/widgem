@@ -216,12 +216,13 @@ impl TextInput {
         let style = &self.common.style().text_input;
         self.editor.set_font_metrics(style.font_metrics);
         let style = self.current_variant_style().clone();
+        println!("style changed {:?}", style.text_color);
         // TODO: support color changes based on state
-        self.editor.set_text_color(style.text_color.into());
+        self.editor.set_text_color(style.text_color);
         self.editor
-            .set_selected_text_color(style.selected_text_color.into());
+            .set_selected_text_color(style.selected_text_color);
         self.editor
-            .set_selected_text_background(style.selected_text_background.into());
+            .set_selected_text_background(style.selected_text_background);
         self.update_viewport_rect();
         self.common.update();
     }
@@ -482,6 +483,7 @@ impl Widget for TextInput {
             self.accessible_line_id,
             0,
         );
+        //self.style_changed();
         Ok(())
     }
     fn handle_unmount(&mut self, _event: UnmountEvent) -> Result<()> {

@@ -8,6 +8,15 @@
         background: '#ffffff',
         selected_text_color: '#ffffff',
         selected_text_background: '#308cc6',
+        text_input_border: '#c8c8c8',
+        text_input_focused_border: '#6464ff',
+        button_border: '#c4c4c4',
+        button_focused_border: '#26709e',
+        button_gradient_start: '#fefefe',
+        button_gradient_end: '#eeeeee',
+        button_gradient_end_mouse_over: '#f7f7f7',
+        button_disabled_text: '#bfbfbf',
+        button_pressed_background: '#dbdbdb',
     },
     text_input: {
         min_padding: {
@@ -29,7 +38,7 @@
                 if: 'always',
                 then: {
                     border: {
-                        color: '#c8c8c8',
+                        color: 'text_input_border',
                         width: 1,
                         radius: 2,
                     },
@@ -43,35 +52,7 @@
                 if: 'Focused',
                 then: {
                     border: {
-                        color: '#6464ff',
-                        width: null,
-                        radius: null,
-                    },
-                    background: null,
-                    text_color: null,
-                    selected_text_color: null,
-                    selected_text_background: null,
-                },
-            },
-            {
-                if: 'MouseOver',
-                then: {
-                    border: {
-                        color: '#ff0000',
-                        width: null,
-                        radius: null,
-                    },
-                    background: null,
-                    text_color: null,
-                    selected_text_color: null,
-                    selected_text_background: null,
-                },
-            },
-            {
-                if: 'Focused and MouseOver',
-                then: {
-                    border: {
-                        color: '#00ff00',
+                        color: 'text_input_focused_border',
                         width: null,
                         radius: null,
                     },
@@ -101,7 +82,7 @@
                 if: 'always',
                 then: {
                     border: {
-                        color: '#c4c4c4',
+                        color: 'button_border',
                         width: 1,
                         radius: 2,
                     },
@@ -118,11 +99,11 @@
                         stops: [
                             {
                                 position: 0,
-                                color: '#fefefe',
+                                color: 'button_gradient_start',
                             },
                             {
                                 position: 1,
-                                color: '#eeeeee',
+                                color: 'button_gradient_end',
                             },
                         ],
                         mode: 'Pad',
@@ -139,7 +120,7 @@
                         radius: null,
                     },
                     background: null,
-                    text_color: '#bfbfbf',
+                    text_color: 'button_disabled_text',
                 },
             },
             {
@@ -163,11 +144,11 @@
                         stops: [
                             {
                                 position: 1,
-                                color: '#fefefe',
+                                color: 'button_gradient_start',
                             },
                             {
                                 position: 1,
-                                color: '#f7f7f7',
+                                color: 'button_gradient_end_mouse_over',
                             },
                         ],
                         mode: 'Pad',
@@ -185,7 +166,7 @@
                     },
                     background: {
                         type: 'Solid',
-                        color: '#dbdbdb',
+                        color: 'button_pressed_background',
                     },
                     text_color: null,
                 },
@@ -194,7 +175,7 @@
                 if: 'Focused',
                 then: {
                     border: {
-                        color: '#26709e',
+                        color: 'button_focused_border',
                         width: null,
                         radius: null,
                     },

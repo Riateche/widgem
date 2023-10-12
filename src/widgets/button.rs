@@ -90,7 +90,7 @@ impl Widget for Button {
             style.background.as_ref(),
         );
 
-        self.editor.set_text_color(style.text_color.into());
+        self.editor.set_text_color(style.text_color);
         let editor_pixmap = self.editor.pixmap();
         let padding = Point {
             x: max(0, size.x - editor_pixmap.width() as i32) / 2,

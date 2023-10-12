@@ -1,15 +1,22 @@
 use std::{
+    borrow::{Borrow, Cow},
+    collections::BTreeMap,
     fmt::{Debug, Display},
     str::FromStr,
 };
 
 use derive_more::{From, Into};
+use log::warn;
 use serde::{de::Error, Deserialize, Serialize};
 use std::hash::Hash;
 
 use crate::types::{LogicalPixels, Point};
 
-use self::{button::ButtonStyle, computed::ComputedBorderStyle, text_input::TextInputStyle};
+use self::{
+    button::ButtonStyle,
+    computed::{ComputedBackground, ComputedBorderStyle, ComputedLinearGradient},
+    text_input::TextInputStyle,
+};
 
 pub mod button;
 pub mod computed;
@@ -56,12 +63,34 @@ impl<'de> Deserialize<'de> for Color {
     }
 }
 
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, From, Into,
+)]
+pub struct ColorRef(Cow<'static, str>);
+
+#[allow(non_upper_case_globals)]
+impl ColorRef {
+    pub const foreground: Self = Self(Cow::Borrowed("foreground"));
+    pub const background: Self = Self(Cow::Borrowed("background"));
+    pub const selected_text_color: Self = Self(Cow::Borrowed("selected_text_color"));
+    pub const selected_text_background: Self = Self(Cow::Borrowed("selected_text_background"));
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Palette {
-    pub foreground: Color,
-    pub background: Color,
-    pub selected_text_color: Color,
-    pub selected_text_background: Color,
+pub struct Palette(BTreeMap<ColorRef, Color>);
+
+impl Palette {
+    pub fn get(&self, color: impl Borrow<ColorRef>) -> tiny_skia::Color {
+        if let Some(c) = self.0.get(color.borrow()) {
+            (*c).into()
+        } else {
+            warn!("missing color in palette: {:?}", color.borrow());
+            self.0
+                .get(&ColorRef::foreground)
+                .map(|c| (*c).into())
+                .unwrap_or(tiny_skia::Color::BLACK)
+        }
+    }
 }
 
 // TODO: remove Debug
@@ -125,18 +154,16 @@ impl From<SpreadMode> for tiny_skia::SpreadMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GradientStop {
     pub position: f32,
-    pub color: Color,
+    pub color: ColorRef,
 }
 
 impl GradientStop {
-    pub fn new(position: f32, color: Color) -> Self {
+    pub fn new(position: f32, color: ColorRef) -> Self {
         Self { position, color }
     }
-}
 
-impl From<GradientStop> for tiny_skia::GradientStop {
-    fn from(value: GradientStop) -> Self {
-        Self::new(value.position, value.color.into())
+    pub fn compute(&self, palette: &Palette) -> tiny_skia::GradientStop {
+        tiny_skia::GradientStop::new(self.position, palette.get(&self.color))
     }
 }
 
@@ -151,8 +178,30 @@ pub struct LinearGradient {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Background {
-    Solid { color: Color },
+    Solid { color: ColorRef },
     LinearGradient(LinearGradient),
+}
+
+impl Background {
+    pub fn compute(&self, palette: &Palette) -> ComputedBackground {
+        match self {
+            Background::Solid { color } => ComputedBackground::Solid {
+                color: palette.get(color),
+            },
+            Background::LinearGradient(g) => {
+                ComputedBackground::LinearGradient(ComputedLinearGradient {
+                    start: g.start,
+                    end: g.end,
+                    stops: g
+                        .stops
+                        .iter()
+                        .map(|g| tiny_skia::GradientStop::new(g.position, palette.get(&g.color)))
+                        .collect(),
+                    mode: g.mode.into(),
+                })
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -228,15 +277,15 @@ impl RootFontStyle {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BorderStyle {
-    pub color: Option<Color>,
+    pub color: Option<ColorRef>,
     pub width: Option<LogicalPixels>,
     pub radius: Option<LogicalPixels>,
 }
 
 impl BorderStyle {
     pub fn apply(&mut self, other: &Self) {
-        if let Some(color) = other.color {
-            self.color = Some(color);
+        if let Some(color) = &other.color {
+            self.color = Some(color.clone());
         }
         if let Some(width) = other.width {
             self.width = Some(width);
@@ -246,14 +295,14 @@ impl BorderStyle {
         }
     }
 
-    pub fn to_physical(&self, scale: f32) -> Option<ComputedBorderStyle> {
-        if let (Some(color), Some(width)) = (self.color, self.width) {
+    pub fn to_physical(&self, scale: f32, palette: &Palette) -> Option<ComputedBorderStyle> {
+        if let (Some(color), Some(width)) = (&self.color, self.width) {
             if width.get() == 0 {
                 return None;
             }
             let radius = self.radius.unwrap_or_default();
             Some(ComputedBorderStyle {
-                color: color.into(),
+                color: palette.get(color),
                 width: width.to_physical(scale),
                 radius: radius.to_physical(scale),
             })

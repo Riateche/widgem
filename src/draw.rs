@@ -7,7 +7,7 @@ use tiny_skia::{
 };
 
 use crate::{
-    style::{computed::ComputedBorderStyle, Background},
+    style::computed::{ComputedBackground, ComputedBorderStyle},
     types::{Point, Rect},
 };
 
@@ -196,7 +196,7 @@ impl DrawEvent {
         &self,
         rect: Rect,
         border: Option<&ComputedBorderStyle>,
-        background: Option<&Background>,
+        background: Option<&ComputedBackground>,
     ) {
         let path = self.rounded_rect_path(
             rect,
@@ -206,17 +206,12 @@ impl DrawEvent {
         if let Some(background) = background {
             let global_rect = rect.translate(self.top_left);
             let shader = match background {
-                Background::Solid { color } => Shader::SolidColor((*color).into()),
-                Background::LinearGradient(gradient) => LinearGradient::new(
+                ComputedBackground::Solid { color } => Shader::SolidColor(*color),
+                ComputedBackground::LinearGradient(gradient) => LinearGradient::new(
                     global_rect.relative_pos(gradient.start).into(),
                     global_rect.relative_pos(gradient.end).into(),
-                    // TODO: computed background?
-                    gradient
-                        .stops
-                        .iter()
-                        .map(|stop| stop.clone().into())
-                        .collect(),
-                    gradient.mode.into(),
+                    gradient.stops.clone(),
+                    gradient.mode,
                     Transform::default(),
                 )
                 .unwrap_or_else(|| {

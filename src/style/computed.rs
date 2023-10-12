@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
-use tiny_skia::Color;
+use tiny_skia::{Color, GradientStop, SpreadMode};
 
 use crate::types::PhysicalPixels;
 
-use super::{button, condition::ClassRules, text_input, ElementState, Style, VariantStyle};
+use super::{
+    button, condition::ClassRules, text_input, ElementState, RelativeOffset, Style, VariantStyle,
+};
 
 #[derive(Debug, Clone)]
 pub struct ComputedStyleVariants<T: VariantStyle>(HashMap<T::State, T::Computed>);
@@ -52,4 +54,18 @@ impl ComputedStyle {
             scale,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum ComputedBackground {
+    Solid { color: Color },
+    LinearGradient(ComputedLinearGradient),
+}
+
+#[derive(Debug, Clone)]
+pub struct ComputedLinearGradient {
+    pub start: RelativeOffset,
+    pub end: RelativeOffset,
+    pub stops: Vec<GradientStop>,
+    pub mode: SpreadMode,
 }

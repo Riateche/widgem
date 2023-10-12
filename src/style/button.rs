@@ -5,9 +5,9 @@ use strum_macros::{Display, EnumString};
 use crate::types::Point;
 
 use super::{
-    computed::{ComputedBorderStyle, ComputedStyleVariants},
+    computed::{ComputedBackground, ComputedBorderStyle, ComputedStyleVariants},
     condition::ClassRules,
-    Background, BorderStyle, Color, ElementState, FontStyle, Padding, Style, VariantStyle,
+    Background, BorderStyle, ColorRef, ElementState, FontStyle, Padding, Style, VariantStyle,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
@@ -78,7 +78,7 @@ pub struct ButtonStyle {
 pub struct ButtonVariantStyle {
     pub border: BorderStyle,
     pub background: Option<Background>,
-    pub text_color: Option<Color>,
+    pub text_color: Option<ColorRef>,
 }
 
 impl VariantStyle for ButtonVariantStyle {
@@ -90,8 +90,8 @@ impl VariantStyle for ButtonVariantStyle {
         if let Some(background) = &other.background {
             self.background = Some(background.clone());
         }
-        if let Some(text_color) = other.text_color {
-            self.text_color = Some(text_color);
+        if let Some(text_color) = &other.text_color {
+            self.text_color = Some(text_color.clone());
         }
     }
 
@@ -99,9 +99,11 @@ impl VariantStyle for ButtonVariantStyle {
         // TODO: get more default properties from style root?
         // TODO: default border from style root
         ComputedVariantStyle {
-            border: self.border.to_physical(scale),
-            background: self.background.clone(),
-            text_color: self.text_color.unwrap_or(style.palette.foreground),
+            border: self.border.to_physical(scale, &style.palette),
+            background: self.background.as_ref().map(|b| b.compute(&style.palette)),
+            text_color: style
+                .palette
+                .get(self.text_color.as_ref().unwrap_or(&ColorRef::foreground)),
         }
     }
 }
@@ -110,8 +112,8 @@ impl VariantStyle for ButtonVariantStyle {
 pub struct ComputedVariantStyle {
     pub border: Option<ComputedBorderStyle>,
     #[allow(dead_code)] // TODO: implement
-    pub background: Option<Background>,
-    pub text_color: Color,
+    pub background: Option<ComputedBackground>,
+    pub text_color: tiny_skia::Color,
 }
 
 #[derive(Debug, Clone)]

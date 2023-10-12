@@ -294,8 +294,8 @@ impl WidgetCommon {
                 })
                 .into(),
             );
-            widget.set_parent_scope(self.effective_scope());
         }
+        widget.set_parent_scope(self.effective_scope());
         self.children.insert(
             index,
             Child {
@@ -343,8 +343,8 @@ impl WidgetCommon {
         let mut widget = self.children.remove(index).widget;
         if self.mount_point.is_some() {
             widget.dispatch(UnmountEvent.into());
-            widget.set_parent_scope(WidgetScope::default());
         }
+        widget.set_parent_scope(WidgetScope::default());
         self.remount_children(index);
         self.size_hint_changed();
         Ok(widget)

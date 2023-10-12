@@ -54,8 +54,7 @@ impl TextEditor {
                 system.default_style.font_metrics,
             )),
             pixmap: None,
-            // actual colors are set below
-            text_color: Color::TRANSPARENT,
+            text_color: Color::BLACK,
             selected_text_color: Color::TRANSPARENT,
             selected_text_background: Color::TRANSPARENT,
             size: Size::default(),
@@ -64,12 +63,6 @@ impl TextEditor {
             forbid_mouse_interaction: false,
         });
         e.set_text(text, Attrs::new());
-        with_system(|system| {
-            let palette = &system.default_style.style.palette;
-            e.set_text_color(palette.foreground.into());
-            e.set_selected_text_color(palette.selected_text_color.into());
-            e.set_selected_text_background(palette.selected_text_background.into());
-        });
         e.adjust_size();
         e
     }
