@@ -206,12 +206,17 @@ impl DrawEvent {
         if let Some(background) = background {
             let global_rect = rect.translate(self.top_left);
             let shader = match background {
-                Background::Solid(color) => Shader::SolidColor(*color),
+                Background::Solid(color) => Shader::SolidColor((*color).into()),
                 Background::LinearGradient(gradient) => LinearGradient::new(
                     global_rect.relative_pos(gradient.start).into(),
                     global_rect.relative_pos(gradient.end).into(),
-                    gradient.stops.clone(),
-                    gradient.mode,
+                    // TODO: computed background?
+                    gradient
+                        .stops
+                        .iter()
+                        .map(|stop| stop.clone().into())
+                        .collect(),
+                    gradient.mode.into(),
                     Transform::default(),
                 )
                 .unwrap_or_else(|| {

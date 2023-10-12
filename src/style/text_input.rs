@@ -1,15 +1,15 @@
 use itertools::Itertools;
-use tiny_skia::Color;
+use serde::{Deserialize, Serialize};
 
 use crate::types::Point;
 
 use super::{
     computed::{ComputedBorderStyle, ComputedStyleVariants},
     condition::ClassRules,
-    Background, BorderStyle, ElementState, FontStyle, Padding, Style, VariantStyle,
+    Background, BorderStyle, Color, ElementState, FontStyle, Padding, Style, VariantStyle,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TextInputClass {
     Enabled,
     Focused,
@@ -54,7 +54,7 @@ impl ElementState for TextInputState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextInputStyle {
     pub min_padding: Padding,
     pub preferred_padding: Padding,
@@ -64,7 +64,7 @@ pub struct TextInputStyle {
     pub variants: ClassRules<TextInputVariantStyle>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TextInputVariantStyle {
     pub border: BorderStyle,
     pub background: Option<Background>,

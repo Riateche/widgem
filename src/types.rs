@@ -1,4 +1,5 @@
 use derive_more::{From, Into};
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::{max, min},
     ops::{Add, Sub, SubAssign},
@@ -6,7 +7,7 @@ use std::{
 
 use crate::style::RelativeOffset;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Default, Serialize, Deserialize)]
 pub struct LogicalPixels(i32);
 
 impl LogicalPixels {

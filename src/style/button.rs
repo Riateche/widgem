@@ -1,15 +1,15 @@
 use itertools::Itertools;
-use tiny_skia::Color;
+use serde::{Deserialize, Serialize};
 
 use crate::types::Point;
 
 use super::{
     computed::{ComputedBorderStyle, ComputedStyleVariants},
     condition::ClassRules,
-    Background, BorderStyle, ElementState, FontStyle, Padding, Style, VariantStyle,
+    Background, BorderStyle, Color, ElementState, FontStyle, Padding, Style, VariantStyle,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ButtonClass {
     Enabled,
     Focused,
@@ -65,7 +65,7 @@ impl ElementState for ButtonState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonStyle {
     pub min_padding: Padding,
     pub preferred_padding: Padding,
@@ -73,7 +73,7 @@ pub struct ButtonStyle {
     pub variants: ClassRules<ButtonVariantStyle>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ButtonVariantStyle {
     pub border: BorderStyle,
     pub background: Option<Background>,

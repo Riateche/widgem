@@ -157,6 +157,11 @@ pub fn run<State: 'static>(
 
     let mut windows = HashMap::new();
 
+    {
+        let s = json5::to_string(&default_style()).unwrap();
+        std::fs::write("/tmp/style.json5", &s).unwrap();
+    }
+
     let shared_system_data = SharedSystemDataInner {
         address_book: HashMap::new(),
         font_system: FontSystem::new(),

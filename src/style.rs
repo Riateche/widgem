@@ -1,7 +1,12 @@
 use std::fmt::Debug;
 
+use derive_more::{From, Into};
+use serde::{de::Error, Deserialize, Serialize};
 use std::hash::Hash;
-use tiny_skia::{Color, GradientStop, SpreadMode};
+
+use crate::types::{LogicalPixels, Point};
+
+use self::{button::ButtonStyle, computed::ComputedBorderStyle, text_input::TextInputStyle};
 
 pub mod button;
 pub mod computed;
@@ -9,11 +14,46 @@ pub mod condition;
 pub mod defaults;
 pub mod text_input;
 
-use crate::types::{LogicalPixels, Point};
+#[derive(Debug, Clone, Copy, PartialEq, From, Into)]
+pub struct Color(tiny_skia::Color);
 
-use self::{button::ButtonStyle, computed::ComputedBorderStyle, text_input::TextInputStyle};
+impl Serialize for Color {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let c = self.0;
+        let hex = csscolorparser::Color::new(
+            c.red().into(),
+            c.green().into(),
+            c.blue().into(),
+            c.alpha().into(),
+        )
+        .to_hex_string();
+        hex.serialize(serializer)
+    }
+}
 
-#[derive(Debug, Clone)]
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str = <String>::deserialize(deserializer)?;
+        let color = csscolorparser::parse(&str).map_err(D::Error::custom)?;
+        Ok(Self(
+            tiny_skia::Color::from_rgba(
+                color.r as f32,
+                color.g as f32,
+                color.b as f32,
+                color.a as f32,
+            )
+            .ok_or_else(|| D::Error::custom("invalid color"))?,
+        ))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Palette {
     pub foreground: Color,
     pub background: Color,
@@ -34,14 +74,57 @@ pub trait VariantStyle: Default {
     fn compute(&self, style: &Style, scale: f32) -> Self::Computed;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct RelativeOffset {
     // from 0 to 1
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Debug, Clone)]
+/// A shader spreading mode.
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SpreadMode {
+    /// Replicate the edge color if the shader draws outside of its
+    /// original bounds.
+    Pad,
+
+    /// Repeat the shader's image horizontally and vertically, alternating
+    /// mirror images so that adjacent images always seam.
+    Reflect,
+
+    /// Repeat the shader's image horizontally and vertically.
+    Repeat,
+}
+
+impl From<SpreadMode> for tiny_skia::SpreadMode {
+    fn from(value: SpreadMode) -> Self {
+        match value {
+            SpreadMode::Pad => Self::Pad,
+            SpreadMode::Reflect => Self::Reflect,
+            SpreadMode::Repeat => Self::Repeat,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GradientStop {
+    pub position: f32,
+    pub color: Color,
+}
+
+impl GradientStop {
+    pub fn new(position: f32, color: Color) -> Self {
+        Self { position, color }
+    }
+}
+
+impl From<GradientStop> for tiny_skia::GradientStop {
+    fn from(value: GradientStop) -> Self {
+        Self::new(value.position, value.color.into())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinearGradient {
     pub start: RelativeOffset,
     pub end: RelativeOffset,
@@ -49,13 +132,13 @@ pub struct LinearGradient {
     pub mode: SpreadMode,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Background {
     Solid(Color),
     LinearGradient(LinearGradient), // TODO
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Padding {
     pub x: LogicalPixels,
     pub y: LogicalPixels,
@@ -73,7 +156,7 @@ impl Padding {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Style {
     pub font: RootFontStyle,
     pub palette: Palette,
@@ -81,7 +164,7 @@ pub struct Style {
     pub button: ButtonStyle,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RootFontStyle {
     pub font_size: LogicalPixels,
     pub line_height: LogicalPixels,
@@ -99,7 +182,7 @@ impl RootFontStyle {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FontStyle {
     pub font_size: Option<LogicalPixels>,
     pub line_height: Option<LogicalPixels>,
@@ -126,7 +209,7 @@ impl RootFontStyle {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BorderStyle {
     pub color: Option<Color>,
     pub width: Option<LogicalPixels>,
@@ -153,7 +236,7 @@ impl BorderStyle {
             }
             let radius = self.radius.unwrap_or_default();
             Some(ComputedBorderStyle {
-                color,
+                color: color.into(),
                 width: width.to_physical(scale),
                 radius: radius.to_physical(scale),
             })

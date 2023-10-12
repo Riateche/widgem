@@ -10,7 +10,8 @@ use std::{
 use accesskit::ActionRequest;
 use derive_more::From;
 use log::{trace, warn};
-use tiny_skia::Pixmap;
+use tiny_skia::{Pixmap, PixmapPaint};
+use usvg::TreeParsing;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Ime, MouseButton, WindowEvent},
@@ -352,11 +353,43 @@ impl Window {
                     );
                     // TODO: option to turn off background, set style
                     let color = with_system(|system| system.default_style.style.palette.background);
-                    self.pixmap.borrow_mut().fill(color);
+                    self.pixmap.borrow_mut().fill(color.into());
                     if let Some(widget) = &mut self.root_widget {
                         widget.dispatch(draw_event.into());
                     }
                     self.shared_window_data.0.borrow_mut().pending_redraw = false;
+                }
+
+                {
+                    let rtree = {
+                        let tree = usvg::Tree::from_data(
+                            include_bytes!("../themes/default/scroll_left.svg"),
+                            &usvg::Options {
+                                //dpi: 192.0,
+                                ..Default::default()
+                            },
+                        )
+                        .unwrap();
+                        resvg::Tree::from_usvg(&tree)
+                    };
+
+                    let scale = 2.0;
+
+                    let pixmap_size_x = (rtree.size.width() * scale).ceil() as u32;
+                    let pixmap_size_y = (rtree.size.height() * scale).ceil() as u32;
+                    let mut pixmap = tiny_skia::Pixmap::new(pixmap_size_x, pixmap_size_y).unwrap();
+                    rtree.render(
+                        tiny_skia::Transform::from_scale(scale, scale),
+                        &mut pixmap.as_mut(),
+                    );
+                    self.pixmap.borrow_mut().draw_pixmap(
+                        300,
+                        300,
+                        pixmap.as_ref(),
+                        &PixmapPaint::default(),
+                        tiny_skia::Transform::default(),
+                        None,
+                    )
                 }
 
                 buffer.copy_from_slice(bytemuck::cast_slice(self.pixmap.borrow().data()));

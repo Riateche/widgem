@@ -66,9 +66,9 @@ impl TextEditor {
         e.set_text(text, Attrs::new());
         with_system(|system| {
             let palette = &system.default_style.style.palette;
-            e.set_text_color(palette.foreground);
-            e.set_selected_text_color(palette.selected_text_color);
-            e.set_selected_text_background(palette.selected_text_background);
+            e.set_text_color(palette.foreground.into());
+            e.set_selected_text_color(palette.selected_text_color.into());
+            e.set_selected_text_background(palette.selected_text_background.into());
         });
         e.adjust_size();
         e

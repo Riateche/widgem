@@ -1,9 +1,11 @@
 use std::ops::Not;
 
+use serde::{Deserialize, Serialize};
+
 use super::{ElementState, VariantStyle};
 
 // just A && B && C for now
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClassCondition<Class> {
     Has(Class),
     Not(Box<Self>),
@@ -67,8 +69,12 @@ impl<Class> Not for ClassCondition<Class> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClassRules<T: VariantStyle>(
+    #[serde(bound(serialize = "<T::State as ElementState>::Class: Serialize, T: Serialize"))]
+    #[serde(bound(
+        deserialize = "<T::State as ElementState>::Class: Deserialize<'de>, T: Deserialize<'de>"
+    ))]
     pub Vec<(ClassCondition<<T::State as ElementState>::Class>, T)>,
 );
 

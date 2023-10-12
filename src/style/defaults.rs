@@ -1,4 +1,4 @@
-use tiny_skia::{Color, GradientStop, SpreadMode};
+use tiny_skia::Color;
 
 use crate::types::LpxSuffix;
 
@@ -6,8 +6,8 @@ use super::{
     button::{ButtonClass, ButtonVariantStyle},
     condition::{ClassCondition, ClassRules},
     text_input::{TextInputClass, TextInputVariantStyle},
-    Background, BorderStyle, ButtonStyle, LinearGradient, Padding, Palette, RelativeOffset,
-    RootFontStyle, Style, TextInputStyle,
+    Background, BorderStyle, ButtonStyle, GradientStop, LinearGradient, Padding, Palette,
+    RelativeOffset, RootFontStyle, SpreadMode, Style, TextInputStyle,
 };
 
 pub fn default_style() -> Style {
@@ -15,8 +15,8 @@ pub fn default_style() -> Style {
         start: RelativeOffset { x: 0.0, y: 0.0 },
         end: RelativeOffset { x: 0.0, y: 1.0 },
         stops: vec![
-            GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255)),
-            GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255)),
+            GradientStop::new(0.0, Color::from_rgba8(254, 254, 254, 255).into()),
+            GradientStop::new(1.0, Color::from_rgba8(238, 238, 238, 255).into()),
         ],
         mode: SpreadMode::Pad,
     };
@@ -37,7 +37,7 @@ pub fn default_style() -> Style {
                     ClassCondition::always(),
                     TextInputVariantStyle {
                         border: BorderStyle {
-                            color: Some(Color::from_rgba8(200, 200, 200, 255)),
+                            color: Some(Color::from_rgba8(200, 200, 200, 255).into()),
                             width: Some(1.lpx()),
                             radius: Some(2.lpx()),
                         },
@@ -48,7 +48,7 @@ pub fn default_style() -> Style {
                     ClassCondition::has(TextInputClass::Focused),
                     TextInputVariantStyle {
                         border: BorderStyle {
-                            color: Some(Color::from_rgba8(100, 100, 255, 255)),
+                            color: Some(Color::from_rgba8(100, 100, 255, 255).into()),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -58,7 +58,7 @@ pub fn default_style() -> Style {
                     ClassCondition::has(TextInputClass::MouseOver),
                     TextInputVariantStyle {
                         border: BorderStyle {
-                            color: Some(Color::from_rgba8(255, 0, 0, 255)),
+                            color: Some(Color::from_rgba8(255, 0, 0, 255).into()),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -68,7 +68,7 @@ pub fn default_style() -> Style {
                     ClassCondition::has(TextInputClass::Focused).and(TextInputClass::MouseOver),
                     TextInputVariantStyle {
                         border: BorderStyle {
-                            color: Some(Color::from_rgba8(0, 255, 0, 255)),
+                            color: Some(Color::from_rgba8(0, 255, 0, 255).into()),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -77,10 +77,10 @@ pub fn default_style() -> Style {
             ]),
         },
         palette: Palette {
-            foreground: Color::BLACK,
-            background: Color::WHITE,
-            selected_text_color: Color::from_rgba8(255, 255, 255, 255),
-            selected_text_background: Color::from_rgba8(48, 140, 198, 255),
+            foreground: Color::BLACK.into(),
+            background: Color::WHITE.into(),
+            selected_text_color: Color::from_rgba8(255, 255, 255, 255).into(),
+            selected_text_background: Color::from_rgba8(48, 140, 198, 255).into(),
         },
         button: ButtonStyle {
             min_padding: Padding::new(1.lpx(), 0.lpx()),
@@ -91,7 +91,7 @@ pub fn default_style() -> Style {
                     ClassCondition::always(),
                     ButtonVariantStyle {
                         border: BorderStyle {
-                            color: Some(Color::from_rgba8(196, 196, 196, 255)),
+                            color: Some(Color::from_rgba8(196, 196, 196, 255).into()),
                             width: Some(1.lpx()),
                             radius: Some(2.lpx()),
                         },
@@ -103,7 +103,7 @@ pub fn default_style() -> Style {
                 (
                     ClassCondition::not(ButtonClass::Enabled),
                     ButtonVariantStyle {
-                        text_color: Some(Color::from_rgba8(191, 191, 191, 255)),
+                        text_color: Some(Color::from_rgba8(191, 191, 191, 255).into()),
                         ..Default::default()
                     },
                 ),
@@ -112,8 +112,14 @@ pub fn default_style() -> Style {
                     ButtonVariantStyle {
                         background: Some(Background::LinearGradient(LinearGradient {
                             stops: vec![
-                                GradientStop::new(1.0, Color::from_rgba8(254, 254, 254, 255)),
-                                GradientStop::new(1.0, Color::from_rgba8(247, 247, 247, 255)),
+                                GradientStop::new(
+                                    1.0,
+                                    Color::from_rgba8(254, 254, 254, 255).into(),
+                                ),
+                                GradientStop::new(
+                                    1.0,
+                                    Color::from_rgba8(247, 247, 247, 255).into(),
+                                ),
                             ],
                             ..button_gradient
                         })),
@@ -123,7 +129,9 @@ pub fn default_style() -> Style {
                 (
                     ClassCondition::has(ButtonClass::Pressed),
                     ButtonVariantStyle {
-                        background: Some(Background::Solid(Color::from_rgba8(219, 219, 219, 255))),
+                        background: Some(Background::Solid(
+                            Color::from_rgba8(219, 219, 219, 255).into(),
+                        )),
                         ..Default::default()
                     },
                 ),
@@ -131,7 +139,7 @@ pub fn default_style() -> Style {
                     ClassCondition::has(ButtonClass::Focused),
                     ButtonVariantStyle {
                         border: BorderStyle {
-                            color: Some(Color::from_rgba8(38, 112, 158, 255)),
+                            color: Some(Color::from_rgba8(38, 112, 158, 255).into()),
                             ..BorderStyle::default()
                         },
                         ..Default::default()
