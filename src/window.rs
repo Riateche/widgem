@@ -306,7 +306,7 @@ impl Window {
             trace!("accesskit consumed event: {event:?}");
             return;
         }
-        // println!("{event:?}");
+        // println!("{:?} {:?}", self.id, event);
         match event {
             WindowEvent::RedrawRequested => {
                 let (width, height) = {
@@ -521,6 +521,7 @@ impl Window {
                     }
                 }
                 let cursor_position = self.shared_window_data.0.borrow().cursor_position;
+                println!("click pos {:?}", cursor_position);
                 if let Some(pos_in_window) = cursor_position {
                     if let Some(root_widget) = &mut self.root_widget {
                         let accepted_by = Rc::new(Cell::new(None));
@@ -648,6 +649,10 @@ impl Window {
             }
             WindowEvent::Focused(focused) => {
                 self.shared_window_data.0.borrow_mut().is_window_focused = focused;
+                if !focused && self.mouse_grabber_widget.is_some() {
+                    self.mouse_grabber_widget = None;
+                    self.dispatch_cursor_leave();
+                }
                 if let Some(root_widget) = &mut self.root_widget {
                     root_widget.dispatch(WindowFocusChangeEvent { focused }.into());
                 }

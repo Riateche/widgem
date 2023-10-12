@@ -9,7 +9,9 @@ use winit::event::MouseButton;
 use crate::{
     callback::Callback,
     draw::DrawEvent,
-    event::{AccessibleActionEvent, FocusReason, MouseEnterEvent, MouseInputEvent},
+    event::{
+        AccessibleActionEvent, FocusReason, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
+    },
     layout::SizeHintMode,
     style::button::{ButtonState, ComputedVariantStyle},
     system::send_window_request,
@@ -100,6 +102,12 @@ impl Widget for Button {
 
     fn handle_mouse_enter(&mut self, _event: MouseEnterEvent) -> Result<bool> {
         Ok(true)
+    }
+
+    fn handle_mouse_leave(&mut self, _event: MouseLeaveEvent) -> Result<()> {
+        self.is_pressed = false;
+        self.common.update();
+        Ok(())
     }
 
     fn handle_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
