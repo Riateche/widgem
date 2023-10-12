@@ -28,9 +28,6 @@ pub struct Button {
     common: WidgetCommon,
 }
 
-const MIN_PADDING: Point = Point { x: 1, y: 0 };
-const PADDING: Point = Point { x: 10, y: 5 };
-
 #[impl_with]
 impl Button {
     pub fn new(text: impl Display) -> Self {
@@ -86,7 +83,8 @@ impl Widget for Button {
                 top_left: Point::default(),
                 size,
             },
-            style.border.as_ref(),
+            self.common.style().button.border_width,
+            &style.border,
             style.background.as_ref(),
         );
 
@@ -169,18 +167,20 @@ impl Widget for Button {
     }
 
     fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        let style = &self.common.style().button;
         let padding = match mode {
-            SizeHintMode::Min => MIN_PADDING,
-            SizeHintMode::Preferred => PADDING,
+            SizeHintMode::Min => style.min_padding,
+            SizeHintMode::Preferred => style.preferred_padding,
         };
         Ok(self.editor.size().x + 2 * padding.x)
     }
 
     fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         // TODO: use size_x, handle multiple lines
+        let style = &self.common.style().button;
         let padding = match mode {
-            SizeHintMode::Min => MIN_PADDING,
-            SizeHintMode::Preferred => PADDING,
+            SizeHintMode::Min => style.min_padding,
+            SizeHintMode::Preferred => style.preferred_padding,
         };
         Ok(self.editor.size().y + 2 * padding.x)
     }

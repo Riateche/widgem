@@ -2,7 +2,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 
-use crate::types::Point;
+use crate::types::{LogicalPixels, PhysicalPixels, Point};
 
 use super::{
     computed::{ComputedBackground, ComputedBorderStyle, ComputedStyleVariants},
@@ -68,6 +68,7 @@ impl ElementState for ButtonState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonStyle {
+    pub border_width: Option<LogicalPixels>,
     pub min_padding: Padding,
     pub preferred_padding: Padding,
     pub font: FontStyle,
@@ -110,7 +111,7 @@ impl VariantStyle for ButtonVariantStyle {
 
 #[derive(Debug, Clone)]
 pub struct ComputedVariantStyle {
-    pub border: Option<ComputedBorderStyle>,
+    pub border: ComputedBorderStyle,
     #[allow(dead_code)] // TODO: implement
     pub background: Option<ComputedBackground>,
     pub text_color: tiny_skia::Color,
@@ -118,6 +119,7 @@ pub struct ComputedVariantStyle {
 
 #[derive(Debug, Clone)]
 pub struct ComputedStyle {
+    pub border_width: PhysicalPixels,
     pub min_padding: Point,
     pub preferred_padding: Point,
     pub font_metrics: cosmic_text::Metrics,
@@ -130,6 +132,11 @@ impl ComputedStyle {
         font.apply(&style.button.font);
 
         ComputedStyle {
+            border_width: style
+                .button
+                .border_width
+                .unwrap_or_default()
+                .to_physical(scale),
             min_padding: style.button.min_padding.to_physical(scale),
             preferred_padding: style.button.preferred_padding.to_physical(scale),
             font_metrics: font.to_metrics(scale),

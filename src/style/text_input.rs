@@ -2,7 +2,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 
-use crate::types::Point;
+use crate::types::{LogicalPixels, PhysicalPixels, Point};
 
 use super::{
     computed::{ComputedBorderStyle, ComputedStyleVariants},
@@ -57,6 +57,7 @@ impl ElementState for TextInputState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextInputStyle {
+    pub border_width: Option<LogicalPixels>,
     pub min_padding: Padding,
     pub preferred_padding: Padding,
     pub min_aspect_ratio: f32,
@@ -119,6 +120,7 @@ impl VariantStyle for TextInputVariantStyle {
 
 #[derive(Debug, Clone)]
 pub struct ComputedStyle {
+    pub border_width: PhysicalPixels,
     pub min_padding: Point,
     pub preferred_padding: Point,
     pub min_aspect_ratio: f32,
@@ -133,6 +135,11 @@ impl ComputedStyle {
         font.apply(&style.text_input.font);
 
         ComputedStyle {
+            border_width: style
+                .text_input
+                .border_width
+                .unwrap_or_default()
+                .to_physical(scale),
             min_padding: style.text_input.min_padding.to_physical(scale),
             preferred_padding: style.text_input.preferred_padding.to_physical(scale),
             min_aspect_ratio: style.text_input.min_aspect_ratio,
@@ -145,7 +152,7 @@ impl ComputedStyle {
 
 #[derive(Debug, Clone)]
 pub struct ComputedVariantStyle {
-    pub border: Option<ComputedBorderStyle>,
+    pub border: ComputedBorderStyle,
     #[allow(dead_code)] // TODO: implement
     pub background: Option<Background>,
     pub text_color: tiny_skia::Color,

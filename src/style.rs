@@ -278,7 +278,6 @@ impl RootFontStyle {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BorderStyle {
     pub color: Option<ColorRef>,
-    pub width: Option<LogicalPixels>,
     pub radius: Option<LogicalPixels>,
 }
 
@@ -287,27 +286,18 @@ impl BorderStyle {
         if let Some(color) = &other.color {
             self.color = Some(color.clone());
         }
-        if let Some(width) = other.width {
-            self.width = Some(width);
-        }
         if let Some(radius) = other.radius {
             self.radius = Some(radius);
         }
     }
 
-    pub fn to_physical(&self, scale: f32, palette: &Palette) -> Option<ComputedBorderStyle> {
-        if let (Some(color), Some(width)) = (&self.color, self.width) {
-            if width.get() == 0 {
-                return None;
-            }
-            let radius = self.radius.unwrap_or_default();
-            Some(ComputedBorderStyle {
-                color: palette.get(color),
-                width: width.to_physical(scale),
-                radius: radius.to_physical(scale),
-            })
-        } else {
-            None
+    pub fn to_physical(&self, scale: f32, palette: &Palette) -> ComputedBorderStyle {
+        ComputedBorderStyle {
+            color: self
+                .color
+                .as_ref()
+                .map_or(tiny_skia::Color::TRANSPARENT, |color| palette.get(color)),
+            radius: self.radius.unwrap_or_default().to_physical(scale),
         }
     }
 }

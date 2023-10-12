@@ -8,7 +8,7 @@ use tiny_skia::{
 
 use crate::{
     style::computed::{ComputedBackground, ComputedBorderStyle},
-    types::{Point, Rect},
+    types::{PhysicalPixels, Point, Rect},
 };
 
 fn rounded_line_in_square_corner(
@@ -195,14 +195,12 @@ impl DrawEvent {
     pub fn stroke_and_fill_rounded_rect(
         &self,
         rect: Rect,
-        border: Option<&ComputedBorderStyle>,
+        border_width: PhysicalPixels,
+        border: &ComputedBorderStyle,
         background: Option<&ComputedBackground>,
     ) {
-        let path = self.rounded_rect_path(
-            rect,
-            border.map_or(0.0, |b| b.radius.get() as f32),
-            border.map_or(0.0, |b| b.width.get() as f32),
-        );
+        let path =
+            self.rounded_rect_path(rect, border.radius.get() as f32, border_width.get() as f32);
         if let Some(background) = background {
             let global_rect = rect.translate(self.top_left);
             let shader = match background {
@@ -221,8 +219,8 @@ impl DrawEvent {
             };
             self.fill_path(&path, shader);
         }
-        if let Some(border) = border {
-            self.stroke_path(&path, border.color, border.width.get() as f32);
+        if border_width.get() > 0 {
+            self.stroke_path(&path, border.color, border_width.get() as f32);
         }
     }
 
@@ -233,6 +231,9 @@ impl DrawEvent {
 
     // TODO: PhysicalPixels?
     pub fn stroke_rounded_rect(&self, rect: Rect, radius: f32, color: Color, width: f32) {
+        if width == 0.0 {
+            return;
+        }
         let path = self.rounded_rect_path(rect, radius, width);
         self.stroke_path(&path, color, width);
     }

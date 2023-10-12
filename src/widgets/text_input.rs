@@ -264,17 +264,16 @@ impl Widget for TextInput {
         let is_focused = self.common.is_focused();
         let style = self.current_variant_style().clone();
 
-        if let Some(border) = &style.border {
-            event.stroke_rounded_rect(
-                Rect {
-                    top_left: Point::default(),
-                    size: rect_in_window.size,
-                },
-                border.radius.get() as f32,
-                border.color,
-                border.width.get() as f32,
-            );
-        }
+        // TODO: stroke and fill instead
+        event.stroke_rounded_rect(
+            Rect {
+                top_left: Point::default(),
+                size: rect_in_window.size,
+            },
+            style.border.radius.get() as f32,
+            style.border.color,
+            self.common().style().text_input.border_width.get() as f32,
+        );
 
         let mut target_rect = self.editor_viewport_rect;
         target_rect.size.x = min(target_rect.size.x, self.editor.size().x);

@@ -30,7 +30,6 @@ impl<T: VariantStyle> ComputedStyleVariants<T> {
 #[derive(Debug, Clone)]
 pub struct ComputedBorderStyle {
     pub color: Color,
-    pub width: PhysicalPixels,
     pub radius: PhysicalPixels,
 }
 

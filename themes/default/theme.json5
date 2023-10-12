@@ -19,6 +19,7 @@
         button_pressed_background: '#dbdbdb',
     },
     text_input: {
+        border_width: 1,
         min_padding: {
             x: 1,
             y: 0,
@@ -39,7 +40,6 @@
                 then: {
                     border: {
                         color: 'text_input_border',
-                        width: 1,
                         radius: 2,
                     },
                     background: null,
@@ -53,7 +53,6 @@
                 then: {
                     border: {
                         color: 'text_input_focused_border',
-                        width: null,
                         radius: null,
                     },
                     background: null,
@@ -65,6 +64,7 @@
         ],
     },
     button: {
+        border_width: 1,
         min_padding: {
             x: 1,
             y: 0,
@@ -83,7 +83,6 @@
                 then: {
                     border: {
                         color: 'button_border',
-                        width: 1,
                         radius: 2,
                     },
                     background: {
@@ -116,7 +115,6 @@
                 then: {
                     border: {
                         color: null,
-                        width: null,
                         radius: null,
                     },
                     background: null,
@@ -128,7 +126,6 @@
                 then: {
                     border: {
                         color: null,
-                        width: null,
                         radius: null,
                     },
                     background: {
@@ -161,7 +158,6 @@
                 then: {
                     border: {
                         color: null,
-                        width: null,
                         radius: null,
                     },
                     background: {
@@ -176,7 +172,6 @@
                 then: {
                     border: {
                         color: 'button_focused_border',
-                        width: null,
                         radius: null,
                     },
                     background: null,
