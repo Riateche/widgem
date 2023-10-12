@@ -1,4 +1,7 @@
-use std::fmt::Debug;
+use std::{
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 use derive_more::{From, Into};
 use serde::{de::Error, Deserialize, Serialize};
@@ -61,8 +64,21 @@ pub struct Palette {
     pub selected_text_background: Color,
 }
 
+// TODO: remove Debug
+pub trait Class: Debug + Clone + Display + FromStr<Err = Self::FromStrErr> {
+    type FromStrErr: std::error::Error + Send + Sync + 'static;
+}
+
+impl<T> Class for T
+where
+    T: Debug + Clone + Display + FromStr,
+    <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+{
+    type FromStrErr = <T as FromStr>::Err;
+}
+
 pub trait ElementState: Eq + Hash + Sized {
-    type Class: Debug + Clone; // TODO: remove Debug
+    type Class: Class;
     fn all() -> Vec<Self>;
     fn matches(&self, class: &Self::Class) -> bool;
 }
@@ -133,9 +149,10 @@ pub struct LinearGradient {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum Background {
-    Solid(Color),
-    LinearGradient(LinearGradient), // TODO
+    Solid { color: Color },
+    LinearGradient(LinearGradient),
 }
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]

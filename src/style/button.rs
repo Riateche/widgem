@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use strum_macros::{Display, EnumString};
 
 use crate::types::Point;
 
@@ -9,7 +10,7 @@ use super::{
     Background, BorderStyle, Color, ElementState, FontStyle, Padding, Style, VariantStyle,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
 pub enum ButtonClass {
     Enabled,
     Focused,

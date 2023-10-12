@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse_macro_input, parse_quote, spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Pat,
-    Visibility,
+    ReturnType, Visibility,
 };
 
 #[proc_macro_attribute]
@@ -18,6 +18,9 @@ pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 continue;
             };
             if !is_ref_mut_self(first_arg) {
+                continue;
+            }
+            if item.sig.output != ReturnType::Default {
                 continue;
             }
             //println!("found fn: {:?}", item.sig.ident);

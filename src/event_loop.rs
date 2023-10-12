@@ -159,7 +159,7 @@ pub fn run<State: 'static>(
 
     {
         let s = json5::to_string(&default_style()).unwrap();
-        std::fs::write("/tmp/style.json5", &s).unwrap();
+        std::fs::write("/tmp/style.json5", s).unwrap();
     }
 
     let shared_system_data = SharedSystemDataInner {
