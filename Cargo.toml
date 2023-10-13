@@ -48,6 +48,7 @@ csscolorparser = "0.6.2"
 yap = "0.11.0"
 strum_macros = "0.25.2"
 strum = "0.25.0"
+lightningcss = "1.0.0-alpha.49"
 
 [workspace]
 members = ["macros"]
