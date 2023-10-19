@@ -2,21 +2,29 @@ use derive_more::{From, Into};
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::{max, min},
-    ops::{Add, Sub, SubAssign},
+    ops::{Add, Mul, Sub, SubAssign},
 };
 
 use crate::style::RelativeOffset;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into, Default, Serialize, Deserialize)]
-pub struct LogicalPixels(i32);
+#[derive(Debug, Clone, Copy, PartialEq, From, Into, Default, Serialize, Deserialize)]
+pub struct LogicalPixels(f32);
 
 impl LogicalPixels {
-    pub fn get(self) -> i32 {
+    pub fn get(self) -> f32 {
         self.0
     }
 
     pub fn to_physical(self, scale: f32) -> PhysicalPixels {
-        ((self.0 as f32 * scale).round() as i32).ppx()
+        ((self.0 * scale).round() as i32).ppx()
+    }
+}
+
+impl Mul<f32> for LogicalPixels {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self(self.0 * rhs)
     }
 }
 
@@ -24,7 +32,7 @@ pub trait LpxSuffix {
     fn lpx(self) -> LogicalPixels;
 }
 
-impl LpxSuffix for i32 {
+impl LpxSuffix for f32 {
     fn lpx(self) -> LogicalPixels {
         LogicalPixels(self)
     }

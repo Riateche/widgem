@@ -2,15 +2,23 @@ use std::{
     borrow::{Borrow, Cow},
     collections::BTreeMap,
     fmt::{Debug, Display},
+    path::Path,
     str::FromStr,
 };
 
+use anyhow::Result;
 use derive_more::{From, Into};
+use lightningcss::{
+    properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
+};
 use log::warn;
 use serde::{de::Error, Deserialize, Serialize};
 use std::hash::Hash;
 
-use crate::types::{LogicalPixels, Point};
+use crate::{
+    style::css::replace_vars,
+    types::{LogicalPixels, Point},
+};
 
 use self::{
     button::ButtonStyle,
@@ -21,6 +29,7 @@ use self::{
 pub mod button;
 pub mod computed;
 pub mod condition;
+mod css;
 pub mod defaults;
 pub mod text_input;
 
@@ -116,7 +125,7 @@ pub trait VariantStyle: Default {
     type State: ElementState;
     type Computed;
     fn apply(&mut self, other: &Self);
-    fn compute(&self, style: &Style, scale: f32) -> Self::Computed;
+    fn compute(&self, style: &OldStyle, scale: f32) -> Self::Computed;
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -223,7 +232,7 @@ impl Padding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Style {
+pub struct OldStyle {
     pub font: RootFontStyle,
     pub palette: Palette,
     pub text_input: TextInputStyle,
@@ -299,5 +308,45 @@ impl BorderStyle {
                 .map_or(tiny_skia::Color::TRANSPARENT, |color| palette.get(color)),
             radius: self.radius.unwrap_or_default().to_physical(scale),
         }
+    }
+}
+
+pub struct Style {
+    pub css: StyleSheet<'static, 'static>,
+    // TODO: allow to bundle style and referenced files
+}
+
+impl Style {
+    pub fn load(path: impl AsRef<Path>) -> Result<Style> {
+        let data = std::fs::read_to_string(path).unwrap();
+        let mut style = StyleSheet::parse(&data, Default::default()).unwrap();
+        replace_vars(&mut style);
+        let code = style.to_css(Default::default()).unwrap().code;
+        let style = StyleSheet::parse(&code, Default::default()).unwrap();
+        // There is no StyleSheet::into_owned, so we have to use serialization :(
+        let serialized = serde_value::to_value(&style)?;
+
+        println!("{style:#?}");
+        Ok(Style {
+            css: serialized.deserialize_into()?,
+        })
+    }
+
+    // TODO: use specificality and !important to sort from low to high priority
+    pub fn find_rules(
+        &self,
+        check_selector: impl Fn(&Selector) -> bool,
+    ) -> Vec<&Property<'static>> {
+        let mut results = Vec::new();
+        for rule in &self.css.rules.0 {
+            if let CssRule::Style(rule) = rule {
+                for selector in &rule.selectors.0 {
+                    if check_selector(selector) {
+                        results.extend(rule.declarations.iter().map(|(dec, _important)| dec));
+                    }
+                }
+            }
+        }
+        results
     }
 }

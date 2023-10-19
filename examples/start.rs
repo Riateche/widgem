@@ -1,18 +1,9 @@
 #![allow(dead_code)]
 
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use anyhow::Result;
-use itertools::Itertools;
-use lightningcss::{
-    properties::{
-        custom::{CustomPropertyName, TokenOrValue},
-        Property,
-    },
-    rules::CssRule,
-    selector::{Component, Selector},
-    stylesheet::StyleSheet,
-};
+
 use salvation::{
     event_loop::{self, CallbackContext},
     system::add_interval,
@@ -189,104 +180,43 @@ impl State {
     }
 }
 
-fn replace_vars(style_sheet: &mut StyleSheet) {
-    //let mut style_sheet: StyleSheet<'static, 'static> = style_sheet.into_owned();
-    let mut vars = HashMap::new();
-    for rule in &style_sheet.rules.0 {
-        if let CssRule::Style(rule) = rule {
-            // println!("selectors: {:?}", rule.selectors);
-            for selector in &rule.selectors.0 {
-                if is_root(selector) {
-                    println!("found root!");
-                    for (property, _) in rule.declarations.iter() {
-                        //println!("root declaration: {declaration:?}");
-                        if let Property::Custom(property) = property {
-                            if let CustomPropertyName::Custom(name) = &property.name {
-                                vars.insert(name.as_ref().to_string(), property.value.clone());
-                            }
-                        }
-                    }
-                }
-                //print_selector(selector);
-            }
-        }
-    }
-    for rule in &mut style_sheet.rules.0 {
-        if let CssRule::Style(rule) = rule {
-            for property in rule.declarations.iter_mut() {
-                if let Property::Unparsed(property) = property {
-                    let mut new_tokens = Vec::new();
-                    for token in &property.value.0 {
-                        if let TokenOrValue::Var(variable) = token {
-                            if let Some(value) = vars.get(variable.name.ident.as_ref()) {
-                                println!("substitute!");
-                                new_tokens.extend(value.0.clone());
-                                continue;
-                            }
-                        }
-                        new_tokens.push(token.clone());
-                    }
-                    property.value.0 = new_tokens;
-                }
-            }
-        }
-    }
-
-    println!("vars: {vars:#?}");
-}
-
-fn print_selector(selector: &Selector) {
-    println!("selector: {:?}", selector);
-    let mut iter = selector.iter();
-    loop {
-        for x in &mut iter {
-            println!("selector item: {:?}", x);
-            if matches!(x, Component::Root) {
-                println!("found root!");
-            }
-            if let Component::Negation(inner) = x {
-                println!("found not! inner:");
-                print_selector(&inner[0]);
-                println!("inner end");
-            }
-        }
-        if let Some(seq) = iter.next_sequence() {
-            println!("seq: {seq:?}");
-        } else {
-            println!("no seq");
-            break;
-        }
-    }
-}
-
-fn selector_items<'i, 'a>(selector: &'a Selector<'i>) -> Option<Vec<&'a Component<'i>>> {
-    let mut iter = selector.iter();
-    let components = (&mut iter).collect_vec();
-    if iter.next_sequence().is_some() {
-        // We don't support nesting in selectors.
-        return None;
-    }
-    Some(components)
-}
-
-fn is_root(selector: &Selector) -> bool {
-    selector_items(selector).map_or(false, |items| {
-        items.len() == 1 && matches!(items[0], Component::Root)
-    })
-}
-
 fn main() {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info")
     }
     env_logger::init();
 
-    let data = std::fs::read_to_string("/projects/salvation/1.css").unwrap();
-    let mut style = StyleSheet::parse(&data, Default::default()).unwrap();
-    replace_vars(&mut style);
-    let code = style.to_css(Default::default()).unwrap().code;
-    let style = StyleSheet::parse(&code, Default::default()).unwrap();
-    println!("{style:#?}");
+    // let data = std::fs::read_to_string("themes/default/theme.css").unwrap();
+    // let mut style = StyleSheet::parse(&data, Default::default()).unwrap();
+    // replace_vars(&mut style);
+    // let code = style.to_css(Default::default()).unwrap().code;
+    // let mut style = StyleSheet::parse(&code, Default::default()).unwrap();
+    // println!("{style:#?}");
 
-    //event_loop::run(State::new).unwrap();
+    // for rule in &mut style.rules.0 {
+    //     if let CssRule::Style(rule) = rule {
+    //         for property in rule.declarations.iter_mut() {
+    //             if let Property::Custom(property) = property {
+    //                 //println!("{}", property.name);
+    //                 if property.name.as_ref() == "min-padding" {
+    //                     println!("found min-padding: {:?}", property.value);
+    //                     property.to_css();
+    //                 }
+    //                 // let mut new_tokens = Vec::new();
+    //                 // for token in &property.value.0 {
+    //                 //     if let TokenOrValue::Var(variable) = token {
+    //                 //         if let Some(value) = vars.get(variable.name.ident.as_ref()) {
+    //                 //             println!("substitute!");
+    //                 //             new_tokens.extend(value.0.clone());
+    //                 //             continue;
+    //                 //         }
+    //                 //     }
+    //                 //     new_tokens.push(token.clone());
+    //                 // }
+    //                 // property.value.0 = new_tokens;
+    //             }
+    //         }
+    //     }
+    // }
+    event_loop::run(State::new).unwrap();
 }

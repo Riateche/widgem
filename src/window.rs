@@ -28,7 +28,6 @@ use crate::{
         MouseMoveEvent, UnmountEvent, WindowFocusChangeEvent,
     },
     event_loop::{with_window_target, UserEvent},
-    style::ColorRef,
     system::{address, with_system},
     types::{Point, Rect, Size},
     widgets::{
@@ -353,9 +352,7 @@ impl Window {
                         },
                     );
                     // TODO: option to turn off background, set style
-                    let color = with_system(|system| {
-                        system.default_style.style.palette.get(ColorRef::background)
-                    });
+                    let color = with_system(|system| system.default_style.background);
                     self.pixmap.borrow_mut().fill(color);
                     if let Some(widget) = &mut self.root_widget {
                         widget.dispatch(draw_event.into());

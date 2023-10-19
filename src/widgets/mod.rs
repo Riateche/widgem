@@ -23,7 +23,7 @@ use crate::{
         UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::{LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
-    style::{computed::ComputedStyle, Style},
+    style::{computed::ComputedStyle, OldStyle},
     system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Rect, Size},
     window::SharedWindowData,
@@ -675,7 +675,7 @@ pub trait WidgetExt {
     fn set_parent_scope(&mut self, scope: WidgetScope);
     fn set_enabled(&mut self, enabled: bool);
     fn set_visible(&mut self, visible: bool);
-    fn set_style(&mut self, style: Option<Style>);
+    fn set_style(&mut self, style: Option<OldStyle>);
 
     fn boxed(self) -> Box<dyn Widget>
     where
@@ -992,9 +992,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         self.dispatch(WidgetScopeChangeEvent.into());
     }
 
-    fn set_style(&mut self, style: Option<Style>) {
+    fn set_style(&mut self, style: Option<OldStyle>) {
         let scale = self.common().parent_scope.style.scale;
-        let style = style.map(|style| Rc::new(ComputedStyle::new(style, scale)));
+        let style = style.map(|style| Rc::new(ComputedStyle::old_new(style, scale)));
         self.common_mut().explicit_style = style;
         self.dispatch(WidgetScopeChangeEvent.into());
     }

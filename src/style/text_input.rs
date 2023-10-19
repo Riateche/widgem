@@ -7,7 +7,7 @@ use crate::types::{LogicalPixels, PhysicalPixels, Point};
 use super::{
     computed::{ComputedBorderStyle, ComputedStyleVariants},
     condition::ClassRules,
-    Background, BorderStyle, ColorRef, ElementState, FontStyle, Padding, Style, VariantStyle,
+    Background, BorderStyle, ColorRef, ElementState, FontStyle, OldStyle, Padding, VariantStyle,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
@@ -95,7 +95,7 @@ impl VariantStyle for TextInputVariantStyle {
         }
     }
 
-    fn compute(&self, style: &Style, scale: f32) -> Self::Computed {
+    fn compute(&self, style: &OldStyle, scale: f32) -> Self::Computed {
         // TODO: get more default properties from style root?
         // TODO: default border from style root
         ComputedVariantStyle {
@@ -130,7 +130,7 @@ pub struct ComputedStyle {
 }
 
 impl ComputedStyle {
-    pub fn new(style: &Style, scale: f32) -> ComputedStyle {
+    pub fn new(style: &OldStyle, scale: f32) -> ComputedStyle {
         let mut font = style.font.clone();
         font.apply(&style.text_input.font);
 
