@@ -1,5 +1,5 @@
 use std::{
-    any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, ops::Index, rc::Rc,
+    any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc,
     time::Instant,
 };
 
@@ -10,7 +10,7 @@ use cosmic_text::{FontSystem, SwashCache};
 use derive_more::From;
 use log::{trace, warn};
 use scoped_tls::scoped_thread_local;
-use tiny_skia::{Color, Pixmap};
+use tiny_skia::Pixmap;
 use tokio::sync::oneshot;
 use winit::{
     error::EventLoopError,
@@ -172,7 +172,7 @@ pub fn run<State: 'static>(
     let mut windows_ordered: Vec<WindowId> = vec![];
 
     {
-        let s = json5::to_string(&default_style()).unwrap();
+        let _s = json5::to_string(&default_style()).unwrap();
         //std::fs::write("/tmp/style.json5", s).unwrap();
     }
 
