@@ -1,18 +1,19 @@
 #![allow(dead_code)]
 
-use std::time::Duration;
+use std::{time::Duration, thread::{self, sleep}, path::Path};
 
 use anyhow::Result;
 
 use salvation::{
-    event_loop::{self, CallbackContext},
-    system::add_interval,
+    event_loop::{self, CallbackContext, UserEvent},
+    system::{add_interval, with_system},
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
         scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetExt, WidgetId,
     },
     window::create_window,
 };
+use tokio::sync::oneshot;
 use winit::window::WindowBuilder;
 
 struct AnotherState {
@@ -132,6 +133,18 @@ impl State {
             Duration::from_secs(2),
             ctx.callback(|this, ctx, _| this.inc(ctx)),
         );
+
+        let event_loop_proxy = with_system(|system| system.event_loop_proxy.clone());
+
+        thread::spawn(move || {
+            sleep(Duration::from_secs(10));
+            let (tx, rx) = oneshot::channel();
+            _ = event_loop_proxy.send_event(UserEvent::SnapshotRequest(tx));
+            let snapshot = rx.blocking_recv().unwrap();
+            println!("Snapshot received: {:?} {} {}", snapshot, snapshot.0[0].width(), snapshot.0[0].height());
+            //snapshot.0[0].save_png(&Path::new("C:\\Users\\Tivel\\rust_projects\\tmp\\1.png")).unwrap();
+        });
+
         State {
             another_state,
             button_id: btn1.id,

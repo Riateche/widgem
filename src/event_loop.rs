@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
+use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant, ops::Index};
 
 use accesskit_winit::ActionRequestEvent;
 use anyhow::{anyhow, Result};
@@ -92,7 +92,7 @@ impl<'a, State> CallbackContext<'a, State> {
 }
 
 #[derive(Debug)]
-pub struct Snapshot(Vec<Pixmap>);
+pub struct Snapshot(pub Vec<Pixmap>);
 
 #[derive(Debug, From)]
 pub enum UserEvent {
@@ -139,9 +139,10 @@ fn dispatch_widget_callback(
     window.after_widget_activity();
 }
 
-fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>) {
+fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>, windows_ordered: &mut Vec<WindowId>) {
     with_system(|system| {
         for window in system.new_windows.drain(..) {
+            windows_ordered.push(window.id);
             windows.insert(window.id, window);
         }
     });
@@ -169,7 +170,7 @@ pub fn run<State: 'static>(
 
     {
         let s = json5::to_string(&default_style()).unwrap();
-        std::fs::write("/tmp/style.json5", s).unwrap();
+        //std::fs::write("/tmp/style.json5", s).unwrap();
     }
 
     let shared_system_data = SharedSystemDataInner {
@@ -206,11 +207,11 @@ pub fn run<State: 'static>(
         WINDOW_TARGET.set(&event_loop, || make_state(&mut ctx))
     };
     callbacks.add_all(&mut callback_maker);
-    fetch_new_windows(&mut windows);
+    fetch_new_windows(&mut windows, &mut windows_ordered);
 
     event_loop.run(move |event, window_target| {
         WINDOW_TARGET.set(window_target, || {
-            fetch_new_windows(&mut windows);
+            fetch_new_windows(&mut windows, &mut windows_ordered);
             while let Some(timer) = with_system(|system| system.timers.pop()) {
                 timer.callback.invoke(Instant::now());
             }
@@ -229,6 +230,10 @@ pub fn run<State: 'static>(
                     }
                     UserEvent::WindowClosed(window_id) => {
                         windows.remove(&window_id);
+                        let index = windows_ordered.iter().position(|&id| id == window_id);
+                        if let Some(index) = index {
+                            windows_ordered.remove(index);
+                        }
                         if windows.is_empty() {
                             let exit = with_system(|s| s.exit_after_last_window_closes);
                             if exit {
@@ -269,20 +274,30 @@ pub fn run<State: 'static>(
                         with_system(|system| system.snapshot_sender = Some(sender));
                     }
                     UserEvent::DispatchWindowEvent(window_index, window_event) => {
-                        
+                        let id = windows_ordered.get(window_index);
+                        if let Some(id) = id {
+                            let w = windows.get_mut(&id);
+                            if let Some(w) = w {
+                                w.handle_event(window_event);
+                            } else {
+                                warn!("event dispatch request for unknown window id: {:?}", id);
+                            }
+                        } else {
+                            warn!("event dispatch request for unknown window index: {:?}", window_index);
+                        }
                     }
                 },
                 Event::AboutToWait => {
                     let snapshot_sender = with_system(|system| system.snapshot_sender.take() );
                     if let Some(sender) = snapshot_sender {
-                        let snapshots_vec: Vec<Pixmap> = vec![];
+                        let mut snapshots_vec: Vec<Pixmap> = vec![];
                         for id in &windows_ordered {
                             let w = windows.get(&id);
                             if let Some(w) = w {
-                                
+                                snapshots_vec.push(w.pixmap.borrow().clone());
                             }
                         }
-                        let result = sender.send(Snapshot(vec![]));
+                        let result = sender.send(Snapshot(snapshots_vec));
                         if let Err(snapshot) = result {
                             println!("Failed to send snapshot {:?}", snapshot);
                         }
@@ -297,7 +312,7 @@ pub fn run<State: 'static>(
                 }
                 _ => {}
             }
-            fetch_new_windows(&mut windows);
+            fetch_new_windows(&mut windows, &mut windows_ordered);
         });
     })
 }
