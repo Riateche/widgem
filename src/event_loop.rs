@@ -1,7 +1,4 @@
-use std::{
-    any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc,
-    time::Instant,
-};
+use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
 
 use accesskit_winit::ActionRequestEvent;
 use anyhow::{anyhow, Result};
