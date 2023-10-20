@@ -1,8 +1,63 @@
+use derive_more::{From, Into};
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::{max, min},
-    ops::{Add, Sub},
+    ops::{Add, Mul, Sub, SubAssign},
 };
 
+use crate::style::RelativeOffset;
+
+#[derive(Debug, Clone, Copy, PartialEq, From, Into, Default, Serialize, Deserialize)]
+pub struct LogicalPixels(f32);
+
+impl LogicalPixels {
+    pub fn get(self) -> f32 {
+        self.0
+    }
+
+    pub fn to_physical(self, scale: f32) -> PhysicalPixels {
+        ((self.0 * scale).round() as i32).ppx()
+    }
+}
+
+impl Mul<f32> for LogicalPixels {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self(self.0 * rhs)
+    }
+}
+
+pub trait LpxSuffix {
+    fn lpx(self) -> LogicalPixels;
+}
+
+impl LpxSuffix for f32 {
+    fn lpx(self) -> LogicalPixels {
+        LogicalPixels(self)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into)]
+pub struct PhysicalPixels(i32);
+
+impl PhysicalPixels {
+    pub fn get(self) -> i32 {
+        self.0
+    }
+}
+
+pub trait PpxSuffix {
+    fn ppx(self) -> PhysicalPixels;
+}
+
+impl PpxSuffix for i32 {
+    fn ppx(self) -> PhysicalPixels {
+        PhysicalPixels(self)
+    }
+}
+
+// TODO: use PhysicalPixels?
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Point {
     pub x: i32,
@@ -35,11 +90,29 @@ impl Sub for Point {
         }
     }
 }
+impl SubAssign for Point {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl From<Point> for tiny_skia::Point {
+    fn from(value: Point) -> Self {
+        tiny_skia::Point::from_xy(value.x as f32, value.y as f32)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Size {
     pub x: i32,
     pub y: i32,
+}
+
+impl Size {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -49,6 +122,14 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn from_xywh(x: i32, y: i32, w: i32, h: i32) -> Rect {
+        Self::from_pos_size(Point::new(x, y), Size::new(w, h))
+    }
+
+    pub fn from_pos_size(top_left: Point, size: Size) -> Self {
+        Self { top_left, size }
+    }
+
     #[must_use]
     pub fn translate(&self, delta: Point) -> Self {
         Self {
@@ -63,6 +144,10 @@ impl Rect {
             x: self.top_left.x + self.size.x,
             y: self.top_left.y + self.size.y,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.size.x == 0 || self.size.y == 0
     }
 
     pub fn contains(&self, pos: Point) -> bool {
@@ -90,4 +175,19 @@ impl Rect {
         }
         Self { top_left, size }
     }
+
+    pub fn relative_pos(&self, offset: RelativeOffset) -> Point {
+        let x = self.top_left.x as f32 + offset.x * self.size.x as f32;
+        let y = self.top_left.y as f32 + offset.y * self.size.y as f32;
+        Point {
+            x: x.round() as i32,
+            y: y.round() as i32,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Axis {
+    X,
+    Y,
 }

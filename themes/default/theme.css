@@ -1,0 +1,52 @@
+:root {
+    --foreground: #000000;
+    --background: #ffffff;
+    --selected-text-color: #ffffff;
+    --selected-text-background: #308cc6;
+
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--foreground);
+    background: var(--background);
+}
+text-input {
+    border: 1px solid #c8c8c8;
+    border-radius: 2px;
+    padding: 4px 5px;
+    width: 10em;
+}
+text-input:min {
+    padding: 0px 1px;
+    width: 2em;
+}
+text-input:focus {
+    border-color: #6464ff;
+}
+
+button {
+    border: 1px solid #c4c4c4;
+    border-radius: 2px;
+    padding: 5px 5px;
+    background: linear-gradient(#fefefe, #eeeeee);
+}
+button:min {
+    padding: 0px 1px;
+}
+button:disabled {
+    color: #bfbfbf;
+}
+button:hover {
+    background: linear-gradient(#fefefe, #f7f7f7);
+}
+button:active {
+    background: #dbdbdb;
+}
+
+/*
+        button_focused_border: '#26709e',
+        button_gradient_start: '#fefefe',
+        button_gradient_end: '#eeeeee',
+        button_gradient_end_mouse_over: '#f7f7f7',
+        button_disabled_text: '#bfbfbf',
+        button_pressed_background: '#dbdbdb',
+         */

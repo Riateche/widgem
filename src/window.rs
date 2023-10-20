@@ -1,122 +1,321 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashSet,
+    mem,
     num::NonZeroU32,
     rc::Rc,
     time::{Duration, Instant},
 };
 
+use accesskit::ActionRequest;
 use derive_more::From;
-use tiny_skia::Pixmap;
+use log::{trace, warn};
+use tiny_skia::{Pixmap, PixmapPaint};
+use usvg::TreeParsing;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
-    event::{ElementState, Event, Ime, MouseButton, WindowEvent},
+    event::{ElementState, Ime, MouseButton, WindowEvent},
     keyboard::{Key, ModifiersState},
+    window::{CursorIcon, Icon, WindowId},
 };
 
 use crate::{
+    accessible::AccessibleNodes,
     draw::DrawEvent,
     event::{
-        CursorMovedEvent, FocusInEvent, FocusOutEvent, FocusReason, GeometryChangedEvent, ImeEvent,
-        KeyboardInputEvent, MountEvent, MouseInputEvent, UnmountEvent, WindowFocusChangedEvent,
+        AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
+        KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseLeaveEvent,
+        MouseMoveEvent, UnmountEvent, WindowFocusChangeEvent,
     },
-    system::with_system,
+    event_loop::{with_window_target, UserEvent},
+    system::{address, with_system},
     types::{Point, Rect, Size},
     widgets::{
-        get_widget_by_id_mut, Geometry, MountPoint, RawWidgetId, Widget, WidgetAddress, WidgetExt,
+        get_widget_by_id_mut, invalidate_size_hint_cache, MountPoint, RawWidgetId, Widget,
+        WidgetAddress, WidgetExt,
     },
 };
 
 // TODO: get system setting
 const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 
+#[derive(Debug)]
 pub struct SharedWindowDataInner {
-    pub widget_tree_changed: bool,
     pub cursor_position: Option<Point>,
     pub cursor_entered: bool,
     pub modifiers_state: ModifiersState,
     pub pressed_mouse_buttons: HashSet<MouseButton>,
     pub is_window_focused: bool,
+    pub accessible_nodes: AccessibleNodes,
+    pub mouse_entered_widgets: Vec<(Rect, RawWidgetId)>,
+    pub pending_size_hint_invalidations: Vec<WidgetAddress>,
+    pub winit_window: winit::window::Window,
+    pub ime_allowed: bool,
+    pub ime_cursor_area: Rect,
+
+    pub pending_redraw: bool,
+
+    pub focusable_widgets: Vec<(WidgetAddress, RawWidgetId)>,
+    pub focusable_widgets_changed: bool,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SharedWindowData(pub Rc<RefCell<SharedWindowDataInner>>);
 
-pub struct Window {
-    pub inner: winit::window::Window,
-    pub softbuffer_context: softbuffer::Context,
-    pub surface: softbuffer::Surface,
-    pub root_widget: Option<Box<dyn Widget>>,
-    shared_window_data: SharedWindowData,
+impl SharedWindowData {
+    pub fn pop_mouse_entered_widget(&self, grabber: Option<RawWidgetId>) -> Option<RawWidgetId> {
+        let mut this = self.0.borrow_mut();
+        let pos = this.cursor_position;
+        let list = &mut this.mouse_entered_widgets;
+        let index = list.iter().position(|(rect, id)| {
+            pos.map_or(true, |pos| !rect.contains(pos)) && Some(*id) != grabber
+        })?;
+        Some(list.remove(index).1)
+    }
 
-    pub focusable_widgets: Vec<RawWidgetId>,
-    pub focused_widget: Option<RawWidgetId>,
+    pub fn set_ime_cursor_area(&self, rect: Rect) {
+        let mut this = self.0.borrow_mut();
+        if this.ime_cursor_area != rect {
+            this.winit_window.set_ime_cursor_area(
+                PhysicalPosition::new(rect.top_left.x, rect.top_left.y),
+                PhysicalSize::new(rect.size.x, rect.size.y),
+            ); //TODO: actual size
+            this.ime_cursor_area = rect;
+        }
+    }
+
+    // TODO: should there be a proper way to do this in winit?
+    pub fn cancel_ime_preedit(&self) {
+        let this = self.0.borrow();
+        if this.ime_allowed {
+            this.winit_window.set_ime_allowed(false);
+            this.winit_window.set_ime_allowed(true);
+        }
+    }
+
+    pub fn request_redraw(&self) {
+        let mut this = self.0.borrow_mut();
+        if !this.pending_redraw {
+            this.pending_redraw = true;
+            this.winit_window.request_redraw();
+        }
+    }
+
+    pub fn add_focusable_widget(&self, addr: WidgetAddress, id: RawWidgetId) {
+        let mut this = self.0.borrow_mut();
+        let pair = (addr, id);
+        if let Err(index) = this.focusable_widgets.binary_search(&pair) {
+            this.focusable_widgets.insert(index, pair);
+            this.focusable_widgets_changed = true;
+        }
+    }
+
+    pub fn remove_focusable_widget(&self, addr: WidgetAddress, id: RawWidgetId) {
+        let mut this = self.0.borrow_mut();
+        let pair = (addr, id);
+        if let Ok(index) = this.focusable_widgets.binary_search(&pair) {
+            this.focusable_widgets.remove(index);
+            this.focusable_widgets_changed = true;
+        }
+    }
+
+    fn move_keyboard_focus(
+        &self,
+        focused_widget: &(WidgetAddress, RawWidgetId),
+        direction: i32,
+    ) -> Option<(WidgetAddress, RawWidgetId)> {
+        let this = self.0.borrow();
+        if this.focusable_widgets.is_empty() {
+            return None;
+        }
+        if let Ok(index) = this.focusable_widgets.binary_search(focused_widget) {
+            let new_index =
+                (index as i32 + direction).rem_euclid(this.focusable_widgets.len() as i32);
+            Some(this.focusable_widgets[new_index as usize].clone())
+        } else {
+            warn!("focused widget is unknown");
+            this.focusable_widgets.get(0).cloned()
+        }
+    }
+}
+
+pub struct Window {
+    pub id: WindowId,
+
+    accesskit_adapter: accesskit_winit::Adapter,
+
+    // Drop order must be maintained as
+    // `surface` -> `softbuffer_context` -> `shared_window_data`
+    // to maintain safety requirements.
+    pub surface: softbuffer::Surface,
+    pub softbuffer_context: softbuffer::Context,
+    pub pixmap: Rc<RefCell<Pixmap>>,
+
+    pub shared_window_data: SharedWindowData,
+
+    pub root_widget: Option<Box<dyn Widget>>,
+
+    pub focused_widget: Option<(WidgetAddress, RawWidgetId)>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
-    ime_allowed: bool,
-    ime_cursor_area: Rect,
 
     num_clicks: u32,
     last_click_button: Option<MouseButton>,
     last_click_instant: Option<Instant>,
 }
 
+pub fn create_window(
+    inner: winit::window::WindowBuilder,
+    widget: Option<Box<dyn Widget>>,
+) -> WindowId {
+    let w = Window::new(inner, widget);
+    let id = w.id;
+    with_system(|system| system.new_windows.push(w));
+    id
+}
+
+// Extra size to avoid visual artifacts when resizing the window.
+// Must be > 0 to avoid panic on pixmap creation.
+const EXTRA_SURFACE_SIZE: u32 = 50;
+
 impl Window {
-    pub fn new(inner: winit::window::Window, mut widget: Option<Box<dyn Widget>>) -> Self {
-        let softbuffer_context = unsafe { softbuffer::Context::new(&inner) }.unwrap();
+    fn new(mut inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
+        if let Some(widget) = &mut widget {
+            // TODO: propagate style without mounting?
+            let size_hints_x = widget.cached_size_hints_x();
+            // TODO: adjust size_x for screen size
+            let size_hints_y = widget.cached_size_hints_y(size_hints_x.preferred);
+            inner = inner
+                .with_inner_size(PhysicalSize::new(
+                    size_hints_x.preferred,
+                    size_hints_y.preferred,
+                ))
+                .with_min_inner_size(PhysicalSize::new(size_hints_x.min, size_hints_y.min));
+        }
+        let winit_window = with_window_target(|window_target| inner.build(window_target).unwrap());
+        let softbuffer_context = unsafe { softbuffer::Context::new(&winit_window) }.unwrap();
+        let surface =
+            unsafe { softbuffer::Surface::new(&softbuffer_context, &winit_window) }.unwrap();
+        let window_id = winit_window.id();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
-            widget_tree_changed: false,
             cursor_position: None,
             cursor_entered: false,
             modifiers_state: ModifiersState::default(),
             pressed_mouse_buttons: HashSet::new(),
             is_window_focused: false,
+            accessible_nodes: AccessibleNodes::new(),
+            mouse_entered_widgets: Vec::new(),
+            pending_size_hint_invalidations: Vec::new(),
+            winit_window,
+            ime_allowed: false,
+            ime_cursor_area: Rect::default(),
+            pending_redraw: true,
+            focusable_widgets: Vec::new(),
+            focusable_widgets_changed: false,
         })));
         if let Some(widget) = &mut widget {
-            let address = WidgetAddress::window_root(inner.id()).join(widget.common().id);
+            let address = WidgetAddress::window_root(window_id);
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
+                    parent_id: None,
                     window: shared_window_data.clone(),
+                    index_in_parent: 0,
                 })
                 .into(),
             );
         }
+
+        let initial_tree = shared_window_data
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .take_update();
+        let accesskit_adapter = accesskit_winit::Adapter::new(
+            &shared_window_data.0.borrow().winit_window,
+            || initial_tree,
+            with_system(|system| system.event_loop_proxy.clone()),
+        );
+        // Window must be hidden until we initialize accesskit
+        shared_window_data.0.borrow().winit_window.set_visible(true);
+
+        let inner_size = shared_window_data.0.borrow().winit_window.inner_size();
+
         let mut w = Self {
-            surface: unsafe { softbuffer::Surface::new(&softbuffer_context, &inner) }.unwrap(),
+            id: window_id,
+            accesskit_adapter,
+            surface,
             softbuffer_context,
-            inner,
             root_widget: widget,
+            pixmap: Rc::new(RefCell::new(
+                Pixmap::new(
+                    inner_size.width + EXTRA_SURFACE_SIZE,
+                    inner_size.height + EXTRA_SURFACE_SIZE,
+                )
+                .unwrap(),
+            )),
             shared_window_data,
-            focusable_widgets: Vec::new(),
             focused_widget: None,
             mouse_grabber_widget: None,
-            ime_allowed: false,
-            ime_cursor_area: Rect::default(),
             num_clicks: 0,
             last_click_button: None,
             last_click_instant: None,
         };
-        w.widget_tree_changed();
+        w.after_widget_activity();
+
+        {
+            let pixmap = Pixmap::decode_png(include_bytes!("../assets/icon.png")).unwrap();
+            w.shared_window_data
+                .0
+                .borrow()
+                .winit_window
+                .set_window_icon(Some(
+                    Icon::from_rgba(pixmap.data().to_vec(), pixmap.width(), pixmap.height())
+                        .unwrap(),
+                ));
+        }
         w
     }
 
-    // TODO: pass WindowEvent here
-    pub fn handle_event(&mut self, _ctx: &mut WindowEventContext, event: Event<()>) {
-        self.check_widget_tree_change_flag();
-        let event = if let Event::WindowEvent { event, .. } = event {
-            event
-        } else {
+    pub fn close(&mut self) {
+        with_system(|system| {
+            let _ = system
+                .event_loop_proxy
+                .send_event(UserEvent::WindowClosed(self.id));
+        });
+    }
+
+    fn dispatch_cursor_leave(&mut self) {
+        while let Some(id) = self
+            .shared_window_data
+            .pop_mouse_entered_widget(self.mouse_grabber_widget)
+        {
+            if let Some(root_widget) = &mut self.root_widget {
+                if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), id) {
+                    widget.dispatch(MouseLeaveEvent.into());
+                }
+            }
+        }
+    }
+
+    pub fn handle_event(&mut self, event: WindowEvent) {
+        if !self
+            .accesskit_adapter
+            .on_event(&self.shared_window_data.0.borrow().winit_window, &event)
+        {
+            trace!("accesskit consumed event: {event:?}");
             return;
-        };
+        }
+        // println!("{:?} {:?}", self.id, event);
         match event {
             WindowEvent::RedrawRequested => {
-                // Grab the window's client area dimensions
                 let (width, height) = {
-                    let size = self.inner.inner_size();
-                    (size.width, size.height)
+                    let size = &self.shared_window_data.0.borrow().winit_window.inner_size();
+                    (
+                        size.width + EXTRA_SURFACE_SIZE,
+                        size.height + EXTRA_SURFACE_SIZE,
+                    )
                 };
 
-                // Resize surface if needed
                 self.surface
                     .resize(
                         NonZeroU32::new(width).unwrap(),
@@ -124,29 +323,76 @@ impl Window {
                     )
                     .unwrap();
 
+                {
+                    let mut pixmap = self.pixmap.borrow_mut();
+                    if pixmap.width() != width || pixmap.height() != height {
+                        *pixmap = Pixmap::new(width, height).unwrap();
+                    }
+                }
+
                 // Draw something in the window
                 let mut buffer = self.surface.buffer_mut().unwrap();
 
-                let pixmap = Pixmap::new(width, height).unwrap();
-                let pixmap = Rc::new(RefCell::new(pixmap));
-                let draw_event = DrawEvent {
-                    rect: Rect {
-                        top_left: Point::default(),
-                        size: Size {
-                            x: width as i32,
-                            y: height as i32,
+                let pending_redraw = self.shared_window_data.0.borrow().pending_redraw;
+                // static X: AtomicU64 = AtomicU64::new(0);
+                // println!(
+                //     "redraw event {pending_redraw} {}",
+                //     X.fetch_add(1, Ordering::Relaxed)
+                // );
+                if pending_redraw {
+                    let draw_event = DrawEvent::new(
+                        Rc::clone(&self.pixmap),
+                        Point::default(),
+                        Rect {
+                            top_left: Point::default(),
+                            size: Size {
+                                x: width as i32,
+                                y: height as i32,
+                            },
                         },
-                    },
-                    pixmap: Rc::clone(&pixmap),
-                };
-                // TODO: option to turn off background, set style
-                let color = with_system(|system| system.palette.background);
-                draw_event.pixmap.borrow_mut().fill(color);
-                if let Some(widget) = &mut self.root_widget {
-                    widget.dispatch(draw_event.into());
+                    );
+                    // TODO: option to turn off background, set style
+                    let color = with_system(|system| system.default_style.background);
+                    self.pixmap.borrow_mut().fill(color);
+                    if let Some(widget) = &mut self.root_widget {
+                        widget.dispatch(draw_event.into());
+                    }
+                    self.shared_window_data.0.borrow_mut().pending_redraw = false;
                 }
 
-                buffer.copy_from_slice(bytemuck::cast_slice(pixmap.borrow().data()));
+                {
+                    let rtree = {
+                        let tree = usvg::Tree::from_data(
+                            include_bytes!("../themes/default/scroll_left.svg"),
+                            &usvg::Options {
+                                //dpi: 192.0,
+                                ..Default::default()
+                            },
+                        )
+                        .unwrap();
+                        resvg::Tree::from_usvg(&tree)
+                    };
+
+                    let scale = 2.0;
+
+                    let pixmap_size_x = (rtree.size.width() * scale).ceil() as u32;
+                    let pixmap_size_y = (rtree.size.height() * scale).ceil() as u32;
+                    let mut pixmap = tiny_skia::Pixmap::new(pixmap_size_x, pixmap_size_y).unwrap();
+                    rtree.render(
+                        tiny_skia::Transform::from_scale(scale, scale),
+                        &mut pixmap.as_mut(),
+                    );
+                    self.pixmap.borrow_mut().draw_pixmap(
+                        300,
+                        300,
+                        pixmap.as_ref(),
+                        &PixmapPaint::default(),
+                        tiny_skia::Transform::default(),
+                        None,
+                    )
+                }
+
+                buffer.copy_from_slice(bytemuck::cast_slice(self.pixmap.borrow().data()));
 
                 // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
                 // iterate over the pixels and shift the pixels over.
@@ -158,6 +404,13 @@ impl Window {
                 //redraw(&mut buffer, width as usize, height as usize, flag);
                 buffer.present().unwrap();
             }
+            WindowEvent::Resized(_) => {
+                self.layout(Vec::new());
+            }
+            WindowEvent::CloseRequested => {
+                // TODO: add option to confirm close or do something else
+                self.close();
+            }
             // TODO: should use device id?
             WindowEvent::CursorEntered { .. } => {
                 self.shared_window_data.0.borrow_mut().cursor_entered = true;
@@ -165,6 +418,7 @@ impl Window {
             WindowEvent::CursorLeft { .. } => {
                 self.shared_window_data.0.borrow_mut().cursor_entered = false;
                 self.shared_window_data.0.borrow_mut().cursor_position = None;
+                self.dispatch_cursor_leave();
             }
             WindowEvent::CursorMoved {
                 position,
@@ -184,18 +438,24 @@ impl Window {
                         return;
                     }
                 }
+                self.dispatch_cursor_leave();
+
+                let accepted_by = Rc::new(Cell::new(None));
                 if let Some(root_widget) = &mut self.root_widget {
                     if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
                         if let Ok(mouse_grabber_widget) =
                             get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
                         {
-                            if let Some(geometry) = mouse_grabber_widget.common().geometry {
-                                let pos_in_widget =
-                                    pos_in_window - geometry.rect_in_window.top_left;
+                            if let Some(rect_in_window) =
+                                mouse_grabber_widget.common().rect_in_window
+                            {
+                                let pos_in_widget = pos_in_window - rect_in_window.top_left;
                                 mouse_grabber_widget.dispatch(
-                                    CursorMovedEvent {
+                                    MouseMoveEvent {
                                         device_id,
                                         pos: pos_in_widget,
+                                        pos_in_window,
+                                        accepted_by: accepted_by.clone(),
                                     }
                                     .into(),
                                 );
@@ -203,15 +463,23 @@ impl Window {
                         }
                     } else {
                         root_widget.dispatch(
-                            CursorMovedEvent {
+                            MouseMoveEvent {
                                 device_id,
                                 pos: pos_in_window,
+                                pos_in_window,
+                                accepted_by: accepted_by.clone(),
                             }
                             .into(),
                         );
                     }
                 }
-                self.inner.request_redraw(); // TODO: smarter redraw
+                if accepted_by.get().is_none() {
+                    self.shared_window_data
+                        .0
+                        .borrow()
+                        .winit_window
+                        .set_cursor_icon(CursorIcon::Default);
+                }
             }
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.shared_window_data.0.borrow_mut().modifiers_state = modifiers.state();
@@ -250,6 +518,7 @@ impl Window {
                     }
                 }
                 let cursor_position = self.shared_window_data.0.borrow().cursor_position;
+                println!("click pos {:?}", cursor_position);
                 if let Some(pos_in_window) = cursor_position {
                     if let Some(root_widget) = &mut self.root_widget {
                         let accepted_by = Rc::new(Cell::new(None));
@@ -257,20 +526,20 @@ impl Window {
                             if let Ok(mouse_grabber_widget) =
                                 get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
                             {
-                                if let Some(geometry) = mouse_grabber_widget.common().geometry {
-                                    let pos_in_widget =
-                                        pos_in_window - geometry.rect_in_window.top_left;
-                                    mouse_grabber_widget.dispatch(
-                                        MouseInputEvent {
-                                            device_id,
-                                            state,
-                                            button,
-                                            num_clicks: self.num_clicks,
-                                            pos: pos_in_widget,
-                                            accepted_by: Rc::clone(&accepted_by),
-                                        }
-                                        .into(),
-                                    );
+                                if let Some(rect_in_window) =
+                                    mouse_grabber_widget.common().rect_in_window
+                                {
+                                    let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                                    let event = MouseInputEvent::builder()
+                                        .device_id(device_id)
+                                        .state(state)
+                                        .button(button)
+                                        .num_clicks(self.num_clicks)
+                                        .pos(pos_in_widget)
+                                        .pos_in_window(pos_in_window)
+                                        .accepted_by(Rc::clone(&accepted_by))
+                                        .build();
+                                    mouse_grabber_widget.dispatch(event.into());
                                 }
                             }
                             if self
@@ -281,30 +550,29 @@ impl Window {
                                 .is_empty()
                             {
                                 self.mouse_grabber_widget = None;
+                                self.dispatch_cursor_leave();
                             }
                         } else {
-                            root_widget.dispatch(
-                                MouseInputEvent {
-                                    device_id,
-                                    state,
-                                    button,
-                                    num_clicks: self.num_clicks,
-                                    pos: pos_in_window,
-                                    accepted_by: Rc::clone(&accepted_by),
-                                }
-                                .into(),
-                            );
+                            let event = MouseInputEvent::builder()
+                                .device_id(device_id)
+                                .state(state)
+                                .button(button)
+                                .num_clicks(self.num_clicks)
+                                .pos(pos_in_window)
+                                .pos_in_window(pos_in_window)
+                                .accepted_by(Rc::clone(&accepted_by))
+                                .build();
+                            root_widget.dispatch(event.into());
+
                             if state == ElementState::Pressed {
                                 if let Some(accepted_by_widget_id) = accepted_by.get() {
                                     self.mouse_grabber_widget = Some(accepted_by_widget_id);
                                 }
                             }
                         }
-
-                        self.inner.request_redraw(); // TODO: smarter redraw
                     }
                 } else {
-                    println!("warning: no cursor position in mouse input handler");
+                    warn!("no cursor position in mouse input handler");
                 }
             }
             WindowEvent::KeyboardInput {
@@ -312,11 +580,10 @@ impl Window {
                 is_synthetic,
                 event,
             } => {
-                // TODO: deduplicate with ReceivedCharacter
                 if let Some(root_widget) = &mut self.root_widget {
-                    if let Some(focused_widget) = self.focused_widget {
+                    if let Some(focused_widget) = &self.focused_widget {
                         if let Ok(widget) =
-                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget.1)
                         {
                             let modifiers = self.shared_window_data.0.borrow().modifiers_state;
                             widget.dispatch(
@@ -328,7 +595,6 @@ impl Window {
                                 }
                                 .into(),
                             );
-                            self.inner.request_redraw(); // TODO: smarter redraw
                         }
                     }
                 }
@@ -352,25 +618,27 @@ impl Window {
                 }
             }
             WindowEvent::Ime(ime) => {
-                println!("{ime:?}");
+                trace!("IME event: {ime:?}");
                 if let Ime::Enabled = &ime {
-                    //println!("reset ime position {:?}", self.ime_cursor_area);
-                    self.inner.set_ime_cursor_area(
+                    let shared = self.shared_window_data.0.borrow();
+                    shared.winit_window.set_ime_cursor_area(
                         PhysicalPosition::new(
-                            self.ime_cursor_area.top_left.x,
-                            self.ime_cursor_area.top_left.y,
+                            shared.ime_cursor_area.top_left.x,
+                            shared.ime_cursor_area.top_left.y,
                         ),
-                        PhysicalSize::new(self.ime_cursor_area.size.x, self.ime_cursor_area.size.y),
+                        PhysicalSize::new(
+                            shared.ime_cursor_area.size.x,
+                            shared.ime_cursor_area.size.y,
+                        ),
                     );
                 }
                 // TODO: deduplicate with ReceivedCharacter
                 if let Some(root_widget) = &mut self.root_widget {
-                    if let Some(focused_widget) = self.focused_widget {
+                    if let Some(focused_widget) = &self.focused_widget {
                         if let Ok(widget) =
-                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget)
+                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget.1)
                         {
                             widget.dispatch(ImeEvent(ime).into());
-                            self.inner.request_redraw(); // TODO: smarter redraw
                         }
                     }
                 }
@@ -378,35 +646,74 @@ impl Window {
             }
             WindowEvent::Focused(focused) => {
                 self.shared_window_data.0.borrow_mut().is_window_focused = focused;
-                if let Some(root_widget) = &mut self.root_widget {
-                    root_widget.dispatch(WindowFocusChangedEvent { focused }.into());
+                if !focused && self.mouse_grabber_widget.is_some() {
+                    self.mouse_grabber_widget = None;
+                    self.dispatch_cursor_leave();
                 }
-                self.inner.request_redraw(); // TODO: smarter redraw
+                if let Some(root_widget) = &mut self.root_widget {
+                    root_widget.dispatch(WindowFocusChangeEvent { focused }.into());
+                }
             }
             _ => {}
         }
+        self.after_widget_activity();
+    }
+
+    pub fn after_widget_activity(&mut self) {
+        self.push_accessible_updates();
+        let pending_size_hint_invalidations = mem::take(
+            &mut self
+                .shared_window_data
+                .0
+                .borrow_mut()
+                .pending_size_hint_invalidations,
+        );
+        if !pending_size_hint_invalidations.is_empty() {
+            if let Some(root_widget) = &mut self.root_widget {
+                invalidate_size_hint_cache(root_widget.as_mut(), &pending_size_hint_invalidations);
+                self.layout(pending_size_hint_invalidations);
+            }
+        }
+
+        if self
+            .shared_window_data
+            .0
+            .borrow_mut()
+            .focusable_widgets_changed
+        {
+            //println!("focusable_widgets_changed!");
+            self.shared_window_data
+                .0
+                .borrow_mut()
+                .focusable_widgets_changed = false;
+
+            if let Some(focused_widget) = &self.focused_widget {
+                if self
+                    .shared_window_data
+                    .0
+                    .borrow()
+                    .focusable_widgets
+                    .binary_search(focused_widget)
+                    .is_err()
+                {
+                    self.unset_focus();
+                }
+            }
+            self.check_auto_focus();
+        }
+        // TODO: may need another turn of `after_widget_activity()`
     }
 
     pub fn move_keyboard_focus(&mut self, direction: i32) {
-        if self.focusable_widgets.is_empty() {
-            return;
-        }
-        let reason = FocusReason::Tab;
-        if let Some(focused_widget) = self.focused_widget {
-            if let Some(index) = self
-                .focusable_widgets
-                .iter()
-                .position(|i| *i == focused_widget)
+        if let Some(focused_widget) = &self.focused_widget {
+            if let Some(new_addr_id) = self
+                .shared_window_data
+                .move_keyboard_focus(focused_widget, direction)
             {
-                let new_index =
-                    (index as i32 + direction).rem_euclid(self.focusable_widgets.len() as i32);
-                self.set_focus(self.focusable_widgets[new_index as usize], reason);
+                self.set_focus(new_addr_id, FocusReason::Tab);
             } else {
-                println!("warn: focused widget is unknown");
                 self.unset_focus();
             }
-        } else {
-            println!("warn: no focused widget");
         }
         self.check_auto_focus();
     }
@@ -416,157 +723,177 @@ impl Window {
             old_widget.dispatch(UnmountEvent.into());
         }
         if let Some(widget) = &mut widget {
-            let address = WidgetAddress::window_root(self.inner.id()).join(widget.common().id);
+            let address = WidgetAddress::window_root(self.id);
             widget.dispatch(
                 MountEvent(MountPoint {
                     address,
+                    parent_id: None,
                     window: self.shared_window_data.clone(),
+                    index_in_parent: 0,
                 })
                 .into(),
             );
         }
         self.root_widget = widget;
-        self.widget_tree_changed();
     }
 
-    fn check_widget_tree_change_flag(&mut self) {
-        {
-            let mut shared = self.shared_window_data.0.borrow_mut();
-            if !shared.widget_tree_changed {
-                return;
-            }
-            shared.widget_tree_changed = false;
-        }
-        self.widget_tree_changed();
-    }
-
-    fn widget_tree_changed(&mut self) {
-        self.refresh_focusable_widgets();
-        self.layout();
-    }
-
-    fn refresh_focusable_widgets(&mut self) {
-        self.focusable_widgets.clear();
-        if let Some(widget) = &mut self.root_widget {
-            populate_focusable_widgets(widget.as_mut(), &mut self.focusable_widgets);
-        }
-        if let Some(focused_widget) = &self.focused_widget {
-            if !self.focusable_widgets.contains(focused_widget) {
-                self.unset_focus();
-            }
-        }
-        self.check_auto_focus();
+    fn push_accessible_updates(&mut self) {
+        let update = self
+            .shared_window_data
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .take_update();
+        self.accesskit_adapter.update(update);
     }
 
     fn check_auto_focus(&mut self) {
         if self.focused_widget.is_none() {
-            if let Some(&id) = self.focusable_widgets.get(0) {
+            let id = self
+                .shared_window_data
+                .0
+                .borrow()
+                .focusable_widgets
+                .get(0)
+                .cloned();
+            if let Some(id) = id {
                 self.set_focus(id, FocusReason::Auto);
             }
         }
     }
 
-    fn set_focus(&mut self, widget_id: RawWidgetId, reason: FocusReason) {
+    fn set_focus(&mut self, widget_addr_id: (WidgetAddress, RawWidgetId), reason: FocusReason) {
         let Some(root_widget) = &mut self.root_widget else {
-            println!("warn: set_focus: no root widget");
+            warn!("set_focus: no root widget");
             return;
         };
-        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_addr_id.1) {
             if !widget.common().is_focusable {
-                println!("warn: cannot focus widget that is not focusable");
+                warn!("cannot focus widget that is not focusable");
                 return;
             }
             let allowed = widget.common().enable_ime;
-            self.inner.set_ime_allowed(allowed);
-            self.ime_allowed = allowed;
+            self.shared_window_data
+                .0
+                .borrow()
+                .winit_window
+                .set_ime_allowed(allowed);
+            self.shared_window_data.0.borrow_mut().ime_allowed = allowed;
         } else {
-            println!("warn: set_focus: widget not found");
+            warn!("set_focus: widget not found");
         }
 
         if let Some(old_widget_id) = self.focused_widget.take() {
-            if let Ok(old_widget) = get_widget_by_id_mut(root_widget.as_mut(), old_widget_id) {
+            self.shared_window_data
+                .0
+                .borrow_mut()
+                .accessible_nodes
+                .set_focus(None);
+            if let Ok(old_widget) = get_widget_by_id_mut(root_widget.as_mut(), old_widget_id.1) {
                 old_widget.dispatch(FocusOutEvent.into());
             }
         }
 
-        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_addr_id.1) {
             widget.dispatch(FocusInEvent { reason }.into());
-            self.focused_widget = Some(widget_id);
+            self.shared_window_data
+                .0
+                .borrow_mut()
+                .accessible_nodes
+                .set_focus(Some(widget_addr_id.1.into()));
+            self.focused_widget = Some(widget_addr_id);
         } else {
-            println!("warn: set_focus: widget not found on second pass");
+            warn!("set_focus: widget not found on second pass");
         }
-        self.inner.request_redraw(); // TODO: smarter redraw
     }
 
     fn unset_focus(&mut self) {
         self.focused_widget = None;
-        self.inner.set_ime_allowed(false);
-        self.ime_allowed = false;
+        self.shared_window_data
+            .0
+            .borrow()
+            .winit_window
+            .set_ime_allowed(false);
+        self.shared_window_data.0.borrow_mut().ime_allowed = false;
+        self.shared_window_data
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .set_focus(None);
     }
 
-    fn layout(&mut self) {
+    fn layout(&mut self, changed_size_hints: Vec<WidgetAddress>) {
         if let Some(root) = &mut self.root_widget {
-            // TODO: only on insert or resize
+            let inner_size = self.shared_window_data.0.borrow().winit_window.inner_size();
             root.dispatch(
-                GeometryChangedEvent {
-                    new_geometry: Some(Geometry {
-                        rect_in_window: Rect {
-                            top_left: Point::default(),
-                            size: Size {
-                                x: self.inner.inner_size().width as i32,
-                                y: self.inner.inner_size().height as i32,
-                            },
+                LayoutEvent {
+                    new_rect_in_window: Some(Rect {
+                        top_left: Point::default(),
+                        size: Size {
+                            x: inner_size.width as i32,
+                            y: inner_size.height as i32,
                         },
                     }),
+                    changed_size_hints,
                 }
                 .into(),
             );
-            root.layout();
         }
     }
 
-    pub fn handle_request(&mut self, _ctx: &mut WindowEventContext, request: WindowRequest) {
+    pub fn handle_request(&mut self, request: WindowRequest) {
         match request {
             WindowRequest::SetFocus(request) => {
-                self.set_focus(request.widget_id, request.reason);
-            }
-            WindowRequest::SetImeCursorArea(request) => {
-                //println!("set new ime position {:?}", request.0);
-                if self.ime_cursor_area != request.0 {
-                    self.inner.set_ime_cursor_area(
-                        PhysicalPosition::new(request.0.top_left.x, request.0.top_left.y),
-                        PhysicalSize::new(request.0.size.x, request.0.size.y),
-                    ); //TODO: actual size
-                    self.ime_cursor_area = request.0;
+                let Some(addr) = address(request.widget_id) else {
+                    warn!("cannot focus unmounted widget");
+                    return;
+                };
+                let pair = (addr, request.widget_id);
+                if self
+                    .shared_window_data
+                    .0
+                    .borrow()
+                    .focusable_widgets
+                    .binary_search(&pair)
+                    .is_err()
+                {
+                    warn!("cannot focus widget: not registered as focusable");
+                    return;
                 }
+                self.set_focus(pair, request.reason);
             }
-            WindowRequest::CancelImePreedit(_) => {
-                if self.ime_allowed {
-                    self.inner.set_ime_allowed(false);
-                    self.inner.set_ime_allowed(true);
-                }
+        }
+        self.push_accessible_updates();
+    }
+
+    pub fn handle_accessible_request(&mut self, request: ActionRequest) {
+        let root = self.shared_window_data.0.borrow().accessible_nodes.root();
+        if request.target == root {
+            warn!("cannot dispatch accessible event to virtual root: {request:?}");
+            return;
+        }
+        let widget_id = RawWidgetId(request.target.0);
+        if let Some(root_widget) = &mut self.root_widget {
+            if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
+                widget.dispatch(
+                    AccessibleActionEvent {
+                        action: request.action,
+                        data: request.data,
+                    }
+                    .into(),
+                );
+            } else {
+                warn!("cannot dispatch accessible event (no such widget): {request:?}");
             }
+        } else {
+            warn!("cannot dispatch accessible event (no root widget): {request:?}");
         }
     }
 }
-
-// TODO: not mut
-fn populate_focusable_widgets(widget: &mut dyn Widget, output: &mut Vec<RawWidgetId>) {
-    if widget.common().is_focusable {
-        output.push(widget.common().id);
-    }
-    for child in widget.children_mut() {
-        populate_focusable_widgets(child.as_mut(), output);
-    }
-}
-
-pub struct WindowEventContext {}
 
 #[derive(Debug, From)]
 pub enum WindowRequest {
     SetFocus(SetFocusRequest),
-    SetImeCursorArea(SetImeCursorAreaRequest),
-    CancelImePreedit(CancelImePreedit),
 }
 
 #[derive(Debug)]
@@ -574,9 +901,3 @@ pub struct SetFocusRequest {
     pub widget_id: RawWidgetId,
     pub reason: FocusReason,
 }
-
-#[derive(Debug)]
-pub struct SetImeCursorAreaRequest(pub Rect);
-
-#[derive(Debug)]
-pub struct CancelImePreedit;

@@ -1,0 +1,183 @@
+{
+    font: {
+        font_size: 13,
+        line_height: 18,
+    },
+    palette: {
+        foreground: '#000000',
+        background: '#ffffff',
+        selected_text_color: '#ffffff',
+        selected_text_background: '#308cc6',
+        text_input_border: '#c8c8c8',
+        text_input_focused_border: '#6464ff',
+        button_border: '#c4c4c4',
+        button_focused_border: '#26709e',
+        button_gradient_start: '#fefefe',
+        button_gradient_end: '#eeeeee',
+        button_gradient_end_mouse_over: '#f7f7f7',
+        button_disabled_text: '#bfbfbf',
+        button_pressed_background: '#dbdbdb',
+    },
+    text_input: {
+        border_width: 1,
+        min_padding: {
+            x: 1,
+            y: 0,
+        },
+        preferred_padding: {
+            x: 5,
+            y: 4,
+        },
+        min_aspect_ratio: 2,
+        preferred_aspect_ratio: 10,
+        font: {
+            font_size: null,
+            line_height: null,
+        },
+        variants: [
+            {
+                if: 'always',
+                then: {
+                    border: {
+                        color: 'text_input_border',
+                        radius: 2,
+                    },
+                    background: null,
+                    text_color: null,
+                    selected_text_color: null,
+                    selected_text_background: null,
+                },
+            },
+            {
+                if: 'Focused',
+                then: {
+                    border: {
+                        color: 'text_input_focused_border',
+                        radius: null,
+                    },
+                    background: null,
+                    text_color: null,
+                    selected_text_color: null,
+                    selected_text_background: null,
+                },
+            },
+        ],
+    },
+    button: {
+        border_width: 1,
+        min_padding: {
+            x: 1,
+            y: 0,
+        },
+        preferred_padding: {
+            x: 5,
+            y: 5,
+        },
+        font: {
+            font_size: null,
+            line_height: null,
+        },
+        variants: [
+            {
+                if: 'always',
+                then: {
+                    border: {
+                        color: 'button_border',
+                        radius: 2,
+                    },
+                    background: {
+                        type: 'LinearGradient',
+                        start: {
+                            x: 0,
+                            y: 0,
+                        },
+                        end: {
+                            x: 0,
+                            y: 1,
+                        },
+                        stops: [
+                            {
+                                position: 0,
+                                color: 'button_gradient_start',
+                            },
+                            {
+                                position: 1,
+                                color: 'button_gradient_end',
+                            },
+                        ],
+                        mode: 'Pad',
+                    },
+                    text_color: null,
+                },
+            },
+            {
+                if: 'not Enabled',
+                then: {
+                    border: {
+                        color: null,
+                        radius: null,
+                    },
+                    background: null,
+                    text_color: 'button_disabled_text',
+                },
+            },
+            {
+                if: 'MouseOver',
+                then: {
+                    border: {
+                        color: null,
+                        radius: null,
+                    },
+                    background: {
+                        type: 'LinearGradient',
+                        start: {
+                            x: 0,
+                            y: 0,
+                        },
+                        end: {
+                            x: 0,
+                            y: 1,
+                        },
+                        stops: [
+                            {
+                                position: 1,
+                                color: 'button_gradient_start',
+                            },
+                            {
+                                position: 1,
+                                color: 'button_gradient_end_mouse_over',
+                            },
+                        ],
+                        mode: 'Pad',
+                    },
+                    text_color: null,
+                },
+            },
+            {
+                if: 'Pressed',
+                then: {
+                    border: {
+                        color: null,
+                        radius: null,
+                    },
+                    background: {
+                        type: 'Solid',
+                        color: 'button_pressed_background',
+                    },
+                    text_color: null,
+                },
+            },
+            {
+                if: 'Focused',
+                then: {
+                    border: {
+                        color: 'button_focused_border',
+                        radius: null,
+                    },
+                    background: null,
+                    text_color: null,
+                },
+            },
+        ],
+    },
+}
