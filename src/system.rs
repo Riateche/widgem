@@ -7,12 +7,13 @@ use std::{
 
 use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
+use tokio::sync::oneshot;
 use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     callback::WidgetCallback,
     draw::Palette,
-    event_loop::UserEvent,
+    event_loop::{UserEvent, Snapshot},
     timer::{TimerId, Timers, WidgetTimer},
     widgets::{RawWidgetId, Widget, WidgetAddress, WidgetId},
     window::WindowRequest,
@@ -33,6 +34,8 @@ pub struct SharedSystemDataInner {
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
+
+    pub snapshot_sender: Option<oneshot::Sender<Snapshot>>,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);
