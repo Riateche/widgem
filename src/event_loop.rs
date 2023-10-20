@@ -10,7 +10,7 @@ use scoped_tls::scoped_thread_local;
 use tiny_skia::{Color, Pixmap};
 use winit::{
     error::EventLoopError,
-    event::Event,
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
     window::WindowId,
 };
@@ -276,7 +276,7 @@ pub fn run<State: 'static>(
                     let snapshot_sender = with_system(|system| system.snapshot_sender.take() );
                     if let Some(sender) = snapshot_sender {
                         let snapshots_vec: Vec<Pixmap> = vec![];
-                        for id in windows_ordered {
+                        for id in &windows_ordered {
                             let w = windows.get(&id);
                             if let Some(w) = w {
                                 
