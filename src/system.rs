@@ -14,7 +14,7 @@ use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     callback::{Callback, CallbackId, WidgetCallbackData},
-    event_loop::{UserEvent, Snapshot},
+    event_loop::{Snapshot, UserEvent},
     style::computed::ComputedStyle,
     timer::{Timer, TimerId, Timers},
     widgets::{RawWidgetId, WidgetAddress},

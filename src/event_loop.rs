@@ -1,4 +1,7 @@
-use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant, ops::Index};
+use std::{
+    any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, ops::Index, rc::Rc,
+    time::Instant,
+};
 
 use accesskit_winit::ActionRequestEvent;
 use anyhow::{anyhow, Result};
@@ -8,13 +11,13 @@ use derive_more::From;
 use log::{trace, warn};
 use scoped_tls::scoped_thread_local;
 use tiny_skia::{Color, Pixmap};
+use tokio::sync::oneshot;
 use winit::{
     error::EventLoopError,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
     window::WindowId,
 };
-use tokio::sync::oneshot;
 
 use crate::{
     callback::{
@@ -276,23 +279,26 @@ pub fn run<State: 'static>(
                     UserEvent::DispatchWindowEvent(window_index, window_event) => {
                         let id = windows_ordered.get(window_index);
                         if let Some(id) = id {
-                            let w = windows.get_mut(&id);
+                            let w = windows.get_mut(id);
                             if let Some(w) = w {
                                 w.handle_event(window_event);
                             } else {
                                 warn!("event dispatch request for unknown window id: {:?}", id);
                             }
                         } else {
-                            warn!("event dispatch request for unknown window index: {:?}", window_index);
+                            warn!(
+                                "event dispatch request for unknown window index: {:?}",
+                                window_index
+                            );
                         }
                     }
                 },
                 Event::AboutToWait => {
-                    let snapshot_sender = with_system(|system| system.snapshot_sender.take() );
+                    let snapshot_sender = with_system(|system| system.snapshot_sender.take());
                     if let Some(sender) = snapshot_sender {
                         let mut snapshots_vec: Vec<Pixmap> = vec![];
                         for id in &windows_ordered {
-                            let w = windows.get(&id);
+                            let w = windows.get(id);
                             if let Some(w) = w {
                                 snapshots_vec.push(w.pixmap.borrow().clone());
                             }

@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
-use std::{time::Duration, thread::{self, sleep}, path::Path};
+use std::{
+    thread::{self, sleep},
+    time::Duration,
+};
 
 use anyhow::Result;
 
@@ -14,7 +17,7 @@ use salvation::{
     window::create_window,
 };
 use tokio::sync::oneshot;
-use winit::window::WindowBuilder;
+use winit::{event::WindowEvent, window::WindowBuilder};
 
 struct AnotherState {
     counter: i32,
@@ -141,8 +144,18 @@ impl State {
             let (tx, rx) = oneshot::channel();
             _ = event_loop_proxy.send_event(UserEvent::SnapshotRequest(tx));
             let snapshot = rx.blocking_recv().unwrap();
-            println!("Snapshot received: {:?} {} {}", snapshot, snapshot.0[0].width(), snapshot.0[0].height());
+            println!(
+                "Snapshot received: {:?} {} {}",
+                snapshot,
+                snapshot.0[0].width(),
+                snapshot.0[0].height()
+            );
             //snapshot.0[0].save_png(&Path::new("C:\\Users\\Tivel\\rust_projects\\tmp\\1.png")).unwrap();
+
+            _ = event_loop_proxy.send_event(UserEvent::DispatchWindowEvent(
+                0,
+                WindowEvent::CloseRequested,
+            ));
         });
 
         State {
