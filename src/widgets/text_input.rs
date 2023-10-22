@@ -98,6 +98,10 @@ impl TextInput {
         }
     }
 
+    #[cfg(all(
+        unix,
+        not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
+    ))]
     fn paste_selection(&mut self) {
         use arboard::{GetExtLinux, LinuxClipboardKind};
 

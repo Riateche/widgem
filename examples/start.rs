@@ -1,19 +1,23 @@
 #![allow(dead_code)]
 
-use std::time::Duration;
+use std::{
+    sync::mpsc,
+    thread::{self, sleep},
+    time::Duration,
+};
 
 use anyhow::Result;
 
 use salvation::{
-    event_loop::{self, CallbackContext},
-    system::add_interval,
+    event_loop::{self, CallbackContext, UserEvent},
+    system::{add_interval, with_system},
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
         scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetExt, WidgetId,
     },
     window::create_window,
 };
-use winit::window::WindowBuilder;
+use winit::{event::WindowEvent, window::WindowBuilder};
 
 struct AnotherState {
     counter: i32,
@@ -132,6 +136,20 @@ impl State {
             Duration::from_secs(2),
             ctx.callback(|this, ctx, _| this.inc(ctx)),
         );
+
+        let event_loop_proxy = with_system(|system| system.event_loop_proxy.clone());
+
+        thread::spawn(move || {
+            sleep(Duration::from_secs(10));
+            let (tx, rx) = mpsc::sync_channel(1);
+            _ = event_loop_proxy.send_event(UserEvent::SnapshotRequest(tx));
+            let _snapshot = rx.recv().unwrap();
+            _ = event_loop_proxy.send_event(UserEvent::DispatchWindowEvent(
+                0,
+                WindowEvent::CloseRequested,
+            ));
+        });
+
         State {
             another_state,
             button_id: btn1.id,

@@ -1,4 +1,7 @@
-use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
+use std::{
+    any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc,
+    sync::mpsc::SyncSender, time::Instant,
+};
 
 use accesskit_winit::ActionRequestEvent;
 use anyhow::{anyhow, Result};
@@ -7,12 +10,15 @@ use cosmic_text::{FontSystem, SwashCache};
 use derive_more::From;
 use log::{trace, warn};
 use scoped_tls::scoped_thread_local;
+use tiny_skia::Pixmap;
 use winit::{
     error::EventLoopError,
-    event::Event,
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
     window::WindowId,
 };
+
+use linked_hash_map::LinkedHashMap;
 
 use crate::{
     callback::{
@@ -29,7 +35,7 @@ use crate::{
 };
 
 pub struct CallbackContext<'a, State> {
-    windows: &'a mut HashMap<WindowId, Window>,
+    windows: &'a mut LinkedHashMap<WindowId, Window>,
     add_callback: Box<dyn FnMut(Box<CallbackDataFn<State>>) -> CallbackId + 'a>,
     marker: PhantomData<State>,
 }
@@ -87,12 +93,17 @@ impl<'a, State> CallbackContext<'a, State> {
     }
 }
 
+#[derive(Debug)]
+pub struct Snapshot(pub Vec<Pixmap>);
+
 #[derive(Debug, From)]
 pub enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
     WindowRequest(WindowId, WindowRequest),
     WindowClosed(WindowId),
     ActionRequest(ActionRequestEvent),
+    SnapshotRequest(SyncSender<Snapshot>),
+    DispatchWindowEvent(usize, WindowEvent),
 }
 
 scoped_thread_local!(static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
@@ -105,7 +116,7 @@ where
 }
 
 fn dispatch_widget_callback(
-    windows: &mut HashMap<WindowId, Window>,
+    windows: &mut LinkedHashMap<WindowId, Window>,
     callback_id: CallbackId,
     event: Box<dyn Any + Send>,
 ) {
@@ -130,7 +141,7 @@ fn dispatch_widget_callback(
     window.after_widget_activity();
 }
 
-fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>) {
+fn fetch_new_windows(windows: &mut LinkedHashMap<WindowId, Window>) {
     with_system(|system| {
         for window in system.new_windows.drain(..) {
             windows.insert(window.id, window);
@@ -155,12 +166,9 @@ pub fn run<State: 'static>(
 ) -> Result<(), EventLoopError> {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build()?;
 
-    let mut windows = HashMap::new();
+    let mut windows = LinkedHashMap::<WindowId, Window>::new();
 
-    {
-        let s = json5::to_string(&default_style()).unwrap();
-        std::fs::write("/tmp/style.json5", s).unwrap();
-    }
+    let mut snapshot_sender = None;
 
     let shared_system_data = SharedSystemDataInner {
         address_book: HashMap::new(),
@@ -236,8 +244,8 @@ pub fn run<State: 'static>(
                                 callbacks.call(&mut state, &mut ctx, event);
                             }
                             callbacks.add_all(&mut callback_maker);
-                            for window in windows.values_mut() {
-                                window.after_widget_activity();
+                            for mut entry in windows.entries() {
+                                entry.get_mut().after_widget_activity();
                             }
                         }
                         CallbackKind::Widget => {
@@ -252,8 +260,34 @@ pub fn run<State: 'static>(
                             warn!("accesskit request for unknown window: {:?}", request);
                         }
                     }
+                    UserEvent::SnapshotRequest(sender) => {
+                        snapshot_sender = Some(sender);
+                    }
+                    UserEvent::DispatchWindowEvent(window_index, window_event) => {
+                        let elem = windows.entries().nth(window_index);
+                        if let Some(mut elem) = elem {
+                            elem.get_mut().handle_event(window_event);
+                        } else {
+                            warn!(
+                                "event dispatch request for unknown window index: {:?}",
+                                window_index
+                            );
+                        }
+                    }
                 },
                 Event::AboutToWait => {
+                    let snapshot_sender = snapshot_sender.take();
+                    if let Some(sender) = snapshot_sender {
+                        let snapshots_vec: Vec<Pixmap> = windows
+                            .iter()
+                            .map(|(_, w)| w.pixmap.borrow().clone())
+                            .collect();
+                        let result = sender.send(Snapshot(snapshots_vec));
+                        if result.is_err() {
+                            warn!("Failed to send snapshot");
+                        }
+                    }
+
                     let next_timer = with_system(|system| system.timers.next_instant());
                     if let Some(next_timer) = next_timer {
                         window_target.set_control_flow(ControlFlow::WaitUntil(next_timer));
