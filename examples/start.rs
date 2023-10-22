@@ -143,14 +143,7 @@ impl State {
             sleep(Duration::from_secs(10));
             let (tx, rx) = mpsc::sync_channel(1);
             _ = event_loop_proxy.send_event(UserEvent::SnapshotRequest(tx));
-            let snapshot = rx.recv().unwrap();
-            println!(
-                "Snapshot received: {:?} {} {}",
-                snapshot,
-                snapshot.0[0].width(),
-                snapshot.0[0].height()
-            );
-
+            let _snapshot = rx.recv().unwrap();
             _ = event_loop_proxy.send_event(UserEvent::DispatchWindowEvent(
                 0,
                 WindowEvent::CloseRequested,

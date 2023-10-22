@@ -284,7 +284,7 @@ pub fn run<State: 'static>(
                             .collect();
                         let result = sender.send(Snapshot(snapshots_vec));
                         if let Err(snapshot) = result {
-                            println!("Failed to send snapshot {:?}", snapshot);
+                            warn!("Failed to send snapshot {:?}", snapshot);
                         }
                     }
 

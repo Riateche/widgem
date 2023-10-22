@@ -33,7 +33,6 @@ pub struct SharedSystemDataInner {
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
-
     pub new_windows: Vec<Window>,
     pub exit_after_last_window_closes: bool,
 
