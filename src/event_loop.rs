@@ -283,8 +283,8 @@ pub fn run<State: 'static>(
                             .map(|(_, w)| w.pixmap.borrow().clone())
                             .collect();
                         let result = sender.send(Snapshot(snapshots_vec));
-                        if let Err(snapshot) = result {
-                            warn!("Failed to send snapshot {:?}", snapshot);
+                        if result.is_err() {
+                            warn!("Failed to send snapshot");
                         }
                     }
 
