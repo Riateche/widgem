@@ -9,12 +9,11 @@ use anyhow::Result;
 use arboard::Clipboard;
 use cosmic_text::{FontSystem, SwashCache};
 use log::warn;
-use tokio::sync::oneshot;
 use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     callback::{Callback, CallbackId, WidgetCallbackData},
-    event_loop::{Snapshot, UserEvent},
+    event_loop::UserEvent,
     style::computed::ComputedStyle,
     timer::{Timer, TimerId, Timers},
     widgets::{RawWidgetId, WidgetAddress},
@@ -39,8 +38,6 @@ pub struct SharedSystemDataInner {
     pub exit_after_last_window_closes: bool,
 
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
-
-    pub snapshot_sender: Option<oneshot::Sender<Snapshot>>,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);

@@ -1,4 +1,7 @@
-use std::{any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc, time::Instant};
+use std::{
+    any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, rc::Rc,
+    sync::mpsc::SyncSender, time::Instant,
+};
 
 use accesskit_winit::ActionRequestEvent;
 use anyhow::{anyhow, Result};
@@ -8,13 +11,14 @@ use derive_more::From;
 use log::{trace, warn};
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Pixmap;
-use tokio::sync::oneshot;
 use winit::{
     error::EventLoopError,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
     window::WindowId,
 };
+
+use linked_hash_map::LinkedHashMap;
 
 use crate::{
     callback::{
@@ -31,8 +35,7 @@ use crate::{
 };
 
 pub struct CallbackContext<'a, State> {
-    windows: &'a mut HashMap<WindowId, Window>,
-    windows_ordered: &'a mut Vec<WindowId>,
+    windows: &'a mut LinkedHashMap<WindowId, Window>,
     add_callback: Box<dyn FnMut(Box<CallbackDataFn<State>>) -> CallbackId + 'a>,
     marker: PhantomData<State>,
 }
@@ -45,7 +48,6 @@ impl<'a, State> CallbackContext<'a, State> {
         let add_callback = &mut self.add_callback;
         CallbackContext {
             windows: self.windows,
-            windows_ordered: self.windows_ordered,
             marker: PhantomData,
             add_callback: Box::new(move |mut f| -> CallbackId {
                 let mapper = mapper.clone();
@@ -100,7 +102,7 @@ pub enum UserEvent {
     WindowRequest(WindowId, WindowRequest),
     WindowClosed(WindowId),
     ActionRequest(ActionRequestEvent),
-    SnapshotRequest(oneshot::Sender<Snapshot>),
+    SnapshotRequest(SyncSender<Snapshot>),
     DispatchWindowEvent(usize, WindowEvent),
 }
 
@@ -114,7 +116,7 @@ where
 }
 
 fn dispatch_widget_callback(
-    windows: &mut HashMap<WindowId, Window>,
+    windows: &mut LinkedHashMap<WindowId, Window>,
     callback_id: CallbackId,
     event: Box<dyn Any + Send>,
 ) {
@@ -139,10 +141,9 @@ fn dispatch_widget_callback(
     window.after_widget_activity();
 }
 
-fn fetch_new_windows(windows: &mut HashMap<WindowId, Window>, windows_ordered: &mut Vec<WindowId>) {
+fn fetch_new_windows(windows: &mut LinkedHashMap<WindowId, Window>) {
     with_system(|system| {
         for window in system.new_windows.drain(..) {
-            windows_ordered.push(window.id);
             windows.insert(window.id, window);
         }
     });
@@ -165,13 +166,9 @@ pub fn run<State: 'static>(
 ) -> Result<(), EventLoopError> {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build()?;
 
-    let mut windows = HashMap::new();
-    let mut windows_ordered: Vec<WindowId> = vec![];
+    let mut windows = LinkedHashMap::<WindowId, Window>::new();
 
-    {
-        let _s = json5::to_string(&default_style()).unwrap();
-        //std::fs::write("/tmp/style.json5", s).unwrap();
-    }
+    let mut snapshot_sender = None;
 
     let shared_system_data = SharedSystemDataInner {
         address_book: HashMap::new(),
@@ -185,7 +182,6 @@ pub fn run<State: 'static>(
         )),
         timers: Timers::new(),
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
-        snapshot_sender: None,
         new_windows: Vec::new(),
         exit_after_last_window_closes: true,
         widget_callbacks: HashMap::new(),
@@ -200,18 +196,17 @@ pub fn run<State: 'static>(
     let mut state = {
         let mut ctx = CallbackContext {
             windows: &mut windows,
-            windows_ordered: &mut windows_ordered,
             add_callback: Box::new(|f| callback_maker.add(f)),
             marker: PhantomData,
         };
         WINDOW_TARGET.set(&event_loop, || make_state(&mut ctx))
     };
     callbacks.add_all(&mut callback_maker);
-    fetch_new_windows(&mut windows, &mut windows_ordered);
+    fetch_new_windows(&mut windows);
 
     event_loop.run(move |event, window_target| {
         WINDOW_TARGET.set(window_target, || {
-            fetch_new_windows(&mut windows, &mut windows_ordered);
+            fetch_new_windows(&mut windows);
             while let Some(timer) = with_system(|system| system.timers.pop()) {
                 timer.callback.invoke(Instant::now());
             }
@@ -230,10 +225,6 @@ pub fn run<State: 'static>(
                     }
                     UserEvent::WindowClosed(window_id) => {
                         windows.remove(&window_id);
-                        let index = windows_ordered.iter().position(|&id| id == window_id);
-                        if let Some(index) = index {
-                            windows_ordered.remove(index);
-                        }
                         if windows.is_empty() {
                             let exit = with_system(|s| s.exit_after_last_window_closes);
                             if exit {
@@ -246,7 +237,6 @@ pub fn run<State: 'static>(
                             {
                                 let mut ctx = CallbackContext {
                                     windows: &mut windows,
-                                    windows_ordered: &mut windows_ordered,
                                     add_callback: Box::new(|f| callback_maker.add(f)),
                                     marker: PhantomData,
                                 };
@@ -254,8 +244,8 @@ pub fn run<State: 'static>(
                                 callbacks.call(&mut state, &mut ctx, event);
                             }
                             callbacks.add_all(&mut callback_maker);
-                            for window in windows.values_mut() {
-                                window.after_widget_activity();
+                            for mut entry in windows.entries() {
+                                entry.get_mut().after_widget_activity();
                             }
                         }
                         CallbackKind::Widget => {
@@ -271,17 +261,12 @@ pub fn run<State: 'static>(
                         }
                     }
                     UserEvent::SnapshotRequest(sender) => {
-                        with_system(|system| system.snapshot_sender = Some(sender));
+                        snapshot_sender = Some(sender);
                     }
                     UserEvent::DispatchWindowEvent(window_index, window_event) => {
-                        let id = windows_ordered.get(window_index);
-                        if let Some(id) = id {
-                            let w = windows.get_mut(id);
-                            if let Some(w) = w {
-                                w.handle_event(window_event);
-                            } else {
-                                warn!("event dispatch request for unknown window id: {:?}", id);
-                            }
+                        let elem = windows.entries().nth(window_index);
+                        if let Some(mut elem) = elem {
+                            elem.get_mut().handle_event(window_event);
                         } else {
                             warn!(
                                 "event dispatch request for unknown window index: {:?}",
@@ -291,15 +276,12 @@ pub fn run<State: 'static>(
                     }
                 },
                 Event::AboutToWait => {
-                    let snapshot_sender = with_system(|system| system.snapshot_sender.take());
+                    let snapshot_sender = snapshot_sender.take();
                     if let Some(sender) = snapshot_sender {
-                        let mut snapshots_vec: Vec<Pixmap> = vec![];
-                        for id in &windows_ordered {
-                            let w = windows.get(id);
-                            if let Some(w) = w {
-                                snapshots_vec.push(w.pixmap.borrow().clone());
-                            }
-                        }
+                        let snapshots_vec: Vec<Pixmap> = windows
+                            .iter()
+                            .map(|(_, w)| w.pixmap.borrow().clone())
+                            .collect();
                         let result = sender.send(Snapshot(snapshots_vec));
                         if let Err(snapshot) = result {
                             println!("Failed to send snapshot {:?}", snapshot);
@@ -315,7 +297,7 @@ pub fn run<State: 'static>(
                 }
                 _ => {}
             }
-            fetch_new_windows(&mut windows, &mut windows_ordered);
+            fetch_new_windows(&mut windows);
         });
     })
 }

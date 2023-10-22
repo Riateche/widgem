@@ -25,7 +25,6 @@ anyhow = { version = "1.0.75", features = ["backtrace"] }
 priority-queue = "1.3.2"
 arboard = "3.2.1"
 line-straddler = "0.2.1"
-tokio = {version = "1.33.0", features = ["sync"]}
 #accesskit = "0.11.2"
 #accesskit_winit = "0.14.4"
 #accesskit = { path = "../accesskit/common" }
@@ -51,6 +50,7 @@ strum_macros = "0.25.2"
 strum = "0.25.0"
 lightningcss = { version = "1.0.0-alpha.49", features = ["serde"] }
 serde-value = "0.7.0"
+linked-hash-map = "0.5.6"
 
 [workspace]
 members = ["macros"]

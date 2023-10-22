@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::{
+    sync::mpsc,
     thread::{self, sleep},
     time::Duration,
 };
@@ -16,7 +17,6 @@ use salvation::{
     },
     window::create_window,
 };
-use tokio::sync::oneshot;
 use winit::{event::WindowEvent, window::WindowBuilder};
 
 struct AnotherState {
@@ -141,16 +141,15 @@ impl State {
 
         thread::spawn(move || {
             sleep(Duration::from_secs(10));
-            let (tx, rx) = oneshot::channel();
+            let (tx, rx) = mpsc::sync_channel(1);
             _ = event_loop_proxy.send_event(UserEvent::SnapshotRequest(tx));
-            let snapshot = rx.blocking_recv().unwrap();
+            let snapshot = rx.recv().unwrap();
             println!(
                 "Snapshot received: {:?} {} {}",
                 snapshot,
                 snapshot.0[0].width(),
                 snapshot.0[0].height()
             );
-            //snapshot.0[0].save_png(&Path::new("C:\\Users\\Tivel\\rust_projects\\tmp\\1.png")).unwrap();
 
             _ = event_loop_proxy.send_event(UserEvent::DispatchWindowEvent(
                 0,
