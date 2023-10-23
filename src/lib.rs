@@ -16,3 +16,4 @@ pub mod timer;
 pub mod types;
 pub mod widgets;
 pub mod window;
+pub use winit;
