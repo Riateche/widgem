@@ -1,3 +1,5 @@
+#![allow(clippy::single_match)]
+
 use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
@@ -19,7 +21,7 @@ use crate::types::{LogicalPixels, LpxSuffix, PhysicalPixels};
 
 use super::{
     button, condition::ClassRules, css::is_root, text_input, ColorRef, ElementState, OldStyle,
-    RelativeOffset, Style, VariantStyle,
+    RelativeOffset, RootFontStyle, Style, VariantStyle,
 };
 
 #[derive(Debug, Clone)]
@@ -102,13 +104,51 @@ fn convert_line_height(value: &LineHeight, font_size: LogicalPixels) -> Result<L
     }
 }
 
+fn convert_font(
+    properties: &[&Property<'static>],
+    root: Option<RootFontStyle>,
+) -> Result<RootFontStyle> {
+    let mut font_size = None;
+    let mut line_height = None;
+    for property in properties {
+        match property {
+            Property::FontSize(size) => {
+                font_size = Some(convert_font_size(size)?);
+            }
+            Property::Font(font) => {
+                font_size = Some(convert_font_size(&font.size)?);
+            }
+            _ => {}
+        }
+    }
+
+    let font_size = font_size
+        .or_else(|| root.map(|root| root.font_size))
+        .context("missing root font size")?;
+
+    for property in properties {
+        match property {
+            Property::LineHeight(value) => {
+                line_height = Some(convert_line_height(value, font_size)?);
+            }
+            _ => {}
+        }
+    }
+
+    let line_height = line_height.unwrap_or_else(|| font_size * DEFAULT_LINE_HEIGHT);
+
+    Ok(RootFontStyle {
+        font_size,
+        line_height,
+    })
+}
+
 impl ComputedStyle {
     #[allow(dead_code, unused)]
     pub fn new(style: &Style, scale: f32) -> Result<Self> {
         let mut background = None;
-        let mut font_size = None;
-        let mut line_height = None;
-        for property in style.find_rules(is_root) {
+        let root_properties = style.find_rules(is_root);
+        for property in &root_properties {
             match property {
                 Property::Background(backgrounds) => {
                     if backgrounds.is_empty() {
@@ -123,27 +163,22 @@ impl ComputedStyle {
                 Property::BackgroundColor(color) => {
                     background = Some(convert_color(color)?);
                 }
-                Property::FontSize(size) => {
-                    font_size = Some(convert_font_size(size)?);
-                }
-                Property::Font(font) => {
-                    font_size = Some(convert_font_size(&font.size)?);
-                }
-                _ => {}
-            }
-        }
-        let font_size = font_size.context("missing root font size")?;
-        for property in style.find_rules(is_root) {
-            #[allow(clippy::single_match)]
-            match property {
-                Property::LineHeight(value) => {
-                    line_height = Some(convert_line_height(value, font_size)?);
-                }
                 _ => {}
             }
         }
 
-        todo!()
+        let font = convert_font(&root_properties, None)?;
+
+        Ok(Self {
+            scale,
+            background: background.unwrap_or_else(|| {
+                warn!("missing root background color");
+                Color::WHITE
+            }),
+            font_metrics: font.to_metrics(scale),
+            text_input: todo!(),
+            button: todo!(),
+        })
     }
 
     pub fn old_new(style: OldStyle, scale: f32) -> Self {
