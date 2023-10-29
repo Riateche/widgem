@@ -9,7 +9,9 @@ use strum_macros::{Display, EnumString};
 use crate::types::{LogicalPixels, PhysicalPixels, Point};
 
 use super::{
-    computed::{ComputedBorderStyle, ComputedStyleVariants},
+    computed::{
+        convert_font, convert_padding, convert_width, ComputedBorderStyle, ComputedStyleVariants,
+    },
     condition::ClassRules,
     css::{as_tag_with_class, is_tag_with_custom_class, is_tag_with_no_class},
     Background, BorderStyle, ColorRef, ElementState, FontStyle, OldStyle, Padding, RootFontStyle,
@@ -167,9 +169,8 @@ impl VariantStyle for TextInputVariantStyle {
 
 #[derive(Debug, Clone)]
 pub struct ComputedStyle {
-    pub border_width: PhysicalPixels,
-    pub min_padding: Point,
-    pub preferred_padding: Point,
+    pub min_padding_with_border: Point,
+    pub preferred_padding_with_border: Point,
     pub min_aspect_ratio: f32,
     pub preferred_aspect_ratio: f32,
     pub font_metrics: cosmic_text::Metrics,
@@ -179,13 +180,26 @@ pub struct ComputedStyle {
 
 impl ComputedStyle {
     pub fn new(style: &Style, scale: f32, root_font: &RootFontStyle) -> Result<ComputedStyle> {
+        const DEFAULT_PREFERRED_WIDTH_EM: f32 = 10.0;
+        const DEFAULT_MIN_WIDTH_EM: f32 = 2.0;
+
         let properties = style.find_rules(|s| is_tag_with_no_class(s, "text-input"));
-        let min_properties = style.find_rules(|s| is_tag_with_custom_class(s, "text-input", "min"));
+        let font = convert_font(&properties, Some(root_font))?;
+        let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
+        let preferred_width = convert_width(&properties, scale, font.font_size)?
+            .unwrap_or_else(|| (font.font_size * DEFAULT_PREFERRED_WIDTH_EM).to_physical(scale));
+
+        let min_properties = style.find_rules(|s| {
+            is_tag_with_no_class(s, "text-input")
+                || is_tag_with_custom_class(s, "text-input", "min")
+        });
+        let min_padding = convert_padding(&min_properties, scale, font.font_size)?;
+        let min_width = convert_width(&min_properties, scale, font.font_size)?
+            .unwrap_or_else(|| (font.font_size * DEFAULT_MIN_WIDTH_EM).to_physical(scale));
 
         Ok(Self {
-            border_width: todo!(),
-            min_padding: todo!(),
-            preferred_padding: todo!(),
+            min_padding_with_border: todo!(),
+            preferred_padding_with_border: todo!(),
             min_aspect_ratio: todo!(),
             preferred_aspect_ratio: todo!(),
             font_metrics: todo!(),
@@ -199,13 +213,8 @@ impl ComputedStyle {
         font.apply(&style.text_input.font);
 
         ComputedStyle {
-            border_width: style
-                .text_input
-                .border_width
-                .unwrap_or_default()
-                .to_physical(scale),
-            min_padding: style.text_input.min_padding.to_physical(scale),
-            preferred_padding: style.text_input.preferred_padding.to_physical(scale),
+            min_padding_with_border: style.text_input.min_padding.to_physical(scale),
+            preferred_padding_with_border: style.text_input.preferred_padding.to_physical(scale),
             min_aspect_ratio: style.text_input.min_aspect_ratio,
             preferred_aspect_ratio: style.text_input.preferred_aspect_ratio,
             font_metrics: font.to_metrics(scale),

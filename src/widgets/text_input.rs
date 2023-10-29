@@ -237,11 +237,14 @@ impl TextInput {
             let offset_y = max(0, rect_in_window.size.y - self.editor.size().y) / 2;
             self.editor_viewport_rect = Rect {
                 top_left: Point {
-                    x: style.preferred_padding.x,
+                    x: style.preferred_padding_with_border.x,
                     y: offset_y,
                 },
                 size: Size {
-                    x: max(0, rect_in_window.size.x - 2 * style.preferred_padding.x),
+                    x: max(
+                        0,
+                        rect_in_window.size.x - 2 * style.preferred_padding_with_border.x,
+                    ),
                     y: min(rect_in_window.size.y, self.editor.size().y),
                 },
             };
@@ -276,7 +279,7 @@ impl Widget for TextInput {
             },
             style.border.radius.get() as f32,
             style.border.color,
-            self.common().style().text_input.border_width.get() as f32,
+            style.border.width.get() as f32,
         );
 
         let mut target_rect = self.editor_viewport_rect;
@@ -600,10 +603,11 @@ impl Widget for TextInput {
         let style = &self.common.style().text_input;
         let r = match mode {
             SizeHintMode::Min => {
-                (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding.x
+                (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding_with_border.x
             }
             SizeHintMode::Preferred => {
-                (size_y * style.preferred_aspect_ratio).round() as i32 + style.preferred_padding.x
+                (size_y * style.preferred_aspect_ratio).round() as i32
+                    + style.preferred_padding_with_border.x
             }
         };
         Ok(r)
@@ -612,8 +616,8 @@ impl Widget for TextInput {
     fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let style = &self.common.style().text_input;
         let padding = match mode {
-            SizeHintMode::Min => style.min_padding,
-            SizeHintMode::Preferred => style.preferred_padding,
+            SizeHintMode::Min => style.min_padding_with_border,
+            SizeHintMode::Preferred => style.preferred_padding_with_border,
         };
         Ok(self.editor.size().y + 2 * padding.y)
     }

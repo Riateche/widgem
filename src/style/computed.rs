@@ -6,18 +6,19 @@ use anyhow::{bail, Context, Result};
 use lightningcss::{
     properties::{
         font::{FontSize, LineHeight},
+        size::Size,
         Property,
     },
     values::{
         color::CssColor,
-        length::{LengthPercentage, LengthValue},
+        length::{LengthPercentage, LengthPercentageOrAuto, LengthValue},
         percentage::DimensionPercentage,
     },
 };
 use log::warn;
 use tiny_skia::{Color, GradientStop, SpreadMode};
 
-use crate::types::{LogicalPixels, LpxSuffix, PhysicalPixels};
+use crate::types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point};
 
 use super::{
     button, condition::ClassRules, css::is_root, text_input, ColorRef, ElementState, OldStyle,
@@ -47,6 +48,7 @@ impl<T: VariantStyle> ComputedStyleVariants<T> {
 
 #[derive(Debug, Clone)]
 pub struct ComputedBorderStyle {
+    pub width: PhysicalPixels,
     pub color: Color,
     pub radius: PhysicalPixels,
 }
@@ -74,11 +76,19 @@ fn convert_color(color: &CssColor) -> Result<Color> {
     }
 }
 
-fn convert_length(value: &LengthValue) -> Result<LogicalPixels> {
-    if let LengthValue::Px(size) = value {
-        Ok(size.lpx())
-    } else {
-        bail!("unsupported value, use px: {value:?}");
+fn convert_length(value: &LengthValue, font_size: Option<LogicalPixels>) -> Result<LogicalPixels> {
+    match value {
+        LengthValue::Px(size) => Ok(size.lpx()),
+        LengthValue::Em(size) => {
+            if let Some(font_size) = font_size {
+                Ok((font_size * *size).into())
+            } else {
+                bail!("unsupported value (em), font size is unknown");
+            }
+        }
+        _ => {
+            bail!("unsupported value, use px: {value:?}");
+        }
     }
 }
 
@@ -86,7 +96,7 @@ fn convert_length(value: &LengthValue) -> Result<LogicalPixels> {
 fn convert_font_size(size: &FontSize) -> Result<LogicalPixels> {
     if let FontSize::Length(size) = size {
         if let LengthPercentage::Dimension(size) = size {
-            return convert_length(size);
+            return convert_length(size, None);
         }
     }
     bail!("unsupported font size, use px: {size:?}");
@@ -97,14 +107,14 @@ fn convert_line_height(value: &LineHeight, font_size: LogicalPixels) -> Result<L
         LineHeight::Normal => Ok(font_size * DEFAULT_LINE_HEIGHT),
         LineHeight::Number(value) => Ok(font_size * *value),
         LineHeight::Length(value) => match value {
-            DimensionPercentage::Dimension(value) => convert_length(value),
+            DimensionPercentage::Dimension(value) => convert_length(value, Some(font_size)),
             DimensionPercentage::Percentage(value) => Ok(font_size * value.0),
             DimensionPercentage::Calc(_) => bail!("calc is unsupported"),
         },
     }
 }
 
-fn convert_font(
+pub fn convert_font(
     properties: &[&Property<'static>],
     root: Option<&RootFontStyle>,
 ) -> Result<RootFontStyle> {
@@ -141,6 +151,74 @@ fn convert_font(
         font_size,
         line_height,
     })
+}
+
+fn convert_single_padding(
+    value: &LengthPercentageOrAuto,
+    font_size: LogicalPixels,
+) -> Result<LogicalPixels> {
+    match value {
+        LengthPercentageOrAuto::Auto => Ok(0.0.into()),
+        LengthPercentageOrAuto::LengthPercentage(value) => {
+            if let LengthPercentage::Dimension(value) = value {
+                convert_length(value, Some(font_size))
+            } else {
+                bail!("unsupported value ({value:?})")
+            }
+        }
+    }
+}
+
+pub fn convert_padding(
+    properties: &[&Property<'static>],
+    scale: f32,
+    font_size: LogicalPixels,
+) -> Result<Point> {
+    let mut left = None;
+    let mut top = None;
+    for property in properties {
+        match property {
+            Property::Padding(value) => {
+                left = Some(convert_single_padding(&value.left, font_size)?);
+                top = Some(convert_single_padding(&value.top, font_size)?);
+            }
+            Property::PaddingLeft(value) => {
+                left = Some(convert_single_padding(value, font_size)?);
+            }
+            Property::PaddingTop(value) => {
+                top = Some(convert_single_padding(value, font_size)?);
+            }
+            _ => {}
+        }
+    }
+    Ok(Point::new(
+        left.unwrap_or_default().to_physical(scale).get(),
+        top.unwrap_or_default().to_physical(scale).get(),
+    ))
+}
+
+pub fn convert_width(
+    properties: &[&Property<'static>],
+    scale: f32,
+    font_size: LogicalPixels,
+) -> Result<Option<PhysicalPixels>> {
+    let mut width = None;
+    for property in properties {
+        match property {
+            Property::Width(value) => match value {
+                Size::Auto => {}
+                Size::LengthPercentage(value) => match value {
+                    DimensionPercentage::Dimension(value) => {
+                        width = Some(convert_length(value, Some(font_size))?);
+                    }
+                    _ => warn!("unsupported width value: {value:?}"),
+                },
+                _ => warn!("unsupported width value: {value:?}"),
+            },
+            _ => {}
+        }
+    }
+    Ok(width.map(|width| width.to_physical(scale)))
 }
 
 impl ComputedStyle {

@@ -303,6 +303,7 @@ impl BorderStyle {
 
     pub fn to_physical(&self, scale: f32, palette: &Palette) -> ComputedBorderStyle {
         ComputedBorderStyle {
+            width: self.width.unwrap_or_default().to_physical(scale),
             color: self
                 .color
                 .as_ref()
