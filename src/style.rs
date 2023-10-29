@@ -286,6 +286,7 @@ impl RootFontStyle {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BorderStyle {
+    pub width: Option<LogicalPixels>,
     pub color: Option<ColorRef>,
     pub radius: Option<LogicalPixels>,
 }

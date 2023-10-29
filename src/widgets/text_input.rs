@@ -213,7 +213,7 @@ impl TextInput {
         } else {
             TextInputState::Disabled
         };
-        self.common.style().text_input.variants.get(&state)
+        self.common.style().text_input.old_variants.get(&state)
     }
 
     fn style_changed(&mut self) {

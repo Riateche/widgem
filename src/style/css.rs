@@ -31,7 +31,14 @@ pub fn replace_vars(style_sheet: &mut StyleSheet) {
                         }
                     }
                 }
-                //print_selector(selector);
+                if let Some(data) = as_tag_with_class(selector) {
+                    println!(
+                        "found tag with class {:?}, {}",
+                        data.tag,
+                        serde_json::to_string(&data.class).unwrap()
+                    );
+                }
+                print_selector(selector);
             }
         }
     }
@@ -138,4 +145,57 @@ pub fn is_root(selector: &Selector) -> bool {
     selector_items(selector).map_or(false, |items| {
         items.len() == 1 && matches!(items[0], Component::Root)
     })
+}
+
+pub struct TagSelector<'a, 'b> {
+    pub tag: &'a str,
+    pub class: Option<&'a PseudoClass<'b>>,
+}
+
+pub fn as_tag_with_class<'a, 'b>(selector: &'a Selector<'b>) -> Option<TagSelector<'a, 'b>> {
+    let items = selector_items(selector)?;
+    if items.len() > 2 {
+        return None;
+    }
+    Some(TagSelector {
+        tag: as_tag(items.get(0)?)?,
+        class: items.get(1).and_then(|i| as_class(i)),
+    })
+}
+
+fn as_tag<'a>(component: &'a Component<'_>) -> Option<&'a str> {
+    if let Component::LocalName(component) = component {
+        Some(&component.lower_name)
+    } else {
+        None
+    }
+}
+
+fn as_class<'a, 'b>(component: &'a Component<'b>) -> Option<&'a PseudoClass<'b>> {
+    if let Component::NonTSPseudoClass(component) = component {
+        Some(component)
+    } else {
+        None
+    }
+}
+
+pub fn is_tag_with_no_class(selector: &Selector, tag: &str) -> bool {
+    as_tag_with_class(selector).map_or(false, |data| data.tag == tag && data.class.is_none())
+}
+
+pub fn is_tag_with_custom_class(selector: &Selector, tag: &str, class: &str) -> bool {
+    as_tag_with_class(selector).map_or(false, |data| {
+        data.tag == tag
+            && data
+                .class
+                .map_or(false, |c| as_custom_class(c) == Some(class))
+    })
+}
+
+fn as_custom_class<'a, 'b>(class: &'a PseudoClass<'b>) -> Option<&'a str> {
+    if let PseudoClass::Custom { name } = class {
+        Some(name)
+    } else {
+        None
+    }
 }

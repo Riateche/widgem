@@ -106,7 +106,7 @@ fn convert_line_height(value: &LineHeight, font_size: LogicalPixels) -> Result<L
 
 fn convert_font(
     properties: &[&Property<'static>],
-    root: Option<RootFontStyle>,
+    root: Option<&RootFontStyle>,
 ) -> Result<RootFontStyle> {
     let mut font_size = None;
     let mut line_height = None;
@@ -176,7 +176,7 @@ impl ComputedStyle {
                 Color::WHITE
             }),
             font_metrics: font.to_metrics(scale),
-            text_input: todo!(),
+            text_input: text_input::ComputedStyle::new(style, scale, &font)?,
             button: todo!(),
         })
     }
@@ -184,7 +184,7 @@ impl ComputedStyle {
     pub fn old_new(style: OldStyle, scale: f32) -> Self {
         Self {
             font_metrics: style.font.to_metrics(scale),
-            text_input: text_input::ComputedStyle::new(&style, scale),
+            text_input: text_input::ComputedStyle::old_new(&style, scale),
             button: button::ComputedStyle::new(&style, scale),
             background: style.palette.get(&ColorRef::background),
             scale,

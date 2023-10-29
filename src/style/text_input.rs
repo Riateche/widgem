@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
+use anyhow::Result;
 use itertools::Itertools;
+use lightningcss::selector::{PseudoClass, Selector};
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 
@@ -7,7 +11,9 @@ use crate::types::{LogicalPixels, PhysicalPixels, Point};
 use super::{
     computed::{ComputedBorderStyle, ComputedStyleVariants},
     condition::ClassRules,
-    Background, BorderStyle, ColorRef, ElementState, FontStyle, OldStyle, Padding, VariantStyle,
+    css::{as_tag_with_class, is_tag_with_custom_class, is_tag_with_no_class},
+    Background, BorderStyle, ColorRef, ElementState, FontStyle, OldStyle, Padding, RootFontStyle,
+    Style, VariantStyle,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
@@ -21,6 +27,47 @@ pub enum TextInputClass {
 pub enum TextInputState {
     Enabled { focused: bool, mouse_over: bool },
     Disabled,
+}
+
+impl TextInputState {
+    pub fn matches(&self, selector: &Selector) -> bool {
+        if let Some(data) = as_tag_with_class(selector) {
+            if data.tag != "text-input" {
+                return false;
+            }
+            if let Some(class) = data.class {
+                match class {
+                    PseudoClass::Hover => {
+                        if let TextInputState::Enabled { mouse_over, .. } = self {
+                            *mouse_over
+                        } else {
+                            false
+                        }
+                    }
+                    PseudoClass::Focus => {
+                        if let TextInputState::Enabled { focused, .. } = self {
+                            *focused
+                        } else {
+                            false
+                        }
+                    }
+                    PseudoClass::Disabled => match self {
+                        TextInputState::Enabled { .. } => false,
+                        TextInputState::Disabled => true,
+                    },
+                    PseudoClass::Enabled => match self {
+                        TextInputState::Enabled { .. } => true,
+                        TextInputState::Disabled => false,
+                    },
+                    _ => false,
+                }
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
 }
 
 impl ElementState for TextInputState {
@@ -126,11 +173,28 @@ pub struct ComputedStyle {
     pub min_aspect_ratio: f32,
     pub preferred_aspect_ratio: f32,
     pub font_metrics: cosmic_text::Metrics,
-    pub variants: ComputedStyleVariants<TextInputVariantStyle>,
+    pub variants: HashMap<TextInputState, ComputedVariantStyle>,
+    pub old_variants: ComputedStyleVariants<TextInputVariantStyle>,
 }
 
 impl ComputedStyle {
-    pub fn new(style: &OldStyle, scale: f32) -> ComputedStyle {
+    pub fn new(style: &Style, scale: f32, root_font: &RootFontStyle) -> Result<ComputedStyle> {
+        let properties = style.find_rules(|s| is_tag_with_no_class(s, "text-input"));
+        let min_properties = style.find_rules(|s| is_tag_with_custom_class(s, "text-input", "min"));
+
+        Ok(Self {
+            border_width: todo!(),
+            min_padding: todo!(),
+            preferred_padding: todo!(),
+            min_aspect_ratio: todo!(),
+            preferred_aspect_ratio: todo!(),
+            font_metrics: todo!(),
+            variants: todo!(),
+            old_variants: todo!(),
+        })
+    }
+
+    pub fn old_new(style: &OldStyle, scale: f32) -> ComputedStyle {
         let mut font = style.font.clone();
         font.apply(&style.text_input.font);
 
@@ -145,7 +209,8 @@ impl ComputedStyle {
             min_aspect_ratio: style.text_input.min_aspect_ratio,
             preferred_aspect_ratio: style.text_input.preferred_aspect_ratio,
             font_metrics: font.to_metrics(scale),
-            variants: ComputedStyleVariants::new(&style.text_input.variants, style, scale),
+            variants: HashMap::new(),
+            old_variants: ComputedStyleVariants::new(&style.text_input.variants, style, scale),
         }
     }
 }

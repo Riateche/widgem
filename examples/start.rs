@@ -204,6 +204,8 @@ fn main() {
     }
     env_logger::init();
 
+    salvation::style::Style::load("themes/default/theme.css").unwrap();
+
     // let data = std::fs::read_to_string("themes/default/theme.css").unwrap();
     // let mut style = StyleSheet::parse(&data, Default::default()).unwrap();
     // replace_vars(&mut style);
