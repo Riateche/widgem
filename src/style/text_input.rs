@@ -15,18 +15,16 @@ use crate::{
         css::{is_root, is_selection},
         defaults,
     },
-    types::{LogicalPixels, PhysicalPixels, Point},
+    types::{PhysicalPixels, Point},
 };
 
 use super::{
     computed::{
         convert_font, convert_padding, convert_width, ComputedBackground, ComputedBorderStyle,
     },
-    condition::ClassRules,
     css::{as_tag_with_class, is_tag_with_custom_class, is_tag_with_no_class},
     defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
-    Background, BorderStyle, ColorRef, ElementState, FontStyle, OldStyle, Padding, RootFontStyle,
-    Style, VariantStyle,
+    ElementState, RootFontStyle, Style,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
@@ -93,8 +91,6 @@ impl TextInputState {
 }
 
 impl ElementState for TextInputState {
-    type Class = TextInputClass;
-
     fn all() -> Vec<Self> {
         let all_bools = [false, true];
         let mut r = all_bools
@@ -107,83 +103,6 @@ impl ElementState for TextInputState {
             .collect_vec();
         r.push(Self::Disabled);
         r
-    }
-
-    fn matches(&self, class: &Self::Class) -> bool {
-        match class {
-            TextInputClass::Enabled => matches!(self, Self::Enabled { .. }),
-            TextInputClass::Focused => match self {
-                Self::Enabled { focused, .. } => *focused,
-                Self::Disabled => false,
-            },
-            TextInputClass::MouseOver => match self {
-                Self::Enabled { mouse_over, .. } => *mouse_over,
-                Self::Disabled => false,
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TextInputStyle {
-    pub border_width: Option<LogicalPixels>,
-    pub min_padding: Padding,
-    pub preferred_padding: Padding,
-    pub min_aspect_ratio: f32,
-    pub preferred_aspect_ratio: f32,
-    pub font: FontStyle,
-    pub variants: ClassRules<TextInputVariantStyle>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct TextInputVariantStyle {
-    pub border: BorderStyle,
-    pub background: Option<Background>,
-    pub text_color: Option<ColorRef>,
-    pub selected_text_color: Option<ColorRef>,
-    pub selected_text_background: Option<ColorRef>,
-}
-
-impl VariantStyle for TextInputVariantStyle {
-    type State = TextInputState;
-    type Computed = ComputedVariantStyle;
-
-    fn apply(&mut self, other: &Self) {
-        self.border.apply(&other.border);
-        if let Some(background) = &other.background {
-            self.background = Some(background.clone());
-        }
-        if let Some(text_color) = &other.text_color {
-            self.text_color = Some(text_color.clone());
-        }
-        if let Some(selected_text_color) = &other.selected_text_color {
-            self.selected_text_color = Some(selected_text_color.clone());
-        }
-        if let Some(selected_text_background) = &other.selected_text_background {
-            self.selected_text_background = Some(selected_text_background.clone());
-        }
-    }
-
-    fn compute(&self, style: &OldStyle, scale: f32) -> Self::Computed {
-        // TODO: get more default properties from style root?
-        // TODO: default border from style root
-        ComputedVariantStyle {
-            border: self.border.to_physical(scale, &style.palette),
-            background: self.background.as_ref().map(|b| b.compute(&style.palette)),
-            text_color: style
-                .palette
-                .get(self.text_color.as_ref().unwrap_or(&ColorRef::foreground)),
-            selected_text_color: style.palette.get(
-                self.selected_text_color
-                    .as_ref()
-                    .unwrap_or(&ColorRef::selected_text_color),
-            ),
-            selected_text_background: style.palette.get(
-                self.selected_text_background
-                    .as_ref()
-                    .unwrap_or(&ColorRef::selected_text_background),
-            ),
-        }
     }
 }
 

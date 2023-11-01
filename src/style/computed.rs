@@ -1,7 +1,5 @@
 #![allow(clippy::single_match)]
 
-use std::collections::HashMap;
-
 use anyhow::{bail, Context, Result};
 use lightningcss::{
     properties::{
@@ -24,31 +22,9 @@ use tiny_skia::{Color, GradientStop, SpreadMode};
 
 use crate::types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point};
 
-use super::{
-    button, condition::ClassRules, css::is_root, text_input, ElementState, OldStyle,
-    RelativeOffset, RootFontStyle, Style, VariantStyle,
-};
-
-#[derive(Debug, Clone)]
-pub struct ComputedStyleVariants<T: VariantStyle>(pub(crate) HashMap<T::State, T::Computed>);
+use super::{button, css::is_root, text_input, RelativeOffset, RootFontStyle, Style};
 
 const DEFAULT_LINE_HEIGHT: f32 = 1.2;
-
-impl<T: VariantStyle> ComputedStyleVariants<T> {
-    pub fn new(rules: &ClassRules<T>, style: &OldStyle, scale: f32) -> Self {
-        let mut map = HashMap::new();
-        for variant in T::State::all() {
-            let computed = rules.get(&variant).compute(style, scale);
-            map.insert(variant, computed);
-        }
-
-        Self(map)
-    }
-
-    pub fn get(&self, state: &T::State) -> &T::Computed {
-        self.0.get(state).expect("unexpected state")
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct ComputedBorderStyle {

@@ -1,16 +1,10 @@
-use std::{
-    borrow::{Borrow, Cow},
-    collections::BTreeMap,
-    fmt::{Debug, Display},
-    str::FromStr,
-};
+use std::fmt::Debug;
 
 use anyhow::Result;
 use derive_more::{From, Into};
 use lightningcss::{
     properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
 };
-use log::warn;
 use serde::{de::Error, Deserialize, Serialize};
 use std::hash::Hash;
 
@@ -19,15 +13,8 @@ use crate::{
     types::{LogicalPixels, Point},
 };
 
-use self::{
-    button::ButtonStyle,
-    computed::{ComputedBackground, ComputedBorderStyle, ComputedLinearGradient},
-    text_input::TextInputStyle,
-};
-
 pub mod button;
 pub mod computed;
-pub mod condition;
 mod css;
 pub mod defaults;
 pub mod text_input;
@@ -71,60 +58,8 @@ impl<'de> Deserialize<'de> for Color {
     }
 }
 
-#[derive(
-    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, From, Into,
-)]
-pub struct ColorRef(Cow<'static, str>);
-
-#[allow(non_upper_case_globals)]
-impl ColorRef {
-    pub const foreground: Self = Self(Cow::Borrowed("foreground"));
-    pub const background: Self = Self(Cow::Borrowed("background"));
-    pub const selected_text_color: Self = Self(Cow::Borrowed("selected_text_color"));
-    pub const selected_text_background: Self = Self(Cow::Borrowed("selected_text_background"));
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Palette(BTreeMap<ColorRef, Color>);
-
-impl Palette {
-    pub fn get(&self, color: impl Borrow<ColorRef>) -> tiny_skia::Color {
-        if let Some(c) = self.0.get(color.borrow()) {
-            (*c).into()
-        } else {
-            warn!("missing color in palette: {:?}", color.borrow());
-            self.0
-                .get(&ColorRef::foreground)
-                .map(|c| (*c).into())
-                .unwrap_or(tiny_skia::Color::BLACK)
-        }
-    }
-}
-
-// TODO: remove Debug
-pub trait Class: Debug + Clone + Display + FromStr<Err = Self::FromStrErr> {
-    type FromStrErr: std::error::Error + Send + Sync + 'static;
-}
-
-impl<T> Class for T
-where
-    T: Debug + Clone + Display + FromStr,
-    <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
-    type FromStrErr = <T as FromStr>::Err;
-}
-
 pub trait ElementState: Eq + Hash + Sized {
-    type Class: Class;
     fn all() -> Vec<Self>;
-    fn matches(&self, class: &Self::Class) -> bool;
-}
-
-pub trait VariantStyle: Default {
-    type State: ElementState;
-    type Computed;
-    fn apply(&mut self, other: &Self);
-    fn compute(&self, style: &OldStyle, scale: f32) -> Self::Computed;
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -165,59 +100,6 @@ impl From<SpreadMode> for tiny_skia::SpreadMode {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GradientStop {
-    pub position: f32,
-    pub color: ColorRef,
-}
-
-impl GradientStop {
-    pub fn new(position: f32, color: ColorRef) -> Self {
-        Self { position, color }
-    }
-
-    pub fn compute(&self, palette: &Palette) -> tiny_skia::GradientStop {
-        tiny_skia::GradientStop::new(self.position, palette.get(&self.color))
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LinearGradient {
-    pub start: RelativeOffset,
-    pub end: RelativeOffset,
-    pub stops: Vec<GradientStop>,
-    pub mode: SpreadMode,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum Background {
-    Solid { color: ColorRef },
-    LinearGradient(LinearGradient),
-}
-
-impl Background {
-    pub fn compute(&self, palette: &Palette) -> ComputedBackground {
-        match self {
-            Background::Solid { color } => ComputedBackground::Solid {
-                color: palette.get(color),
-            },
-            Background::LinearGradient(g) => {
-                ComputedBackground::LinearGradient(ComputedLinearGradient {
-                    start: g.start,
-                    end: g.end,
-                    stops: g
-                        .stops
-                        .iter()
-                        .map(|g| tiny_skia::GradientStop::new(g.position, palette.get(&g.color)))
-                        .collect(),
-                    mode: g.mode.into(),
-                })
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Padding {
     pub x: LogicalPixels,
@@ -234,14 +116,6 @@ impl Padding {
             y: self.y.to_physical(scale).get(),
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OldStyle {
-    pub font: RootFontStyle,
-    pub palette: Palette,
-    pub text_input: TextInputStyle,
-    pub button: ButtonStyle,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -285,35 +159,6 @@ impl RootFontStyle {
         cosmic_text::Metrics {
             font_size: self.font_size.to_physical(scale).get() as f32,
             line_height: self.line_height.to_physical(scale).get() as f32,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BorderStyle {
-    pub width: Option<LogicalPixels>,
-    pub color: Option<ColorRef>,
-    pub radius: Option<LogicalPixels>,
-}
-
-impl BorderStyle {
-    pub fn apply(&mut self, other: &Self) {
-        if let Some(color) = &other.color {
-            self.color = Some(color.clone());
-        }
-        if let Some(radius) = other.radius {
-            self.radius = Some(radius);
-        }
-    }
-
-    pub fn to_physical(&self, scale: f32, palette: &Palette) -> ComputedBorderStyle {
-        ComputedBorderStyle {
-            width: self.width.unwrap_or_default().to_physical(scale),
-            color: self
-                .color
-                .as_ref()
-                .map_or(tiny_skia::Color::TRANSPARENT, |color| palette.get(color)),
-            radius: self.radius.unwrap_or_default().to_physical(scale),
         }
     }
 }

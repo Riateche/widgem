@@ -7,20 +7,15 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 
-use crate::{
-    style::defaults,
-    types::{LogicalPixels, Point},
-};
+use crate::{style::defaults, types::Point};
 
 use super::{
     computed::{
         convert_background, convert_border, convert_font, convert_main_color, convert_padding,
         ComputedBackground, ComputedBorderStyle,
     },
-    condition::ClassRules,
     css::{as_tag_with_class, is_root, is_tag_with_custom_class, is_tag_with_no_class},
-    Background, BorderStyle, ColorRef, ElementState, FontStyle, OldStyle, Padding, RootFontStyle,
-    Style, VariantStyle,
+    ElementState, RootFontStyle, Style,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
@@ -100,8 +95,6 @@ impl ButtonState {
 }
 
 impl ElementState for ButtonState {
-    type Class = ButtonClass;
-
     fn all() -> Vec<Self> {
         let all_bools = [false, true];
         let mut r = all_bools
@@ -116,67 +109,6 @@ impl ElementState for ButtonState {
             .collect_vec();
         r.push(Self::Disabled);
         r
-    }
-
-    fn matches(&self, class: &Self::Class) -> bool {
-        match class {
-            ButtonClass::Enabled => matches!(self, Self::Enabled { .. }),
-            ButtonClass::Focused => match self {
-                Self::Enabled { focused, .. } => *focused,
-                Self::Disabled => false,
-            },
-            ButtonClass::MouseOver => match self {
-                Self::Enabled { mouse_over, .. } => *mouse_over,
-                Self::Disabled => false,
-            },
-            ButtonClass::Pressed => match self {
-                Self::Enabled { pressed, .. } => *pressed,
-                Self::Disabled => false,
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ButtonStyle {
-    pub border_width: Option<LogicalPixels>,
-    pub min_padding: Padding,
-    pub preferred_padding: Padding,
-    pub font: FontStyle,
-    pub variants: ClassRules<ButtonVariantStyle>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ButtonVariantStyle {
-    pub border: BorderStyle,
-    pub background: Option<Background>,
-    pub text_color: Option<ColorRef>,
-}
-
-impl VariantStyle for ButtonVariantStyle {
-    type State = ButtonState;
-    type Computed = ComputedVariantStyle;
-
-    fn apply(&mut self, other: &Self) {
-        self.border.apply(&other.border);
-        if let Some(background) = &other.background {
-            self.background = Some(background.clone());
-        }
-        if let Some(text_color) = &other.text_color {
-            self.text_color = Some(text_color.clone());
-        }
-    }
-
-    fn compute(&self, style: &OldStyle, scale: f32) -> Self::Computed {
-        // TODO: get more default properties from style root?
-        // TODO: default border from style root
-        ComputedVariantStyle {
-            border: self.border.to_physical(scale, &style.palette),
-            background: self.background.as_ref().map(|b| b.compute(&style.palette)),
-            text_color: style
-                .palette
-                .get(self.text_color.as_ref().unwrap_or(&ColorRef::foreground)),
-        }
     }
 }
 
