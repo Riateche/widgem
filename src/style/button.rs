@@ -15,7 +15,7 @@ use crate::{
 use super::{
     computed::{
         convert_background, convert_border, convert_font, convert_main_color, convert_padding,
-        ComputedBackground, ComputedBorderStyle, ComputedStyleVariants,
+        ComputedBackground, ComputedBorderStyle,
     },
     condition::ClassRules,
     css::{as_tag_with_class, is_root, is_tag_with_custom_class, is_tag_with_no_class},
@@ -194,7 +194,6 @@ pub struct ComputedStyle {
     pub preferred_padding_with_border: Point,
     pub font_metrics: cosmic_text::Metrics,
     pub variants: HashMap<ButtonState, ComputedVariantStyle>,
-    pub old_variants: ComputedStyleVariants<ButtonVariantStyle>,
 }
 
 impl ComputedStyle {
@@ -243,20 +242,6 @@ impl ComputedStyle {
                 + Point::new(border_width.get(), border_width.get()),
             font_metrics: font.to_metrics(scale),
             variants,
-            old_variants: ComputedStyleVariants(HashMap::new()),
         })
-    }
-
-    pub fn old_new(style: &OldStyle, scale: f32) -> ComputedStyle {
-        let mut font = style.font.clone();
-        font.apply(&style.button.font);
-
-        ComputedStyle {
-            min_padding_with_border: style.button.min_padding.to_physical(scale),
-            preferred_padding_with_border: style.button.preferred_padding.to_physical(scale),
-            font_metrics: font.to_metrics(scale),
-            old_variants: ComputedStyleVariants::new(&style.button.variants, style, scale),
-            variants: HashMap::new(),
-        }
     }
 }

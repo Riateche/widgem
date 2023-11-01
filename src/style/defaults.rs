@@ -1,9 +1,9 @@
 use tiny_skia::Color;
 
-use super::OldStyle;
+use super::Style;
 
-pub fn default_style() -> OldStyle {
-    json5::from_str(include_str!("../../themes/default/theme.json5")).unwrap()
+pub fn default_style() -> Style {
+    Style::load(include_str!("../../themes/default/theme.css")).unwrap()
 }
 
 pub fn text_color() -> Color {

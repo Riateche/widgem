@@ -25,7 +25,7 @@ use tiny_skia::{Color, GradientStop, SpreadMode};
 use crate::types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point};
 
 use super::{
-    button, condition::ClassRules, css::is_root, text_input, ColorRef, ElementState, OldStyle,
+    button, condition::ClassRules, css::is_root, text_input, ElementState, OldStyle,
     RelativeOffset, RootFontStyle, Style, VariantStyle,
 };
 
@@ -456,18 +456,8 @@ impl ComputedStyle {
             }),
             font_metrics: font.to_metrics(scale),
             text_input: text_input::ComputedStyle::new(style, scale, &font)?,
-            button: todo!(),
+            button: button::ComputedStyle::new(style, scale, &font)?,
         })
-    }
-
-    pub fn old_new(style: OldStyle, scale: f32) -> Self {
-        Self {
-            font_metrics: style.font.to_metrics(scale),
-            text_input: text_input::ComputedStyle::old_new(&style, scale),
-            button: button::ComputedStyle::old_new(&style, scale),
-            background: style.palette.get(&ColorRef::background),
-            scale,
-        }
     }
 }
 

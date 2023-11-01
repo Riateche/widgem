@@ -1,23 +1,19 @@
 #![allow(dead_code)]
 
-use std::{
-    sync::mpsc,
-    thread::{self, sleep},
-    time::Duration,
-};
+use std::time::Duration;
 
 use anyhow::Result;
 
 use salvation::{
-    event_loop::{self, CallbackContext, UserEvent},
-    system::{add_interval, with_system},
+    event_loop::{self, CallbackContext},
+    system::add_interval,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
         scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetExt, WidgetId,
     },
     window::create_window,
 };
-use winit::{event::WindowEvent, window::WindowBuilder};
+use winit::window::WindowBuilder;
 
 struct AnotherState {
     counter: i32,
@@ -137,18 +133,18 @@ impl State {
             ctx.callback(|this, ctx, _| this.inc(ctx)),
         );
 
-        let event_loop_proxy = with_system(|system| system.event_loop_proxy.clone());
+        // let event_loop_proxy = with_system(|system| system.event_loop_proxy.clone());
 
-        thread::spawn(move || {
-            sleep(Duration::from_secs(10));
-            let (tx, rx) = mpsc::sync_channel(1);
-            _ = event_loop_proxy.send_event(UserEvent::SnapshotRequest(tx));
-            let _snapshot = rx.recv().unwrap();
-            _ = event_loop_proxy.send_event(UserEvent::DispatchWindowEvent(
-                0,
-                WindowEvent::CloseRequested,
-            ));
-        });
+        // thread::spawn(move || {
+        //     sleep(Duration::from_secs(10));
+        //     let (tx, rx) = mpsc::sync_channel(1);
+        //     _ = event_loop_proxy.send_event(UserEvent::SnapshotRequest(tx));
+        //     let _snapshot = rx.recv().unwrap();
+        //     _ = event_loop_proxy.send_event(UserEvent::DispatchWindowEvent(
+        //         0,
+        //         WindowEvent::CloseRequested,
+        //     ));
+        // });
 
         State {
             another_state,
@@ -204,7 +200,7 @@ fn main() {
     }
     env_logger::init();
 
-    salvation::style::Style::load("themes/default/theme.css").unwrap();
+    //salvation::style::Style::load("themes/default/theme.css").unwrap();
 
     // let data = std::fs::read_to_string("themes/default/theme.css").unwrap();
     // let mut style = StyleSheet::parse(&data, Default::default()).unwrap();

@@ -21,7 +21,6 @@ use crate::{
 use super::{
     computed::{
         convert_font, convert_padding, convert_width, ComputedBackground, ComputedBorderStyle,
-        ComputedStyleVariants,
     },
     condition::ClassRules,
     css::{as_tag_with_class, is_tag_with_custom_class, is_tag_with_no_class},
@@ -196,7 +195,6 @@ pub struct ComputedStyle {
     pub preferred_width: PhysicalPixels,
     pub font_metrics: cosmic_text::Metrics,
     pub variants: HashMap<TextInputState, ComputedVariantStyle>,
-    pub old_variants: ComputedStyleVariants<TextInputVariantStyle>,
 }
 
 impl ComputedStyle {
@@ -266,23 +264,7 @@ impl ComputedStyle {
             preferred_width,
             font_metrics: font.to_metrics(scale),
             variants,
-            old_variants: ComputedStyleVariants(HashMap::new()),
         })
-    }
-
-    pub fn old_new(style: &OldStyle, scale: f32) -> ComputedStyle {
-        let mut font = style.font.clone();
-        font.apply(&style.text_input.font);
-
-        ComputedStyle {
-            min_padding_with_border: style.text_input.min_padding.to_physical(scale),
-            preferred_padding_with_border: style.text_input.preferred_padding.to_physical(scale),
-            min_width: 100.into(),
-            preferred_width: 100.into(),
-            font_metrics: font.to_metrics(scale),
-            variants: HashMap::new(),
-            old_variants: ComputedStyleVariants::new(&style.text_input.variants, style, scale),
-        }
     }
 }
 

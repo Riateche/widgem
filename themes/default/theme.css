@@ -14,7 +14,7 @@
 text-input {
     border: 1px solid #c8c8c8;
     border-radius: 2px;
-    padding: 4px 5px;
+    padding: 3px 4px;
     width: 10em;
 }
 text-input:min {
@@ -28,8 +28,8 @@ text-input:focus {
 button {
     border: 1px solid #c4c4c4;
     border-radius: 2px;
-    padding: 5px 5px;
-    background: linear-gradient(#fefefe, #eeeeee);
+    padding: 4px 4px;
+    background: linear-gradient(#fefefe 0%, #eeeeee 100%);
 }
 button:min {
     padding: 0px 1px;
@@ -38,7 +38,7 @@ button:disabled {
     color: #bfbfbf;
 }
 button:hover {
-    background: linear-gradient(#fefefe, #f7f7f7);
+    background: linear-gradient(#fefefe 0%, #f7f7f7 100%);
 }
 button:active {
     background: #dbdbdb;

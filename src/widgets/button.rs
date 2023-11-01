@@ -71,7 +71,7 @@ impl Button {
         } else {
             ButtonState::Disabled
         };
-        self.common.style().button.old_variants.get(&state)
+        self.common.style().button.variants.get(&state).unwrap()
     }
 }
 

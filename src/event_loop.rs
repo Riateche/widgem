@@ -176,10 +176,9 @@ pub fn run<State: 'static>(
         swash_cache: SwashCache::new(),
         event_loop_proxy: event_loop.create_proxy(),
         // TODO: how to detect monitor scale change?
-        default_style: Rc::new(ComputedStyle::old_new(
-            default_style(),
-            default_scale(&event_loop),
-        )),
+        default_style: Rc::new(
+            ComputedStyle::new(&default_style(), default_scale(&event_loop)).unwrap(),
+        ),
         timers: Timers::new(),
         clipboard: Clipboard::new().expect("failed to initialize clipboard"),
         new_windows: Vec::new(),

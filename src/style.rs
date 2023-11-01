@@ -2,7 +2,6 @@ use std::{
     borrow::{Borrow, Cow},
     collections::BTreeMap,
     fmt::{Debug, Display},
-    path::Path,
     str::FromStr,
 };
 
@@ -325,9 +324,8 @@ pub struct Style {
 }
 
 impl Style {
-    pub fn load(path: impl AsRef<Path>) -> Result<Style> {
-        let data = std::fs::read_to_string(path).unwrap();
-        let mut style = StyleSheet::parse(&data, Default::default()).unwrap();
+    pub fn load(css: &str) -> Result<Style> {
+        let mut style = StyleSheet::parse(css, Default::default()).unwrap();
         replace_vars(&mut style);
         let code = style.to_css(Default::default()).unwrap().code;
         let style = StyleSheet::parse(&code, Default::default()).unwrap();
