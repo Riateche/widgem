@@ -31,13 +31,13 @@ pub fn replace_vars(style_sheet: &mut StyleSheet) {
                         }
                     }
                 }
-                if let Some(data) = as_tag_with_class(selector) {
-                    println!(
-                        "found tag with class {:?}, {}",
-                        data.tag,
-                        serde_json::to_string(&data.class).unwrap()
-                    );
-                }
+                // if let Some(data) = as_tag_with_class(selector) {
+                // println!(
+                //     "found tag with class {:?}, {}",
+                //     data.tag,
+                //     serde_json::to_string(&data.class).unwrap()
+                // );
+                // }
                 print_selector(selector);
             }
         }

@@ -22,7 +22,7 @@ use tiny_skia::{Color, GradientStop, SpreadMode};
 
 use crate::types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point};
 
-use super::{button, css::is_root, text_input, RelativeOffset, RootFontStyle, Style};
+use super::{button, css::is_root, text_input, FontStyle, RelativeOffset, Style};
 
 const DEFAULT_LINE_HEIGHT: f32 = 1.2;
 
@@ -123,8 +123,8 @@ fn convert_line_height(value: &LineHeight, font_size: LogicalPixels) -> Result<L
 // TODO: pass root properties instead?
 pub fn convert_font(
     properties: &[&Property<'static>],
-    root: Option<&RootFontStyle>,
-) -> Result<RootFontStyle> {
+    root: Option<&FontStyle>,
+) -> Result<FontStyle> {
     let mut font_size = None;
     let mut line_height = None;
     for property in properties {
@@ -154,7 +154,7 @@ pub fn convert_font(
 
     let line_height = line_height.unwrap_or_else(|| font_size * DEFAULT_LINE_HEIGHT);
 
-    Ok(RootFontStyle {
+    Ok(FontStyle {
         font_size,
         line_height,
     })

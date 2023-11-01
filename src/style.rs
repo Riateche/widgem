@@ -1,11 +1,10 @@
 use std::fmt::Debug;
 
 use anyhow::Result;
-use derive_more::{From, Into};
 use lightningcss::{
     properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
 };
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
 use crate::{
@@ -18,45 +17,6 @@ pub mod computed;
 mod css;
 pub mod defaults;
 pub mod text_input;
-
-#[derive(Debug, Clone, Copy, PartialEq, From, Into)]
-pub struct Color(tiny_skia::Color);
-
-impl Serialize for Color {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let c = self.0;
-        let hex = csscolorparser::Color::new(
-            c.red().into(),
-            c.green().into(),
-            c.blue().into(),
-            c.alpha().into(),
-        )
-        .to_hex_string();
-        hex.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Color {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let str = <String>::deserialize(deserializer)?;
-        let color = csscolorparser::parse(&str).map_err(D::Error::custom)?;
-        Ok(Self(
-            tiny_skia::Color::from_rgba(
-                color.r as f32,
-                color.g as f32,
-                color.b as f32,
-                color.a as f32,
-            )
-            .ok_or_else(|| D::Error::custom("invalid color"))?,
-        ))
-    }
-}
 
 pub trait ElementState: Eq + Hash + Sized {
     fn all() -> Vec<Self>;
@@ -72,31 +32,6 @@ pub struct RelativeOffset {
 impl RelativeOffset {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
-    }
-}
-
-/// A shader spreading mode.
-#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SpreadMode {
-    /// Replicate the edge color if the shader draws outside of its
-    /// original bounds.
-    Pad,
-
-    /// Repeat the shader's image horizontally and vertically, alternating
-    /// mirror images so that adjacent images always seam.
-    Reflect,
-
-    /// Repeat the shader's image horizontally and vertically.
-    Repeat,
-}
-
-impl From<SpreadMode> for tiny_skia::SpreadMode {
-    fn from(value: SpreadMode) -> Self {
-        match value {
-            SpreadMode::Pad => Self::Pad,
-            SpreadMode::Reflect => Self::Reflect,
-            SpreadMode::Repeat => Self::Repeat,
-        }
     }
 }
 
@@ -119,42 +54,13 @@ impl Padding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RootFontStyle {
+pub struct FontStyle {
     pub font_size: LogicalPixels,
     pub line_height: LogicalPixels,
     // TODO: font family, attributes, etc.
 }
 
-impl RootFontStyle {
-    pub fn apply(&mut self, other: &FontStyle) {
-        if let Some(font_size) = other.font_size {
-            self.font_size = font_size;
-        }
-        if let Some(line_height) = other.line_height {
-            self.line_height = line_height;
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct FontStyle {
-    pub font_size: Option<LogicalPixels>,
-    pub line_height: Option<LogicalPixels>,
-    // TODO: font family, attributes, etc.
-}
-
 impl FontStyle {
-    pub fn apply(&mut self, other: &Self) {
-        if let Some(font_size) = other.font_size {
-            self.font_size = Some(font_size);
-        }
-        if let Some(line_height) = other.line_height {
-            self.line_height = Some(line_height);
-        }
-    }
-}
-
-impl RootFontStyle {
     pub fn to_metrics(&self, scale: f32) -> cosmic_text::Metrics {
         cosmic_text::Metrics {
             font_size: self.font_size.to_physical(scale).get() as f32,

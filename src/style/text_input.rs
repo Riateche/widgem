@@ -24,7 +24,7 @@ use super::{
     },
     css::{as_tag_with_class, is_tag_with_custom_class, is_tag_with_no_class},
     defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
-    ElementState, RootFontStyle, Style,
+    ElementState, FontStyle, Style,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
@@ -117,7 +117,7 @@ pub struct ComputedStyle {
 }
 
 impl ComputedStyle {
-    pub fn new(style: &Style, scale: f32, root_font: &RootFontStyle) -> Result<ComputedStyle> {
+    pub fn new(style: &Style, scale: f32, root_font: &FontStyle) -> Result<ComputedStyle> {
         let properties = style.find_rules(|s| is_tag_with_no_class(s, "text-input"));
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
