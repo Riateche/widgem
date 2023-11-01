@@ -4,14 +4,10 @@ use anyhow::Result;
 use itertools::Itertools;
 use lightningcss::selector::{PseudoClass, Selector};
 use log::warn;
-use serde::{Deserialize, Serialize};
-use strum_macros::{Display, EnumString};
 
 use crate::{
     style::{
-        computed::{
-            convert_background, convert_background_color, convert_border, convert_main_color,
-        },
+        css::{convert_background, convert_background_color, convert_border, convert_main_color},
         css::{is_root, is_selection},
         defaults,
     },
@@ -19,20 +15,14 @@ use crate::{
 };
 
 use super::{
-    computed::{
-        convert_font, convert_padding, convert_width, ComputedBackground, ComputedBorderStyle,
+    computed::{ComputedBackground, ComputedBorderStyle},
+    css::{
+        as_tag_with_class, convert_font, convert_padding, convert_width, is_tag_with_custom_class,
+        is_tag_with_no_class,
     },
-    css::{as_tag_with_class, is_tag_with_custom_class, is_tag_with_no_class},
     defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
     ElementState, FontStyle, Style,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
-pub enum TextInputClass {
-    Enabled,
-    Focused,
-    MouseOver,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextInputState {

@@ -4,27 +4,15 @@ use anyhow::Result;
 use itertools::Itertools;
 use lightningcss::selector::{PseudoClass, Selector};
 use log::warn;
-use serde::{Deserialize, Serialize};
-use strum_macros::{Display, EnumString};
 
 use crate::{style::defaults, types::Point};
 
 use super::{
-    computed::{
-        convert_background, convert_border, convert_font, convert_main_color, convert_padding,
-        ComputedBackground, ComputedBorderStyle,
-    },
+    computed::{ComputedBackground, ComputedBorderStyle},
     css::{as_tag_with_class, is_root, is_tag_with_custom_class, is_tag_with_no_class},
+    css::{convert_background, convert_border, convert_font, convert_main_color, convert_padding},
     ElementState, FontStyle, Style,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumString, Display)]
-pub enum ButtonClass {
-    Enabled,
-    Focused,
-    MouseOver,
-    Pressed,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ButtonState {
