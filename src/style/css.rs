@@ -7,7 +7,7 @@ use lightningcss::{
         Property,
     },
     rules::CssRule,
-    selector::{Component, PseudoClass, Selector},
+    selector::{Component, PseudoClass, PseudoElement, Selector},
     stylesheet::StyleSheet,
 };
 use log::warn;
@@ -147,6 +147,16 @@ pub fn is_root(selector: &Selector) -> bool {
     })
 }
 
+pub fn is_selection(selector: &Selector) -> bool {
+    selector_items(selector).map_or(false, |items| {
+        items.len() == 1
+            && matches!(
+                items[0],
+                Component::PseudoElement(PseudoElement::Selection(_))
+            )
+    })
+}
+
 pub struct TagSelector<'a, 'b> {
     pub tag: &'a str,
     pub class: Option<&'a PseudoClass<'b>>,
@@ -192,7 +202,7 @@ pub fn is_tag_with_custom_class(selector: &Selector, tag: &str, class: &str) -> 
     })
 }
 
-fn as_custom_class<'a, 'b>(class: &'a PseudoClass<'b>) -> Option<&'a str> {
+fn as_custom_class<'a>(class: &'a PseudoClass<'_>) -> Option<&'a str> {
     if let PseudoClass::Custom { name } = class {
         Some(name)
     } else {

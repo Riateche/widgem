@@ -135,6 +135,12 @@ pub struct RelativeOffset {
     pub y: f32,
 }
 
+impl RelativeOffset {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
 /// A shader spreading mode.
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SpreadMode {

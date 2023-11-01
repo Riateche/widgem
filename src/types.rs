@@ -38,7 +38,7 @@ impl LpxSuffix for f32 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, From, Into)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, From, Into)]
 pub struct PhysicalPixels(i32);
 
 impl PhysicalPixels {

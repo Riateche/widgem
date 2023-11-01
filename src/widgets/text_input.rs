@@ -599,18 +599,12 @@ impl Widget for TextInput {
     }
 
     fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let size_y = self.editor.size().y as f32;
         let style = &self.common.style().text_input;
         let r = match mode {
-            SizeHintMode::Min => {
-                (size_y * style.min_aspect_ratio).round() as i32 + style.min_padding_with_border.x
-            }
-            SizeHintMode::Preferred => {
-                (size_y * style.preferred_aspect_ratio).round() as i32
-                    + style.preferred_padding_with_border.x
-            }
+            SizeHintMode::Min => style.min_width,
+            SizeHintMode::Preferred => style.preferred_width,
         };
-        Ok(r)
+        Ok(r.get())
     }
 
     fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {

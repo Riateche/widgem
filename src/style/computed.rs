@@ -5,14 +5,18 @@ use std::collections::HashMap;
 use anyhow::{bail, Context, Result};
 use lightningcss::{
     properties::{
+        border::{BorderSideWidth, LineStyle},
         font::{FontSize, LineHeight},
         size::Size,
         Property,
     },
     values::{
         color::CssColor,
-        length::{LengthPercentage, LengthPercentageOrAuto, LengthValue},
+        gradient::{Gradient, GradientItem, LineDirection, LinearGradient},
+        image::Image,
+        length::{Length, LengthPercentage, LengthPercentageOrAuto, LengthValue},
         percentage::DimensionPercentage,
+        position::{HorizontalPositionKeyword, VerticalPositionKeyword},
     },
 };
 use log::warn;
@@ -26,7 +30,7 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct ComputedStyleVariants<T: VariantStyle>(HashMap<T::State, T::Computed>);
+pub struct ComputedStyleVariants<T: VariantStyle>(pub(crate) HashMap<T::State, T::Computed>);
 
 const DEFAULT_LINE_HEIGHT: f32 = 1.2;
 
@@ -51,6 +55,16 @@ pub struct ComputedBorderStyle {
     pub width: PhysicalPixels,
     pub color: Color,
     pub radius: PhysicalPixels,
+}
+
+impl Default for ComputedBorderStyle {
+    fn default() -> Self {
+        Self {
+            width: Default::default(),
+            color: Color::TRANSPARENT,
+            radius: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -81,7 +95,7 @@ fn convert_length(value: &LengthValue, font_size: Option<LogicalPixels>) -> Resu
         LengthValue::Px(size) => Ok(size.lpx()),
         LengthValue::Em(size) => {
             if let Some(font_size) = font_size {
-                Ok((font_size * *size).into())
+                Ok(font_size * *size)
             } else {
                 bail!("unsupported value (em), font size is unknown");
             }
@@ -102,18 +116,35 @@ fn convert_font_size(size: &FontSize) -> Result<LogicalPixels> {
     bail!("unsupported font size, use px: {size:?}");
 }
 
+fn convert_dimension_percentage(
+    value: &DimensionPercentage<LengthValue>,
+    total: Option<LogicalPixels>,
+    font_size: Option<LogicalPixels>,
+) -> Result<LogicalPixels> {
+    match value {
+        DimensionPercentage::Dimension(value) => convert_length(value, font_size),
+        DimensionPercentage::Percentage(value) => {
+            if let Some(total) = total {
+                Ok(total * value.0)
+            } else {
+                bail!("percentage is unsupported in this context");
+            }
+        }
+        DimensionPercentage::Calc(_) => bail!("calc is unsupported"),
+    }
+}
+
 fn convert_line_height(value: &LineHeight, font_size: LogicalPixels) -> Result<LogicalPixels> {
     match value {
         LineHeight::Normal => Ok(font_size * DEFAULT_LINE_HEIGHT),
         LineHeight::Number(value) => Ok(font_size * *value),
-        LineHeight::Length(value) => match value {
-            DimensionPercentage::Dimension(value) => convert_length(value, Some(font_size)),
-            DimensionPercentage::Percentage(value) => Ok(font_size * value.0),
-            DimensionPercentage::Calc(_) => bail!("calc is unsupported"),
-        },
+        LineHeight::Length(value) => {
+            convert_dimension_percentage(value, Some(font_size), Some(font_size))
+        }
     }
 }
 
+// TODO: pass root properties instead?
 pub fn convert_font(
     properties: &[&Property<'static>],
     root: Option<&RootFontStyle>,
@@ -151,6 +182,19 @@ pub fn convert_font(
         font_size,
         line_height,
     })
+}
+
+pub fn convert_main_color(properties: &[&Property<'static>]) -> Result<Option<Color>> {
+    let mut color = None;
+    for property in properties {
+        match property {
+            Property::Color(value) => {
+                color = Some(convert_color(value)?);
+            }
+            _ => {}
+        }
+    }
+    Ok(color)
 }
 
 fn convert_single_padding(
@@ -207,12 +251,9 @@ pub fn convert_width(
         match property {
             Property::Width(value) => match value {
                 Size::Auto => {}
-                Size::LengthPercentage(value) => match value {
-                    DimensionPercentage::Dimension(value) => {
-                        width = Some(convert_length(value, Some(font_size))?);
-                    }
-                    _ => warn!("unsupported width value: {value:?}"),
-                },
+                Size::LengthPercentage(value) => {
+                    width = Some(convert_dimension_percentage(value, None, Some(font_size))?);
+                }
                 _ => warn!("unsupported width value: {value:?}"),
             },
             _ => {}
@@ -221,30 +262,190 @@ pub fn convert_width(
     Ok(width.map(|width| width.to_physical(scale)))
 }
 
+fn convert_border_width(width: &BorderSideWidth) -> Result<LogicalPixels> {
+    if let BorderSideWidth::Length(width) = width {
+        match width {
+            Length::Value(width) => convert_length(width, None),
+            Length::Calc(_) => bail!("calc is unsupported"),
+        }
+    } else {
+        bail!("unsupported border width (use explicit width): {width:?}");
+    }
+}
+
+pub fn convert_border(
+    properties: &[&Property<'static>],
+    scale: f32,
+    text_color: Color,
+) -> Result<ComputedBorderStyle> {
+    let mut width = None;
+    let mut color = None;
+    let mut radius = None;
+    let mut style = LineStyle::None;
+    for property in properties {
+        match property {
+            Property::Border(value) => {
+                width = Some(convert_border_width(&value.width)?);
+                color = Some(convert_color(&value.color)?);
+                style = value.style;
+            }
+            Property::BorderWidth(value) => {
+                // TODO: support different sides
+                width = Some(convert_border_width(&value.top)?);
+            }
+            Property::BorderColor(value) => {
+                color = Some(convert_color(&value.top)?);
+            }
+            Property::BorderStyle(value) => {
+                style = value.top;
+            }
+            Property::BorderRadius(value, _prefix) => {
+                radius = Some(convert_dimension_percentage(&value.top_left.0, None, None)?);
+            }
+            _ => {}
+        }
+    }
+
+    match style {
+        LineStyle::None => Ok(ComputedBorderStyle::default()),
+        LineStyle::Solid => Ok(ComputedBorderStyle {
+            width: width.unwrap_or_default().to_physical(scale),
+            color: color.unwrap_or(text_color),
+            radius: radius.unwrap_or_default().to_physical(scale),
+        }),
+        _ => bail!("unsupported border line style: {style:?}"),
+    }
+}
+
+fn convert_linear_gradient(value: &LinearGradient) -> Result<ComputedLinearGradient> {
+    let (start, end) = match value.direction {
+        LineDirection::Angle(_) => bail!("angle in unsupported in gradient"),
+        LineDirection::Horizontal(value) => match value {
+            HorizontalPositionKeyword::Left => {
+                (RelativeOffset::new(0.0, 0.0), RelativeOffset::new(1.0, 0.0))
+            }
+            HorizontalPositionKeyword::Right => {
+                (RelativeOffset::new(1.0, 0.0), RelativeOffset::new(0.0, 0.0))
+            }
+        },
+        LineDirection::Vertical(value) => match value {
+            VerticalPositionKeyword::Top => {
+                (RelativeOffset::new(0.0, 1.0), RelativeOffset::new(0.0, 0.0))
+            }
+            VerticalPositionKeyword::Bottom => {
+                (RelativeOffset::new(0.0, 0.0), RelativeOffset::new(0.0, 1.0))
+            }
+        },
+        LineDirection::Corner {
+            horizontal,
+            vertical,
+        } => match (horizontal, vertical) {
+            (HorizontalPositionKeyword::Left, VerticalPositionKeyword::Top) => {
+                (RelativeOffset::new(1.0, 1.0), RelativeOffset::new(0.0, 0.0))
+            }
+            (HorizontalPositionKeyword::Right, VerticalPositionKeyword::Top) => {
+                (RelativeOffset::new(0.0, 1.0), RelativeOffset::new(1.0, 0.0))
+            }
+            (HorizontalPositionKeyword::Left, VerticalPositionKeyword::Bottom) => {
+                (RelativeOffset::new(1.0, 0.0), RelativeOffset::new(0.0, 1.0))
+            }
+            (HorizontalPositionKeyword::Right, VerticalPositionKeyword::Bottom) => {
+                (RelativeOffset::new(0.0, 0.0), RelativeOffset::new(1.0, 1.0))
+            }
+        },
+    };
+    let mut stops = Vec::new();
+    for item in &value.items {
+        match item {
+            GradientItem::ColorStop(value) => {
+                let position = value
+                    .position
+                    .as_ref()
+                    .context("gradient stop without position is unsupported")?;
+                let position = match position {
+                    DimensionPercentage::Dimension(_) => {
+                        bail!("absolute position in gradient is unsupported")
+                    }
+                    DimensionPercentage::Percentage(value) => value.0,
+                    DimensionPercentage::Calc(_) => bail!("calc is unsupported"),
+                };
+                stops.push(GradientStop::new(position, convert_color(&value.color)?));
+            }
+            GradientItem::Hint(_) => bail!("gradient hints are not supported"),
+        }
+    }
+    Ok(ComputedLinearGradient {
+        start,
+        end,
+        stops,
+        mode: SpreadMode::Pad,
+    })
+}
+
+pub fn convert_background_color(properties: &[&Property<'static>]) -> Result<Option<Color>> {
+    let bg = convert_background(properties)?;
+    if let Some(bg) = bg {
+        match bg {
+            ComputedBackground::Solid { color } => Ok(Some(color)),
+            ComputedBackground::LinearGradient(_) => {
+                bail!("only background color is supported in this context")
+            }
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<ComputedBackground>> {
+    let mut color = None;
+    let mut gradient = None;
+    for property in properties {
+        match property {
+            Property::Background(backgrounds) => {
+                if backgrounds.is_empty() {
+                    warn!("empty vec in Property::Background");
+                    continue;
+                }
+                if backgrounds.len() > 1 {
+                    warn!("multiple backgrounds are not supported");
+                }
+                let background = &backgrounds[0];
+                color = Some(convert_color(&background.color)?);
+                match &background.image {
+                    Image::None => {}
+                    Image::Url(_) => bail!("url() is not supported in background"),
+                    Image::Gradient(value) => match &**value {
+                        Gradient::Linear(value) => {
+                            gradient = Some(convert_linear_gradient(value)?);
+                        }
+                        _ => bail!("unsupported gradient"),
+                    },
+                    Image::ImageSet(_) => bail!("ImageSet is not supported in background"),
+                }
+            }
+            Property::BackgroundColor(value) => {
+                color = Some(convert_color(value)?);
+            }
+            _ => {}
+        }
+    }
+    if let Some(gradient) = gradient {
+        if color.is_some() {
+            warn!("background color is unused because gradient is specified");
+        }
+        Ok(Some(ComputedBackground::LinearGradient(gradient)))
+    } else if let Some(color) = color {
+        Ok(Some(ComputedBackground::Solid { color }))
+    } else {
+        Ok(None)
+    }
+}
+
 impl ComputedStyle {
     #[allow(dead_code, unused)]
     pub fn new(style: &Style, scale: f32) -> Result<Self> {
-        let mut background = None;
         let root_properties = style.find_rules(is_root);
-        for property in &root_properties {
-            match property {
-                Property::Background(backgrounds) => {
-                    if backgrounds.is_empty() {
-                        warn!("empty vec in Property::Background");
-                        continue;
-                    }
-                    if backgrounds.len() > 1 {
-                        warn!("multiple backgrounds are not supported");
-                    }
-                    background = Some(convert_color(&backgrounds[0].color)?);
-                }
-                Property::BackgroundColor(color) => {
-                    background = Some(convert_color(color)?);
-                }
-                _ => {}
-            }
-        }
-
+        let background = convert_background_color(&root_properties)?;
         let font = convert_font(&root_properties, None)?;
 
         Ok(Self {

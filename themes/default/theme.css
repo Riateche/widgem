@@ -1,13 +1,15 @@
 :root {
     --foreground: #000000;
     --background: #ffffff;
-    --selected-text-color: #ffffff;
-    --selected-text-background: #308cc6;
 
     font-size: 13px;
     line-height: 18px;
     color: var(--foreground);
     background: var(--background);
+}
+::selection {
+    color: #ffffff;
+    background: #308cc6;
 }
 text-input {
     border: 1px solid #c8c8c8;
