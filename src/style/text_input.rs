@@ -25,6 +25,7 @@ use super::{
     },
     condition::ClassRules,
     css::{as_tag_with_class, is_tag_with_custom_class, is_tag_with_no_class},
+    defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
     Background, BorderStyle, ColorRef, ElementState, FontStyle, OldStyle, Padding, RootFontStyle,
     Style, VariantStyle,
 };
@@ -200,9 +201,6 @@ pub struct ComputedStyle {
 
 impl ComputedStyle {
     pub fn new(style: &Style, scale: f32, root_font: &RootFontStyle) -> Result<ComputedStyle> {
-        const DEFAULT_PREFERRED_WIDTH_EM: f32 = 10.0;
-        const DEFAULT_MIN_WIDTH_EM: f32 = 2.0;
-
         let properties = style.find_rules(|s| is_tag_with_no_class(s, "text-input"));
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;

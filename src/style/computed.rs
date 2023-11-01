@@ -464,7 +464,7 @@ impl ComputedStyle {
         Self {
             font_metrics: style.font.to_metrics(scale),
             text_input: text_input::ComputedStyle::old_new(&style, scale),
-            button: button::ComputedStyle::new(&style, scale),
+            button: button::ComputedStyle::old_new(&style, scale),
             background: style.palette.get(&ColorRef::background),
             scale,
         }

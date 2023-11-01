@@ -17,3 +17,6 @@ pub fn selected_text_color() -> Color {
 pub fn selected_text_background() -> Color {
     Color::from_rgba8(100, 100, 150, 255)
 }
+
+pub const DEFAULT_PREFERRED_WIDTH_EM: f32 = 10.0;
+pub const DEFAULT_MIN_WIDTH_EM: f32 = 2.0;

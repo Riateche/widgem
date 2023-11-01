@@ -71,7 +71,7 @@ impl Button {
         } else {
             ButtonState::Disabled
         };
-        self.common.style().button.variants.get(&state)
+        self.common.style().button.old_variants.get(&state)
     }
 }
 
@@ -85,7 +85,6 @@ impl Widget for Button {
                 top_left: Point::default(),
                 size,
             },
-            self.common.style().button.border_width,
             &style.border,
             style.background.as_ref(),
         );
@@ -177,8 +176,8 @@ impl Widget for Button {
     fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let style = &self.common.style().button;
         let padding = match mode {
-            SizeHintMode::Min => style.min_padding,
-            SizeHintMode::Preferred => style.preferred_padding,
+            SizeHintMode::Min => style.min_padding_with_border,
+            SizeHintMode::Preferred => style.preferred_padding_with_border,
         };
         Ok(self.editor.size().x + 2 * padding.x)
     }
@@ -187,8 +186,8 @@ impl Widget for Button {
         // TODO: use size_x, handle multiple lines
         let style = &self.common.style().button;
         let padding = match mode {
-            SizeHintMode::Min => style.min_padding,
-            SizeHintMode::Preferred => style.preferred_padding,
+            SizeHintMode::Min => style.min_padding_with_border,
+            SizeHintMode::Preferred => style.preferred_padding_with_border,
         };
         Ok(self.editor.size().y + 2 * padding.x)
     }
