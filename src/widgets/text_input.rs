@@ -220,7 +220,6 @@ impl TextInput {
         let style = &self.common.style().text_input;
         self.editor.set_font_metrics(style.font_metrics);
         let style = self.current_variant_style().clone();
-        println!("style changed {:?}", style.text_color);
         // TODO: support color changes based on state
         self.editor.set_text_color(style.text_color);
         self.editor

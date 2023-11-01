@@ -390,9 +390,6 @@ pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<Co
         }
     }
     if let Some(gradient) = gradient {
-        if color.is_some() {
-            warn!("background color is unused because gradient is specified");
-        }
         Ok(Some(ComputedBackground::LinearGradient(gradient)))
     } else if let Some(color) = color {
         Ok(Some(ComputedBackground::Solid { color }))
@@ -523,8 +520,11 @@ pub fn selector_items<'i, 'a>(selector: &'a Selector<'i>) -> Option<Vec<&'a Comp
     let mut iter = selector.iter();
     let components = (&mut iter).collect_vec();
     if iter.next_sequence().is_some() {
+        if iter.next().is_none() && iter.next_sequence().is_none() {
+            // workaround for "::selection"
+            return Some(components);
+        }
         warn!("nesting in CSS selectors is not supported (selector: {selector:?})");
-        // We don't support nesting in selectors.
         return None;
     }
     Some(components)
