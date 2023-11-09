@@ -22,12 +22,20 @@ use crate::{
 
 use super::{Widget, WidgetCommon};
 
+// TODO: pub(crate)
+pub enum Role1 {
+    Default,
+    ScrollLeft,
+    //...
+}
+
 pub struct Button {
     editor: TextEditor,
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
     is_pressed: bool,
     common: WidgetCommon,
+    role: Role1,
 }
 
 #[impl_with]
@@ -42,6 +50,7 @@ impl Button {
             on_clicked: None,
             is_pressed: false,
             common,
+            role: Role1::Default,
         }
     }
 
@@ -71,7 +80,17 @@ impl Button {
         } else {
             ButtonState::Disabled
         };
-        self.common.style().button.variants.get(&state).unwrap()
+        let style = match self.role {
+            Role1::Default => &self.common.style().button,
+            Role1::ScrollLeft => &self.common.style().scroll_bar.scroll_left,
+        };
+        style.variants.get(&state).unwrap()
+    }
+
+    // TODO: pub(crate)
+    pub fn set_role(&mut self, role: Role1) {
+        self.role = role;
+        self.common.update();
     }
 }
 

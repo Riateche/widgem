@@ -2,15 +2,17 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use itertools::Itertools;
-use lightningcss::selector::{PseudoClass, Selector};
 use log::warn;
 
 use crate::{style::defaults, types::Point};
 
 use super::{
     computed::{ComputedBackground, ComputedBorderStyle},
-    css::{as_tag_with_class, is_root, is_tag_with_custom_class, is_tag_with_no_class},
-    css::{convert_background, convert_border, convert_font, convert_main_color, convert_padding},
+    css::is_root,
+    css::{
+        convert_background, convert_border, convert_font, convert_main_color, convert_padding,
+        Element, MyPseudoClass,
+    },
     ElementState, FontStyle, Style,
 };
 
@@ -35,50 +37,30 @@ impl Default for ButtonState {
 }
 
 impl ButtonState {
-    pub fn matches(&self, selector: &Selector) -> bool {
-        if let Some(data) = as_tag_with_class(selector) {
-            if data.tag != "button" {
-                return false;
-            }
-            if let Some(class) = data.class {
-                match class {
-                    PseudoClass::Hover => {
-                        if let Self::Enabled { mouse_over, .. } = self {
-                            *mouse_over
-                        } else {
-                            false
-                        }
-                    }
-                    PseudoClass::Focus => {
-                        if let Self::Enabled { focused, .. } = self {
-                            *focused
-                        } else {
-                            false
-                        }
-                    }
-                    PseudoClass::Active => {
-                        if let Self::Enabled { pressed, .. } = self {
-                            *pressed
-                        } else {
-                            false
-                        }
-                    }
-                    PseudoClass::Disabled => match self {
-                        Self::Enabled { .. } => false,
-                        Self::Disabled => true,
-                    },
-                    PseudoClass::Enabled => match self {
-                        Self::Enabled { .. } => true,
-                        Self::Disabled => false,
-                    },
-                    _ => false,
+    pub fn element(&self) -> Element {
+        let mut element = Element::new("button");
+        match self {
+            Self::Enabled {
+                focused,
+                mouse_over,
+                pressed,
+            } => {
+                element.pseudo_classes.insert(MyPseudoClass::Enabled);
+                if *focused {
+                    element.pseudo_classes.insert(MyPseudoClass::Focus);
                 }
-            } else {
-                true
+                if *mouse_over {
+                    element.pseudo_classes.insert(MyPseudoClass::Hover);
+                }
+                if *pressed {
+                    element.pseudo_classes.insert(MyPseudoClass::Active);
+                }
             }
-        } else {
-            false
+            Self::Disabled => {
+                element.pseudo_classes.insert(MyPseudoClass::Disabled);
+            }
         }
+        element
     }
 }
 
@@ -117,22 +99,38 @@ pub struct ComputedStyle {
 }
 
 impl ComputedStyle {
-    pub fn new(style: &Style, scale: f32, root_font: &FontStyle) -> Result<ComputedStyle> {
-        let properties = style.find_rules(|s| is_tag_with_no_class(s, "button"));
+    pub fn new(
+        style: &Style,
+        scale: f32,
+        root_font: &FontStyle,
+        class: Option<&'static str>,
+    ) -> Result<ComputedStyle> {
+        let mut element = Element::new("button");
+        if let Some(class) = class {
+            element.classes.insert(class);
+        }
+
+        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
+
+        let properties = style.find_rules(|s| element.matches(s));
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
 
-        let min_properties = style.find_rules(|s| {
-            is_tag_with_no_class(s, "button") || is_tag_with_custom_class(s, "button", "min")
-        });
+        let min_properties = style.find_rules(|s| element_min.matches(s));
         let min_padding = convert_padding(&min_properties, scale, font.font_size)?;
 
         let variants = ButtonState::all()
             .into_iter()
             .map(|state| {
-                let rules = style.find_rules(|selector| state.matches(selector));
-                let rules_with_root =
-                    style.find_rules(|selector| is_root(selector) || state.matches(selector));
+                let mut element_variant = state.element();
+                if let Some(class) = class {
+                    element_variant.classes.insert(class);
+                }
+                println!("begin button variant find rules {element_variant:?}");
+                let rules = style.find_rules(|selector| element_variant.matches(selector));
+                println!("end button variant find rules {element_variant:?}");
+                let rules_with_root = style
+                    .find_rules(|selector| is_root(selector) || element_variant.matches(selector));
                 let text_color = convert_main_color(&rules_with_root)?.unwrap_or_else(|| {
                     warn!("main text color is unspecified");
                     defaults::text_color()
@@ -154,6 +152,14 @@ impl ComputedStyle {
             .expect("expected item for each state")
             .border
             .width;
+
+        println!(
+            "button style: {:?}",
+            variants
+                .get(&ButtonState::default())
+                .expect("expected item for each state")
+                .background
+        );
 
         Ok(Self {
             min_padding_with_border: min_padding

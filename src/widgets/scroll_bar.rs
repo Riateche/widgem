@@ -14,7 +14,10 @@ use log::warn;
 use salvation_macros::impl_with;
 use winit::event::{ElementState, MouseButton};
 
-use super::{button::Button, Widget, WidgetCommon, WidgetExt};
+use super::{
+    button::{self, Button},
+    Widget, WidgetCommon, WidgetExt,
+};
 
 pub struct ScrollBar {
     common: WidgetCommon,
@@ -36,7 +39,9 @@ impl ScrollBar {
         let mut common = WidgetCommon::new();
         // TODO: icons, localized name
         common.add_child(
-            Button::new("<").boxed(),
+            Button::new("<")
+                .with_role(button::Role1::ScrollLeft)
+                .boxed(),
             LayoutItemOptions::from_pos_in_grid(0, 0),
         );
         let slider = Button::new("|||");

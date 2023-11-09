@@ -1,6 +1,6 @@
 #![allow(clippy::single_match)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
@@ -357,8 +357,7 @@ pub fn convert_background_color(properties: &[&Property<'static>]) -> Result<Opt
 }
 
 pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<ComputedBackground>> {
-    let mut color = None;
-    let mut gradient = None;
+    let mut final_background = None;
     for property in properties {
         match property {
             Property::Background(backgrounds) => {
@@ -370,13 +369,17 @@ pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<Co
                     warn!("multiple backgrounds are not supported");
                 }
                 let background = &backgrounds[0];
-                color = Some(convert_color(&background.color)?);
+                final_background = Some(ComputedBackground::Solid {
+                    color: convert_color(&background.color)?,
+                });
                 match &background.image {
                     Image::None => {}
                     Image::Url(_) => bail!("url() is not supported in background"),
                     Image::Gradient(value) => match &**value {
                         Gradient::Linear(value) => {
-                            gradient = Some(convert_linear_gradient(value)?);
+                            final_background = Some(ComputedBackground::LinearGradient(
+                                convert_linear_gradient(value)?,
+                            ));
                         }
                         _ => bail!("unsupported gradient"),
                     },
@@ -384,18 +387,14 @@ pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<Co
                 }
             }
             Property::BackgroundColor(value) => {
-                color = Some(convert_color(value)?);
+                final_background = Some(ComputedBackground::Solid {
+                    color: convert_color(value)?,
+                });
             }
             _ => {}
         }
     }
-    if let Some(gradient) = gradient {
-        Ok(Some(ComputedBackground::LinearGradient(gradient)))
-    } else if let Some(color) = color {
-        Ok(Some(ComputedBackground::Solid { color }))
-    } else {
-        Ok(None)
-    }
+    Ok(final_background)
 }
 
 pub fn replace_vars(style_sheet: &mut StyleSheet) {
@@ -546,55 +545,140 @@ pub fn is_selection(selector: &Selector) -> bool {
     })
 }
 
-pub struct TagSelector<'a, 'b> {
-    pub tag: &'a str,
-    pub class: Option<&'a PseudoClass<'b>>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MyPseudoClass {
+    Hover,
+    Focus,
+    Active,
+    Enabled,
+    Disabled,
+    Min,
+    Other,
 }
 
-pub fn as_tag_with_class<'a, 'b>(selector: &'a Selector<'b>) -> Option<TagSelector<'a, 'b>> {
-    let items = selector_items(selector)?;
-    if items.len() > 2 {
-        return None;
-    }
-    Some(TagSelector {
-        tag: as_tag(items.get(0)?)?,
-        class: items.get(1).and_then(|i| as_class(i)),
-    })
-}
-
-fn as_tag<'a>(component: &'a Component<'_>) -> Option<&'a str> {
-    if let Component::LocalName(component) = component {
-        Some(&component.lower_name)
-    } else {
-        None
-    }
-}
-
-fn as_class<'a, 'b>(component: &'a Component<'b>) -> Option<&'a PseudoClass<'b>> {
-    if let Component::NonTSPseudoClass(component) = component {
-        Some(component)
-    } else {
-        None
-    }
-}
-
-pub fn is_tag_with_no_class(selector: &Selector, tag: &str) -> bool {
-    as_tag_with_class(selector).map_or(false, |data| data.tag == tag && data.class.is_none())
-}
-
-pub fn is_tag_with_custom_class(selector: &Selector, tag: &str, class: &str) -> bool {
-    as_tag_with_class(selector).map_or(false, |data| {
-        data.tag == tag
-            && data
-                .class
-                .map_or(false, |c| as_custom_class(c) == Some(class))
-    })
-}
-
-fn as_custom_class<'a>(class: &'a PseudoClass<'_>) -> Option<&'a str> {
-    if let PseudoClass::Custom { name } = class {
-        Some(name)
-    } else {
-        None
+impl<'a, 'b> From<&'a PseudoClass<'b>> for MyPseudoClass {
+    fn from(value: &'a PseudoClass<'b>) -> Self {
+        match value {
+            PseudoClass::Hover => Self::Hover,
+            PseudoClass::Focus => Self::Focus,
+            PseudoClass::Active => Self::Active,
+            PseudoClass::Enabled => Self::Enabled,
+            PseudoClass::Disabled => Self::Disabled,
+            PseudoClass::Custom { name } => {
+                if name.as_ref() == "min" {
+                    Self::Min
+                } else {
+                    Self::Other
+                }
+            }
+            _ => Self::Other,
+        }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Element {
+    pub tag: &'static str,
+    pub classes: HashSet<&'static str>,
+    pub pseudo_classes: HashSet<MyPseudoClass>,
+}
+
+impl Element {
+    pub fn new(tag: &'static str) -> Self {
+        Self {
+            tag,
+            classes: HashSet::new(),
+            pseudo_classes: HashSet::new(),
+        }
+    }
+
+    pub fn with_class(mut self, class: &'static str) -> Self {
+        self.classes.insert(class);
+        self
+    }
+
+    pub fn with_pseudo_class(mut self, class: MyPseudoClass) -> Self {
+        self.pseudo_classes.insert(class);
+        self
+    }
+
+    pub fn matches(&self, selector: &Selector) -> bool {
+        let Some(items) = selector_items(selector) else {
+            return false;
+        };
+        for item in items {
+            match item {
+                Component::NonTSPseudoClass(c) => {
+                    if !self.pseudo_classes.contains(&c.into()) {
+                        return false;
+                    }
+                }
+                Component::Class(c) => {
+                    if !self.classes.contains(c.as_ref()) {
+                        return false;
+                    }
+                }
+                Component::LocalName(name) => {
+                    if self.tag != name.lower_name.as_ref() {
+                        return false;
+                    }
+                }
+                _ => return false,
+            }
+        }
+        true
+    }
+}
+
+// pub struct TagSelector<'a, 'b> {
+//     pub tag: &'a str,
+//     pub class: Option<&'a PseudoClass<'b>>,
+// }
+
+// pub fn as_tag_with_class<'a, 'b>(selector: &'a Selector<'b>) -> Option<TagSelector<'a, 'b>> {
+//     let items = selector_items(selector)?;
+//     if items.len() > 2 {
+//         return None;
+//     }
+//     Some(TagSelector {
+//         tag: as_tag(items.get(0)?)?,
+//         class: items.get(1).and_then(|i| as_class(i)),
+//     })
+// }
+
+// fn as_tag<'a>(component: &'a Component<'_>) -> Option<&'a str> {
+//     if let Component::LocalName(component) = component {
+//         Some(&component.lower_name)
+//     } else {
+//         None
+//     }
+// }
+
+// fn as_class<'a, 'b>(component: &'a Component<'b>) -> Option<&'a PseudoClass<'b>> {
+//     if let Component::NonTSPseudoClass(component) = component {
+//         Some(component)
+//     } else {
+//         None
+//     }
+// }
+
+// pub fn is_tag_with_no_class(selector: &Selector, tag: &str) -> bool {
+//     as_tag_with_class(selector).map_or(false, |data| data.tag == tag && data.class.is_none())
+// }
+
+// pub fn is_tag_with_custom_class(selector: &Selector, tag: &str, class: &str) -> bool {
+//     as_tag_with_class(selector).map_or(false, |data| {
+//         data.tag == tag
+//             && data
+//                 .class
+//                 .map_or(false, |c| as_custom_class(c) == Some(class))
+//     })
+// }
+
+// fn as_custom_class<'a>(class: &'a PseudoClass<'_>) -> Option<&'a str> {
+//     if let PseudoClass::Custom { name } = class {
+//         Some(name)
+//     } else {
+//         None
+//     }
+// }

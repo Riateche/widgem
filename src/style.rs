@@ -16,6 +16,7 @@ pub mod button;
 pub mod computed;
 mod css;
 pub mod defaults;
+pub mod scroll_bar;
 pub mod text_input;
 
 pub trait ElementState: Eq + Hash + Sized {
@@ -99,6 +100,7 @@ impl Style {
             if let CssRule::Style(rule) = rule {
                 for selector in &rule.selectors.0 {
                     if check_selector(selector) {
+                        println!("matching selector: {selector:?}");
                         results.extend(rule.declarations.iter().map(|(dec, _important)| dec));
                     }
                 }

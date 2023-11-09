@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use itertools::Itertools;
-use lightningcss::selector::{PseudoClass, Selector};
 use log::warn;
 
 use crate::{
@@ -16,10 +15,7 @@ use crate::{
 
 use super::{
     computed::{ComputedBackground, ComputedBorderStyle},
-    css::{
-        as_tag_with_class, convert_font, convert_padding, convert_width, is_tag_with_custom_class,
-        is_tag_with_no_class,
-    },
+    css::{convert_font, convert_padding, convert_width, Element, MyPseudoClass},
     defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
     ElementState, FontStyle, Style,
 };
@@ -40,43 +36,26 @@ impl Default for TextInputState {
 }
 
 impl TextInputState {
-    pub fn matches(&self, selector: &Selector) -> bool {
-        if let Some(data) = as_tag_with_class(selector) {
-            if data.tag != "text-input" {
-                return false;
-            }
-            if let Some(class) = data.class {
-                match class {
-                    PseudoClass::Hover => {
-                        if let TextInputState::Enabled { mouse_over, .. } = self {
-                            *mouse_over
-                        } else {
-                            false
-                        }
-                    }
-                    PseudoClass::Focus => {
-                        if let TextInputState::Enabled { focused, .. } = self {
-                            *focused
-                        } else {
-                            false
-                        }
-                    }
-                    PseudoClass::Disabled => match self {
-                        TextInputState::Enabled { .. } => false,
-                        TextInputState::Disabled => true,
-                    },
-                    PseudoClass::Enabled => match self {
-                        TextInputState::Enabled { .. } => true,
-                        TextInputState::Disabled => false,
-                    },
-                    _ => false,
+    pub fn element(&self) -> Element {
+        let mut element = Element::new("text-input");
+        match self {
+            Self::Enabled {
+                focused,
+                mouse_over,
+            } => {
+                element.pseudo_classes.insert(MyPseudoClass::Enabled);
+                if *focused {
+                    element.pseudo_classes.insert(MyPseudoClass::Focus);
                 }
-            } else {
-                true
+                if *mouse_over {
+                    element.pseudo_classes.insert(MyPseudoClass::Hover);
+                }
             }
-        } else {
-            false
+            Self::Disabled => {
+                element.pseudo_classes.insert(MyPseudoClass::Disabled);
+            }
         }
+        element
     }
 }
 
@@ -108,16 +87,16 @@ pub struct ComputedStyle {
 
 impl ComputedStyle {
     pub fn new(style: &Style, scale: f32, root_font: &FontStyle) -> Result<ComputedStyle> {
-        let properties = style.find_rules(|s| is_tag_with_no_class(s, "text-input"));
+        let element = Element::new("text-input");
+        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
+
+        let properties = style.find_rules(|s| element.matches(s));
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
         let preferred_width = convert_width(&properties, scale, font.font_size)?
             .unwrap_or_else(|| (font.font_size * DEFAULT_PREFERRED_WIDTH_EM).to_physical(scale));
 
-        let min_properties = style.find_rules(|s| {
-            is_tag_with_no_class(s, "text-input")
-                || is_tag_with_custom_class(s, "text-input", "min")
-        });
+        let min_properties = style.find_rules(|s| element_min.matches(s));
         let min_padding = convert_padding(&min_properties, scale, font.font_size)?;
         let min_width = convert_width(&min_properties, scale, font.font_size)?
             .unwrap_or_else(|| (font.font_size * DEFAULT_MIN_WIDTH_EM).to_physical(scale));
@@ -137,9 +116,10 @@ impl ComputedStyle {
         let variants = TextInputState::all()
             .into_iter()
             .map(|state| {
-                let rules = style.find_rules(|selector| state.matches(selector));
+                let element = state.element();
+                let rules = style.find_rules(|selector| element.matches(selector));
                 let rules_with_root =
-                    style.find_rules(|selector| is_root(selector) || state.matches(selector));
+                    style.find_rules(|selector| is_root(selector) || element.matches(selector));
                 let text_color = convert_main_color(&rules_with_root)?.unwrap_or_else(|| {
                     warn!("main text color is unspecified");
                     defaults::text_color()
