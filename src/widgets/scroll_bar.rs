@@ -39,8 +39,9 @@ impl ScrollBar {
         let mut common = WidgetCommon::new();
         // TODO: icons, localized name
         common.add_child(
-            Button::new("<")
+            Button::new("scroll left")
                 .with_role(button::Role1::ScrollLeft)
+                .with_text_visible(false)
                 .boxed(),
             LayoutItemOptions::from_pos_in_grid(0, 0),
         );

@@ -47,6 +47,5 @@ button:focus {
     border-color: #26709e;
 }
 button.scroll_left {
-    background: red;
-    /* content: url('scroll_left.svg'); */
+    content: url('scroll_left.svg');
 }

@@ -3,7 +3,14 @@ use tiny_skia::Color;
 use super::Style;
 
 pub fn default_style() -> Style {
-    Style::load(include_str!("../../themes/default/theme.css")).unwrap()
+    Style::load_bundled(
+        include_str!("../../themes/default/theme.css"),
+        [(
+            "scroll_left.svg",
+            &include_bytes!("../../themes/default/scroll_left.svg")[..],
+        )],
+    )
+    .unwrap()
 }
 
 pub fn text_color() -> Color {

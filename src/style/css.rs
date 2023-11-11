@@ -397,6 +397,32 @@ pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<Co
     Ok(final_background)
 }
 
+pub fn convert_content_url(properties: &[&Property<'static>]) -> Result<Option<String>> {
+    let mut final_url = None;
+    for property in properties {
+        match property {
+            Property::Custom(property) => {
+                if let CustomPropertyName::Unknown(name) = &property.name {
+                    if name.as_ref() == "content" {
+                        if property.value.0.len() != 1 {
+                            warn!("expected 1 token in content proprety");
+                            continue;
+                        }
+                        if let TokenOrValue::Url(url) = &property.value.0[0] {
+                            final_url = Some(url.url.to_string());
+                        } else {
+                            warn!("expected url() in content proprety");
+                            continue;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(final_url)
+}
+
 pub fn replace_vars(style_sheet: &mut StyleSheet) {
     //let mut style_sheet: StyleSheet<'static, 'static> = style_sheet.into_owned();
     let mut vars = HashMap::new();

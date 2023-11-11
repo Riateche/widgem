@@ -1,9 +1,10 @@
-use std::{cmp::max, fmt::Display};
+use std::{cmp::max, fmt::Display, rc::Rc};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use anyhow::Result;
 use cosmic_text::Attrs;
 use salvation_macros::impl_with;
+use tiny_skia::Pixmap;
 use winit::event::MouseButton;
 
 use crate::{
@@ -13,7 +14,7 @@ use crate::{
         AccessibleActionEvent, FocusReason, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
     },
     layout::SizeHintMode,
-    style::button::{ButtonState, ComputedVariantStyle},
+    style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
     system::send_window_request,
     text_editor::TextEditor,
     types::{Point, Rect},
@@ -31,6 +32,8 @@ pub enum Role1 {
 
 pub struct Button {
     editor: TextEditor,
+    icon: Option<Rc<Pixmap>>,
+    text_visible: bool,
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
     is_pressed: bool,
@@ -47,6 +50,8 @@ impl Button {
         editor.set_cursor_hidden(true);
         Self {
             editor,
+            icon: None,
+            text_visible: true,
             on_clicked: None,
             is_pressed: false,
             common,
@@ -60,6 +65,19 @@ impl Button {
         self.common.update();
     }
 
+    pub fn set_text_visible(&mut self, value: bool) {
+        self.text_visible = value;
+        self.common.size_hint_changed();
+        self.common.update();
+    }
+
+    // TODO: set_icon should preferably work with SVG icons
+    // pub fn set_icon(&mut self, icon: Option<Rc<Pixmap>>) {
+    //     self.icon = icon;
+    //     self.common.size_hint_changed();
+    //     self.common.update();
+    // }
+
     pub fn on_clicked(&mut self, callback: Callback<String>) {
         self.on_clicked = Some(callback);
     }
@@ -67,6 +85,13 @@ impl Button {
     fn click(&mut self) {
         if let Some(on_clicked) = &self.on_clicked {
             on_clicked.invoke(self.editor.text());
+        }
+    }
+
+    fn current_style(&self) -> &ComputedStyle {
+        match self.role {
+            Role1::Default => &self.common.style().button,
+            Role1::ScrollLeft => &self.common.style().scroll_bar.scroll_left,
         }
     }
 
@@ -80,16 +105,14 @@ impl Button {
         } else {
             ButtonState::Disabled
         };
-        let style = match self.role {
-            Role1::Default => &self.common.style().button,
-            Role1::ScrollLeft => &self.common.style().scroll_bar.scroll_left,
-        };
-        style.variants.get(&state).unwrap()
+        self.current_style().variants.get(&state).unwrap()
     }
 
     // TODO: pub(crate)
     pub fn set_role(&mut self, role: Role1) {
         self.role = role;
+        self.icon = self.current_style().icon.clone();
+        self.common.size_hint_changed();
         self.common.update();
     }
 }
@@ -108,13 +131,24 @@ impl Widget for Button {
             style.background.as_ref(),
         );
 
-        self.editor.set_text_color(style.text_color);
-        let editor_pixmap = self.editor.pixmap();
-        let padding = Point {
-            x: max(0, size.x - editor_pixmap.width() as i32) / 2,
-            y: max(0, size.y - editor_pixmap.height() as i32) / 2,
-        };
-        event.draw_pixmap(padding, editor_pixmap.as_ref());
+        if self.text_visible {
+            self.editor.set_text_color(style.text_color);
+            let editor_pixmap = self.editor.pixmap();
+            let padding = Point {
+                x: max(0, size.x - editor_pixmap.width() as i32) / 2,
+                y: max(0, size.y - editor_pixmap.height() as i32) / 2,
+            };
+            event.draw_pixmap(padding, editor_pixmap.as_ref());
+        }
+
+        // TODO: display icon and text side by side if both are present
+        if let Some(icon) = &self.icon {
+            let pos = Point {
+                x: max(0, size.x - icon.width() as i32) / 2,
+                y: max(0, size.y - icon.height() as i32) / 2,
+            };
+            event.draw_pixmap(pos, (**icon).as_ref());
+        }
         Ok(())
     }
 
@@ -198,7 +232,17 @@ impl Widget for Button {
             SizeHintMode::Min => style.min_padding_with_border,
             SizeHintMode::Preferred => style.preferred_padding_with_border,
         };
-        Ok(self.editor.size().x + 2 * padding.x)
+
+        // TODO: support text with icon
+        let content_size = if self.text_visible {
+            self.editor.size().x
+        } else if let Some(icon) = &self.icon {
+            icon.width() as i32
+        } else {
+            0
+        };
+
+        Ok(content_size + 2 * padding.x)
     }
 
     fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
@@ -208,6 +252,16 @@ impl Widget for Button {
             SizeHintMode::Min => style.min_padding_with_border,
             SizeHintMode::Preferred => style.preferred_padding_with_border,
         };
-        Ok(self.editor.size().y + 2 * padding.x)
+
+        // TODO: support text with icon
+        let content_size = if self.text_visible {
+            self.editor.size().y
+        } else if let Some(icon) = &self.icon {
+            icon.height() as i32
+        } else {
+            0
+        };
+
+        Ok(content_size + 2 * padding.x)
     }
 }

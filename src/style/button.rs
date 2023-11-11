@@ -1,10 +1,14 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use anyhow::Result;
 use itertools::Itertools;
 use log::warn;
+use tiny_skia::Pixmap;
 
-use crate::{style::defaults, types::Point};
+use crate::{
+    style::{css::convert_content_url, defaults},
+    types::Point,
+};
 
 use super::{
     computed::{ComputedBackground, ComputedBorderStyle},
@@ -96,6 +100,7 @@ pub struct ComputedStyle {
     pub preferred_padding_with_border: Point,
     pub font_metrics: cosmic_text::Metrics,
     pub variants: HashMap<ButtonState, ComputedVariantStyle>,
+    pub icon: Option<Rc<Pixmap>>,
 }
 
 impl ComputedStyle {
@@ -115,6 +120,11 @@ impl ComputedStyle {
         let properties = style.find_rules(|s| element.matches(s));
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
+        let icon = if let Some(url) = convert_content_url(&properties)? {
+            Some(style.load_pixmap(&url, scale)?)
+        } else {
+            None
+        };
 
         let min_properties = style.find_rules(|s| element_min.matches(s));
         let min_padding = convert_padding(&min_properties, scale, font.font_size)?;
@@ -167,6 +177,7 @@ impl ComputedStyle {
             preferred_padding_with_border: preferred_padding
                 + Point::new(border_width.get(), border_width.get()),
             font_metrics: font.to_metrics(scale),
+            icon,
             variants,
         })
     }
