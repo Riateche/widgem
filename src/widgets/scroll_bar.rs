@@ -386,12 +386,10 @@ impl Widget for ScrollBar {
         grid::size_hint_x(&mut self.common.children, &options, mode)
     }
     fn is_size_hint_x_fixed(&mut self) -> bool {
-        let options = self.grid_options();
-        grid::is_size_hint_x_fixed(&mut self.common.children, &options)
+        self.axis == Axis::Y
     }
     fn is_size_hint_y_fixed(&mut self) -> bool {
-        let options = self.grid_options();
-        grid::is_size_hint_y_fixed(&mut self.common.children, &options)
+        self.axis == Axis::X
     }
     fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let options = self.grid_options();
@@ -431,19 +429,19 @@ impl Widget for Pager {
     fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         match self.axis {
             Axis::X => Ok(SLIDER_LENGTH * 2),
-            Axis::Y => Ok(36),
+            Axis::Y => Ok(0),
         }
     }
     fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
         match self.axis {
-            Axis::X => Ok(36),
+            Axis::X => Ok(0),
             Axis::Y => Ok(SLIDER_LENGTH * 2),
         }
     }
     fn is_size_hint_x_fixed(&mut self) -> bool {
-        self.axis == Axis::Y
+        false
     }
     fn is_size_hint_y_fixed(&mut self) -> bool {
-        self.axis == Axis::X
+        false
     }
 }
