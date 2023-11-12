@@ -33,19 +33,26 @@ pub struct ScrollBar {
 
 const SLIDER_LENGTH: i32 = 60;
 
+mod names {
+    pub const SCROLL_LEFT: &str = "scroll left";
+    pub const SCROLL_RIGHT: &str = "scroll right";
+    pub const SCROLL_UP: &str = "scroll up";
+    pub const SCROLL_DOWN: &str = "scroll down";
+    pub const SCROLL_GRIP: &str = "scroll grip";
+}
+
 #[impl_with]
 impl ScrollBar {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
-        // TODO: icons, localized name
+        // TODO: localized name
         common.add_child(
-            Button::new("scroll left")
+            Button::new(names::SCROLL_LEFT)
                 .with_role(button::Role1::ScrollLeft)
                 .with_text_visible(false)
                 .boxed(),
             LayoutItemOptions::from_pos_in_grid(0, 0),
         );
-        let slider = Button::new("|||");
 
         let axis = Axis::X;
         common.add_child(
@@ -53,10 +60,19 @@ impl ScrollBar {
             LayoutItemOptions::from_pos_in_grid(1, 0),
         );
         common.add_child(
-            Button::new(">").boxed(),
+            Button::new(names::SCROLL_RIGHT)
+                .with_role(button::Role1::ScrollRight)
+                .with_text_visible(false)
+                .boxed(),
             LayoutItemOptions::from_pos_in_grid(2, 0),
         );
-        common.add_child(slider.boxed(), LayoutItemOptions::default());
+        common.add_child(
+            Button::new(names::SCROLL_GRIP)
+                .with_role(button::Role1::ScrollGripX)
+                .with_text_visible(false)
+                .boxed(),
+            LayoutItemOptions::default(),
+        );
         let mut this = Self {
             common,
             axis,
@@ -91,6 +107,26 @@ impl ScrollBar {
         self.axis = axis;
         match axis {
             Axis::X => {
+                let button1 = self.common.children[0]
+                    .widget
+                    .downcast_mut::<Button>()
+                    .unwrap();
+                button1.set_text(names::SCROLL_LEFT);
+                button1.set_role(button::Role1::ScrollLeft);
+
+                let button2 = self.common.children[2]
+                    .widget
+                    .downcast_mut::<Button>()
+                    .unwrap();
+                button2.set_text(names::SCROLL_RIGHT);
+                button2.set_role(button::Role1::ScrollRight);
+
+                self.common.children[3]
+                    .widget
+                    .downcast_mut::<Button>()
+                    .unwrap()
+                    .set_role(button::Role1::ScrollGripX);
+
                 self.common
                     .set_child_options(1, LayoutItemOptions::from_pos_in_grid(1, 0))
                     .unwrap();
@@ -99,6 +135,26 @@ impl ScrollBar {
                     .unwrap();
             }
             Axis::Y => {
+                let button1 = self.common.children[0]
+                    .widget
+                    .downcast_mut::<Button>()
+                    .unwrap();
+                button1.set_text(names::SCROLL_UP);
+                button1.set_role(button::Role1::ScrollUp);
+
+                self.common.children[3]
+                    .widget
+                    .downcast_mut::<Button>()
+                    .unwrap()
+                    .set_role(button::Role1::ScrollGripY);
+
+                let button2 = self.common.children[2]
+                    .widget
+                    .downcast_mut::<Button>()
+                    .unwrap();
+                button2.set_text(names::SCROLL_DOWN);
+                button2.set_role(button::Role1::ScrollDown);
+
                 self.common
                     .set_child_options(1, LayoutItemOptions::from_pos_in_grid(0, 1))
                     .unwrap();
@@ -281,6 +337,20 @@ impl Widget for ScrollBar {
         &mut self.common
     }
 
+    fn handle_draw(&mut self, event: crate::draw::DrawEvent) -> Result<()> {
+        let size = self.common.size_or_err()?;
+        let style = &self.common.style().scroll_bar;
+        event.stroke_and_fill_rounded_rect(
+            Rect {
+                top_left: Point::default(),
+                size,
+            },
+            &style.border,
+            style.background.as_ref(),
+        );
+        Ok(())
+    }
+
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let options = self.grid_options();
         let size = self.common.size_or_err()?;
@@ -361,12 +431,12 @@ impl Widget for Pager {
     fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         match self.axis {
             Axis::X => Ok(SLIDER_LENGTH * 2),
-            Axis::Y => Ok(45),
+            Axis::Y => Ok(36),
         }
     }
     fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
         match self.axis {
-            Axis::X => Ok(45),
+            Axis::X => Ok(36),
             Axis::Y => Ok(SLIDER_LENGTH * 2),
         }
     }

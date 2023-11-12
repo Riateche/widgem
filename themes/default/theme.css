@@ -46,6 +46,41 @@ button:active {
 button:focus {
     border-color: #26709e;
 }
+button.scroll_left,
+button.scroll_right,
+button.scroll_up,
+button.scroll_down,
+button.scroll_grip_x,
+button.scroll_grip_y {
+    border-radius: 0;
+}
+button.scroll_left,
+button.scroll_right {
+    padding: 2px 4px;
+}
+button.scroll_up,
+button.scroll_down {
+    padding: 4px 2px;
+}
+scroll-bar {
+    border: 1px solid #c4c4c4;
+    background: #e6e6e6;
+}
 button.scroll_left {
     content: url('scroll_left.svg');
+}
+button.scroll_right {
+    content: url('scroll_right.svg');
+}
+button.scroll_up {
+    content: url('scroll_up.svg');
+}
+button.scroll_down {
+    content: url('scroll_down.svg');
+}
+button.scroll_grip_x {
+    content: url('scroll_grip_x.svg');
+}
+button.scroll_grip_y {
+    content: url('scroll_grip_y.svg');
 }

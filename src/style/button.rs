@@ -136,9 +136,7 @@ impl ComputedStyle {
                 if let Some(class) = class {
                     element_variant.classes.insert(class);
                 }
-                println!("begin button variant find rules {element_variant:?}");
                 let rules = style.find_rules(|selector| element_variant.matches(selector));
-                println!("end button variant find rules {element_variant:?}");
                 let rules_with_root = style
                     .find_rules(|selector| is_root(selector) || element_variant.matches(selector));
                 let text_color = convert_main_color(&rules_with_root)?.unwrap_or_else(|| {

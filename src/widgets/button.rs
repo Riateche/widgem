@@ -27,7 +27,11 @@ use super::{Widget, WidgetCommon};
 pub enum Role1 {
     Default,
     ScrollLeft,
-    //...
+    ScrollRight,
+    ScrollUp,
+    ScrollDown,
+    ScrollGripX,
+    ScrollGripY,
 }
 
 pub struct Button {
@@ -92,6 +96,11 @@ impl Button {
         match self.role {
             Role1::Default => &self.common.style().button,
             Role1::ScrollLeft => &self.common.style().scroll_bar.scroll_left,
+            Role1::ScrollRight => &self.common.style().scroll_bar.scroll_right,
+            Role1::ScrollUp => &self.common.style().scroll_bar.scroll_up,
+            Role1::ScrollDown => &self.common.style().scroll_bar.scroll_down,
+            Role1::ScrollGripX => &self.common.style().scroll_bar.scroll_grip_x,
+            Role1::ScrollGripY => &self.common.style().scroll_bar.scroll_grip_y,
         }
     }
 
