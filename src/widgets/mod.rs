@@ -739,7 +739,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::MouseInput(event) => {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
-                    for child in &mut self.common_mut().children {
+                    for child in self.common_mut().children.iter_mut().rev() {
                         if let Some(rect_in_parent) = child.rect_in_parent {
                             if let Some(child_event) = event.map_to_child(rect_in_parent) {
                                 if child.widget.dispatch(child_event.into()) {
@@ -757,7 +757,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::MouseMove(event) => {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
-                    for child in &mut self.common_mut().children {
+                    for child in self.common_mut().children.iter_mut().rev() {
                         if let Some(rect_in_parent) = child.rect_in_parent {
                             if rect_in_parent.contains(event.pos) {
                                 let event = MouseMoveEvent {
