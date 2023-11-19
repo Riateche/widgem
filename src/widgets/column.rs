@@ -67,12 +67,14 @@ impl Column {
                 min_spacing: 0,
                 preferred_padding: 0,
                 preferred_spacing: 0,
+                border_collapse: 0,
             },
             y: GridAxisOptions {
                 min_padding: 0,
                 min_spacing: SPACING,
                 preferred_padding: 0,
                 preferred_spacing: SPACING,
+                border_collapse: 0,
             },
         }
     }

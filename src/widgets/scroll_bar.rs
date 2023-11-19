@@ -291,18 +291,21 @@ impl ScrollBar {
     }
 
     fn grid_options(&self) -> GridOptions {
+        let border_collapse = self.common.style().scroll_bar.border_collapse.get();
         GridOptions {
             x: GridAxisOptions {
                 min_padding: 0,
                 min_spacing: 0,
                 preferred_padding: 0,
                 preferred_spacing: 0,
+                border_collapse,
             },
             y: GridAxisOptions {
                 min_padding: 0,
                 min_spacing: 0,
                 preferred_padding: 0,
                 preferred_spacing: 0,
+                border_collapse,
             },
         }
     }

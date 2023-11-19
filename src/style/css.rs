@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use lightningcss::{
-    properties::custom::{CustomPropertyName, TokenOrValue},
+    properties::custom::{CustomPropertyName, Token, TokenOrValue},
     rules::CssRule,
     selector::{Component, PseudoClass, PseudoElement, Selector},
     stylesheet::StyleSheet,
@@ -395,6 +395,42 @@ pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<Co
         }
     }
     Ok(final_background)
+}
+
+pub fn get_border_collapse(properties: &[&Property<'static>]) -> bool {
+    let mut value = false;
+    for property in properties {
+        match property {
+            Property::Custom(property) => {
+                if let CustomPropertyName::Unknown(name) = &property.name {
+                    if name.as_ref() == "border-collapse" {
+                        if property.value.0.len() != 1 {
+                            warn!("expected 1 token in border-collapse proprety");
+                            continue;
+                        }
+                        if let TokenOrValue::Token(Token::Ident(ident)) = &property.value.0[0] {
+                            match ident.as_ref() {
+                                "collapse" => {
+                                    value = true;
+                                }
+                                "separate" => {
+                                    value = false;
+                                }
+                                _ => {
+                                    warn!("invalid value of border-collapse proprety: {ident:?}");
+                                }
+                            }
+                        } else {
+                            warn!("expected ident in border-collapse proprety");
+                            continue;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    value
 }
 
 pub fn convert_content_url(properties: &[&Property<'static>]) -> Result<Option<String>> {

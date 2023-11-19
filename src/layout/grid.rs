@@ -25,6 +25,7 @@ pub struct GridAxisOptions {
     pub min_spacing: i32,
     pub preferred_padding: i32,
     pub preferred_spacing: i32,
+    pub border_collapse: i32,
 }
 
 fn size_hint(
@@ -63,7 +64,7 @@ fn size_hint(
     };
     Ok(max_per_column.values().sum::<i32>()
         + 2 * padding
-        + max_per_column.len().saturating_sub(1) as i32 * spacing)
+        + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse))
 }
 
 pub fn size_hint_x(items: &mut [Child], options: &GridOptions, mode: SizeHintMode) -> Result<i32> {

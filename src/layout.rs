@@ -112,7 +112,7 @@ pub(crate) fn solve_layout(
     let mut output = SolveLayoutOutput {
         sizes: Vec::new(),
         padding: options.preferred_padding,
-        spacing: options.preferred_spacing,
+        spacing: options.preferred_spacing - options.border_collapse,
     };
     if items.is_empty() {
         return output;
@@ -121,7 +121,8 @@ pub(crate) fn solve_layout(
         0,
         total
             - 2 * options.preferred_padding
-            - items.len().saturating_sub(1) as i32 * options.preferred_spacing,
+            - items.len().saturating_sub(1) as i32
+                * (options.preferred_spacing - options.border_collapse),
     );
     let total_preferred: i32 = items.iter().map(|item| item.size_hints.preferred).sum();
     if total_preferred == total {

@@ -39,6 +39,7 @@ button:disabled {
 }
 button:hover {
     background: linear-gradient(#fefefe 0%, #f7f7f7 100%);
+    /* background: linear-gradient(#fefefe 0%, #00ff00 100%); */
 }
 button:active {
     background: #dbdbdb;
@@ -65,6 +66,7 @@ button.scroll_down {
 scroll-bar {
     border: 1px solid #c4c4c4;
     background: #e6e6e6;
+    border-collapse: collapse;
 }
 button.scroll_left {
     content: url('scroll_left.svg');
