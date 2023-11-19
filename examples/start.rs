@@ -118,7 +118,7 @@ impl State {
         root.add_child(label2.widget.boxed());
 
         let mut content = Column::new();
-        for i in 1..=20 {
+        for i in 1..=8 {
             content.add_child(Button::new(format!("btn{i}")).boxed());
         }
 

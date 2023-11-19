@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{cmp::max, ops::RangeInclusive};
 
 use crate::{
     callback::Callback,
@@ -30,8 +30,6 @@ pub struct ScrollBar {
     slider_grab_pos: Option<(Point, i32)>,
     value_changed: Option<Callback<i32>>,
 }
-
-const SLIDER_LENGTH: i32 = 60;
 
 mod names {
     pub const SCROLL_LEFT: &str = "scroll left";
@@ -281,9 +279,12 @@ impl ScrollBar {
             Axis::X => Point::new(self.current_slider_pos, 0),
             Axis::Y => Point::new(0, self.current_slider_pos),
         };
-        self.common
-            .set_child_rect(3, Some(self.starting_slider_rect.translate(shift)))
-            .unwrap();
+        let rect = if self.value_range.start() == self.value_range.end() {
+            None
+        } else {
+            Some(self.starting_slider_rect.translate(shift))
+        };
+        self.common.set_child_rect(3, rect).unwrap();
     }
 
     pub fn value(&self) -> i32 {
@@ -360,13 +361,33 @@ impl Widget for ScrollBar {
         let rects = grid::layout(&mut self.common.children, &options, size)?;
         self.common.set_child_rects(&rects)?;
         let pager_rect = rects.get(&1).unwrap();
+        let grip_size_hint_x = self.common.children[3]
+            .widget
+            .cached_size_hint_x(SizeHintMode::Preferred);
+        let grip_size_hint_y = self.common.children[3]
+            .widget
+            .cached_size_hint_y(grip_size_hint_x, SizeHintMode::Preferred);
 
-        //let slider_size_x = self.common.children[3].widget.cached_size_hint_x(SizeHintMode::Preferred)
+        let (size_along_axis, grip_min_size_along_axis, pager_size_along_axis) = match self.axis {
+            Axis::X => (size.x, grip_size_hint_x, pager_rect.size.x),
+            Axis::Y => (size.y, grip_size_hint_y, pager_rect.size.y),
+        };
+        let size_plus_range = self.value_range.end() - self.value_range.start() + size_along_axis;
+        let visible_ratio = if size_plus_range == 0 {
+            0.0
+        } else {
+            (size_along_axis as f32) / (size_plus_range as f32)
+        };
+        let grip_len = max(
+            grip_min_size_along_axis,
+            (pager_size_along_axis as f32 * visible_ratio).round() as i32,
+        );
+
         match self.axis {
             Axis::X => {
                 self.starting_slider_rect = Rect::from_pos_size(
                     pager_rect.top_left,
-                    Size::new(SLIDER_LENGTH, pager_rect.size.y),
+                    Size::new(grip_len, pager_rect.size.y),
                 );
                 self.max_slider_pos =
                     pager_rect.bottom_right().x - self.starting_slider_rect.bottom_right().x;
@@ -374,7 +395,7 @@ impl Widget for ScrollBar {
             Axis::Y => {
                 self.starting_slider_rect = Rect::from_pos_size(
                     pager_rect.top_left,
-                    Size::new(pager_rect.size.x, SLIDER_LENGTH),
+                    Size::new(pager_rect.size.x, grip_len),
                 );
                 self.max_slider_pos =
                     pager_rect.bottom_right().y - self.starting_slider_rect.bottom_right().y;
@@ -428,18 +449,11 @@ impl Widget for Pager {
         &mut self.common
     }
 
-    // TODO: from theme?
     fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        match self.axis {
-            Axis::X => Ok(SLIDER_LENGTH * 2),
-            Axis::Y => Ok(0),
-        }
+        Ok(0)
     }
     fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        match self.axis {
-            Axis::X => Ok(0),
-            Axis::Y => Ok(SLIDER_LENGTH * 2),
-        }
+        Ok(0)
     }
     fn is_size_hint_x_fixed(&mut self) -> bool {
         false

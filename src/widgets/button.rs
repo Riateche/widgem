@@ -3,6 +3,7 @@ use std::{cmp::max, fmt::Display, rc::Rc};
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use anyhow::Result;
 use cosmic_text::Attrs;
+use log::warn;
 use salvation_macros::impl_with;
 use tiny_skia::Pixmap;
 use winit::event::MouseButton;
@@ -24,6 +25,7 @@ use crate::{
 use super::{Widget, WidgetCommon};
 
 // TODO: pub(crate)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role1 {
     Default,
     ScrollLeft,
@@ -49,7 +51,7 @@ pub struct Button {
 impl Button {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new();
-        common.is_focusable = true;
+        common.set_focusable(true);
         let mut editor = TextEditor::new(&text.to_string());
         editor.set_cursor_hidden(true);
         Self {
@@ -121,6 +123,7 @@ impl Button {
     pub fn set_role(&mut self, role: Role1) {
         self.role = role;
         self.icon = self.current_style().icon.clone();
+        self.common.set_focusable(role == Role1::Default);
         self.common.size_hint_changed();
         self.common.update();
     }
@@ -186,13 +189,15 @@ impl Widget for Button {
             .mount_point
             .as_ref()
             .expect("cannot handle event when unmounted");
-        send_window_request(
-            mount_point.address.window_id,
-            SetFocusRequest {
-                widget_id: self.common.id,
-                reason: FocusReason::Mouse,
-            },
-        );
+        if self.role == Role1::Default {
+            send_window_request(
+                mount_point.address.window_id,
+                SetFocusRequest {
+                    widget_id: self.common.id,
+                    reason: FocusReason::Mouse,
+                },
+            );
+        }
         Ok(true)
     }
 
@@ -203,6 +208,10 @@ impl Widget for Button {
         &mut self.common
     }
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
+        if self.role != Role1::Default {
+            warn!("unexpected accessible action for role: {:?}", self.role);
+            return Ok(());
+        }
         let mount_point = &self
             .common
             .mount_point
@@ -227,6 +236,10 @@ impl Widget for Button {
     }
 
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
+        if self.role != Role1::Default {
+            return None;
+        }
+
         let mut node = NodeBuilder::new(Role::Button);
         node.set_name(self.editor.text().as_str());
         node.add_action(Action::Focus);
