@@ -207,10 +207,11 @@ impl Window {
             winit_window,
             ime_allowed: false,
             ime_cursor_area: Rect::default(),
-            pending_redraw: true,
+            pending_redraw: false,
             focusable_widgets: Vec::new(),
             focusable_widgets_changed: false,
         })));
+
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(window_id);
             widget.dispatch(
@@ -229,13 +230,17 @@ impl Window {
             .borrow_mut()
             .accessible_nodes
             .take_update();
+
         let accesskit_adapter = accesskit_winit::Adapter::new(
             &shared_window_data.0.borrow().winit_window,
             || initial_tree,
             with_system(|system| system.event_loop_proxy.clone()),
         );
+
         // Window must be hidden until we initialize accesskit
         shared_window_data.0.borrow().winit_window.set_visible(true);
+        // For some reason it's necessary to request redraw again after initializing accesskit on Windows.
+        shared_window_data.0.borrow().winit_window.request_redraw();
 
         let inner_size = shared_window_data.0.borrow().winit_window.inner_size();
 
@@ -485,7 +490,7 @@ impl Window {
                     }
                 }
                 let cursor_position = self.shared_window_data.0.borrow().cursor_position;
-                println!("click pos {:?}", cursor_position);
+                // println!("click pos {:?}", cursor_position);
                 if let Some(pos_in_window) = cursor_position {
                     if let Some(root_widget) = &mut self.root_widget {
                         let accepted_by = Rc::new(Cell::new(None));
