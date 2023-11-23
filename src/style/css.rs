@@ -466,9 +466,9 @@ pub fn replace_vars(style_sheet: &mut StyleSheet) {
         if let CssRule::Style(rule) = rule {
             // println!("selectors: {:?}", rule.selectors);
             for selector in &rule.selectors.0 {
-                print_selector(selector);
+                // print_selector(selector);
                 if is_root(selector) {
-                    println!("found root!");
+                    // println!("found root!");
                     for (property, _) in rule.declarations.iter() {
                         //println!("root declaration: {declaration:?}");
                         if let Property::Custom(property) = property {
@@ -485,7 +485,7 @@ pub fn replace_vars(style_sheet: &mut StyleSheet) {
                 //     serde_json::to_string(&data.class).unwrap()
                 // );
                 // }
-                print_selector(selector);
+                // print_selector(selector);
             }
         }
     }
@@ -497,7 +497,7 @@ pub fn replace_vars(style_sheet: &mut StyleSheet) {
                     for token in &property.value.0 {
                         if let TokenOrValue::Var(variable) = token {
                             if let Some(value) = vars.get(variable.name.ident.as_ref()) {
-                                println!("substitute!");
+                                // println!("substitute!");
                                 // TODO: use substitute_variables
                                 new_tokens.extend(value.0.clone());
                                 continue;
@@ -511,9 +511,10 @@ pub fn replace_vars(style_sheet: &mut StyleSheet) {
         }
     }
 
-    println!("vars: {vars:#?}");
+    // println!("vars: {vars:#?}");
 }
 
+#[allow(dead_code)]
 fn print_selector(selector: &Selector) {
     println!("selector: {:?}", selector);
     let mut iter = selector.iter();

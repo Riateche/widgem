@@ -103,7 +103,7 @@ fn load_css(css: &str) -> Result<StyleSheet<'static, 'static>> {
     // There is no StyleSheet::into_owned, so we have to use serialization :(
     let serialized = serde_value::to_value(&style)?;
 
-    println!("{style:#?}");
+    // println!("{style:#?}");
     Ok(serialized.deserialize_into()?)
 }
 
@@ -144,7 +144,7 @@ impl Style {
             if let CssRule::Style(rule) = rule {
                 for selector in &rule.selectors.0 {
                     if check_selector(selector) {
-                        println!("matching selector: {selector:?}");
+                        // println!("matching selector: {selector:?}");
                         results.extend(rule.declarations.iter().map(|(dec, _important)| dec));
                     }
                 }

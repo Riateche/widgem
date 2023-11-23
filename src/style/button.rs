@@ -161,13 +161,13 @@ impl ComputedStyle {
             .border
             .width;
 
-        println!(
-            "button style: {:?}",
-            variants
-                .get(&ButtonState::default())
-                .expect("expected item for each state")
-                .background
-        );
+        // println!(
+        //     "button style: {:?}",
+        //     variants
+        //         .get(&ButtonState::default())
+        //         .expect("expected item for each state")
+        //         .background
+        // );
 
         Ok(Self {
             min_padding_with_border: min_padding
