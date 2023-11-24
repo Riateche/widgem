@@ -39,6 +39,11 @@ mod names {
     pub const SCROLL_GRIP: &str = "scroll grip";
 }
 
+const INDEX_DECREASE: usize = 0;
+const INDEX_PAGER: usize = 1;
+const INDEX_INCREASE: usize = 2;
+const INDEX_GRIP: usize = 3;
+
 #[impl_with]
 impl ScrollBar {
     pub fn new() -> Self {
@@ -78,14 +83,17 @@ impl ScrollBar {
             max_slider_pos: 0,
             starting_slider_rect: Rect::default(),
             value_range: 0..=100,
-            current_value: 20, // TODO
+            current_value: 0,
             slider_grab_pos: None,
             value_changed: None,
         };
 
         let slider_pressed = this.callback(Self::slider_pressed);
         let slider_moved = this.callback(Self::slider_moved);
-        this.common.children[3].widget.common_mut().event_filter = Some(Box::new(move |event| {
+        this.common.children[INDEX_GRIP]
+            .widget
+            .common_mut()
+            .event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseInput(e) => {
                     if e.button() == MouseButton::Left {
@@ -105,63 +113,63 @@ impl ScrollBar {
         self.axis = axis;
         match axis {
             Axis::X => {
-                let button1 = self.common.children[0]
+                let decrease = self.common.children[INDEX_DECREASE]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap();
-                button1.set_text(names::SCROLL_LEFT);
-                button1.set_role(button::Role1::ScrollLeft);
+                decrease.set_text(names::SCROLL_LEFT);
+                decrease.set_role(button::Role1::ScrollLeft);
 
-                let button2 = self.common.children[2]
+                let increase = self.common.children[INDEX_INCREASE]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap();
-                button2.set_text(names::SCROLL_RIGHT);
-                button2.set_role(button::Role1::ScrollRight);
+                increase.set_text(names::SCROLL_RIGHT);
+                increase.set_role(button::Role1::ScrollRight);
 
-                self.common.children[3]
+                self.common.children[INDEX_GRIP]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap()
                     .set_role(button::Role1::ScrollGripX);
 
                 self.common
-                    .set_child_options(1, LayoutItemOptions::from_pos_in_grid(1, 0))
+                    .set_child_options(INDEX_PAGER, LayoutItemOptions::from_pos_in_grid(1, 0))
                     .unwrap();
                 self.common
-                    .set_child_options(2, LayoutItemOptions::from_pos_in_grid(2, 0))
+                    .set_child_options(INDEX_INCREASE, LayoutItemOptions::from_pos_in_grid(2, 0))
                     .unwrap();
             }
             Axis::Y => {
-                let button1 = self.common.children[0]
+                let decrease = self.common.children[INDEX_DECREASE]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap();
-                button1.set_text(names::SCROLL_UP);
-                button1.set_role(button::Role1::ScrollUp);
+                decrease.set_text(names::SCROLL_UP);
+                decrease.set_role(button::Role1::ScrollUp);
 
-                self.common.children[3]
+                let increase = self.common.children[INDEX_INCREASE]
+                    .widget
+                    .downcast_mut::<Button>()
+                    .unwrap();
+                increase.set_text(names::SCROLL_DOWN);
+                increase.set_role(button::Role1::ScrollDown);
+
+                self.common.children[INDEX_GRIP]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap()
                     .set_role(button::Role1::ScrollGripY);
 
-                let button2 = self.common.children[2]
-                    .widget
-                    .downcast_mut::<Button>()
-                    .unwrap();
-                button2.set_text(names::SCROLL_DOWN);
-                button2.set_role(button::Role1::ScrollDown);
-
                 self.common
-                    .set_child_options(1, LayoutItemOptions::from_pos_in_grid(0, 1))
+                    .set_child_options(INDEX_PAGER, LayoutItemOptions::from_pos_in_grid(0, 1))
                     .unwrap();
                 self.common
-                    .set_child_options(2, LayoutItemOptions::from_pos_in_grid(0, 2))
+                    .set_child_options(INDEX_INCREASE, LayoutItemOptions::from_pos_in_grid(0, 2))
                     .unwrap();
             }
         }
-        self.common.children[1]
+        self.common.children[INDEX_PAGER]
             .widget
             .downcast_mut::<Pager>()
             .unwrap()
@@ -202,7 +210,7 @@ impl ScrollBar {
                         value_changed.invoke(self.current_value);
                     }
                     self.common.set_child_rect(
-                        3,
+                        INDEX_GRIP,
                         Some(
                             self.starting_slider_rect
                                 .translate(Point::new(self.current_slider_pos, 0)),
@@ -225,7 +233,7 @@ impl ScrollBar {
                         value_changed.invoke(self.current_value);
                     }
                     self.common.set_child_rect(
-                        3,
+                        INDEX_GRIP,
                         Some(
                             self.starting_slider_rect
                                 .translate(Point::new(0, self.current_slider_pos)),
@@ -254,7 +262,7 @@ impl ScrollBar {
                     .clamp(*self.value_range.start(), *self.value_range.end()),
             );
         } else {
-            self.update_slider_pos();
+            self.update_grip_pos();
         }
     }
 
@@ -270,10 +278,10 @@ impl ScrollBar {
         if let Some(value_changed) = &self.value_changed {
             value_changed.invoke(self.current_value);
         }
-        self.update_slider_pos();
+        self.update_grip_pos();
     }
 
-    fn update_slider_pos(&mut self) {
+    fn update_grip_pos(&mut self) {
         self.current_slider_pos = self.value_to_slider_pos();
         let shift = match self.axis {
             Axis::X => Point::new(self.current_slider_pos, 0),
@@ -284,7 +292,7 @@ impl ScrollBar {
         } else {
             Some(self.starting_slider_rect.translate(shift))
         };
-        self.common.set_child_rect(3, rect).unwrap();
+        self.common.set_child_rect(INDEX_GRIP, rect).unwrap();
     }
 
     pub fn value(&self) -> i32 {
@@ -360,11 +368,11 @@ impl Widget for ScrollBar {
         let size = self.common.size_or_err()?;
         let rects = grid::layout(&mut self.common.children, &options, size)?;
         self.common.set_child_rects(&rects)?;
-        let pager_rect = rects.get(&1).unwrap();
-        let grip_size_hint_x = self.common.children[3]
+        let pager_rect = rects.get(&INDEX_PAGER).unwrap();
+        let grip_size_hint_x = self.common.children[INDEX_GRIP]
             .widget
             .cached_size_hint_x(SizeHintMode::Preferred);
-        let grip_size_hint_y = self.common.children[3]
+        let grip_size_hint_y = self.common.children[INDEX_GRIP]
             .widget
             .cached_size_hint_y(grip_size_hint_x, SizeHintMode::Preferred);
 
@@ -401,7 +409,7 @@ impl Widget for ScrollBar {
                     pager_rect.bottom_right().y - self.starting_slider_rect.bottom_right().y;
             }
         }
-        self.update_slider_pos();
+        self.update_grip_pos();
         Ok(())
     }
 
