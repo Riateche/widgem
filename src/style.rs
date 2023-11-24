@@ -134,7 +134,6 @@ impl Style {
         })
     }
 
-    // TODO: use specificality and !important to sort from low to high priority
     pub fn find_rules(
         &self,
         check_selector: impl Fn(&Selector) -> bool,
@@ -144,13 +143,20 @@ impl Style {
             if let CssRule::Style(rule) = rule {
                 for selector in &rule.selectors.0 {
                     if check_selector(selector) {
+                        let specificity = selector.specificity();
                         // println!("matching selector: {selector:?}");
-                        results.extend(rule.declarations.iter().map(|(dec, _important)| dec));
+                        results.extend(
+                            rule.declarations
+                                .iter()
+                                .map(|(dec, important)| (important, specificity, dec)),
+                        );
                     }
                 }
             }
         }
-        results
+        // Use stable sort because later statements should take priority.
+        results.sort_by_key(|(important, specificity, _dec)| (*important, *specificity));
+        results.into_iter().map(|(_, _, dec)| dec).collect()
     }
 
     pub fn load_resource(&self, path: &str) -> Result<Cow<'static, [u8]>> {

@@ -22,9 +22,9 @@ use super::{
 pub struct ScrollBar {
     common: WidgetCommon,
     axis: Axis,
-    current_slider_pos: i32,
+    current_grip_pos: i32,
     max_slider_pos: i32,
-    starting_slider_rect: Rect,
+    starting_grip_rect: Rect,
     value_range: RangeInclusive<i32>,
     current_value: i32,
     slider_grab_pos: Option<(Point, i32)>,
@@ -79,9 +79,9 @@ impl ScrollBar {
         let mut this = Self {
             common,
             axis,
-            current_slider_pos: 0,
+            current_grip_pos: 0,
             max_slider_pos: 0,
-            starting_slider_rect: Rect::default(),
+            starting_grip_rect: Rect::default(),
             value_range: 0..=100,
             current_value: 0,
             slider_grab_pos: None,
@@ -183,7 +183,7 @@ impl ScrollBar {
     fn slider_pressed(&mut self, (pos_in_window, state): (Point, ElementState)) -> Result<()> {
         match state {
             ElementState::Pressed => {
-                self.slider_grab_pos = Some((pos_in_window, self.current_slider_pos));
+                self.slider_grab_pos = Some((pos_in_window, self.current_grip_pos));
             }
             ElementState::Released => {
                 self.slider_grab_pos = None;
@@ -197,48 +197,30 @@ impl ScrollBar {
             match self.axis {
                 Axis::X => {
                     let new_pos = start_slider_pos - start_mouse_pos.x + pos_in_window.x;
-                    self.current_slider_pos = new_pos.clamp(0, self.max_slider_pos);
-                    self.current_value = if self.max_slider_pos == 0 {
+                    self.current_grip_pos = new_pos.clamp(0, self.max_slider_pos);
+                    let new_value = if self.max_slider_pos == 0 {
                         *self.value_range.start()
                     } else {
-                        ((self.current_slider_pos as f32) / (self.max_slider_pos as f32)
+                        ((self.current_grip_pos as f32) / (self.max_slider_pos as f32)
                             * (*self.value_range.end() - *self.value_range.start()) as f32)
                             .round() as i32
                             + self.value_range.start()
                     };
-                    if let Some(value_changed) = &self.value_changed {
-                        value_changed.invoke(self.current_value);
-                    }
-                    self.common.set_child_rect(
-                        INDEX_GRIP,
-                        Some(
-                            self.starting_slider_rect
-                                .translate(Point::new(self.current_slider_pos, 0)),
-                        ),
-                    )?;
+                    self.set_value(new_value);
                 }
                 Axis::Y => {
                     // TODO: deduplicate
                     let new_pos = start_slider_pos - start_mouse_pos.y + pos_in_window.y;
-                    self.current_slider_pos = new_pos.clamp(0, self.max_slider_pos);
-                    self.current_value = if self.max_slider_pos == 0 {
+                    self.current_grip_pos = new_pos.clamp(0, self.max_slider_pos);
+                    let new_value = if self.max_slider_pos == 0 {
                         *self.value_range.start()
                     } else {
-                        ((self.current_slider_pos as f32) / (self.max_slider_pos as f32)
+                        ((self.current_grip_pos as f32) / (self.max_slider_pos as f32)
                             * (*self.value_range.end() - *self.value_range.start()) as f32)
                             .round() as i32
                             + *self.value_range.start()
                     };
-                    if let Some(value_changed) = &self.value_changed {
-                        value_changed.invoke(self.current_value);
-                    }
-                    self.common.set_child_rect(
-                        INDEX_GRIP,
-                        Some(
-                            self.starting_slider_rect
-                                .translate(Point::new(0, self.current_slider_pos)),
-                        ),
-                    )?;
+                    self.set_value(new_value);
                 }
             }
         }
@@ -264,6 +246,7 @@ impl ScrollBar {
         } else {
             self.update_grip_pos();
         }
+        self.update_decrease_increase();
     }
 
     pub fn set_value(&mut self, mut value: i32) {
@@ -279,18 +262,33 @@ impl ScrollBar {
             value_changed.invoke(self.current_value);
         }
         self.update_grip_pos();
+        self.update_decrease_increase();
+    }
+
+    fn update_decrease_increase(&mut self) {
+        let decrease = self.common.children[INDEX_DECREASE]
+            .widget
+            .downcast_mut::<Button>()
+            .unwrap();
+        decrease.set_enabled(self.current_value > *self.value_range.start());
+
+        let increase = self.common.children[INDEX_INCREASE]
+            .widget
+            .downcast_mut::<Button>()
+            .unwrap();
+        increase.set_enabled(self.current_value < *self.value_range.end());
     }
 
     fn update_grip_pos(&mut self) {
-        self.current_slider_pos = self.value_to_slider_pos();
+        self.current_grip_pos = self.value_to_slider_pos();
         let shift = match self.axis {
-            Axis::X => Point::new(self.current_slider_pos, 0),
-            Axis::Y => Point::new(0, self.current_slider_pos),
+            Axis::X => Point::new(self.current_grip_pos, 0),
+            Axis::Y => Point::new(0, self.current_grip_pos),
         };
         let rect = if self.value_range.start() == self.value_range.end() {
             None
         } else {
-            Some(self.starting_slider_rect.translate(shift))
+            Some(self.starting_grip_rect.translate(shift))
         };
         self.common.set_child_rect(INDEX_GRIP, rect).unwrap();
     }
@@ -393,20 +391,20 @@ impl Widget for ScrollBar {
 
         match self.axis {
             Axis::X => {
-                self.starting_slider_rect = Rect::from_pos_size(
+                self.starting_grip_rect = Rect::from_pos_size(
                     pager_rect.top_left,
                     Size::new(grip_len, pager_rect.size.y),
                 );
                 self.max_slider_pos =
-                    pager_rect.bottom_right().x - self.starting_slider_rect.bottom_right().x;
+                    pager_rect.bottom_right().x - self.starting_grip_rect.bottom_right().x;
             }
             Axis::Y => {
-                self.starting_slider_rect = Rect::from_pos_size(
+                self.starting_grip_rect = Rect::from_pos_size(
                     pager_rect.top_left,
                     Size::new(pager_rect.size.x, grip_len),
                 );
                 self.max_slider_pos =
-                    pager_rect.bottom_right().y - self.starting_slider_rect.bottom_right().y;
+                    pager_rect.bottom_right().y - self.starting_grip_rect.bottom_right().y;
             }
         }
         self.update_grip_pos();

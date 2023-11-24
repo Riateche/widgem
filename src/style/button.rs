@@ -92,6 +92,7 @@ pub struct ComputedVariantStyle {
     #[allow(dead_code)] // TODO: implement
     pub background: Option<ComputedBackground>,
     pub text_color: tiny_skia::Color,
+    pub icon: Option<Rc<Pixmap>>,
 }
 
 #[derive(Debug, Clone)]
@@ -100,7 +101,6 @@ pub struct ComputedStyle {
     pub preferred_padding_with_border: Point,
     pub font_metrics: cosmic_text::Metrics,
     pub variants: HashMap<ButtonState, ComputedVariantStyle>,
-    pub icon: Option<Rc<Pixmap>>,
 }
 
 impl ComputedStyle {
@@ -120,11 +120,6 @@ impl ComputedStyle {
         let properties = style.find_rules(|s| element.matches(s));
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
-        let icon = if let Some(url) = convert_content_url(&properties)? {
-            Some(style.load_pixmap(&url, scale)?)
-        } else {
-            None
-        };
 
         let min_properties = style.find_rules(|s| element_min.matches(s));
         let min_padding = convert_padding(&min_properties, scale, font.font_size)?;
@@ -136,6 +131,7 @@ impl ComputedStyle {
                 if let Some(class) = class {
                     element_variant.classes.insert(class);
                 }
+                println!("element_variant: {element_variant:?}");
                 let rules = style.find_rules(|selector| element_variant.matches(selector));
                 let rules_with_root = style
                     .find_rules(|selector| is_root(selector) || element_variant.matches(selector));
@@ -146,9 +142,17 @@ impl ComputedStyle {
                 let border = convert_border(&rules, scale, text_color)?;
                 let background = convert_background(&rules)?;
 
+                let icon = if let Some(url) = convert_content_url(&rules)? {
+                    println!("icon url: {url:?}");
+                    Some(style.load_pixmap(&url, scale)?)
+                } else {
+                    None
+                };
+
                 let style = ComputedVariantStyle {
                     border,
                     background,
+                    icon,
                     text_color,
                 };
                 anyhow::Ok((state, style))
@@ -175,7 +179,6 @@ impl ComputedStyle {
             preferred_padding_with_border: preferred_padding
                 + Point::new(border_width.get(), border_width.get()),
             font_metrics: font.to_metrics(scale),
-            icon,
             variants,
         })
     }

@@ -2,34 +2,31 @@ use tiny_skia::Color;
 
 use super::Style;
 
+macro_rules! file {
+    ($path: literal) => {
+        (
+            $path,
+            &include_bytes!(concat!("../../themes/default/", $path))[..],
+        )
+    };
+}
+
 pub fn default_style() -> Style {
     Style::load_bundled(
         include_str!("../../themes/default/theme.css"),
         [
-            (
-                "scroll_left.svg",
-                &include_bytes!("../../themes/default/scroll_left.svg")[..],
-            ),
-            (
-                "scroll_right.svg",
-                &include_bytes!("../../themes/default/scroll_right.svg")[..],
-            ),
-            (
-                "scroll_up.svg",
-                &include_bytes!("../../themes/default/scroll_up.svg")[..],
-            ),
-            (
-                "scroll_down.svg",
-                &include_bytes!("../../themes/default/scroll_down.svg")[..],
-            ),
-            (
-                "scroll_grip_x.svg",
-                &include_bytes!("../../themes/default/scroll_grip_x.svg")[..],
-            ),
-            (
-                "scroll_grip_y.svg",
-                &include_bytes!("../../themes/default/scroll_grip_y.svg")[..],
-            ),
+            file!("scroll_left.svg"),
+            file!("scroll_right.svg"),
+            file!("scroll_up.svg"),
+            file!("scroll_down.svg"),
+            file!("scroll_grip_x.svg"),
+            file!("scroll_grip_y.svg"),
+            file!("scroll_left_disabled.svg"),
+            file!("scroll_right_disabled.svg"),
+            file!("scroll_up_disabled.svg"),
+            file!("scroll_down_disabled.svg"),
+            file!("scroll_grip_x_disabled.svg"),
+            file!("scroll_grip_y_disabled.svg"),
         ],
     )
     .unwrap()

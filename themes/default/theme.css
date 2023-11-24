@@ -68,6 +68,7 @@ scroll-bar {
     background: #e6e6e6;
     border-collapse: collapse;
 }
+
 button.scroll_left {
     content: url('scroll_left.svg');
 }
@@ -85,4 +86,28 @@ button.scroll_grip_x {
 }
 button.scroll_grip_y {
     content: url('scroll_grip_y.svg');
+}
+
+button.scroll_left:disabled {
+    content: url('scroll_left_disabled.svg');
+}
+button.scroll_right:disabled {
+    content: url('scroll_right_disabled.svg');
+}
+button.scroll_up:disabled {
+    content: url('scroll_up_disabled.svg');
+}
+button.scroll_down:disabled {
+    content: url('scroll_down_disabled.svg');
+}
+button.scroll_grip_x:disabled {
+    content: url('scroll_grip_x_disabled.svg');
+}
+button.scroll_grip_y:disabled {
+    content: url('scroll_grip_y_disabled.svg');
+}
+
+button.scroll_grip_x:active,
+button.scroll_grip_y:active {
+    background: #c8c8c8;
 }

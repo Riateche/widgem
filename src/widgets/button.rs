@@ -13,6 +13,7 @@ use crate::{
     draw::DrawEvent,
     event::{
         AccessibleActionEvent, FocusReason, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
+        WidgetScopeChangeEvent,
     },
     layout::SizeHintMode,
     style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
@@ -122,7 +123,7 @@ impl Button {
     // TODO: pub(crate)
     pub fn set_role(&mut self, role: Role1) {
         self.role = role;
-        self.icon = self.current_style().icon.clone();
+        self.icon = self.current_variant_style().icon.clone();
         self.common.set_focusable(role == Role1::Default);
         self.common.size_hint_changed();
         self.common.update();
@@ -285,5 +286,12 @@ impl Widget for Button {
         };
 
         Ok(content_size + 2 * padding.x)
+    }
+
+    fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
+        self.icon = self.current_variant_style().icon.clone();
+        self.common.size_hint_changed();
+        self.common.update();
+        Ok(())
     }
 }
