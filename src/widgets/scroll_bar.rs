@@ -24,7 +24,7 @@ pub struct ScrollBar {
     axis: Axis,
     current_grip_pos: i32,
     max_slider_pos: i32,
-    starting_grip_rect: Rect,
+    grip_size: Size,
     value_range: RangeInclusive<i32>,
     current_value: i32,
     slider_grab_pos: Option<(Point, i32)>,
@@ -42,7 +42,7 @@ mod names {
 const INDEX_DECREASE: usize = 0;
 const INDEX_PAGER: usize = 1;
 const INDEX_INCREASE: usize = 2;
-const INDEX_GRIP: usize = 3;
+const INDEX_GRIP_IN_PAGER: usize = 0;
 
 #[impl_with]
 impl ScrollBar {
@@ -58,10 +58,15 @@ impl ScrollBar {
         );
 
         let axis = Axis::X;
-        common.add_child(
-            Pager::new(axis).boxed(),
-            LayoutItemOptions::from_pos_in_grid(1, 0),
+        let mut pager = Pager::new(axis);
+        pager.common.add_child(
+            Button::new(names::SCROLL_GRIP)
+                .with_role(button::Role1::ScrollGripX)
+                .with_text_visible(false)
+                .boxed(),
+            LayoutItemOptions::default(),
         );
+        common.add_child(pager.boxed(), LayoutItemOptions::from_pos_in_grid(1, 0));
         common.add_child(
             Button::new(names::SCROLL_RIGHT)
                 .with_role(button::Role1::ScrollRight)
@@ -69,19 +74,12 @@ impl ScrollBar {
                 .boxed(),
             LayoutItemOptions::from_pos_in_grid(2, 0),
         );
-        common.add_child(
-            Button::new(names::SCROLL_GRIP)
-                .with_role(button::Role1::ScrollGripX)
-                .with_text_visible(false)
-                .boxed(),
-            LayoutItemOptions::default(),
-        );
         let mut this = Self {
             common,
             axis,
             current_grip_pos: 0,
             max_slider_pos: 0,
-            starting_grip_rect: Rect::default(),
+            grip_size: Size::default(),
             value_range: 0..=100,
             current_value: 0,
             slider_grab_pos: None,
@@ -90,7 +88,10 @@ impl ScrollBar {
 
         let slider_pressed = this.callback(Self::slider_pressed);
         let slider_moved = this.callback(Self::slider_moved);
-        this.common.children[INDEX_GRIP]
+        this.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .children[INDEX_GRIP_IN_PAGER]
             .widget
             .common_mut()
             .event_filter = Some(Box::new(move |event| {
@@ -127,7 +128,10 @@ impl ScrollBar {
                 increase.set_text(names::SCROLL_RIGHT);
                 increase.set_role(button::Role1::ScrollRight);
 
-                self.common.children[INDEX_GRIP]
+                self.common.children[INDEX_PAGER]
+                    .widget
+                    .common_mut()
+                    .children[INDEX_GRIP_IN_PAGER]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap()
@@ -155,7 +159,10 @@ impl ScrollBar {
                 increase.set_text(names::SCROLL_DOWN);
                 increase.set_role(button::Role1::ScrollDown);
 
-                self.common.children[INDEX_GRIP]
+                self.common.children[INDEX_PAGER]
+                    .widget
+                    .common_mut()
+                    .children[INDEX_GRIP_IN_PAGER]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap()
@@ -288,9 +295,13 @@ impl ScrollBar {
         let rect = if self.value_range.start() == self.value_range.end() {
             None
         } else {
-            Some(self.starting_grip_rect.translate(shift))
+            Some(Rect::from_pos_size(shift, self.grip_size))
         };
-        self.common.set_child_rect(INDEX_GRIP, rect).unwrap();
+        self.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .set_child_rect(INDEX_GRIP_IN_PAGER, rect)
+            .unwrap();
     }
 
     pub fn value(&self) -> i32 {
@@ -367,10 +378,16 @@ impl Widget for ScrollBar {
         let rects = grid::layout(&mut self.common.children, &options, size)?;
         self.common.set_child_rects(&rects)?;
         let pager_rect = rects.get(&INDEX_PAGER).unwrap();
-        let grip_size_hint_x = self.common.children[INDEX_GRIP]
+        let grip_size_hint_x = self.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .children[INDEX_GRIP_IN_PAGER]
             .widget
             .cached_size_hint_x(SizeHintMode::Preferred);
-        let grip_size_hint_y = self.common.children[INDEX_GRIP]
+        let grip_size_hint_y = self.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .children[INDEX_GRIP_IN_PAGER]
             .widget
             .cached_size_hint_y(grip_size_hint_x, SizeHintMode::Preferred);
 
@@ -391,20 +408,12 @@ impl Widget for ScrollBar {
 
         match self.axis {
             Axis::X => {
-                self.starting_grip_rect = Rect::from_pos_size(
-                    pager_rect.top_left,
-                    Size::new(grip_len, pager_rect.size.y),
-                );
-                self.max_slider_pos =
-                    pager_rect.bottom_right().x - self.starting_grip_rect.bottom_right().x;
+                self.grip_size = Size::new(grip_len, pager_rect.size.y);
+                self.max_slider_pos = pager_rect.size.x - self.grip_size.x;
             }
             Axis::Y => {
-                self.starting_grip_rect = Rect::from_pos_size(
-                    pager_rect.top_left,
-                    Size::new(pager_rect.size.x, grip_len),
-                );
-                self.max_slider_pos =
-                    pager_rect.bottom_right().y - self.starting_grip_rect.bottom_right().y;
+                self.grip_size = Size::new(pager_rect.size.x, grip_len);
+                self.max_slider_pos = pager_rect.size.y - self.grip_size.y;
             }
         }
         self.update_grip_pos();
@@ -446,6 +455,8 @@ impl Pager {
     }
 }
 
+const PAGER_SIZE_HINT_MULTIPLIER: i32 = 2;
+
 impl Widget for Pager {
     fn common(&self) -> &WidgetCommon {
         &self.common
@@ -455,11 +466,23 @@ impl Widget for Pager {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        let grip_hint = self.common.children[INDEX_GRIP_IN_PAGER]
+            .widget
+            .cached_size_hint_x(mode);
+        match self.axis {
+            Axis::X => Ok(grip_hint * PAGER_SIZE_HINT_MULTIPLIER),
+            Axis::Y => Ok(grip_hint),
+        }
     }
-    fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+        let grip_hint = self.common.children[INDEX_GRIP_IN_PAGER]
+            .widget
+            .cached_size_hint_y(size_x, mode);
+        match self.axis {
+            Axis::X => Ok(grip_hint),
+            Axis::Y => Ok(grip_hint * PAGER_SIZE_HINT_MULTIPLIER),
+        }
     }
     fn is_size_hint_x_fixed(&mut self) -> bool {
         false
