@@ -1,0 +1,51 @@
+[package]
+name = "salvation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+salvation_macros = { path = "../macros" }
+
+tiny-skia = "0.11.1"
+png = "0.17.10"
+#cosmic-text = "0.9.0"
+#cosmic-text = { path = "../cosmic-text" }
+cosmic-text = { git = "https://github.com/Riateche/cosmic-text.git", branch = "ime-actions-and-customize" }
+#winit = "0.29.1-beta"
+#winit = { path = "../winit" }
+winit = { git = "https://github.com/Riateche/winit.git", branch = "fix-wait-until" }
+softbuffer = "0.3.0"
+bytemuck = "1.13.1"
+downcast-rs = "1.2.0"
+scoped-tls = "1.0.1"
+derive_more = "0.99.17"
+bitflags = "2.4.0"
+once_cell = "1.18.0"
+anyhow = { version = "1.0.75", features = ["backtrace"] }
+priority-queue = "1.3.2"
+arboard = "3.2.1"
+line-straddler = "0.2.1"
+#accesskit = "0.11.2"
+#accesskit_winit = "0.14.4"
+#accesskit = { path = "../accesskit/common" }
+#accesskit_winit = { path = "../accesskit/platforms/winit" }
+accesskit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+accesskit_winit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+itertools = "0.11.0"
+unicode-segmentation = "1.10.1"
+strict-num = "0.1.1"
+range-ext = "0.3.0"
+env_logger = "0.10.0"
+log = "0.4.20"
+derivative = "2.2.0"
+typed-builder = "0.16.0"
+thiserror = "1.0.49"
+resvg = { version = "0.36.0", default-features = false }
+usvg = { version = "0.36.0", default-features = false }
+serde = { version = "1.0.188", features = ["derive"] }
+strum_macros = "0.25.2"
+strum = "0.25.0"
+lightningcss = { version = "1.0.0-alpha.49", features = ["serde"] }
+serde-value = "0.7.0"
+linked-hash-map = "0.5.6"
+fs-err = "2.9.0"

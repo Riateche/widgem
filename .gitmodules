@@ -1,0 +1,3 @@
+[submodule "tests/assets"]
+	path = tests/assets
+	url = git@github.com:Riateche/salvation_tests.git
