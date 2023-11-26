@@ -180,9 +180,9 @@ impl Window {
     fn new(mut inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
         if let Some(widget) = &mut widget {
             // TODO: propagate style without mounting?
-            let size_hints_x = widget.cached_size_hints_x();
+            let size_hints_x = widget.size_hints_x();
             // TODO: adjust size_x for screen size
-            let size_hints_y = widget.cached_size_hints_y(size_hints_x.preferred);
+            let size_hints_y = widget.size_hints_y(size_hints_x.preferred);
             inner = inner
                 .with_inner_size(PhysicalSize::new(
                     size_hints_x.preferred,

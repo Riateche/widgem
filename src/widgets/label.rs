@@ -42,11 +42,11 @@ impl Widget for Label {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         Ok(self.editor.size().x)
     }
 
-    fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
         // TODO: use size_x, handle multiple lines
         Ok(self.editor.size().y)
     }

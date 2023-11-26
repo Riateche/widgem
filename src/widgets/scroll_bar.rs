@@ -383,13 +383,13 @@ impl Widget for ScrollBar {
             .common_mut()
             .children[INDEX_GRIP_IN_PAGER]
             .widget
-            .cached_size_hint_x(SizeHintMode::Preferred);
+            .size_hint_x(SizeHintMode::Preferred);
         let grip_size_hint_y = self.common.children[INDEX_PAGER]
             .widget
             .common_mut()
             .children[INDEX_GRIP_IN_PAGER]
             .widget
-            .cached_size_hint_y(grip_size_hint_x, SizeHintMode::Preferred);
+            .size_hint_y(grip_size_hint_x, SizeHintMode::Preferred);
 
         let (size_along_axis, grip_min_size_along_axis, pager_size_along_axis) = match self.axis {
             Axis::X => (size.x, grip_size_hint_x, pager_rect.size.x),
@@ -420,17 +420,17 @@ impl Widget for ScrollBar {
         Ok(())
     }
 
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let options = self.grid_options();
         grid::size_hint_x(&mut self.common.children, &options, mode)
     }
-    fn is_size_hint_x_fixed(&mut self) -> bool {
+    fn recalculate_size_x_fixed(&mut self) -> bool {
         self.axis == Axis::Y
     }
-    fn is_size_hint_y_fixed(&mut self) -> bool {
+    fn recalculate_size_y_fixed(&mut self) -> bool {
         self.axis == Axis::X
     }
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let options = self.grid_options();
         grid::size_hint_y(&mut self.common.children, &options, size_x, mode)
     }
@@ -466,28 +466,28 @@ impl Widget for Pager {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let grip_hint = self.common.children[INDEX_GRIP_IN_PAGER]
             .widget
-            .cached_size_hint_x(mode);
+            .size_hint_x(mode);
         match self.axis {
             Axis::X => Ok(grip_hint * PAGER_SIZE_HINT_MULTIPLIER),
             Axis::Y => Ok(grip_hint),
         }
     }
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let grip_hint = self.common.children[INDEX_GRIP_IN_PAGER]
             .widget
-            .cached_size_hint_y(size_x, mode);
+            .size_hint_y(size_x, mode);
         match self.axis {
             Axis::X => Ok(grip_hint),
             Axis::Y => Ok(grip_hint * PAGER_SIZE_HINT_MULTIPLIER),
         }
     }
-    fn is_size_hint_x_fixed(&mut self) -> bool {
+    fn recalculate_size_x_fixed(&mut self) -> bool {
         false
     }
-    fn is_size_hint_y_fixed(&mut self) -> bool {
+    fn recalculate_size_y_fixed(&mut self) -> bool {
         false
     }
 }

@@ -44,11 +44,11 @@ impl Widget for Image {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         Ok(self.pixmap.as_ref().map_or(0, |p| p.width() as i32))
     }
 
-    fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
         Ok(self.pixmap.as_ref().map_or(0, |p| p.height() as i32))
     }
 }

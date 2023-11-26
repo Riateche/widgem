@@ -249,7 +249,7 @@ impl Widget for Button {
         Some(node)
     }
 
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let style = &self.common.style().button;
         let padding = match mode {
             SizeHintMode::Min => style.min_padding_with_border,
@@ -268,7 +268,7 @@ impl Widget for Button {
         Ok(content_size + 2 * padding.x)
     }
 
-    fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         // TODO: use size_x, handle multiple lines
         let style = &self.common.style().button;
         let padding = match mode {

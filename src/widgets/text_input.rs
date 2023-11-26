@@ -597,7 +597,7 @@ impl Widget for TextInput {
         Some(node)
     }
 
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let style = &self.common.style().text_input;
         let r = match mode {
             SizeHintMode::Min => style.min_width,
@@ -606,7 +606,7 @@ impl Widget for TextInput {
         Ok(r.get())
     }
 
-    fn size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let style = &self.common.style().text_input;
         let padding = match mode {
             SizeHintMode::Min => style.min_padding_with_border,
@@ -615,7 +615,7 @@ impl Widget for TextInput {
         Ok(self.editor.size().y + 2 * padding.y)
     }
 
-    fn is_size_hint_x_fixed(&mut self) -> bool {
+    fn recalculate_size_x_fixed(&mut self) -> bool {
         false
     }
 }

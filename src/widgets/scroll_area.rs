@@ -128,13 +128,13 @@ impl ScrollArea {
                 .common_mut()
                 .children[0]
                 .widget
-                .cached_size_hint_x(SizeHintMode::Preferred);
+                .size_hint_x(SizeHintMode::Preferred);
             let content_size_y = self.common.children[INDEX_VIEWPORT]
                 .widget
                 .common_mut()
                 .children[0]
                 .widget
-                .cached_size_hint_y(content_size_x, SizeHintMode::Preferred);
+                .size_hint_y(content_size_x, SizeHintMode::Preferred);
             let content_rect = Rect::from_xywh(-value_x, -value_y, content_size_x, content_size_y);
             self.common.children[INDEX_VIEWPORT]
                 .widget
@@ -200,19 +200,19 @@ impl Widget for ScrollArea {
         self.relayout()
     }
 
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let options = self.grid_options();
         grid::size_hint_x(&mut self.common.children, &options, mode)
     }
-    fn is_size_hint_x_fixed(&mut self) -> bool {
+    fn recalculate_size_x_fixed(&mut self) -> bool {
         let options = self.grid_options();
-        grid::is_size_hint_x_fixed(&mut self.common.children, &options)
+        grid::size_x_fixed(&mut self.common.children, &options)
     }
-    fn is_size_hint_y_fixed(&mut self) -> bool {
+    fn recalculate_size_y_fixed(&mut self) -> bool {
         let options = self.grid_options();
-        grid::is_size_hint_y_fixed(&mut self.common.children, &options)
+        grid::size_y_fixed(&mut self.common.children, &options)
     }
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let options = self.grid_options();
         grid::size_hint_y(&mut self.common.children, &options, size_x, mode)
     }
@@ -240,16 +240,16 @@ impl Widget for Viewport {
         &mut self.common
     }
 
-    fn size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         Ok(0)
     }
-    fn size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
         Ok(0)
     }
-    fn is_size_hint_x_fixed(&mut self) -> bool {
+    fn recalculate_size_x_fixed(&mut self) -> bool {
         false
     }
-    fn is_size_hint_y_fixed(&mut self) -> bool {
+    fn recalculate_size_y_fixed(&mut self) -> bool {
         false
     }
 }

@@ -118,8 +118,8 @@ pub struct WidgetCommon {
     pub size_hint_x_cache: HashMap<SizeHintMode, i32>,
     // TODO: limit count
     pub size_hint_y_cache: HashMap<(i32, SizeHintMode), i32>,
-    pub size_hint_x_fixed_cache: Option<bool>,
-    pub size_hint_y_fixed_cache: Option<bool>,
+    pub size_x_fixed_cache: Option<bool>,
+    pub size_y_fixed_cache: Option<bool>,
 
     pub pending_accessible_update: bool,
 
@@ -162,8 +162,8 @@ impl WidgetCommon {
             children: Vec::new(),
             size_hint_x_cache: HashMap::new(),
             size_hint_y_cache: HashMap::new(),
-            size_hint_x_fixed_cache: None,
-            size_hint_y_fixed_cache: None,
+            size_x_fixed_cache: None,
+            size_y_fixed_cache: None,
             pending_accessible_update: false,
             parent_scope: WidgetScope::default(),
 
@@ -413,8 +413,8 @@ impl WidgetCommon {
     fn clear_size_hint_cache(&mut self) {
         self.size_hint_x_cache.clear();
         self.size_hint_y_cache.clear();
-        self.size_hint_x_fixed_cache = None;
-        self.size_hint_y_fixed_cache = None;
+        self.size_x_fixed_cache = None;
+        self.size_y_fixed_cache = None;
     }
 
     pub fn mount_point_or_err(&self) -> Result<&MountPoint> {
@@ -620,12 +620,12 @@ pub trait Widget: Downcast {
             Event::WidgetScopeChange(e) => self.handle_widget_scope_change(e).map(|()| true),
         }
     }
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32>;
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32>;
-    fn is_size_hint_x_fixed(&mut self) -> bool {
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32>;
+    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32>;
+    fn recalculate_size_x_fixed(&mut self) -> bool {
         true
     }
-    fn is_size_hint_y_fixed(&mut self) -> bool {
+    fn recalculate_size_y_fixed(&mut self) -> bool {
         true
     }
 
@@ -664,12 +664,12 @@ pub trait WidgetExt {
 
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
-    fn cached_size_hint_x(&mut self, mode: SizeHintMode) -> i32;
-    fn cached_size_hints_x(&mut self) -> SizeHints;
-    fn cached_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32;
-    fn cached_size_hints_y(&mut self, size_x: i32) -> SizeHints;
-    fn cached_size_hint_x_fixed(&mut self) -> bool;
-    fn cached_size_hint_y_fixed(&mut self) -> bool;
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> i32;
+    fn size_hints_x(&mut self) -> SizeHints;
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32;
+    fn size_hints_y(&mut self, size_x: i32) -> SizeHints;
+    fn size_x_fixed(&mut self) -> bool;
+    fn size_y_fixed(&mut self) -> bool;
 
     // TODO: private
     fn set_parent_scope(&mut self, scope: WidgetScope);
@@ -916,31 +916,31 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         self.common_mut().pending_accessible_update = false;
     }
 
-    fn cached_size_hint_x(&mut self, mode: SizeHintMode) -> i32 {
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> i32 {
         if let Some(cached) = self.common().size_hint_x_cache.get(&mode) {
             *cached
         } else {
             let r = self
-                .size_hint_x(mode)
+                .recalculate_size_hint_x(mode)
                 .or_report_err()
                 .unwrap_or(FALLBACK_SIZE_HINT);
             self.common_mut().size_hint_x_cache.insert(mode, r);
             r
         }
     }
-    fn cached_size_hints_x(&mut self) -> SizeHints {
+    fn size_hints_x(&mut self) -> SizeHints {
         SizeHints {
-            min: self.cached_size_hint_x(SizeHintMode::Min),
-            preferred: self.cached_size_hint_x(SizeHintMode::Preferred),
-            is_fixed: self.cached_size_hint_x_fixed(),
+            min: self.size_hint_x(SizeHintMode::Min),
+            preferred: self.size_hint_x(SizeHintMode::Preferred),
+            is_fixed: self.size_x_fixed(),
         }
     }
-    fn cached_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32 {
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32 {
         if let Some(cached) = self.common().size_hint_y_cache.get(&(size_x, mode)) {
             *cached
         } else {
             let r = self
-                .size_hint_y(size_x, mode)
+                .recalculate_size_hint_y(size_x, mode)
                 .or_report_err()
                 .unwrap_or(FALLBACK_SIZE_HINT);
             self.common_mut()
@@ -950,29 +950,29 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         }
     }
 
-    fn cached_size_hints_y(&mut self, size_x: i32) -> SizeHints {
+    fn size_hints_y(&mut self, size_x: i32) -> SizeHints {
         SizeHints {
-            min: self.cached_size_hint_y(size_x, SizeHintMode::Min),
-            preferred: self.cached_size_hint_y(size_x, SizeHintMode::Preferred),
-            is_fixed: self.cached_size_hint_y_fixed(),
+            min: self.size_hint_y(size_x, SizeHintMode::Min),
+            preferred: self.size_hint_y(size_x, SizeHintMode::Preferred),
+            is_fixed: self.size_y_fixed(),
         }
     }
 
-    fn cached_size_hint_x_fixed(&mut self) -> bool {
-        if let Some(cached) = self.common().size_hint_x_fixed_cache {
+    fn size_x_fixed(&mut self) -> bool {
+        if let Some(cached) = self.common().size_x_fixed_cache {
             cached
         } else {
-            let r = self.is_size_hint_x_fixed();
-            self.common_mut().size_hint_x_fixed_cache = Some(r);
+            let r = self.recalculate_size_x_fixed();
+            self.common_mut().size_x_fixed_cache = Some(r);
             r
         }
     }
-    fn cached_size_hint_y_fixed(&mut self) -> bool {
-        if let Some(cached) = self.common().size_hint_y_fixed_cache {
+    fn size_y_fixed(&mut self) -> bool {
+        if let Some(cached) = self.common().size_y_fixed_cache {
             cached
         } else {
-            let r = self.is_size_hint_y_fixed();
-            self.common_mut().size_hint_y_fixed_cache = Some(r);
+            let r = self.recalculate_size_y_fixed();
+            self.common_mut().size_y_fixed_cache = Some(r);
             r
         }
     }

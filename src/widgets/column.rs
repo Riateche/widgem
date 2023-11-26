@@ -96,19 +96,19 @@ impl Widget for Column {
         Ok(())
     }
 
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let options = self.grid_options();
         grid::size_hint_x(&mut self.common.children, &options, mode)
     }
-    fn is_size_hint_x_fixed(&mut self) -> bool {
+    fn recalculate_size_x_fixed(&mut self) -> bool {
         let options = self.grid_options();
-        grid::is_size_hint_x_fixed(&mut self.common.children, &options)
+        grid::size_x_fixed(&mut self.common.children, &options)
     }
-    fn is_size_hint_y_fixed(&mut self) -> bool {
+    fn recalculate_size_y_fixed(&mut self) -> bool {
         let options = self.grid_options();
-        grid::is_size_hint_y_fixed(&mut self.common.children, &options)
+        grid::size_y_fixed(&mut self.common.children, &options)
     }
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let options = self.grid_options();
         grid::size_hint_y(&mut self.common.children, &options, size_x, mode)
     }

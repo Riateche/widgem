@@ -75,7 +75,7 @@ pub fn size_hint_x(items: &mut [Child], options: &GridOptions, mode: SizeHintMod
         .map(|item| {
             (
                 item.options.x.pos_in_grid.clone().unwrap(),
-                item.widget.cached_size_hint_x(mode),
+                item.widget.size_hint_x(mode),
             )
         })
         .collect_vec();
@@ -98,22 +98,22 @@ pub fn size_hint_y(
             continue;
         };
         let pos = item.options.y.pos_in_grid.clone().unwrap();
-        let hints = item.widget.cached_size_hint_y(*item_size_x, mode);
+        let hints = item.widget.size_hint_y(*item_size_x, mode);
         item_data.push((pos, hints));
     }
     size_hint(&item_data, &options.y, mode)
 }
 
 // TODO: skip hidden, check item options
-pub fn is_size_hint_x_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
+pub fn size_x_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
     items
         .iter_mut()
-        .all(|item| !item.options.is_in_grid() || item.widget.cached_size_hint_x_fixed())
+        .all(|item| !item.options.is_in_grid() || item.widget.size_x_fixed())
 }
-pub fn is_size_hint_y_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
+pub fn size_y_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
     items
         .iter_mut()
-        .all(|item| !item.options.is_in_grid() || item.widget.cached_size_hint_y_fixed())
+        .all(|item| !item.options.is_in_grid() || item.widget.size_y_fixed())
 }
 
 struct XLayout {
@@ -136,7 +136,7 @@ fn x_layout(items: &mut [Child], options: &GridAxisOptions, size_x: i32) -> Resu
             warn!("spanned items are not supported yet");
         }
         let pos = *pos.start();
-        let hints = item.widget.cached_size_hints_x();
+        let hints = item.widget.size_hints_x();
         let column_hints = hints_per_column.entry(pos).or_insert(hints);
         column_hints.min = max(column_hints.min, hints.min);
         column_hints.preferred = max(column_hints.preferred, hints.preferred);
@@ -163,8 +163,8 @@ fn x_layout(items: &mut [Child], options: &GridAxisOptions, size_x: i32) -> Resu
             warn!("missing column data for existing child");
             continue;
         };
-        let child_size = if item.widget.cached_size_hint_x_fixed() {
-            let hint = item.widget.cached_size_hint_x(SizeHintMode::Preferred);
+        let child_size = if item.widget.size_x_fixed() {
+            let hint = item.widget.size_hint_x(SizeHintMode::Preferred);
             min(hint, *column_size)
         } else {
             *column_size
@@ -200,7 +200,7 @@ pub fn layout(
             continue;
         };
         let pos = *pos.start();
-        let hints = item.widget.cached_size_hints_y(*item_size_x);
+        let hints = item.widget.size_hints_y(*item_size_x);
         let row_hints = hints_per_row.entry(pos).or_insert(hints);
         row_hints.min = max(row_hints.min, hints.min);
         row_hints.preferred = max(row_hints.preferred, hints.preferred);
@@ -239,11 +239,10 @@ pub fn layout(
             warn!("missing item in row_sizes");
             continue;
         };
-        let size_y = if item.widget.cached_size_hint_y_fixed() {
+        let size_y = if item.widget.size_y_fixed() {
             min(
                 *row_size,
-                item.widget
-                    .cached_size_hint_y(*size_x, SizeHintMode::Preferred),
+                item.widget.size_hint_y(*size_x, SizeHintMode::Preferred),
             )
         } else {
             *row_size
