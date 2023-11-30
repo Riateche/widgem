@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use anyhow::Result;
 
 use salvation::{
-    event_loop::{self, CallbackContext},
+    event_loop::{App, CallbackContext},
     system::add_interval,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
@@ -52,7 +52,7 @@ impl State {
     fn new(ctx: &mut CallbackContext<Self>) -> Self {
         let mut root = Column::new();
 
-        root.add_child(TextInput::new("Hello, Rust! 🦀\n").boxed());
+        root.add_child(TextInput::new("Hello, Rust! 🦀😂\n").boxed());
         root.add_child(TextInput::new("Hebrew name Sarah: שרה.").boxed());
 
         /*
@@ -234,5 +234,16 @@ fn main() {
     //         }
     //     }
     // }
-    event_loop::run(State::new).unwrap();
+    App::new()
+        .with_system_fonts(false)
+        .with_font(
+            Path::new("C:\\Users\\Tivel\\Desktop\\salvation_tmp\\NotoSans-Regular.ttf")
+                .to_path_buf(),
+        )
+        .with_font(
+            Path::new("C:\\Users\\Tivel\\Desktop\\salvation_tmp\\NotoColorEmoji-Regular.ttf")
+                .to_path_buf(),
+        )
+        .run(State::new)
+        .unwrap();
 }

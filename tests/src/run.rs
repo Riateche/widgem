@@ -4,7 +4,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
 use anyhow::{anyhow, bail, Context, Result};
-use salvation::event_loop::{self, CallbackContext, UserEvent};
+use salvation::event_loop::{App, CallbackContext, UserEvent};
 use salvation::system::with_system;
 use salvation::winit::event::WindowEvent;
 use salvation::winit::event_loop::EventLoopProxy;
@@ -137,7 +137,8 @@ pub fn run_inner<State: 'static>(
         state
     };
 
-    event_loop::run(make_state_with_tests)
+    App::new()
+        .run(make_state_with_tests)
         .map_err(|e| anyhow!("Error while running test event loop: {:?}", e))?;
     let mut locked_handle = handle.lock().unwrap();
     let handle = locked_handle.take();
