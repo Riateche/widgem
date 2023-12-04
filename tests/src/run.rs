@@ -136,8 +136,14 @@ pub fn run_inner<State: 'static>(
         *locked_handle = Some(h);
         state
     };
-
+    let fonts_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("fonts");
     App::new()
+        .with_system_fonts(false)
+        .with_font(fonts_path.join("NotoSans-Regular.ttf"))
+        .with_font(fonts_path.join("NotoColorEmoji.ttf"))
+        .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"))
         .run(make_state_with_tests)
         .map_err(|e| anyhow!("Error while running test event loop: {:?}", e))?;
     let mut locked_handle = handle.lock().unwrap();

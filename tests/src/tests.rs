@@ -1,5 +1,3 @@
-use std::{thread::sleep, time::Duration};
-
 use salvation::winit::{event::WindowEvent, window::WindowBuilder};
 use salvation::{
     event_loop::CallbackContext,
@@ -28,7 +26,6 @@ impl State {
 
 pub fn first_test() -> Result<()> {
     let run_test = move |ctx: &mut TestContext| -> Result<()> {
-        sleep(Duration::from_secs(10));
         ctx.snapshot("Just checks that something works, it is our first test.")?;
         ctx.event(0, WindowEvent::CloseRequested)?;
         Ok(())
