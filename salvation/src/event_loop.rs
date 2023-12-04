@@ -164,7 +164,7 @@ fn default_scale<T>(window_target: &EventLoopWindowTarget<T>) -> f32 {
 pub struct App {
     system_fonts: bool,
     custom_font_paths: Vec<PathBuf>,
-    fixed_scale: Option<f32>
+    fixed_scale: Option<f32>,
 }
 
 impl Default for App {
@@ -219,12 +219,8 @@ impl App {
             FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
 
         let scale = match self.fixed_scale {
-            None => {
-                default_scale(&event_loop)
-            },
-            Some(fixed_scale) => {
-                fixed_scale
-            },
+            None => default_scale(&event_loop),
+            Some(fixed_scale) => fixed_scale,
         };
 
         let shared_system_data = SharedSystemDataInner {
@@ -233,9 +229,7 @@ impl App {
             swash_cache: SwashCache::new(),
             event_loop_proxy: event_loop.create_proxy(),
             // TODO: how to detect monitor scale change?
-            default_style: Rc::new(
-                ComputedStyle::new(&default_style(), scale,).unwrap()
-            ),
+            default_style: Rc::new(ComputedStyle::new(&default_style(), scale).unwrap()),
             timers: Timers::new(),
             clipboard: Clipboard::new().expect("failed to initialize clipboard"),
             new_windows: Vec::new(),
