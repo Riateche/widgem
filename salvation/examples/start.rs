@@ -241,6 +241,7 @@ fn main() {
         .join("assets")
         .join("fonts");
     App::new()
+        .with_scale(4.0)
         .with_system_fonts(false)
         .with_font(fonts_path.join("NotoSans-Regular.ttf"))
         .with_font(fonts_path.join("NotoColorEmoji.ttf"))
