@@ -133,7 +133,7 @@ impl SharedWindowData {
             Some(this.focusable_widgets[new_index as usize].clone())
         } else {
             warn!("focused widget is unknown");
-            this.focusable_widgets.get(0).cloned()
+            this.focusable_widgets.first().cloned()
         }
     }
 }
@@ -726,7 +726,7 @@ impl Window {
                 .0
                 .borrow()
                 .focusable_widgets
-                .get(0)
+                .first()
                 .cloned();
             if let Some(id) = id {
                 self.set_focus(id, FocusReason::Auto);

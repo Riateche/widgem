@@ -4,7 +4,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 
 use anyhow::{anyhow, bail, Context, Result};
-use salvation::event_loop::{self, CallbackContext, UserEvent};
+use salvation::event_loop::{App, CallbackContext, UserEvent};
 use salvation::system::with_system;
 use salvation::winit::event::WindowEvent;
 use salvation::winit::event_loop::EventLoopProxy;
@@ -136,8 +136,16 @@ pub fn run_inner<State: 'static>(
         *locked_handle = Some(h);
         state
     };
-
-    event_loop::run(make_state_with_tests)
+    let fonts_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets")
+        .join("fonts");
+    App::new()
+        .with_scale(1.0)
+        .with_system_fonts(false)
+        .with_font(fonts_path.join("NotoSans-Regular.ttf"))
+        .with_font(fonts_path.join("NotoColorEmoji.ttf"))
+        .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"))
+        .run(make_state_with_tests)
         .map_err(|e| anyhow!("Error while running test event loop: {:?}", e))?;
     let mut locked_handle = handle.lock().unwrap();
     let handle = locked_handle.take();

@@ -21,7 +21,7 @@ use crate::{
 };
 
 thread_local! {
-    pub static SYSTEM: SharedSystemData = SharedSystemData(RefCell::new(None));
+    pub static SYSTEM: SharedSystemData = const { SharedSystemData(RefCell::new(None)) };
 }
 
 pub struct SharedSystemDataInner {
