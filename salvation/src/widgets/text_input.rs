@@ -556,9 +556,7 @@ impl Widget for TextInput {
         Ok(())
     }
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
-        let Some(mount_point) = self.common.mount_point.as_ref() else {
-            return None;
-        };
+        let mount_point = self.common.mount_point.as_ref()?;
         let mut line_node = NodeBuilder::new(Role::InlineTextBox);
         let mut line = self.editor.acccessible_line();
         for pos in &mut line.character_positions {
