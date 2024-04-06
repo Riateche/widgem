@@ -23,7 +23,7 @@ use crate::{
 };
 
 pub struct TextEditor {
-    editor: Editor,
+    editor: Editor<'static>,
     pixmap: Option<Pixmap>,
     text_color: Color,
     selected_text_color: Color,
@@ -70,8 +70,7 @@ impl TextEditor {
     pub fn set_font_metrics(&mut self, metrics: cosmic_text::Metrics) {
         with_system(|system| {
             self.editor
-                .buffer_mut()
-                .set_metrics(&mut system.font_system, metrics);
+                .with_buffer_mut(|buffer| buffer.set_metrics(&mut system.font_system, metrics));
         });
     }
 
@@ -82,25 +81,22 @@ impl TextEditor {
     pub fn set_wrap(&mut self, wrap: Wrap) {
         with_system(|system| {
             self.editor
-                .buffer_mut()
-                .set_wrap(&mut system.font_system, wrap);
+                .with_buffer_mut(|buffer| buffer.set_wrap(&mut system.font_system, wrap));
         });
     }
 
     pub fn set_text(&mut self, text: &str, attrs: Attrs) {
         with_system(|system| {
-            self.editor.buffer_mut().set_text(
-                &mut system.font_system,
-                text,
-                attrs,
-                Shaping::Advanced,
-            );
+            self.editor.with_buffer_mut(|buffer| {
+                buffer.set_text(&mut system.font_system, text, attrs, Shaping::Advanced)
+            });
         });
         self.adjust_size();
     }
 
     pub fn text(&self) -> String {
-        self.editor.buffer().text_without_preedit()
+        self.editor
+            .with_buffer(|buffer| buffer.text_without_preedit())
     }
 
     pub fn acccessible_line(&mut self) -> AccessibleLine {
@@ -112,11 +108,14 @@ impl TextEditor {
 
         self.shape_as_needed();
         // TODO: extend for multiline
-        let line = &self.editor.buffer().lines[0];
+        // TODO: take ref
+        let text = self
+            .editor
+            .with_buffer(|buffer| buffer.lines[0].text().to_owned());
 
         let mut character_lengths = Vec::new();
         let mut character_stats = Vec::new();
-        for (i, c) in line.text().grapheme_indices(true) {
+        for (i, c) in text.grapheme_indices(true) {
             character_lengths.push(c.len() as u8);
             character_stats.push(CharStats {
                 bytes: i..i + c.len(),
@@ -127,7 +126,7 @@ impl TextEditor {
         // TODO: expose from cosmic-text
         let mut prev_index_in_chars = None;
         let mut total_chars_in_words = 0;
-        for (i, word) in line.text().unicode_word_indices() {
+        for (i, word) in text.unicode_word_indices() {
             let end_i = i + word.len();
             let index_in_chars = character_stats
                 .iter()
@@ -142,42 +141,45 @@ impl TextEditor {
         if total_chars_in_words < character_stats.len() {
             word_lengths.push((character_stats.len() - total_chars_in_words) as u8);
         }
-        let mut runs = self.editor.buffer().layout_runs();
-        let run = runs.next().expect("missing layout run");
-        if runs.next().is_some() {
-            warn!("multiple layout_runs in single line edit");
-        }
-
-        if run.line_i != 0 {
-            warn!("invalid line_i in single line layout_runs");
-        }
-        for glyph in run.glyphs {
-            if let Some(stats) = character_stats
-                .iter_mut()
-                .find(|s| s.bytes.does_intersect(&(glyph.start..glyph.end)))
-            {
-                let new_start = FiniteF32::new(glyph.x).unwrap();
-                let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
-                if let Some(pixels) = &mut stats.pixels {
-                    pixels.start = min(pixels.start, new_start);
-                    pixels.end = max(pixels.end, new_end);
-                } else {
-                    stats.pixels = Some(new_start..new_end);
-                }
-            } else {
-                warn!("no char found for glyph: {glyph:?}");
+        let text_direction = self.editor.with_buffer(|buffer| {
+            let mut runs = buffer.layout_runs();
+            let run = runs.next().expect("missing layout run");
+            if runs.next().is_some() {
+                warn!("multiple layout_runs in single line edit");
             }
-        }
 
-        AccessibleLine {
-            text_direction: if run.rtl {
+            if run.line_i != 0 {
+                warn!("invalid line_i in single line layout_runs");
+            }
+            for glyph in run.glyphs {
+                if let Some(stats) = character_stats
+                    .iter_mut()
+                    .find(|s| s.bytes.does_intersect(&(glyph.start..glyph.end)))
+                {
+                    let new_start = FiniteF32::new(glyph.x).unwrap();
+                    let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
+                    if let Some(pixels) = &mut stats.pixels {
+                        pixels.start = min(pixels.start, new_start);
+                        pixels.end = max(pixels.end, new_end);
+                    } else {
+                        stats.pixels = Some(new_start..new_end);
+                    }
+                } else {
+                    warn!("no char found for glyph: {glyph:?}");
+                }
+            }
+            if run.rtl {
                 TextDirection::RightToLeft
             } else {
                 TextDirection::LeftToRight
-            },
+            }
+        });
+
+        AccessibleLine {
+            text_direction,
             // line_top: run.line_top,
             // line_bottom: run.line_top + self.editor.buffer().metrics().line_height,
-            text: line.text().into(),
+            text,
             character_lengths,
             character_positions: character_stats
                 .iter()
@@ -209,10 +211,11 @@ impl TextEditor {
     }
 
     pub fn set_accessible_selection(&mut self, data: TextSelection) {
-        let text = self.editor.buffer().lines[0].text().to_string();
+        let text = self
+            .editor
+            .with_buffer(|buffer| buffer.lines[0].text().to_string());
         let char_to_byte_index =
             |char_index| text.grapheme_indices(true).nth(char_index).map(|(i, _)| i);
-        let old_cursor = self.editor.cursor();
         if data.anchor == data.focus {
             self.set_select_opt(None);
         } else {
@@ -224,7 +227,6 @@ impl TextEditor {
                 line: 0,
                 index,
                 affinity: Affinity::Before,
-                ..old_cursor
             }));
         }
         let Some(index) = char_to_byte_index(data.focus.character_index) else {
@@ -235,12 +237,13 @@ impl TextEditor {
             line: 0,
             index,
             affinity: Affinity::Before,
-            ..old_cursor
         });
     }
 
     pub fn accessible_selection(&mut self, id: NodeId) -> TextSelection {
-        let text = self.editor.buffer().lines[0].text();
+        let text = self
+            .editor
+            .with_buffer(|buffer| buffer.lines[0].text().to_string());
         let byte_to_char_index = |byte_index| {
             text.grapheme_indices(true)
                 .take_while(|(i, _)| *i < byte_index)
@@ -268,11 +271,9 @@ impl TextEditor {
 
     fn set_size(&mut self, size: Size) {
         with_system(|system| {
-            self.editor.buffer_mut().set_size(
-                &mut system.font_system,
-                size.x as f32,
-                size.y as f32,
-            );
+            self.editor.with_buffer_mut(|buffer| {
+                buffer.set_size(&mut system.font_system, size.x as f32, size.y as f32)
+            });
         });
         self.size = size;
     }
@@ -284,32 +285,31 @@ impl TextEditor {
     pub fn set_text_color(&mut self, color: Color) {
         if self.text_color != color {
             self.text_color = color;
-            self.editor.buffer_mut().set_redraw(true);
+            self.editor.set_redraw(true);
         }
     }
 
     pub fn set_selected_text_color(&mut self, color: Color) {
         if self.selected_text_color != color {
             self.selected_text_color = color;
-            self.editor
-                .set_selected_text_color(Some(convert_color(color)));
+            self.editor.set_redraw(true);
         }
     }
 
     pub fn set_selected_text_background(&mut self, color: Color) {
         if self.selected_text_background != color {
             self.selected_text_background = color;
-            self.editor.set_selection_color(Some(convert_color(color)));
+            self.editor.set_redraw(true);
         }
     }
 
     pub fn shape_as_needed(&mut self) {
-        with_system(|system| self.editor.shape_as_needed(&mut system.font_system));
+        with_system(|system| self.editor.shape_as_needed(&mut system.font_system, false));
     }
 
     pub fn needs_redraw(&mut self) -> bool {
         self.shape_as_needed();
-        self.editor.buffer().redraw()
+        self.editor.redraw()
     }
 
     pub fn is_mouse_interaction_forbidden(&self) -> bool {
@@ -318,9 +318,10 @@ impl TextEditor {
 
     pub fn pixmap(&mut self) -> &Pixmap {
         if self.pixmap.is_none() || self.needs_redraw() {
+            let buffer_size = self.editor.with_buffer(|buffer| buffer.size());
             let size = Size {
-                x: max(1, self.editor.buffer().size().0.ceil() as i32),
-                y: max(1, self.editor.buffer().size().1.ceil() as i32),
+                x: max(1, buffer_size.0.ceil() as i32),
+                y: max(1, buffer_size.1.ceil() as i32),
             };
             let mut pixmap =
                 Pixmap::new(size.x as u32, size.y as u32).expect("failed to create pixmap");
@@ -329,6 +330,9 @@ impl TextEditor {
                     &mut system.font_system,
                     &mut system.swash_cache,
                     convert_color(self.text_color),
+                    convert_color(self.text_color), // TODO: cursor color
+                    convert_color(self.selected_text_background),
+                    convert_color(self.selected_text_color),
                     |x, y, w, h, c| {
                         let color = Color::from_rgba8(c.r(), c.g(), c.b(), c.a());
                         let paint = Paint {
@@ -347,35 +351,39 @@ impl TextEditor {
             });
             let mut alg = LineGenerator::new(LineType::Underline);
             let mut lines = Vec::new();
-            let line_height = self.editor.buffer().metrics().line_height;
+            let line_height = self
+                .editor
+                .with_buffer(|buffer| buffer.metrics().line_height);
             // TODO: determine from glyph width?
             let stroke_width = 1.0;
-            for run in self.editor.buffer().layout_runs() {
-                let underline_space = line_height - run.line_y;
-                let line_y = run.line_top + underline_space / 2.0;
-                let line_y = (line_y + stroke_width / 2.0).round() - stroke_width / 2.0;
-                for glyph in run.glyphs {
-                    if glyph.metadata & 0x1 != 0 {
-                        let color = glyph.color_opt.unwrap_or(convert_color(self.text_color));
-                        let glyph = line_straddler::Glyph {
-                            line_y,
-                            font_size: glyph.font_size,
-                            width: glyph.w,
-                            x: glyph.x,
-                            style: GlyphStyle {
-                                boldness: 1,
-                                color: line_straddler::Color::rgba(
-                                    color.r(),
-                                    color.g(),
-                                    color.b(),
-                                    color.a(),
-                                ),
-                            },
-                        };
-                        lines.extend(alg.add_glyph(glyph));
+            self.editor.with_buffer(|buffer| {
+                for run in buffer.layout_runs() {
+                    let underline_space = line_height - run.line_y;
+                    let line_y = run.line_top + underline_space / 2.0;
+                    let line_y = (line_y + stroke_width / 2.0).round() - stroke_width / 2.0;
+                    for glyph in run.glyphs {
+                        if glyph.metadata & 0x1 != 0 {
+                            let color = glyph.color_opt.unwrap_or(convert_color(self.text_color));
+                            let glyph = line_straddler::Glyph {
+                                line_y,
+                                font_size: glyph.font_size,
+                                width: glyph.w,
+                                x: glyph.x,
+                                style: GlyphStyle {
+                                    boldness: 1,
+                                    color: line_straddler::Color::rgba(
+                                        color.r(),
+                                        color.g(),
+                                        color.b(),
+                                        color.a(),
+                                    ),
+                                },
+                            };
+                            lines.extend(alg.add_glyph(glyph));
+                        }
                     }
                 }
-            }
+            });
             lines.extend(alg.pop_line());
             for line in lines {
                 let mut path = PathBuilder::new();
@@ -401,7 +409,7 @@ impl TextEditor {
                 );
             }
             self.pixmap = Some(pixmap);
-            self.editor.buffer_mut().set_redraw(false);
+            self.editor.set_redraw(false);
         }
         self.pixmap.as_ref().expect("created above")
     }
@@ -411,16 +419,18 @@ impl TextEditor {
     }
 
     pub fn line_height(&self) -> f32 {
-        self.editor.buffer().metrics().line_height
+        self.editor
+            .with_buffer(|buffer| buffer.metrics().line_height)
     }
 
     // TODO: remove
-    pub fn action(&mut self, mut action: Action, select: bool) {
+    pub fn action(&mut self, mut action: Action) {
         match &mut action {
             Action::SetPreedit { attrs, .. } => {
                 if attrs.is_none() {
-                    let new_attrs = self.attrs_at_cursor().metadata(1);
-                    *attrs = Some(AttrsOwned::new(new_attrs));
+                    let mut new_attrs = self.attrs_at_cursor();
+                    new_attrs.metadata = 1;
+                    *attrs = Some(new_attrs);
                 }
             }
             Action::Drag { .. } => {
@@ -430,7 +440,7 @@ impl TextEditor {
             }
             _ => (),
         }
-        with_system(|system| self.editor.action(&mut system.font_system, action, select));
+        with_system(|system| self.editor.action(&mut system.font_system, action));
         self.adjust_size();
     }
 
@@ -443,24 +453,30 @@ impl TextEditor {
     pub fn has_selection(&self) -> bool {
         self.editor.has_selection()
     }
+    // TODO: update API
     pub fn select_opt(&self) -> Option<Cursor> {
-        self.editor.select_opt()
+        if let cosmic_text::Selection::Normal(value) = self.editor.selection() {
+            Some(value)
+        } else {
+            None
+        }
     }
     pub fn set_select_opt(&mut self, select_opt: Option<Cursor>) {
-        self.editor.set_select_opt(select_opt);
+        self.editor.set_selection(if let Some(cursor) = select_opt {
+            cosmic_text::Selection::Normal(cursor)
+        } else {
+            cosmic_text::Selection::None
+        })
     }
 
     fn interrupt_preedit(&mut self) {
         if let Some(text) = self.editor.preedit_text() {
             let text = text.to_owned();
-            self.action(
-                Action::SetPreedit {
-                    preedit: String::new(),
-                    cursor: None,
-                    attrs: None,
-                },
-                false,
-            );
+            self.action(Action::SetPreedit {
+                preedit: String::new(),
+                cursor: None,
+                attrs: None,
+            });
             self.insert_string(&text, None);
             if let Some(window) = &self.window {
                 window.cancel_ime_preedit();
@@ -472,13 +488,13 @@ impl TextEditor {
 
     pub fn on_focus_in(&mut self, reason: FocusReason) {
         if reason == FocusReason::Tab {
-            self.action(Action::SelectAll, false);
+            self.action(Action::SelectAll);
         }
     }
 
     pub fn on_focus_out(&mut self) {
         self.interrupt_preedit();
-        self.action(Action::Escape, false);
+        self.action(Action::Escape);
     }
 
     pub fn on_window_focus_changed(&mut self, focused: bool) {
@@ -490,7 +506,9 @@ impl TextEditor {
     pub fn on_mouse_input(&mut self, pos: Point, num_clicks: u32, select: bool) {
         let old_cursor = self.editor.cursor();
         let preedit_range = self.editor.preedit_range();
-        let click_cursor = self.editor.buffer().hit(pos.x as f32, pos.y as f32);
+        let click_cursor = self
+            .editor
+            .with_buffer(|buffer| buffer.hit(pos.x as f32, pos.y as f32));
         if let Some(click_cursor) = click_cursor {
             if click_cursor.line == old_cursor.line
                 && preedit_range
@@ -507,9 +525,9 @@ impl TextEditor {
                 let x = pos.x;
                 let y = pos.y;
                 match ((num_clicks - 1) % 3) + 1 {
-                    1 => self.action(Action::Click { x, y }, select),
-                    2 => self.action(Action::SelectWord { x, y }, false),
-                    3 => self.action(Action::SelectParagraph { x, y }, false),
+                    1 => self.action(Action::Click { x, y, select }),
+                    2 => self.action(Action::DoubleClick { x, y }),
+                    3 => self.action(Action::TripleClick { x, y }),
                     _ => {}
                 }
             }
@@ -520,20 +538,19 @@ impl TextEditor {
         self.forbid_mouse_interaction = false;
     }
 
-    fn attrs_at_cursor(&self) -> Attrs {
+    fn attrs_at_cursor(&self) -> AttrsOwned {
         // TODO: use lines.get() everywhere to be safe
-        let line = &self.editor.buffer().lines[self.editor.cursor().line];
-        line.attrs_list().get_span(self.editor.cursor().index)
+        self.editor.with_buffer(|buffer| {
+            let line = &buffer.lines[self.editor.cursor().line];
+            AttrsOwned::new(line.attrs_list().get_span(self.editor.cursor().index))
+        })
     }
 
     pub fn unrestricted_text_size(&mut self) -> Size {
         with_system(|system| {
-            unrestricted_text_size(
-                &mut self
-                    .editor
-                    .buffer_mut()
-                    .borrow_with(&mut system.font_system),
-            )
+            self.editor.with_buffer_mut(|buffer| {
+                unrestricted_text_size(&mut buffer.borrow_with(&mut system.font_system))
+            })
         })
     }
 
@@ -552,8 +569,12 @@ impl TextEditor {
         self.is_cursor_hidden
     }
 
-    pub fn selection(&self) -> Option<(Cursor, Cursor)> {
-        self.editor.selection()
+    pub fn selection_bounds(&self) -> Option<(Cursor, Cursor)> {
+        if self.editor.has_selection() {
+            self.editor.selection_bounds()
+        } else {
+            None
+        }
     }
 
     pub fn selected_text(&mut self) -> Option<String> {
@@ -572,7 +593,7 @@ const MEASURE_MAX_SIZE: f32 = 10_000.;
 
 fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Size {
     buffer.set_size(MEASURE_MAX_SIZE, MEASURE_MAX_SIZE);
-    buffer.shape_until_scroll();
+    buffer.shape_until_scroll(false);
     let height = (buffer.lines.len() as f32 * buffer.metrics().line_height).ceil() as i32;
     let width = buffer
         .layout_runs()

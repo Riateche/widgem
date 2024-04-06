@@ -6,7 +6,7 @@ use std::{
 
 use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
 use anyhow::Result;
-use cosmic_text::{Action, Attrs, Wrap};
+use cosmic_text::{Action, Attrs, Motion, Wrap};
 use log::warn;
 use winit::{
     event::{ElementState, Ime, MouseButton},
@@ -363,8 +363,7 @@ impl Widget for TextInput {
         {
             let pos = event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
             let old_selection = (self.editor.select_opt(), self.editor.cursor());
-            self.editor
-                .action(Action::Drag { x: pos.x, y: pos.y }, true);
+            self.editor.action(Action::Drag { x: pos.x, y: pos.y });
             let new_selection = (self.editor.select_opt(), self.editor.cursor());
             if old_selection != new_selection {
                 self.after_change();
@@ -382,16 +381,22 @@ impl Widget for TextInput {
 
         let shortcuts = standard_shortcuts();
         if shortcuts.move_to_next_char.matches(&event) {
-            self.editor.action(Action::Next, false);
+            self.editor.action(Action::Motion {
+                motion: Motion::Next,
+                select: false,
+            });
         } else if shortcuts.move_to_previous_char.matches(&event) {
-            self.editor.action(Action::Previous, false);
+            self.editor.action(Action::Motion {
+                motion: Motion::Previous,
+                select: false,
+            });
         } else if shortcuts.delete.matches(&event) {
-            self.editor.action(Action::Delete, false);
+            self.editor.action(Action::Delete);
         } else if shortcuts.backspace.matches(&event) {
-            self.editor.action(Action::Backspace, false);
+            self.editor.action(Action::Backspace);
         } else if shortcuts.cut.matches(&event) {
             self.copy_to_clipboard();
-            self.editor.action(Action::Delete, false);
+            self.editor.action(Action::Delete);
         } else if shortcuts.copy.matches(&event) {
             self.copy_to_clipboard();
         } else if shortcuts.paste.matches(&event) {
@@ -405,34 +410,64 @@ impl Widget for TextInput {
         } else if shortcuts.redo.matches(&event) {
             // TODO
         } else if shortcuts.select_all.matches(&event) {
-            self.editor.action(Action::SelectAll, false);
+            self.editor.action(Action::SelectAll);
         } else if shortcuts.deselect.matches(&event) {
             // TODO: why Escape?
-            self.editor.action(Action::Escape, false);
+            self.editor.action(Action::Escape);
         } else if shortcuts.move_to_next_word.matches(&event) {
-            self.editor.action(Action::NextWord, false);
+            self.editor.action(Action::Motion {
+                motion: Motion::NextWord,
+                select: false,
+            });
         } else if shortcuts.move_to_previous_word.matches(&event) {
-            self.editor.action(Action::PreviousWord, false);
+            self.editor.action(Action::Motion {
+                motion: Motion::PreviousWord,
+                select: false,
+            });
         } else if shortcuts.move_to_start_of_line.matches(&event) {
-            self.editor.action(Action::Home, false);
+            self.editor.action(Action::Motion {
+                motion: Motion::Home,
+                select: false,
+            });
         } else if shortcuts.move_to_end_of_line.matches(&event) {
-            self.editor.action(Action::End, false);
+            self.editor.action(Action::Motion {
+                motion: Motion::End,
+                select: false,
+            });
         } else if shortcuts.select_next_char.matches(&event) {
-            self.editor.action(Action::Next, true);
+            self.editor.action(Action::Motion {
+                motion: Motion::Next,
+                select: true,
+            });
         } else if shortcuts.select_previous_char.matches(&event) {
-            self.editor.action(Action::Previous, true);
+            self.editor.action(Action::Motion {
+                motion: Motion::Previous,
+                select: true,
+            });
         } else if shortcuts.select_next_word.matches(&event) {
-            self.editor.action(Action::NextWord, true);
+            self.editor.action(Action::Motion {
+                motion: Motion::NextWord,
+                select: true,
+            });
         } else if shortcuts.select_previous_word.matches(&event) {
-            self.editor.action(Action::PreviousWord, true);
+            self.editor.action(Action::Motion {
+                motion: Motion::PreviousWord,
+                select: true,
+            });
         } else if shortcuts.select_start_of_line.matches(&event) {
-            self.editor.action(Action::Home, true);
+            self.editor.action(Action::Motion {
+                motion: Motion::Home,
+                select: true,
+            });
         } else if shortcuts.select_end_of_line.matches(&event) {
-            self.editor.action(Action::End, true);
+            self.editor.action(Action::Motion {
+                motion: Motion::End,
+                select: true,
+            });
         } else if shortcuts.delete_start_of_word.matches(&event) {
-            self.editor.action(Action::DeleteStartOfWord, false);
+            self.editor.action(Action::DeleteStartOfWord);
         } else if shortcuts.delete_end_of_word.matches(&event) {
-            self.editor.action(Action::DeleteEndOfWord, false);
+            self.editor.action(Action::DeleteEndOfWord);
         } else if let Some(text) = event.event.text {
             if [Key::Tab, Key::Enter, Key::Escape].contains(&event.event.logical_key) {
                 return Ok(false);
@@ -452,14 +487,11 @@ impl Widget for TextInput {
             Ime::Enabled => {}
             Ime::Preedit(preedit, cursor) => {
                 // TODO: can pretext have line breaks?
-                self.editor.action(
-                    Action::SetPreedit {
-                        preedit: sanitize(&preedit),
-                        cursor,
-                        attrs: None,
-                    },
-                    false,
-                );
+                self.editor.action(Action::SetPreedit {
+                    preedit: sanitize(&preedit),
+                    cursor,
+                    attrs: None,
+                });
             }
             Ime::Commit(string) => {
                 self.editor.insert_string(&sanitize(&string), None);
