@@ -14,7 +14,7 @@ use tiny_skia::Pixmap;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Ime, MouseButton, WindowEvent},
-    keyboard::{Key, ModifiersState},
+    keyboard::{Key, ModifiersState, NamedKey},
     window::{CursorIcon, Icon, WindowId},
 };
 
@@ -48,7 +48,7 @@ pub struct SharedWindowDataInner {
     pub accessible_nodes: AccessibleNodes,
     pub mouse_entered_widgets: Vec<(Rect, RawWidgetId)>,
     pub pending_size_hint_invalidations: Vec<WidgetAddress>,
-    pub winit_window: winit::window::Window,
+    pub winit_window: Rc<winit::window::Window>,
     pub ime_allowed: bool,
     pub ime_cursor_area: Rect,
 
@@ -146,8 +146,8 @@ pub struct Window {
     // Drop order must be maintained as
     // `surface` -> `softbuffer_context` -> `shared_window_data`
     // to maintain safety requirements.
-    pub surface: softbuffer::Surface,
-    pub softbuffer_context: softbuffer::Context,
+    pub surface: softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>,
+    pub softbuffer_context: softbuffer::Context<Rc<winit::window::Window>>,
     pub pixmap: Rc<RefCell<Pixmap>>,
 
     pub shared_window_data: SharedWindowData,
@@ -190,10 +190,11 @@ impl Window {
                 ))
                 .with_min_inner_size(PhysicalSize::new(size_hints_x.min, size_hints_y.min));
         }
-        let winit_window = with_window_target(|window_target| inner.build(window_target).unwrap());
-        let softbuffer_context = unsafe { softbuffer::Context::new(&winit_window) }.unwrap();
-        let surface =
-            unsafe { softbuffer::Surface::new(&softbuffer_context, &winit_window) }.unwrap();
+        let winit_window = Rc::new(with_window_target(|window_target| {
+            inner.build(window_target).unwrap()
+        }));
+        let softbuffer_context = softbuffer::Context::new(winit_window.clone()).unwrap();
+        let surface = softbuffer::Surface::new(&softbuffer_context, winit_window.clone()).unwrap();
         let window_id = winit_window.id();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             cursor_position: None,
@@ -302,13 +303,9 @@ impl Window {
     }
 
     pub fn handle_event(&mut self, event: WindowEvent) {
-        if !self
-            .accesskit_adapter
-            .on_event(&self.shared_window_data.0.borrow().winit_window, &event)
-        {
-            trace!("accesskit consumed event: {event:?}");
-            return;
-        }
+        self.accesskit_adapter
+            .process_event(&self.shared_window_data.0.borrow().winit_window, &event);
+
         // println!("{:?} {:?}", self.id, event);
         match event {
             WindowEvent::RedrawRequested => {
@@ -574,7 +571,7 @@ impl Window {
                 // TODO: only if event is not accepted by a widget
                 if event.state == ElementState::Pressed {
                     let logical_key = event.logical_key;
-                    if logical_key == Key::Tab {
+                    if logical_key == Key::Named(NamedKey::Tab) {
                         if self
                             .shared_window_data
                             .0
@@ -591,6 +588,7 @@ impl Window {
             }
             WindowEvent::Ime(ime) => {
                 trace!("IME event: {ime:?}");
+                println!("IME event: {ime:?}");
                 if let Ime::Enabled = &ime {
                     let shared = self.shared_window_data.0.borrow();
                     shared.winit_window.set_ime_cursor_area(
@@ -710,13 +708,13 @@ impl Window {
     }
 
     fn push_accessible_updates(&mut self) {
-        let update = self
-            .shared_window_data
-            .0
-            .borrow_mut()
-            .accessible_nodes
-            .take_update();
-        self.accesskit_adapter.update(update);
+        self.accesskit_adapter.update_if_active(|| {
+            self.shared_window_data
+                .0
+                .borrow_mut()
+                .accessible_nodes
+                .take_update()
+        });
     }
 
     fn check_auto_focus(&mut self) {

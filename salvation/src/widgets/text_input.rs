@@ -10,7 +10,7 @@ use cosmic_text::{Action, Attrs, Motion, Wrap};
 use log::warn;
 use winit::{
     event::{ElementState, Ime, MouseButton},
-    keyboard::Key,
+    keyboard::{Key, NamedKey},
     window::CursorIcon,
 };
 
@@ -469,8 +469,10 @@ impl Widget for TextInput {
         } else if shortcuts.delete_end_of_word.matches(&event) {
             self.editor.action(Action::DeleteEndOfWord);
         } else if let Some(text) = event.event.text {
-            if [Key::Tab, Key::Enter, Key::Escape].contains(&event.event.logical_key) {
-                return Ok(false);
+            if let Key::Named(key) = &event.event.logical_key {
+                if [NamedKey::Tab, NamedKey::Enter, NamedKey::Escape].contains(key) {
+                    return Ok(false);
+                }
             }
             self.editor.insert_string(&sanitize(&text), None);
         } else {

@@ -12,9 +12,10 @@ png = "0.17.10"
 #cosmic-text = { path = "../cosmic-text" }
 cosmic-text = { git = "https://github.com/Riateche/cosmic-text.git", branch = "ime-actions-and-customize" }
 #winit = "0.29.1-beta"
+winit = "0.29.15"
 #winit = { path = "../winit" }
-winit = { git = "https://github.com/Riateche/winit.git", branch = "fix-wait-until" }
-softbuffer = "0.3.0"
+#winit = { git = "https://github.com/Riateche/winit.git", branch = "fix-wait-until" }
+softbuffer = "0.4.1"
 bytemuck = "1.13.1"
 downcast-rs = "1.2.0"
 scoped-tls = "1.0.1"
@@ -29,8 +30,10 @@ line-straddler = "0.2.1"
 #accesskit_winit = "0.14.4"
 #accesskit = { path = "../accesskit/common" }
 #accesskit_winit = { path = "../accesskit/platforms/winit" }
-accesskit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
-accesskit_winit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+#accesskit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+#accesskit_winit = { git = "https://github.com/Riateche/accesskit.git", branch = "wip" }
+accesskit = "0.12.3"
+accesskit_winit = "0.18.7"
 itertools = "0.11.0"
 unicode-segmentation = "1.10.1"
 strict-num = "0.1.1"

@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail};
 use bitflags::bitflags;
 use derive_more::From;
 use once_cell::sync::OnceCell;
-use winit::keyboard::{Key, KeyCode, ModifiersState};
+use winit::keyboard::{KeyCode, ModifiersState, NamedKey};
 
 mod parse;
 
@@ -104,7 +104,7 @@ impl KeyCombination {
 
 #[derive(Debug, Clone, PartialEq, Eq, From)]
 pub enum ShortcutKey {
-    Logical(Key),
+    Logical(NamedKey),
     Physical(KeyCode),
 }
 
@@ -321,7 +321,7 @@ fn test_standard_shortcuts() {
     {
         let shortcut1 = Shortcut(vec![KeyCombination::new(
             Modifiers::empty(),
-            Key::ArrowRight,
+            NamedKey::ArrowRight,
         )]);
         assert_eq!(
             shortcuts.move_to_next_char, shortcut1,
@@ -332,7 +332,7 @@ fn test_standard_shortcuts() {
         let shortcut2 = Shortcut(vec![
             KeyCombination::new(Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyY),
             KeyCombination::new(Modifiers::CTRL_OR_MAC_CMD | Modifiers::SHIFT, KeyCode::KeyZ),
-            KeyCombination::new(Modifiers::ALT | Modifiers::SHIFT, Key::Backspace),
+            KeyCombination::new(Modifiers::ALT | Modifiers::SHIFT, NamedKey::Backspace),
         ]);
         assert_eq!(
             shortcuts.redo, shortcut2,
@@ -340,7 +340,7 @@ fn test_standard_shortcuts() {
             shortcut1, shortcuts.redo
         );
 
-        let shortcut3 = Shortcut(vec![KeyCombination::new(Modifiers::SHIFT, Key::End)]);
+        let shortcut3 = Shortcut(vec![KeyCombination::new(Modifiers::SHIFT, NamedKey::End)]);
         assert_eq!(
             shortcuts.select_end_of_line, shortcut3,
             "standard_shortcuts: expected {:?}, got {:?}",
@@ -351,7 +351,7 @@ fn test_standard_shortcuts() {
     #[cfg(target_os = "macos")]
     {
         let shortcut1 = Shortcut(vec![
-            KeyCombination::new(Modifiers::empty(), Key::ArrowRight),
+            KeyCombination::new(Modifiers::empty(), NamedKey::ArrowRight),
             KeyCombination::new(Modifiers::META_OR_MAC_CTRL, KeyCode::KeyF),
         ]);
         assert_eq!(
@@ -372,7 +372,7 @@ fn test_standard_shortcuts() {
 
         let shortcut3 = Shortcut(vec![KeyCombination::new(
             Modifiers::SHIFT | Modifiers::CTRL_OR_MAC_CMD,
-            Key::ArrowRight,
+            NamedKey::ArrowRight,
         )]);
         assert_eq!(
             shortcuts.select_end_of_line, shortcut3,

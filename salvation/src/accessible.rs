@@ -142,7 +142,8 @@ impl AccessibleNodes {
         }
         TreeUpdate {
             nodes,
-            tree: Some(Tree { root: self.root }),
+            // TODO: set Tree properties?
+            tree: Some(Tree::new(self.root)),
             focus: self.focus,
         }
     }
