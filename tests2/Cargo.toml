@@ -1,0 +1,7 @@
+[package]
+name = "salvation_tests2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+uitest = { path = "../uitest" }

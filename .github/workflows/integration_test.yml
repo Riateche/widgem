@@ -1,0 +1,28 @@
+on: [push, pull_request]
+
+name: Integration test
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build Docker image
+      run: |
+        docker build --cache-to type=gha,mode=max --cache-from type=gha -t salvation_tests2 -f tests2/Dockerfile .
+
+    - name: Run Docker container
+      run: docker run -d --name salvation_tests2 salvation_tests2
+    - name: Run tests
+      run: |
+        for i in {1..20}; do
+          sleep 0.3
+          echo Testing container status
+          docker exec salvation_tests2 xdotool click 1 || true
+          if docker exec salvation_tests2 xdotool getactivewindow; then
+            echo Container is ready
+            break
+          fi
+        done
+        docker exec salvation_tests2 salvation_tests2 0

@@ -1,0 +1,11 @@
+[package]
+name = "uitest"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+xcap = "0.0.4"
+x11rb = { version = "0.13.0", features = ["res"] }
+anyhow = { version = "1.0.80", features = ["backtrace"] }
