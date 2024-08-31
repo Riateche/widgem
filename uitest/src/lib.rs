@@ -1,5 +1,9 @@
 use anyhow::bail;
-use std::process::Command;
+use std::{
+    process::Command,
+    thread::sleep,
+    time::{Duration, Instant},
+};
 use xcap::image::RgbaImage;
 
 use x11rb::{
@@ -7,10 +11,14 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
+const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);
+const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(5);
+
 pub struct Connection {
     connection: RustConnection,
     net_wm_pid: Atom,
     cardinal: Atom,
+    wait_duration: Duration,
 }
 
 fn get_or_intern_atom(conn: &RustConnection, name: &[u8]) -> Atom {
@@ -25,22 +33,44 @@ fn get_or_intern_atom(conn: &RustConnection, name: &[u8]) -> Atom {
 
 impl Connection {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        let (connection, _screen_num) = x11rb::connect(None).unwrap();
+    pub fn new() -> anyhow::Result<Self> {
+        let (connection, _screen_num) = x11rb::connect(None)?;
         let net_wm_pid = get_or_intern_atom(&connection, b"_NET_WM_PID");
         let cardinal = get_or_intern_atom(&connection, b"CARDINAL");
-        Self {
+        Ok(Self {
             connection,
             net_wm_pid,
             cardinal,
-        }
+            wait_duration: DEFAULT_WAIT_DURATION,
+        })
     }
 
-    pub fn all_windows(&self) -> Result<Vec<Window>, Box<dyn std::error::Error>> {
+    pub fn all_windows(&self) -> anyhow::Result<Vec<Window>> {
         xcap::Window::all()?
             .into_iter()
             .map(|w| Window::new(self, w))
             .collect()
+    }
+
+    pub fn windows_by_pid(&self, pid: u32) -> anyhow::Result<Vec<Window>> {
+        let windows = self.all_windows()?;
+        Ok(windows.into_iter().filter(|w| w.pid == pid).collect())
+    }
+
+    pub fn wait_for_windows_by_pid(&self, pid: u32) -> anyhow::Result<Vec<Window>> {
+        let started = Instant::now();
+        while started.elapsed() < self.wait_duration {
+            let windows = self.windows_by_pid(pid)?;
+            if !windows.is_empty() {
+                return Ok(windows);
+            }
+            sleep(SINGLE_WAIT_DURATION);
+        }
+        bail!(
+            "couldn't find a window with pid={} after {:?}",
+            pid,
+            self.wait_duration
+        );
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
@@ -92,10 +122,7 @@ pub struct Window {
 }
 
 impl Window {
-    fn new(
-        connection: &Connection,
-        inner: xcap::Window,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    fn new(connection: &Connection, inner: xcap::Window) -> anyhow::Result<Self> {
         let pid = connection
             .connection
             .get_property(
@@ -195,17 +222,14 @@ impl Window {
     }
 
     pub fn close(&self) -> anyhow::Result<()> {
-        // let status = Command::new("xdotool")
-        //     .arg("windowclose")
-        //     .arg(self.id().to_string())
-        //     .status()?;
+        // `xdotool windowclose` doesn't work properly
         let status = Command::new("wmctrl")
             .arg("-i")
             .arg("-c")
             .arg(self.id().to_string())
             .status()?;
         if !status.success() {
-            bail!("xdotool failed: {:?}", status);
+            bail!("wmctrl failed: {:?}", status);
         }
         Ok(())
     }

@@ -14,6 +14,7 @@ RUN cargo build --package salvation_tests2 --release
 
 FROM docker.io/neuroidss/ubuntu-xfce-vnc:20.04 AS runtime
 USER root
-RUN apt-get update && apt-get install -y xdotool
+RUN apt-get update && apt-get install -y xdotool wmctrl
 COPY --from=builder /app/target/release/salvation_tests2 /usr/local/bin/
 ENV RUST_BACKTRACE=1
+ENV SALVATION_TESTS_ASSETS_DIR=/assets

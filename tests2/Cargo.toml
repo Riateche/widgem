@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+salvation = { path = "../salvation" }
 uitest = { path = "../uitest" }
+anyhow = { version = "1.0.75", features = ["backtrace"] }
+clap = { version = "4.5.16", features = ["derive"] }
+strum = { version = "0.26.3", features = ["derive"] }
