@@ -13,7 +13,7 @@ use salvation::{
     },
     window::create_window,
 };
-use winit::window::WindowBuilder;
+use winit::window::Window;
 
 struct AnotherState {
     counter: i32,
@@ -27,7 +27,7 @@ impl AnotherState {
             state.counter += 1;
             println!("counter: {}", state.counter);
             create_window(
-                WindowBuilder::new().with_title("example"),
+                Window::default_attributes().with_title("example"),
                 Some(Label::new(format!("counter: {}", state.counter)).boxed()),
             );
             Ok(())
@@ -125,7 +125,7 @@ impl State {
         root.add_child(ScrollArea::new(content.boxed()).boxed());
 
         create_window(
-            WindowBuilder::new().with_title("example"),
+            Window::default_attributes().with_title("example"),
             Some(PaddingBox::new(root.boxed()).boxed()),
         );
         add_interval(

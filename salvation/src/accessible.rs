@@ -3,7 +3,7 @@ use std::{
     convert::identity,
 };
 
-use accesskit::{NodeBuilder, NodeClassSet, NodeId, Role, Tree, TreeUpdate};
+use accesskit::{NodeBuilder, NodeId, Role, Tree, TreeUpdate};
 use derivative::Derivative;
 use log::warn;
 
@@ -17,8 +17,6 @@ pub struct AccessibleNodes {
     direct_parents: HashMap<NodeId, NodeId>,
 
     pending_updates: HashSet<NodeId>,
-    #[derivative(Debug = "ignore")]
-    classes: NodeClassSet,
     root: NodeId,
     focus: NodeId,
 }
@@ -32,7 +30,6 @@ impl AccessibleNodes {
             direct_children: Default::default(),
             direct_parents: Default::default(),
             pending_updates: Default::default(),
-            classes: Default::default(),
             root,
             focus: root,
         };
@@ -137,7 +134,7 @@ impl AccessibleNodes {
                 find_children(id, &self.direct_children, &self.nodes, &mut children);
                 let mut node = node.clone();
                 node.set_children(children);
-                nodes.push((id, node.build(&mut self.classes)));
+                nodes.push((id, node.build()));
             }
         }
         TreeUpdate {

@@ -1032,7 +1032,7 @@ fn accept_mouse_event(
             .0
             .borrow()
             .winit_window
-            .set_cursor_icon(widget.common().cursor_icon);
+            .set_cursor(widget.common().cursor_icon);
         if is_enter {
             mount_point
                 .window

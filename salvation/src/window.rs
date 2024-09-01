@@ -15,7 +15,7 @@ use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Ime, MouseButton, WindowEvent},
     keyboard::{Key, ModifiersState, NamedKey},
-    window::{CursorIcon, Icon, WindowId},
+    window::{CursorIcon, Icon, WindowAttributes, WindowId},
 };
 
 use crate::{
@@ -26,7 +26,7 @@ use crate::{
         KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseLeaveEvent,
         MouseMoveEvent, UnmountEvent, WindowFocusChangeEvent,
     },
-    event_loop::{with_window_target, UserEvent},
+    event_loop::{with_active_event_loop, UserEvent},
     system::{address, with_system},
     types::{Point, Rect, Size},
     widgets::{
@@ -162,11 +162,8 @@ pub struct Window {
     last_click_instant: Option<Instant>,
 }
 
-pub fn create_window(
-    inner: winit::window::WindowBuilder,
-    widget: Option<Box<dyn Widget>>,
-) -> WindowId {
-    let w = Window::new(inner, widget);
+pub fn create_window(attrs: WindowAttributes, widget: Option<Box<dyn Widget>>) -> WindowId {
+    let w = Window::new(attrs, widget);
     let id = w.id;
     with_system(|system| system.new_windows.push(w));
     id
@@ -177,21 +174,21 @@ pub fn create_window(
 const EXTRA_SURFACE_SIZE: u32 = 50;
 
 impl Window {
-    fn new(mut inner: winit::window::WindowBuilder, mut widget: Option<Box<dyn Widget>>) -> Self {
+    fn new(mut attrs: WindowAttributes, mut widget: Option<Box<dyn Widget>>) -> Self {
         if let Some(widget) = &mut widget {
             // TODO: propagate style without mounting?
             let size_hints_x = widget.size_hints_x();
             // TODO: adjust size_x for screen size
             let size_hints_y = widget.size_hints_y(size_hints_x.preferred);
-            inner = inner
+            attrs = attrs
                 .with_inner_size(PhysicalSize::new(
                     size_hints_x.preferred,
                     size_hints_y.preferred,
                 ))
                 .with_min_inner_size(PhysicalSize::new(size_hints_x.min, size_hints_y.min));
         }
-        let winit_window = Rc::new(with_window_target(|window_target| {
-            inner.build(window_target).unwrap()
+        let winit_window = Rc::new(with_active_event_loop(|event_loop| {
+            event_loop.create_window(attrs).unwrap()
         }));
         let softbuffer_context = softbuffer::Context::new(winit_window.clone()).unwrap();
         let surface = softbuffer::Surface::new(&softbuffer_context, winit_window.clone()).unwrap();
@@ -226,15 +223,8 @@ impl Window {
             );
         }
 
-        let initial_tree = shared_window_data
-            .0
-            .borrow_mut()
-            .accessible_nodes
-            .take_update();
-
-        let accesskit_adapter = accesskit_winit::Adapter::new(
+        let accesskit_adapter = accesskit_winit::Adapter::with_event_loop_proxy(
             &shared_window_data.0.borrow().winit_window,
-            || initial_tree,
             with_system(|system| system.event_loop_proxy.clone()),
         );
 
@@ -447,7 +437,7 @@ impl Window {
                         .0
                         .borrow()
                         .winit_window
-                        .set_cursor_icon(CursorIcon::Default);
+                        .set_cursor(CursorIcon::Default);
                 }
             }
             WindowEvent::ModifiersChanged(modifiers) => {
@@ -628,6 +618,19 @@ impl Window {
             _ => {}
         }
         self.after_widget_activity();
+    }
+
+    pub fn handle_accesskit_event(&mut self, event: accesskit_winit::Event) {
+        match event.window_event {
+            accesskit_winit::WindowEvent::InitialTreeRequested => {
+                self.push_accessible_updates();
+            }
+            accesskit_winit::WindowEvent::ActionRequested(request) => {
+                trace!("accesskit request: {:?}", request);
+                self.handle_accessible_request(request);
+            }
+            accesskit_winit::WindowEvent::AccessibilityDeactivated => {}
+        }
     }
 
     pub fn after_widget_activity(&mut self) {

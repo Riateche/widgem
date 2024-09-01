@@ -3,18 +3,17 @@ use std::{
     sync::mpsc::SyncSender, time::Instant,
 };
 
-use accesskit_winit::ActionRequestEvent;
 use anyhow::{anyhow, Result};
 use arboard::Clipboard;
 use cosmic_text::{fontdb, FontSystem, SwashCache};
 use derive_more::From;
-use log::{trace, warn};
+use log::warn;
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Pixmap;
 use winit::{
     error::EventLoopError,
-    event::{Event, WindowEvent},
-    event_loop::{ControlFlow, EventLoopBuilder, EventLoopWindowTarget},
+    event::{Event, StartCause, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::WindowId,
 };
 
@@ -101,19 +100,26 @@ pub enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
     WindowRequest(WindowId, WindowRequest),
     WindowClosed(WindowId),
-    ActionRequest(ActionRequestEvent),
+    Accesskit(accesskit_winit::Event),
     SnapshotRequest(SyncSender<Snapshot>),
     DispatchWindowEvent(usize, WindowEvent),
 }
 
-scoped_thread_local!(static WINDOW_TARGET: EventLoopWindowTarget<UserEvent>);
+scoped_thread_local!(static ACTIVE_EVENT_LOOP: ActiveEventLoop);
 
-pub fn with_window_target<F, R>(f: F) -> R
+pub fn with_active_event_loop<F, R>(f: F) -> R
 where
-    F: FnOnce(&EventLoopWindowTarget<UserEvent>) -> R,
+    F: FnOnce(&ActiveEventLoop) -> R,
 {
-    WINDOW_TARGET.with(f)
+    ACTIVE_EVENT_LOOP.with(f)
 }
+
+// pub fn with_window_target<F, R>(f: F) -> R
+// where
+//     F: FnOnce(&EventLoopWindowTarget<UserEvent>) -> R,
+// {
+//     WINDOW_TARGET.with(f)
+// }
 
 fn dispatch_widget_callback(
     windows: &mut LinkedHashMap<WindowId, Window>,
@@ -149,10 +155,10 @@ fn fetch_new_windows(windows: &mut LinkedHashMap<WindowId, Window>) {
     });
 }
 
-fn default_scale<T>(window_target: &EventLoopWindowTarget<T>) -> f32 {
-    let monitor = window_target
+fn default_scale(event_loop: &ActiveEventLoop) -> f32 {
+    let monitor = event_loop
         .primary_monitor()
-        .or_else(|| window_target.available_monitors().next());
+        .or_else(|| event_loop.available_monitors().next());
     if let Some(monitor) = monitor {
         monitor.scale_factor() as f32
     } else {
@@ -201,67 +207,78 @@ impl App {
         &self,
         make_state: impl FnOnce(&mut CallbackContext<State>) -> State,
     ) -> Result<(), EventLoopError> {
-        let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build()?;
+        let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
 
+        // TODO: back to normal hashmap?
         let mut windows = LinkedHashMap::<WindowId, Window>::new();
 
         let mut snapshot_sender = None;
 
-        let mut db = fontdb::Database::new();
-        for custom_font_path in &self.custom_font_paths {
-            db.load_font_file(custom_font_path)
-                .expect("failed to initialize custom font");
-        }
-        if self.system_fonts {
-            db.load_system_fonts();
-        }
-        let font_system =
-            FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
-
-        let scale = match self.fixed_scale {
-            None => default_scale(&event_loop),
-            Some(fixed_scale) => fixed_scale,
-        };
-
-        let shared_system_data = SharedSystemDataInner {
-            address_book: HashMap::new(),
-            font_system,
-            swash_cache: SwashCache::new(),
-            event_loop_proxy: event_loop.create_proxy(),
-            // TODO: how to detect monitor scale change?
-            default_style: Rc::new(ComputedStyle::new(&default_style(), scale).unwrap()),
-            timers: Timers::new(),
-            clipboard: Clipboard::new().expect("failed to initialize clipboard"),
-            new_windows: Vec::new(),
-            exit_after_last_window_closes: true,
-            widget_callbacks: HashMap::new(),
-        };
-        SYSTEM.with(|system| {
-            *system.0.borrow_mut() = Some(shared_system_data);
-        });
-
         let mut callback_maker = CallbackMaker::<State>::new();
         let mut callbacks = Callbacks::<State>::new();
+        let mut state = None;
+        let mut make_state = Some(make_state);
+        let mut event_loop_proxy = Some(event_loop.create_proxy());
 
-        let mut state = {
-            let mut ctx = CallbackContext {
-                windows: &mut windows,
-                add_callback: Box::new(|f| callback_maker.add(f)),
-                marker: PhantomData,
-            };
-            WINDOW_TARGET.set(&event_loop, || make_state(&mut ctx))
-        };
-        callbacks.add_all(&mut callback_maker);
-        fetch_new_windows(&mut windows);
-
-        event_loop.run(move |event, window_target| {
-            WINDOW_TARGET.set(window_target, || {
-                fetch_new_windows(&mut windows);
-                while let Some(timer) = with_system(|system| system.timers.pop()) {
-                    timer.callback.invoke(Instant::now());
+        event_loop.run(move |event, event_loop| {
+            ACTIVE_EVENT_LOOP.set(event_loop, || {
+                // If initialized
+                if make_state.is_none() {
+                    fetch_new_windows(&mut windows);
+                    while let Some(timer) = with_system(|system| system.timers.pop()) {
+                        timer.callback.invoke(Instant::now());
+                    }
                 }
 
                 match event {
+                    Event::NewEvents(StartCause::Init) => {
+                        let mut db = fontdb::Database::new();
+                        for custom_font_path in &self.custom_font_paths {
+                            db.load_font_file(custom_font_path)
+                                .expect("failed to initialize custom font");
+                        }
+                        if self.system_fonts {
+                            db.load_system_fonts();
+                        }
+                        let font_system = FontSystem::new_with_locale_and_db(
+                            FontSystem::new().locale().to_string(),
+                            db,
+                        );
+                        let scale = match self.fixed_scale {
+                            None => default_scale(&event_loop),
+                            Some(fixed_scale) => fixed_scale,
+                        };
+
+                        let shared_system_data = SharedSystemDataInner {
+                            address_book: HashMap::new(),
+                            font_system,
+                            swash_cache: SwashCache::new(),
+                            event_loop_proxy: event_loop_proxy.take().expect("only happens once"),
+                            // TODO: how to detect monitor scale change?
+                            default_style: Rc::new(
+                                ComputedStyle::new(&default_style(), scale).unwrap(),
+                            ),
+                            timers: Timers::new(),
+                            clipboard: Clipboard::new().expect("failed to initialize clipboard"),
+                            new_windows: Vec::new(),
+                            exit_after_last_window_closes: true,
+                            widget_callbacks: HashMap::new(),
+                        };
+                        SYSTEM.with(|system| {
+                            *system.0.borrow_mut() = Some(shared_system_data);
+                        });
+
+                        state = {
+                            let mut ctx = CallbackContext {
+                                windows: &mut windows,
+                                add_callback: Box::new(|f| callback_maker.add(f)),
+                                marker: PhantomData,
+                            };
+                            let make_state = make_state.take().expect("only happens once");
+                            Some(make_state(&mut ctx))
+                        };
+                        callbacks.add_all(&mut callback_maker);
+                    }
                     Event::WindowEvent { window_id, event } => {
                         if let Some(window) = windows.get_mut(&window_id) {
                             window.handle_event(event);
@@ -278,7 +295,7 @@ impl App {
                             if windows.is_empty() {
                                 let exit = with_system(|s| s.exit_after_last_window_closes);
                                 if exit {
-                                    window_target.exit();
+                                    event_loop.exit();
                                 }
                             }
                         }
@@ -291,7 +308,7 @@ impl App {
                                         marker: PhantomData,
                                     };
 
-                                    callbacks.call(&mut state, &mut ctx, event);
+                                    callbacks.call(state.as_mut().unwrap(), &mut ctx, event);
                                 }
                                 callbacks.add_all(&mut callback_maker);
                                 for mut entry in windows.entries() {
@@ -306,12 +323,11 @@ impl App {
                                 );
                             }
                         },
-                        UserEvent::ActionRequest(request) => {
-                            trace!("accesskit request: {:?}", request);
-                            if let Some(window) = windows.get_mut(&request.window_id) {
-                                window.handle_accessible_request(request.request);
+                        UserEvent::Accesskit(event) => {
+                            if let Some(window) = windows.get_mut(&event.window_id) {
+                                window.handle_accesskit_event(event);
                             } else {
-                                warn!("accesskit request for unknown window: {:?}", request);
+                                warn!("accesskit event for unknown window: {:?}", event);
                             }
                         }
                         UserEvent::SnapshotRequest(sender) => {
@@ -344,9 +360,9 @@ impl App {
 
                         let next_timer = with_system(|system| system.timers.next_instant());
                         if let Some(next_timer) = next_timer {
-                            window_target.set_control_flow(ControlFlow::WaitUntil(next_timer));
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next_timer));
                         } else {
-                            window_target.set_control_flow(ControlFlow::Wait);
+                            event_loop.set_control_flow(ControlFlow::Wait);
                         }
                     }
                     _ => {}
