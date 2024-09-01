@@ -615,6 +615,7 @@ impl Window {
                 //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
             }
             WindowEvent::Focused(focused) => {
+                println!("Focused window event: {}", focused);
                 self.shared_window_data.0.borrow_mut().is_window_focused = focused;
                 if !focused && self.mouse_grabber_widget.is_some() {
                     self.mouse_grabber_widget = None;

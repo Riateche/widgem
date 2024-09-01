@@ -2,6 +2,8 @@ use std::{
     collections::BTreeMap,
     fmt::Display,
     path::{Path, PathBuf},
+    thread::sleep,
+    time::{Duration, Instant},
 };
 
 use anyhow::{bail, Context as _};
@@ -30,6 +32,7 @@ pub struct Context<'a> {
     pub pid: u32,
     unverified_files: BTreeMap<u32, SingleSnapshotFiles>,
     fails: Vec<String>,
+    pub blinking_expected: bool,
 }
 
 impl<'a> Context<'a> {
@@ -88,11 +91,16 @@ impl<'a> Context<'a> {
             snapshot_mode,
             unverified_files,
             fails: Vec::new(),
+            blinking_expected: false,
         })
     }
 
     pub fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
-        let new_image = window.capture_image()?;
+        let new_image = if self.blinking_expected {
+            capture_blinking(window)?
+        } else {
+            window.capture_image()?
+        };
         let text = text.to_string();
         if !text
             .chars()
@@ -200,4 +208,39 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
         .decode()
         .with_context(|| format!("failed to decode image {:?}", path))?;
     Ok(image.into_rgba8())
+}
+
+fn capture_blinking(window: &Window) -> anyhow::Result<RgbaImage> {
+    const CAPTURE_INTERVAL: Duration = Duration::from_millis(100);
+    const MAX_DURATION: Duration = Duration::from_secs(20000);
+
+    let started = Instant::now();
+    let mut images = Vec::new();
+    while started.elapsed() < MAX_DURATION || images.is_empty() {
+        let new_image = window.capture_image()?;
+        if !images.contains(&new_image) {
+            images.push(new_image);
+            if images.len() == 2 {
+                break;
+            }
+        }
+        sleep(CAPTURE_INTERVAL);
+    }
+    images.sort_unstable_by(|a, b| a.as_raw().cmp(b.as_raw()));
+    if images.len() == 2 {
+        let b = images.pop().unwrap();
+        let mut a = images.pop().unwrap();
+        if a.dimensions() != b.dimensions() {
+            bail!("unexpected screenshot size change");
+        }
+        let height_stride = a.sample_layout().height_stride;
+        for y in (0..a.height() as usize).step_by(2) {
+            (*a)[height_stride * y..height_stride * (y + 1)]
+                .copy_from_slice(&(*b)[height_stride * y..height_stride * (y + 1)]);
+        }
+        Ok(a)
+    } else {
+        assert_eq!(images.len(), 1);
+        Ok(images.pop().unwrap())
+    }
 }
