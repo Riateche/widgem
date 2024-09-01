@@ -212,7 +212,7 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
 
 fn capture_blinking(window: &Window) -> anyhow::Result<RgbaImage> {
     const CAPTURE_INTERVAL: Duration = Duration::from_millis(100);
-    const MAX_DURATION: Duration = Duration::from_secs(20000);
+    const MAX_DURATION: Duration = Duration::from_secs(2);
 
     let started = Instant::now();
     let mut images = Vec::new();

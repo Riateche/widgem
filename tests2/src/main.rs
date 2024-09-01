@@ -109,8 +109,7 @@ struct Args {
 const TEST_CASE_ENV_VAR: &str = "SALVATION_TESTS_TEST_CASE";
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-    println!("args: {:?}", args);
+    let _args = Args::parse();
     if let Ok(test_case) = env::var(TEST_CASE_ENV_VAR) {
         run_test_case(test_case.parse()?)?;
         return Ok(());

@@ -214,23 +214,15 @@ impl App {
     }
 }
 
-/*
-let mut windows = LinkedHashMap::<WindowId, Window>::new();
+type DynMakeState<State> = dyn FnOnce(&mut CallbackContext<State>) -> State;
 
-        let mut snapshot_sender = None;
-
-        let mut callback_maker = CallbackMaker::<State>::new();
-        let mut callbacks = Callbacks::<State>::new();
-        let mut state = None;
-        let mut make_state = Some(make_state);
-        let mut event_loop_proxy = Some(event_loop.create_proxy()); */
 struct Handler<State: 'static> {
     app: App,
     // TODO: back to normal hashmap?
     windows: LinkedHashMap<WindowId, Window>,
     callback_maker: CallbackMaker<State>,
     callbacks: Callbacks<State>,
-    make_state: Option<Box<dyn FnOnce(&mut CallbackContext<State>) -> State>>,
+    make_state: Option<Box<DynMakeState<State>>>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
     state: Option<State>,
     snapshot_sender: Option<SyncSender<Snapshot>>,
@@ -304,7 +296,7 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
                 let font_system =
                     FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
                 let scale = match self.app.fixed_scale {
-                    None => default_scale(&event_loop),
+                    None => default_scale(event_loop),
                     Some(fixed_scale) => fixed_scale,
                 };
 

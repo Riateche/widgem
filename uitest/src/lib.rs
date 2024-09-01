@@ -221,6 +221,18 @@ impl Window {
         Ok(())
     }
 
+    pub fn minimize(&self) -> anyhow::Result<()> {
+        let status = Command::new("xdotool")
+            .arg("windowminimize")
+            .arg("--sync")
+            .arg(self.id().to_string())
+            .status()?;
+        if !status.success() {
+            bail!("xdotool failed: {:?}", status);
+        }
+        Ok(())
+    }
+
     pub fn close(&self) -> anyhow::Result<()> {
         // `xdotool windowclose` doesn't work properly
         let status = Command::new("wmctrl")

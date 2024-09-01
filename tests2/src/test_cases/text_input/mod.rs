@@ -29,8 +29,10 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.blinking_expected = true;
     let windows = ctx.connection.wait_for_windows_by_pid(ctx.pid)?;
     ensure!(windows.len() == 1);
-    println!("found window!");
-    //windows[0].activate()?;
+    // Workaround for winit issue:
+    // https://github.com/rust-windowing/winit/issues/2841
+    windows[0].minimize()?;
+    windows[0].activate()?;
     ctx.snapshot(&windows[0], "window with text input - text Hello world")?;
 
     windows[0].close()?;

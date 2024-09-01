@@ -1,4 +1,4 @@
-FROM docker.io/lukemathwalker/cargo-chef:0.1.67-rust-slim-bullseye as chef
+FROM docker.io/lukemathwalker/cargo-chef:0.1.67-rust-slim-bullseye AS chef
 WORKDIR /app
 
 FROM chef AS planner
