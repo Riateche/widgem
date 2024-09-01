@@ -1,4 +1,5 @@
-use salvation::winit::{event::WindowEvent, window::WindowBuilder};
+use salvation::winit::event::WindowEvent;
+use salvation::winit::window::Window;
 use salvation::{
     event_loop::CallbackContext,
     widgets::{column::Column, padding_box::PaddingBox, text_input::TextInput, WidgetExt},
@@ -17,7 +18,7 @@ impl State {
         let mut root = Column::new();
         root.add_child(TextInput::new("Hello, Testing Framework! 🦀\n").boxed());
         create_window(
-            WindowBuilder::new().with_title("example"),
+            Window::default_attributes().with_title("example"),
             Some(PaddingBox::new(root.boxed()).boxed()),
         );
         State {}

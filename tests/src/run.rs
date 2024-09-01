@@ -113,12 +113,13 @@ impl TestContext {
 }
 
 pub fn run_inner<State: 'static>(
-    make_state: impl FnOnce(&mut CallbackContext<State>) -> State,
+    make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
     run_test: impl FnOnce(&mut TestContext) -> Result<()> + Send + 'static,
     snapshots_prefix: String,
 ) -> Result<()> {
     let handle = Arc::new(Mutex::new(None));
-    let make_state_with_tests = |callback_context: &mut CallbackContext<State>| {
+    let handle2 = handle.clone();
+    let make_state_with_tests = move |callback_context: &mut CallbackContext<State>| {
         let state = make_state(callback_context);
         let event_loop_proxy = with_system(|system| system.event_loop_proxy.clone());
         let mut test_context = TestContext {
@@ -147,7 +148,7 @@ pub fn run_inner<State: 'static>(
         .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"))
         .run(make_state_with_tests)
         .map_err(|e| anyhow!("Error while running test event loop: {:?}", e))?;
-    let mut locked_handle = handle.lock().unwrap();
+    let mut locked_handle = handle2.lock().unwrap();
     let handle = locked_handle.take();
     if let Some(handle) = handle {
         match handle.join() {

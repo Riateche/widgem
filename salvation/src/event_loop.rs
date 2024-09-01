@@ -11,9 +11,10 @@ use log::warn;
 use scoped_tls::scoped_thread_local;
 use tiny_skia::Pixmap;
 use winit::{
+    application::ApplicationHandler,
     error::EventLoopError,
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    event::{StartCause, WindowEvent},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     window::WindowId,
 };
 
@@ -204,13 +205,17 @@ impl App {
     }
 
     pub fn run<State: 'static>(
-        &self,
-        make_state: impl FnOnce(&mut CallbackContext<State>) -> State,
+        self,
+        make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
     ) -> Result<(), EventLoopError> {
         let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
+        let mut handler = Handler::new(self, make_state, &event_loop);
+        event_loop.run_app(&mut handler)
+    }
+}
 
-        // TODO: back to normal hashmap?
-        let mut windows = LinkedHashMap::<WindowId, Window>::new();
+/*
+let mut windows = LinkedHashMap::<WindowId, Window>::new();
 
         let mut snapshot_sender = None;
 
@@ -218,157 +223,211 @@ impl App {
         let mut callbacks = Callbacks::<State>::new();
         let mut state = None;
         let mut make_state = Some(make_state);
-        let mut event_loop_proxy = Some(event_loop.create_proxy());
+        let mut event_loop_proxy = Some(event_loop.create_proxy()); */
+struct Handler<State: 'static> {
+    app: App,
+    // TODO: back to normal hashmap?
+    windows: LinkedHashMap<WindowId, Window>,
+    callback_maker: CallbackMaker<State>,
+    callbacks: Callbacks<State>,
+    make_state: Option<Box<dyn FnOnce(&mut CallbackContext<State>) -> State>>,
+    event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
+    state: Option<State>,
+    snapshot_sender: Option<SyncSender<Snapshot>>,
+}
 
-        event_loop.run(move |event, event_loop| {
-            ACTIVE_EVENT_LOOP.set(event_loop, || {
-                // If initialized
-                if make_state.is_none() {
-                    fetch_new_windows(&mut windows);
-                    while let Some(timer) = with_system(|system| system.timers.pop()) {
-                        timer.callback.invoke(Instant::now());
+impl<State: 'static> Handler<State> {
+    fn new(
+        app: App,
+        make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
+        event_loop: &EventLoop<UserEvent>,
+    ) -> Self {
+        Self {
+            app,
+            windows: Default::default(),
+            callback_maker: CallbackMaker::new(),
+            callbacks: Callbacks::new(),
+            make_state: Some(Box::new(make_state)),
+            event_loop_proxy: Some(event_loop.create_proxy()),
+            state: None,
+            snapshot_sender: None,
+        }
+    }
+
+    fn before_handler(&mut self) {
+        // If initialized.
+        if self.make_state.is_none() {
+            fetch_new_windows(&mut self.windows);
+            while let Some(timer) = with_system(|system| system.timers.pop()) {
+                timer.callback.invoke(Instant::now());
+            }
+        }
+    }
+
+    fn after_handler(&mut self) {
+        fetch_new_windows(&mut self.windows);
+    }
+}
+
+impl<State> ApplicationHandler<UserEvent> for Handler<State> {
+    // TODO: It's recommended that applications should only initialize their graphics context
+    // and create a window after they have received their first `Resumed` event.
+    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
+
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        ACTIVE_EVENT_LOOP.set(event_loop, || {
+            self.before_handler();
+            if let Some(window) = self.windows.get_mut(&window_id) {
+                window.handle_event(event);
+            }
+            self.after_handler();
+        })
+    }
+
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        ACTIVE_EVENT_LOOP.set(event_loop, || {
+            self.before_handler();
+            if cause == StartCause::Init {
+                let mut db = fontdb::Database::new();
+                for custom_font_path in &self.app.custom_font_paths {
+                    db.load_font_file(custom_font_path)
+                        .expect("failed to initialize custom font");
+                }
+                if self.app.system_fonts {
+                    db.load_system_fonts();
+                }
+                let font_system =
+                    FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
+                let scale = match self.app.fixed_scale {
+                    None => default_scale(&event_loop),
+                    Some(fixed_scale) => fixed_scale,
+                };
+
+                let shared_system_data = SharedSystemDataInner {
+                    address_book: HashMap::new(),
+                    font_system,
+                    swash_cache: SwashCache::new(),
+                    event_loop_proxy: self.event_loop_proxy.take().expect("only happens once"),
+                    // TODO: how to detect monitor scale change?
+                    default_style: Rc::new(ComputedStyle::new(&default_style(), scale).unwrap()),
+                    timers: Timers::new(),
+                    clipboard: Clipboard::new().expect("failed to initialize clipboard"),
+                    new_windows: Vec::new(),
+                    exit_after_last_window_closes: true,
+                    widget_callbacks: HashMap::new(),
+                };
+                SYSTEM.with(|system| {
+                    *system.0.borrow_mut() = Some(shared_system_data);
+                });
+
+                self.state = {
+                    let mut ctx = CallbackContext {
+                        windows: &mut self.windows,
+                        add_callback: Box::new(|f| self.callback_maker.add(f)),
+                        marker: PhantomData,
+                    };
+                    let make_state = self.make_state.take().expect("only happens once");
+                    Some(make_state(&mut ctx))
+                };
+                self.callbacks.add_all(&mut self.callback_maker);
+            }
+            self.after_handler();
+        })
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+        ACTIVE_EVENT_LOOP.set(event_loop, || {
+            self.before_handler();
+            match event {
+                UserEvent::WindowRequest(window_id, request) => {
+                    if let Some(window) = self.windows.get_mut(&window_id) {
+                        window.handle_request(request);
                     }
                 }
-
-                match event {
-                    Event::NewEvents(StartCause::Init) => {
-                        let mut db = fontdb::Database::new();
-                        for custom_font_path in &self.custom_font_paths {
-                            db.load_font_file(custom_font_path)
-                                .expect("failed to initialize custom font");
+                UserEvent::WindowClosed(window_id) => {
+                    self.windows.remove(&window_id);
+                    if self.windows.is_empty() {
+                        let exit = with_system(|s| s.exit_after_last_window_closes);
+                        if exit {
+                            event_loop.exit();
                         }
-                        if self.system_fonts {
-                            db.load_system_fonts();
-                        }
-                        let font_system = FontSystem::new_with_locale_and_db(
-                            FontSystem::new().locale().to_string(),
-                            db,
-                        );
-                        let scale = match self.fixed_scale {
-                            None => default_scale(&event_loop),
-                            Some(fixed_scale) => fixed_scale,
-                        };
-
-                        let shared_system_data = SharedSystemDataInner {
-                            address_book: HashMap::new(),
-                            font_system,
-                            swash_cache: SwashCache::new(),
-                            event_loop_proxy: event_loop_proxy.take().expect("only happens once"),
-                            // TODO: how to detect monitor scale change?
-                            default_style: Rc::new(
-                                ComputedStyle::new(&default_style(), scale).unwrap(),
-                            ),
-                            timers: Timers::new(),
-                            clipboard: Clipboard::new().expect("failed to initialize clipboard"),
-                            new_windows: Vec::new(),
-                            exit_after_last_window_closes: true,
-                            widget_callbacks: HashMap::new(),
-                        };
-                        SYSTEM.with(|system| {
-                            *system.0.borrow_mut() = Some(shared_system_data);
-                        });
-
-                        state = {
+                    }
+                }
+                UserEvent::InvokeCallback(event) => match event.kind {
+                    CallbackKind::State => {
+                        {
                             let mut ctx = CallbackContext {
-                                windows: &mut windows,
-                                add_callback: Box::new(|f| callback_maker.add(f)),
+                                windows: &mut self.windows,
+                                add_callback: Box::new(|f| self.callback_maker.add(f)),
                                 marker: PhantomData,
                             };
-                            let make_state = make_state.take().expect("only happens once");
-                            Some(make_state(&mut ctx))
-                        };
-                        callbacks.add_all(&mut callback_maker);
-                    }
-                    Event::WindowEvent { window_id, event } => {
-                        if let Some(window) = windows.get_mut(&window_id) {
-                            window.handle_event(event);
-                        }
-                    }
-                    Event::UserEvent(event) => match event {
-                        UserEvent::WindowRequest(window_id, request) => {
-                            if let Some(window) = windows.get_mut(&window_id) {
-                                window.handle_request(request);
-                            }
-                        }
-                        UserEvent::WindowClosed(window_id) => {
-                            windows.remove(&window_id);
-                            if windows.is_empty() {
-                                let exit = with_system(|s| s.exit_after_last_window_closes);
-                                if exit {
-                                    event_loop.exit();
-                                }
-                            }
-                        }
-                        UserEvent::InvokeCallback(event) => match event.kind {
-                            CallbackKind::State => {
-                                {
-                                    let mut ctx = CallbackContext {
-                                        windows: &mut windows,
-                                        add_callback: Box::new(|f| callback_maker.add(f)),
-                                        marker: PhantomData,
-                                    };
 
-                                    callbacks.call(state.as_mut().unwrap(), &mut ctx, event);
-                                }
-                                callbacks.add_all(&mut callback_maker);
-                                for mut entry in windows.entries() {
-                                    entry.get_mut().after_widget_activity();
-                                }
-                            }
-                            CallbackKind::Widget => {
-                                dispatch_widget_callback(
-                                    &mut windows,
-                                    event.callback_id,
-                                    event.event,
-                                );
-                            }
-                        },
-                        UserEvent::Accesskit(event) => {
-                            if let Some(window) = windows.get_mut(&event.window_id) {
-                                window.handle_accesskit_event(event);
-                            } else {
-                                warn!("accesskit event for unknown window: {:?}", event);
-                            }
+                            self.callbacks
+                                .call(self.state.as_mut().unwrap(), &mut ctx, event);
                         }
-                        UserEvent::SnapshotRequest(sender) => {
-                            snapshot_sender = Some(sender);
-                        }
-                        UserEvent::DispatchWindowEvent(window_index, window_event) => {
-                            let elem = windows.entries().nth(window_index);
-                            if let Some(mut elem) = elem {
-                                elem.get_mut().handle_event(window_event);
-                            } else {
-                                warn!(
-                                    "event dispatch request for unknown window index: {:?}",
-                                    window_index
-                                );
-                            }
-                        }
-                    },
-                    Event::AboutToWait => {
-                        let snapshot_sender = snapshot_sender.take();
-                        if let Some(sender) = snapshot_sender {
-                            let snapshots_vec: Vec<Pixmap> = windows
-                                .iter()
-                                .map(|(_, w)| w.pixmap.borrow().clone())
-                                .collect();
-                            let result = sender.send(Snapshot(snapshots_vec));
-                            if result.is_err() {
-                                warn!("Failed to send snapshot");
-                            }
-                        }
-
-                        let next_timer = with_system(|system| system.timers.next_instant());
-                        if let Some(next_timer) = next_timer {
-                            event_loop.set_control_flow(ControlFlow::WaitUntil(next_timer));
-                        } else {
-                            event_loop.set_control_flow(ControlFlow::Wait);
+                        self.callbacks.add_all(&mut self.callback_maker);
+                        for mut entry in self.windows.entries() {
+                            entry.get_mut().after_widget_activity();
                         }
                     }
-                    _ => {}
+                    CallbackKind::Widget => {
+                        dispatch_widget_callback(&mut self.windows, event.callback_id, event.event);
+                    }
+                },
+                UserEvent::Accesskit(event) => {
+                    if let Some(window) = self.windows.get_mut(&event.window_id) {
+                        window.handle_accesskit_event(event);
+                    } else {
+                        warn!("accesskit event for unknown window: {:?}", event);
+                    }
                 }
-                fetch_new_windows(&mut windows);
-            });
+                UserEvent::SnapshotRequest(sender) => {
+                    self.snapshot_sender = Some(sender);
+                }
+                UserEvent::DispatchWindowEvent(window_index, window_event) => {
+                    let elem = self.windows.entries().nth(window_index);
+                    if let Some(mut elem) = elem {
+                        elem.get_mut().handle_event(window_event);
+                    } else {
+                        warn!(
+                            "event dispatch request for unknown window index: {:?}",
+                            window_index
+                        );
+                    }
+                }
+            }
+            self.after_handler();
+        })
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        ACTIVE_EVENT_LOOP.set(event_loop, || {
+            self.before_handler();
+            let snapshot_sender = self.snapshot_sender.take();
+            if let Some(sender) = snapshot_sender {
+                let snapshots_vec: Vec<Pixmap> = self
+                    .windows
+                    .iter()
+                    .map(|(_, w)| w.pixmap.borrow().clone())
+                    .collect();
+                let result = sender.send(Snapshot(snapshots_vec));
+                if result.is_err() {
+                    warn!("Failed to send snapshot");
+                }
+            }
+
+            let next_timer = with_system(|system| system.timers.next_instant());
+            if let Some(next_timer) = next_timer {
+                event_loop.set_control_flow(ControlFlow::WaitUntil(next_timer));
+            } else {
+                event_loop.set_control_flow(ControlFlow::Wait);
+            }
+            self.after_handler();
         })
     }
 }
