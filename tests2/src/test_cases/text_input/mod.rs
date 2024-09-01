@@ -5,9 +5,8 @@ use salvation::{
     window::create_window,
     winit::{error::EventLoopError, window::WindowBuilder},
 };
-use uitest::Connection;
 
-use crate::init_test_app;
+use crate::{context::Context, init_test_app};
 
 struct State {}
 
@@ -26,10 +25,12 @@ pub fn run() -> Result<(), EventLoopError> {
     init_test_app().run(State::new)
 }
 
-pub fn check(conn: &mut Connection, pid: u32) -> anyhow::Result<()> {
-    let windows = conn.wait_for_windows_by_pid(pid)?;
+pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
+    let windows = ctx.connection.wait_for_windows_by_pid(ctx.pid)?;
     ensure!(windows.len() == 1);
     println!("found window!");
+    ctx.snapshot(&windows[0], "window with text input - text Hello world")?;
+
     windows[0].close()?;
     Ok(())
 }

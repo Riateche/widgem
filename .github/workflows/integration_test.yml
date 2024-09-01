@@ -13,7 +13,7 @@ jobs:
         docker build --cache-to type=gha,mode=max --cache-from type=gha -t salvation_tests2 -f tests2/Dockerfile .
 
     - name: Run Docker container
-      run: docker run -d --name salvation_tests2 --mount "type=bind,source=$PWD/tests/assets,target=/assets" salvation_tests2
+      run: docker run -d --name salvation_tests2 --mount "type=bind,source=$PWD,target=/salvation" salvation_tests2
     - name: Run tests
       run: |
         for i in {1..20}; do

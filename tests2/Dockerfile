@@ -17,4 +17,4 @@ USER root
 RUN apt-get update && apt-get install -y xdotool wmctrl
 COPY --from=builder /app/target/release/salvation_tests2 /usr/local/bin/
 ENV RUST_BACKTRACE=1
-ENV SALVATION_TESTS_ASSETS_DIR=/assets
+ENV SALVATION_REPO_DIR=/salvation

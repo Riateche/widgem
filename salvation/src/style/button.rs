@@ -131,7 +131,7 @@ impl ComputedStyle {
                 if let Some(class) = class {
                     element_variant.classes.insert(class);
                 }
-                println!("element_variant: {element_variant:?}");
+                //println!("element_variant: {element_variant:?}");
                 let rules = style.find_rules(|selector| element_variant.matches(selector));
                 let rules_with_root = style
                     .find_rules(|selector| is_root(selector) || element_variant.matches(selector));
@@ -143,7 +143,7 @@ impl ComputedStyle {
                 let background = convert_background(&rules)?;
 
                 let icon = if let Some(url) = convert_content_url(&rules)? {
-                    println!("icon url: {url:?}");
+                    //println!("icon url: {url:?}");
                     Some(style.load_pixmap(&url, scale)?)
                 } else {
                     None

@@ -6,21 +6,31 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{bail, Context};
+use anyhow::{bail, Context as _};
 use clap::Parser;
+use context::{Context, SnapshotMode};
 use salvation::{event_loop::App, winit::error::EventLoopError};
 use strum::{EnumIter, EnumString, IntoEnumIterator, IntoStaticStr};
 use uitest::Connection;
 
+mod context;
 mod test_cases;
 
-fn assets_dir() -> PathBuf {
-    if let Ok(var) = env::var("SALVATION_TESTS_ASSETS_DIR") {
+fn repo_dir() -> PathBuf {
+    if let Ok(var) = env::var("SALVATION_REPO_DIR") {
         PathBuf::from(var)
     } else {
         // TODO: update relative path
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/assets")
+        Path::new(env!("CARGO_MANIFEST_DIR")).into()
     }
+}
+
+fn assets_dir() -> PathBuf {
+    repo_dir().join("tests/assets")
+}
+
+fn test_cases_dir() -> PathBuf {
+    repo_dir().join("tests2/src/test_cases")
 }
 
 fn init_test_app() -> App {
@@ -36,14 +46,28 @@ fn init_test_app() -> App {
 
 fn run_test_case(test_case: TestCase) -> Result<(), EventLoopError> {
     match test_case {
-        TestCase::TextInput => test_cases::text_input::run(),
+        TestCase::text_input => test_cases::text_input::run(),
     }
 }
 
-fn run_test_check(test_case: TestCase, conn: &mut Connection, pid: u32) -> anyhow::Result<()> {
+fn run_test_check(
+    test_case: TestCase,
+    connection: &mut Connection,
+    mode: SnapshotMode,
+    pid: u32,
+    child: Child,
+) -> anyhow::Result<Vec<String>> {
+    let mut ctx = Context::new(
+        connection,
+        test_cases_dir().join(format!("{:?}", test_case)),
+        mode,
+        pid,
+    )?;
     match test_case {
-        TestCase::TextInput => test_cases::text_input::check(conn, pid),
+        TestCase::text_input => test_cases::text_input::check(&mut ctx)?,
     }
+    verify_test_exit(child)?;
+    Ok(ctx.finish())
 }
 
 fn verify_test_exit(mut child: Child) -> anyhow::Result<()> {
@@ -70,8 +94,9 @@ fn verify_test_exit(mut child: Child) -> anyhow::Result<()> {
 }
 
 #[derive(Debug, Clone, Copy, EnumString, EnumIter, IntoStaticStr)]
+#[allow(non_camel_case_types)]
 enum TestCase {
-    TextInput,
+    text_input,
 }
 
 #[derive(Debug, Parser)]
@@ -88,93 +113,45 @@ fn main() -> anyhow::Result<()> {
     println!("args: {:?}", args);
     if let Ok(test_case) = env::var(TEST_CASE_ENV_VAR) {
         run_test_case(test_case.parse()?)?;
-    } else {
-        // TODO: implement filter
-        let exe = env::args()
-            .next()
-            .context("failed to get current executable path")?;
-        let mut conn = Connection::new()?;
-        for test_case in TestCase::iter() {
-            let test_name: &'static str = test_case.into();
-            println!("running test: {}", test_name);
-            let child = Command::new(&exe)
-                .env(TEST_CASE_ENV_VAR, test_name)
-                .spawn()?;
-            let pid = child.id();
-            run_test_check(test_case, &mut conn, pid)?;
-            verify_test_exit(child)?;
-        }
+        return Ok(());
     }
+
+    // TODO: implement filter
+    let exe = env::args()
+        .next()
+        .context("failed to get current executable path")?;
+    let mut conn = Connection::new()?;
+    let mut all_fails = Vec::new();
+    let mut num_total = 0;
+    let mut num_failed = 0;
+    for test_case in TestCase::iter() {
+        let test_name: &'static str = test_case.into();
+        println!("running test: {}", test_name);
+        let child = Command::new(&exe)
+            .env(TEST_CASE_ENV_VAR, test_name)
+            .spawn()?;
+        let pid = child.id();
+        let fails = run_test_check(test_case, &mut conn, SnapshotMode::Update, pid, child)
+            .unwrap_or_else(|err| {
+                let fail = format!("test {:?} failed: {:?}", test_case, err);
+                println!("{fail}");
+                vec![fail]
+            });
+        num_total += 1;
+        if !fails.is_empty() {
+            num_failed += 1;
+        }
+        all_fails.extend(fails);
+    }
+    println!("-----------");
+    println!("total tests: {}, failed tests: {}", num_total, num_failed);
+    if !all_fails.is_empty() {
+        println!("found issues:\n");
+        for fail in all_fails {
+            println!("{fail}");
+        }
+        std::process::exit(1);
+    }
+
     Ok(())
 }
-
-// 2
-/*
-fn main_old() -> Result<(), Box<dyn std::error::Error>> {
-    use std::time::Instant;
-
-    for (key, val) in std::env::vars_os() {
-        println!("{:?}={:?}", key, val);
-    }
-
-    // fn normalized(filename: &str) -> String {
-    //     filename
-    //         .replace("|", "")
-    //         .replace("\\", "")
-    //         .replace(":", "")
-    //         .replace("/", "")
-    // }
-
-    let start = Instant::now();
-    let c = Connection::new()?;
-    let windows = c.all_windows().unwrap();
-
-    //let mut i = 0;
-
-    let active = c.active_window_id()?;
-
-    for window in windows {
-        // if window.is_minimized() {
-        //     continue;
-        // }
-
-        println!(
-            "Window: {:?} pid={:?} {:?} {:?} {:?}",
-            window.id(),
-            window.pid(),
-            window.title(),
-            (window.x(), window.y(), window.width(), window.height()),
-            (window.is_minimized(), window.is_maximized())
-        );
-        if window.id() == active {
-            println!("active!");
-        }
-        if window.title().contains("Geany") {
-            println!("activate!");
-            window.activate()?;
-            // window.mouse_move(20, 40)?;
-            // c.mouse_click(1)?;
-            window.close()?;
-        }
-
-        // let image = window.capture_image().unwrap();
-        // image
-        //     .save(format!(
-        //         "/tmp/1/window-{}-{}.png",
-        //         i,
-        //         normalized(window.title())
-        //     ))
-        //     .unwrap();
-
-        //i += 1;
-    }
-
-    println!("{:?}", start.elapsed());
-    println!("sleeping");
-    std::thread::sleep(std::time::Duration::from_secs(3));
-    if std::env::args().nth(1).unwrap() == "e" {
-        panic!("emulated error!");
-    }
-    Ok(())
-}
-*/

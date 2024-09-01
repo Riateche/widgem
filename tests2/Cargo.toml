@@ -9,3 +9,6 @@ uitest = { path = "../uitest" }
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 clap = { version = "4.5.16", features = ["derive"] }
 strum = { version = "0.26.3", features = ["derive"] }
+fs-err = "2.11.0"
+image = "0.24.9"
+itertools = "0.13.0"
