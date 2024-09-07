@@ -1,6 +1,6 @@
 use std::{
     any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, path::PathBuf, rc::Rc,
-    sync::mpsc::SyncSender, time::Instant,
+    time::Instant,
 };
 
 use anyhow::{anyhow, Result};
@@ -102,7 +102,6 @@ pub enum UserEvent {
     WindowRequest(WindowId, WindowRequest),
     WindowClosed(WindowId),
     Accesskit(accesskit_winit::Event),
-    SnapshotRequest(SyncSender<Snapshot>),
     DispatchWindowEvent(usize, WindowEvent),
 }
 
@@ -225,7 +224,6 @@ struct Handler<State: 'static> {
     make_state: Option<Box<DynMakeState<State>>>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
     state: Option<State>,
-    snapshot_sender: Option<SyncSender<Snapshot>>,
 }
 
 impl<State: 'static> Handler<State> {
@@ -242,7 +240,6 @@ impl<State: 'static> Handler<State> {
             make_state: Some(Box::new(make_state)),
             event_loop_proxy: Some(event_loop.create_proxy()),
             state: None,
-            snapshot_sender: None,
         }
     }
 
@@ -287,8 +284,12 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
             if cause == StartCause::Init {
                 let mut db = fontdb::Database::new();
                 for custom_font_path in &self.app.custom_font_paths {
-                    db.load_font_file(custom_font_path)
-                        .expect("failed to initialize custom font");
+                    if let Err(err) = db.load_font_file(custom_font_path) {
+                        warn!(
+                            "failed to initialize custom font from {:?}: {:?}",
+                            custom_font_path, err
+                        );
+                    }
                 }
                 if self.app.system_fonts {
                     db.load_system_fonts();
@@ -378,9 +379,6 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
                         warn!("accesskit event for unknown window: {:?}", event);
                     }
                 }
-                UserEvent::SnapshotRequest(sender) => {
-                    self.snapshot_sender = Some(sender);
-                }
                 UserEvent::DispatchWindowEvent(window_index, window_event) => {
                     let elem = self.windows.entries().nth(window_index);
                     if let Some(mut elem) = elem {
@@ -400,19 +398,6 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
             self.before_handler();
-            let snapshot_sender = self.snapshot_sender.take();
-            if let Some(sender) = snapshot_sender {
-                let snapshots_vec: Vec<Pixmap> = self
-                    .windows
-                    .iter()
-                    .map(|(_, w)| w.pixmap.borrow().clone())
-                    .collect();
-                let result = sender.send(Snapshot(snapshots_vec));
-                if result.is_err() {
-                    warn!("Failed to send snapshot");
-                }
-            }
-
             let next_timer = with_system(|system| system.timers.next_instant());
             if let Some(next_timer) = next_timer {
                 event_loop.set_control_flow(ControlFlow::WaitUntil(next_timer));

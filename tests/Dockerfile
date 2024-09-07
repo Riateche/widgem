@@ -10,11 +10,11 @@ COPY --from=planner /app/recipe.json .
 RUN cargo chef cook --release
 RUN apt-get update && apt-get install -y libxcb-xfixes0-dev
 COPY . ./
-RUN cargo build --package salvation_tests2 --release
+RUN cargo build --package salvation_tests --release
 
 FROM docker.io/neuroidss/ubuntu-xfce-vnc:20.04 AS runtime
 USER root
 RUN apt-get update && apt-get install -y xdotool wmctrl
-COPY --from=builder /app/target/release/salvation_tests2 /usr/local/bin/
+COPY --from=builder /app/target/release/salvation_tests /usr/local/bin/
 ENV RUST_BACKTRACE=1
 ENV SALVATION_REPO_DIR=/salvation

@@ -13,6 +13,7 @@ struct State {}
 impl State {
     fn new(_ctx: &mut CallbackContext<Self>) -> Self {
         let input = TextInput::new("Hello world");
+        // TODO: use module_path!
         create_window(
             Window::default_attributes().with_title("salvation_tests::test_cases::text_input"),
             Some(PaddingBox::new(input.boxed()).boxed()),

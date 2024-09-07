@@ -1,4 +1,4 @@
 [workspace]
 
-members = ["salvation", "macros", "tests", "tests2", "uitest"]
+members = ["salvation", "macros", "tests", "uitest"]
 resolver = "2"
