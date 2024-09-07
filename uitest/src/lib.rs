@@ -110,6 +110,10 @@ impl Connection {
     pub fn key(&self, key: &str) -> anyhow::Result<()> {
         self.run_xdotool(&["key", key])
     }
+
+    pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
+        self.run_xdotool(&["type", text])
+    }
 }
 
 pub struct Window {

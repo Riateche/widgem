@@ -97,9 +97,63 @@ impl<'a> Context<'a> {
         })
     }
 
+    pub fn set_blinking_expected(&mut self, value: bool) {
+        self.blinking_expected = value;
+    }
+
+    fn capture_blinking(&mut self, window: &Window, file_name: &str) -> anyhow::Result<RgbaImage> {
+        const CAPTURE_INTERVAL: Duration = Duration::from_millis(100);
+        const MAX_DURATION: Duration = Duration::from_secs(2);
+
+        let started = Instant::now();
+        let mut images = Vec::new();
+        while started.elapsed() < MAX_DURATION || images.is_empty() {
+            let new_image = window.capture_image()?;
+            if !images.contains(&new_image) {
+                images.push(new_image);
+                if images.len() == 2 {
+                    break;
+                }
+            }
+            sleep(CAPTURE_INTERVAL);
+        }
+        images.sort_unstable_by(|a, b| a.as_raw().cmp(b.as_raw()));
+        if images.len() == 2 {
+            let b = images.pop().unwrap();
+            let mut a = images.pop().unwrap();
+            if a.dimensions() != b.dimensions() {
+                bail!("unexpected screenshot size change");
+            }
+            let height_stride = a.sample_layout().height_stride;
+            for y in (0..a.height() as usize).step_by(2) {
+                (*a)[height_stride * y..height_stride * (y + 1)]
+                    .copy_from_slice(&(*b)[height_stride * y..height_stride * (y + 1)]);
+            }
+            Ok(a)
+        } else {
+            record_fail(
+                &mut self.fails,
+                format!(
+                    "expected blinking at {:?}",
+                    self.test_case_dir
+                        .join(file_name)
+                        .strip_prefix(repo_dir())
+                        .expect("failed to strip path prefix")
+                ),
+            );
+            assert_eq!(images.len(), 1);
+            Ok(images.pop().unwrap())
+        }
+    }
+
     pub fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
+        self.last_snapshot_index += 1;
+        let index = self.last_snapshot_index;
+        let confirmed_snapshot_name = format!("{:02} - {}.png", index, text);
+        let unconfirmed_snapshot_name = format!("{:02} - {}.new.png", index, text);
+
         let new_image = if self.blinking_expected {
-            capture_blinking(window)?
+            self.capture_blinking(window, &unconfirmed_snapshot_name)?
         } else {
             window.capture_image()?
         };
@@ -110,11 +164,6 @@ impl<'a> Context<'a> {
         {
             bail!("disallowed char in snapshot text: {:?}", text);
         }
-
-        self.last_snapshot_index += 1;
-        let index = self.last_snapshot_index;
-        let confirmed_snapshot_name = format!("{:02} - {}.png", index, text);
-        let unconfirmed_snapshot_name = format!("{:02} - {}.new.png", index, text);
 
         let files = self.unverified_files.remove(&index).unwrap_or_default();
         if let Some(unconfirmed) = &files.unconfirmed {
@@ -207,7 +256,15 @@ impl<'a> Context<'a> {
                     .into_iter()
                     .chain(&files.unconfirmed)
             })
-            .map(|name| format!("{:?}", self.test_case_dir.join(name)))
+            .map(|name| {
+                format!(
+                    "{:?}",
+                    self.test_case_dir
+                        .join(name)
+                        .strip_prefix(repo_dir())
+                        .expect("failed to strip path prefix")
+                )
+            })
             .join(", ");
         if !extra_snapshots.is_empty() {
             record_fail(
@@ -244,39 +301,4 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
         .decode()
         .with_context(|| format!("failed to decode image {:?}", path))?;
     Ok(image.into_rgba8())
-}
-
-fn capture_blinking(window: &Window) -> anyhow::Result<RgbaImage> {
-    const CAPTURE_INTERVAL: Duration = Duration::from_millis(100);
-    const MAX_DURATION: Duration = Duration::from_secs(2);
-
-    let started = Instant::now();
-    let mut images = Vec::new();
-    while started.elapsed() < MAX_DURATION || images.is_empty() {
-        let new_image = window.capture_image()?;
-        if !images.contains(&new_image) {
-            images.push(new_image);
-            if images.len() == 2 {
-                break;
-            }
-        }
-        sleep(CAPTURE_INTERVAL);
-    }
-    images.sort_unstable_by(|a, b| a.as_raw().cmp(b.as_raw()));
-    if images.len() == 2 {
-        let b = images.pop().unwrap();
-        let mut a = images.pop().unwrap();
-        if a.dimensions() != b.dimensions() {
-            bail!("unexpected screenshot size change");
-        }
-        let height_stride = a.sample_layout().height_stride;
-        for y in (0..a.height() as usize).step_by(2) {
-            (*a)[height_stride * y..height_stride * (y + 1)]
-                .copy_from_slice(&(*b)[height_stride * y..height_stride * (y + 1)]);
-        }
-        Ok(a)
-    } else {
-        assert_eq!(images.len(), 1);
-        Ok(images.pop().unwrap())
-    }
 }
