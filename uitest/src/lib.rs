@@ -1,4 +1,4 @@
-use anyhow::bail;
+use anyhow::{bail, Context};
 use std::{
     process::Command,
     thread::sleep,
@@ -74,44 +74,41 @@ impl Connection {
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
-        let output = Command::new("xdotool").arg("getactivewindow").output()?;
+        let output = Command::new("xdotool")
+            .arg("getactivewindow")
+            .output()
+            .with_context(|| format!("failed to execute command: xdotool getactivewindow"))?;
         if !output.status.success() {
             bail!("xdotool failed: {:?}", output);
         }
         Ok(String::from_utf8(output.stdout)?.trim().parse()?)
     }
 
-    pub fn mouse_click(&self, button: u32) -> anyhow::Result<()> {
+    fn run_xdotool(&self, args: &[&str]) -> anyhow::Result<()> {
         let status = Command::new("xdotool")
-            .arg("click")
-            .arg(button.to_string())
-            .status()?;
+            .args(args)
+            .status()
+            .with_context(|| format!("failed to execute command: xdotool {:?}", args))?;
         if !status.success() {
-            bail!("xdotool failed: {:?}", status);
+            bail!("xdotool failed with status {:?}", status);
         }
         Ok(())
+    }
+
+    pub fn mouse_click(&self, button: u32) -> anyhow::Result<()> {
+        self.run_xdotool(&["click", &button.to_string()])
     }
 
     pub fn mouse_down(&self, button: u32) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("mousedown")
-            .arg(button.to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-        Ok(())
+        self.run_xdotool(&["mousedown", &button.to_string()])
     }
 
     pub fn mouse_up(&self, button: u32) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("mouseup")
-            .arg(button.to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-        Ok(())
+        self.run_xdotool(&["mouseup", &button.to_string()])
+    }
+
+    pub fn key(&self, key: &str) -> anyhow::Result<()> {
+        self.run_xdotool(&["key", key])
     }
 }
 

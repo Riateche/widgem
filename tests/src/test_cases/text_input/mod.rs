@@ -1,4 +1,3 @@
-use anyhow::ensure;
 use salvation::{
     event_loop::CallbackContext,
     widgets::{padding_box::PaddingBox, text_input::TextInput, WidgetExt},
@@ -28,14 +27,22 @@ pub fn run() -> Result<(), EventLoopError> {
 
 pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.blinking_expected = true;
-    let windows = ctx.connection.wait_for_windows_by_pid(ctx.pid)?;
-    ensure!(windows.len() == 1);
+    let window = ctx.wait_for_window_by_pid()?;
     // Workaround for winit issue:
     // https://github.com/rust-windowing/winit/issues/2841
-    windows[0].minimize()?;
-    windows[0].activate()?;
-    ctx.snapshot(&windows[0], "window with text input - text Hello world")?;
+    window.minimize()?;
+    window.activate()?;
+    ctx.snapshot(&window, "window with text input - text Hello world")?;
+    ctx.connection.key("Right")?;
+    ctx.snapshot(&window, "cursor moved to the right of H")?;
+    ctx.connection.key("Shift+Right")?;
+    ctx.snapshot(&window, "selected e")?;
+    ctx.connection.key("Right")?;
+    ctx.snapshot(
+        &window,
+        "cleared selection and cursor moved to the right of He",
+    )?;
 
-    windows[0].close()?;
+    window.close()?;
     Ok(())
 }

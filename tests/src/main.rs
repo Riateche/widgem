@@ -13,7 +13,7 @@ use salvation::{event_loop::App, winit::error::EventLoopError};
 use strum::{EnumIter, EnumString, IntoEnumIterator, IntoStaticStr};
 use uitest::Connection;
 
-mod context;
+pub mod context;
 mod test_cases;
 
 fn repo_dir() -> PathBuf {
@@ -103,12 +103,11 @@ enum TestCase {
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
-struct Args {
-    filter: Option<String>,
-    check: bool,
+enum Args {
+    Test { filter: Option<String>, check: bool },
+    Run { test_case: TestCase },
+    Approve { screenshot_path: String },
 }
-
-const TEST_CASE_ENV_VAR: &str = "SALVATION_TESTS_TEST_CASE";
 
 fn main() -> anyhow::Result<()> {
     if std::env::var("RUST_LOG").is_err() {
@@ -116,50 +115,61 @@ fn main() -> anyhow::Result<()> {
     }
     env_logger::init();
     let args = Args::parse();
-    if let Ok(test_case) = env::var(TEST_CASE_ENV_VAR) {
-        run_test_case(test_case.parse()?)?;
-        return Ok(());
-    }
-
-    // TODO: implement filter
-    let exe = env::args()
-        .next()
-        .context("failed to get current executable path")?;
-    let mut conn = Connection::new()?;
-    let mut all_fails = Vec::new();
-    let mut num_total = 0;
-    let mut num_failed = 0;
-    let mode = if args.check {
-        SnapshotMode::Check
-    } else {
-        SnapshotMode::Update
-    };
-    for test_case in TestCase::iter() {
-        let test_name: &'static str = test_case.into();
-        println!("running test: {}", test_name);
-        let child = Command::new(&exe)
-            .env(TEST_CASE_ENV_VAR, test_name)
-            .spawn()?;
-        let pid = child.id();
-        let fails = run_test_check(test_case, &mut conn, mode, pid, child).unwrap_or_else(|err| {
-            let fail = format!("test {:?} failed: {:?}", test_case, err);
-            println!("{fail}");
-            vec![fail]
-        });
-        num_total += 1;
-        if !fails.is_empty() {
-            num_failed += 1;
+    match args {
+        // TODO: implement filter
+        Args::Test { check, .. } => {
+            let exe = env::args()
+                .next()
+                .context("failed to get current executable path")?;
+            let mut conn = Connection::new()?;
+            let mut all_fails = Vec::new();
+            let mut num_total = 0;
+            let mut num_failed = 0;
+            let mode = if check {
+                SnapshotMode::Check
+            } else {
+                SnapshotMode::Update
+            };
+            for test_case in TestCase::iter() {
+                let test_name: &'static str = test_case.into();
+                println!("running test: {}", test_name);
+                let child = Command::new(&exe).args(&["run", test_name]).spawn()?;
+                let pid = child.id();
+                let fails =
+                    run_test_check(test_case, &mut conn, mode, pid, child).unwrap_or_else(|err| {
+                        let fail = format!("test {:?} failed: {:?}", test_case, err);
+                        println!("{fail}");
+                        vec![fail]
+                    });
+                num_total += 1;
+                if !fails.is_empty() {
+                    num_failed += 1;
+                }
+                all_fails.extend(fails);
+            }
+            println!("-----------");
+            println!("total tests: {}, failed tests: {}", num_total, num_failed);
+            if !all_fails.is_empty() {
+                println!("found issues:\n");
+                for fail in all_fails {
+                    println!("{fail}");
+                }
+                std::process::exit(1);
+            }
         }
-        all_fails.extend(fails);
-    }
-    println!("-----------");
-    println!("total tests: {}, failed tests: {}", num_total, num_failed);
-    if !all_fails.is_empty() {
-        println!("found issues:\n");
-        for fail in all_fails {
-            println!("{fail}");
+        Args::Run { test_case } => {
+            run_test_case(test_case)?;
         }
-        std::process::exit(1);
+        Args::Approve { screenshot_path } => {
+            let Some(str) = screenshot_path.strip_suffix(".new.png") else {
+                bail!(
+                    "expected a path that ends with \".new.png\", got {:?}",
+                    screenshot_path
+                );
+            };
+            fs_err::rename(&screenshot_path, format!("{str}.png"))?;
+            println!("Approved.");
+        }
     }
 
     Ok(())

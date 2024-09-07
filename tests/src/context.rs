@@ -12,6 +12,8 @@ use image::RgbaImage;
 use itertools::Itertools;
 use uitest::{Connection, Window};
 
+use crate::repo_dir;
+
 #[derive(Debug, Default)]
 struct SingleSnapshotFiles {
     confirmed: Option<String>,
@@ -111,8 +113,8 @@ impl<'a> Context<'a> {
 
         self.last_snapshot_index += 1;
         let index = self.last_snapshot_index;
-        let confirmed_snapshot_name = format!("{} - {}.png", index, text);
-        let unconfirmed_snapshot_name = format!("{} - {}.new.png", index, text);
+        let confirmed_snapshot_name = format!("{:02} - {}.png", index, text);
+        let unconfirmed_snapshot_name = format!("{:02} - {}.new.png", index, text);
 
         let files = self.unverified_files.remove(&index).unwrap_or_default();
         if let Some(unconfirmed) = &files.unconfirmed {
@@ -122,7 +124,10 @@ impl<'a> Context<'a> {
                     &mut self.fails,
                     format!(
                         "unexpected unconfirmed snapshot: {:?}",
-                        self.test_case_dir.join(unconfirmed),
+                        self.test_case_dir
+                            .join(unconfirmed)
+                            .strip_prefix(repo_dir())
+                            .expect("failed to strip path prefix"),
                     ),
                 );
             }
@@ -139,8 +144,14 @@ impl<'a> Context<'a> {
                         &mut self.fails,
                         format!(
                             "confirmed snapshot name mismatch: expected {:?}, got {:?}",
-                            self.test_case_dir.join(confirmed_snapshot_name),
-                            self.test_case_dir.join(confirmed),
+                            self.test_case_dir
+                                .join(confirmed_snapshot_name)
+                                .strip_prefix(repo_dir())
+                                .expect("failed to strip path prefix"),
+                            self.test_case_dir
+                                .join(confirmed)
+                                .strip_prefix(repo_dir())
+                                .expect("failed to strip path prefix"),
                         ),
                     );
                 }
@@ -152,7 +163,12 @@ impl<'a> Context<'a> {
                     .with_context(|| format!("failed to save image {:?}", &new_path))?;
                 record_fail(
                     &mut self.fails,
-                    format!("snapshot mismatch at {:?}", new_path),
+                    format!(
+                        "snapshot mismatch at {:?}",
+                        new_path
+                            .strip_prefix(repo_dir())
+                            .expect("failed to strip path prefix")
+                    ),
                 );
             }
         } else {
@@ -161,10 +177,18 @@ impl<'a> Context<'a> {
                 .save(&new_path)
                 .with_context(|| format!("failed to save image {:?}", &new_path))?;
             let fail = match self.snapshot_mode {
-                SnapshotMode::Update => format!("new snapshot at {:?}", new_path),
+                SnapshotMode::Update => format!(
+                    "new snapshot at {:?}",
+                    new_path
+                        .strip_prefix(repo_dir())
+                        .expect("failed to strip path prefix")
+                ),
                 SnapshotMode::Check => format!(
                     "missing snapshot at {:?}",
-                    self.test_case_dir.join(confirmed_snapshot_name)
+                    self.test_case_dir
+                        .join(confirmed_snapshot_name)
+                        .strip_prefix(repo_dir())
+                        .expect("failed to strip path prefix")
                 ),
             };
             record_fail(&mut self.fails, fail);
@@ -192,6 +216,18 @@ impl<'a> Context<'a> {
             );
         }
         self.fails
+    }
+
+    pub fn wait_for_windows_by_pid(&self) -> anyhow::Result<Vec<Window>> {
+        self.connection.wait_for_windows_by_pid(self.pid)
+    }
+
+    pub fn wait_for_window_by_pid(&self) -> anyhow::Result<Window> {
+        let mut windows = self.connection.wait_for_windows_by_pid(self.pid)?;
+        if windows.len() != 1 {
+            bail!("expected 1 window, got {}", windows.len());
+        }
+        Ok(windows.remove(0))
     }
 }
 
