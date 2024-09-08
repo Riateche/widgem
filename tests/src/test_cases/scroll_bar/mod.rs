@@ -55,6 +55,16 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.snapshot(&mut window, "scroll bar and label")?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "resized")?;
+
+    //std::thread::sleep(std::time::Duration::from_secs(1));
+    window.mouse_move(40, 20)?;
+    ctx.connection.mouse_down(1)?;
+    ctx.snapshot(&mut window, "grabbed slider")?;
+    window.mouse_move(50, 20)?;
+    ctx.snapshot(&mut window, "moved slider by 10 px")?;
+    ctx.connection.mouse_up(1)?;
+    ctx.snapshot(&mut window, "released slider")?;
+
     window.close()?;
     Ok(())
 }

@@ -106,7 +106,7 @@ impl ScrollBar {
             }
             Ok(false)
         }));
-
+        this.update_decrease_increase();
         this
     }
 
