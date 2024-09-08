@@ -101,7 +101,7 @@ impl ScrollBar {
                         slider_pressed.invoke((e.pos_in_window(), e.state()));
                     }
                 }
-                Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window),
+                Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window()),
                 _ => {}
             }
             Ok(false)

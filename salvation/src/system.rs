@@ -30,7 +30,7 @@ pub struct SharedSystemDataInner {
     pub swash_cache: SwashCache,
 
     pub default_style: Rc<ComputedStyle>,
-    pub event_loop_proxy: EventLoopProxy<UserEvent>,
+    pub(crate) event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
     pub new_windows: Vec<Window>,

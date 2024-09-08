@@ -286,7 +286,7 @@ impl WidgetCommon {
         if let Some(mount_point) = &self.mount_point {
             let address = mount_point.address.clone().join(index);
             widget.dispatch(
-                MountEvent(MountPoint {
+                MountEvent::new(MountPoint {
                     address,
                     window: mount_point.window.clone(),
                     parent_id: Some(self.id),
@@ -322,9 +322,9 @@ impl WidgetCommon {
     fn remount_children(&mut self, from_index: usize) {
         if let Some(mount_point) = &self.mount_point {
             for i in from_index..self.children.len() {
-                self.children[i].widget.dispatch(UnmountEvent.into());
+                self.children[i].widget.dispatch(UnmountEvent::new().into());
                 self.children[i].widget.dispatch(
-                    MountEvent(MountPoint {
+                    MountEvent::new(MountPoint {
                         address: mount_point.address.clone().join(i),
                         window: mount_point.window.clone(),
                         parent_id: Some(self.id),
@@ -342,7 +342,7 @@ impl WidgetCommon {
         }
         let mut widget = self.children.remove(index).widget;
         if self.mount_point.is_some() {
-            widget.dispatch(UnmountEvent.into());
+            widget.dispatch(UnmountEvent::new().into());
         }
         widget.set_parent_scope(WidgetScope::default());
         self.remount_children(index);
@@ -367,23 +367,15 @@ impl WidgetCommon {
             let mount_point = child.widget.common().mount_point_or_err()?;
             if rect_changed || event.size_hints_changed_within(&mount_point.address) {
                 child.widget.dispatch(
-                    LayoutEvent {
-                        new_rect_in_window: rect_in_window,
-                        changed_size_hints: event.changed_size_hints.clone(),
-                    }
-                    .into(),
+                    LayoutEvent::new(rect_in_window, event.changed_size_hints.clone()).into(),
                 );
             }
             child.rect_set_during_layout = true;
         } else {
             if rect_changed {
-                child.widget.dispatch(
-                    LayoutEvent {
-                        new_rect_in_window: rect_in_window,
-                        changed_size_hints: Vec::new(),
-                    }
-                    .into(),
-                );
+                child
+                    .widget
+                    .dispatch(LayoutEvent::new(rect_in_window, Vec::new()).into());
             }
         }
         Ok(())
@@ -704,14 +696,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let mut should_dispatch = true;
         match &event {
             Event::Mount(event) => {
-                let mount_point = event.0.clone();
+                let mount_point = event.mount_point().clone();
                 self.common_mut().mount(mount_point.clone());
 
                 let id = self.common().id;
                 for (i, child) in self.common_mut().children.iter_mut().enumerate() {
                     let child_address = mount_point.address.clone().join(i);
                     child.widget.dispatch(
-                        MountEvent(MountPoint {
+                        MountEvent::new(MountPoint {
                             address: child_address,
                             parent_id: Some(id),
                             window: mount_point.window.clone(),
@@ -724,7 +716,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             // TODO: before or after handler?
             Event::Unmount(_event) => {
                 for child in &mut self.common_mut().children {
-                    child.widget.dispatch(UnmountEvent.into());
+                    child.widget.dispatch(UnmountEvent::new().into());
                 }
             }
             Event::FocusIn(_) => {
@@ -734,7 +726,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().is_focused = false;
             }
             Event::WindowFocusChange(e) => {
-                self.common_mut().is_window_focused = e.focused;
+                self.common_mut().is_window_focused = e.is_focused();
             }
             Event::MouseInput(event) => {
                 should_dispatch = self.common().is_enabled();
@@ -759,14 +751,8 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 if should_dispatch {
                     for child in self.common_mut().children.iter_mut().rev() {
                         if let Some(rect_in_parent) = child.rect_in_parent {
-                            if rect_in_parent.contains(event.pos) {
-                                let event = MouseMoveEvent {
-                                    pos: event.pos - rect_in_parent.top_left,
-                                    pos_in_window: event.pos_in_window(),
-                                    device_id: event.device_id,
-                                    accepted_by: event.accepted_by.clone(),
-                                };
-                                if child.widget.dispatch(event.into()) {
+                            if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                                if child.widget.dispatch(child_event.into()) {
                                     accepted = true;
                                     break;
                                 }
@@ -791,14 +777,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         };
 
                         if is_enter {
-                            self.dispatch(
-                                MouseEnterEvent {
-                                    device_id: event.device_id,
-                                    pos: event.pos,
-                                    accepted_by: event.accepted_by.clone(),
-                                }
-                                .into(),
-                            );
+                            self.dispatch(event.create_enter_event().into());
                         }
                     }
                 }
@@ -829,8 +808,8 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         }
         match event {
             Event::MouseInput(event) => {
-                if event.accepted_by().is_none() && accepted {
-                    event.set_accepted_by(self.common().id);
+                if event.accepted_by.get().is_none() && accepted {
+                    event.accepted_by.set(Some(self.common().id));
                 }
             }
             Event::MouseEnter(event) => {
@@ -979,17 +958,17 @@ impl<W: Widget + ?Sized> WidgetExt for W {
 
     fn set_parent_scope(&mut self, scope: WidgetScope) {
         self.common_mut().set_parent_scope(scope);
-        self.dispatch(WidgetScopeChangeEvent.into());
+        self.dispatch(WidgetScopeChangeEvent::new().into());
     }
 
     fn set_enabled(&mut self, enabled: bool) {
         self.common_mut().set_enabled(enabled);
-        self.dispatch(WidgetScopeChangeEvent.into());
+        self.dispatch(WidgetScopeChangeEvent::new().into());
     }
 
     fn set_visible(&mut self, visible: bool) {
         self.common_mut().is_explicitly_visible = visible;
-        self.dispatch(WidgetScopeChangeEvent.into());
+        self.dispatch(WidgetScopeChangeEvent::new().into());
     }
 
     fn set_style(&mut self, style: Option<Style>) -> Result<()> {
@@ -1000,7 +979,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             None
         };
         self.common_mut().explicit_style = style;
-        self.dispatch(WidgetScopeChangeEvent.into());
+        self.dispatch(WidgetScopeChangeEvent::new().into());
         Ok(())
     }
 

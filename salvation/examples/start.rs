@@ -5,13 +5,13 @@ use std::time::Duration;
 use anyhow::Result;
 
 use salvation::{
-    event_loop::{App, CallbackContext},
     system::add_interval,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
         scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetExt, WidgetId,
     },
     window::create_window,
+    App, CallbackContext,
 };
 use winit::window::Window;
 

@@ -89,15 +89,15 @@ impl KeyCombination {
     }
 
     pub fn matches(&self, event: &KeyboardInputEvent) -> bool {
-        if !event.event.state.is_pressed() {
+        if !event.info().state.is_pressed() {
             return false;
         }
-        if Modifiers::from(event.modifiers) != self.modifiers {
+        if Modifiers::from(event.modifiers()) != self.modifiers {
             return false;
         }
         match &self.key {
-            ShortcutKey::Logical(key) => &event.event.logical_key == key,
-            ShortcutKey::Physical(key) => &event.event.physical_key == key,
+            ShortcutKey::Logical(key) => &event.info().logical_key == key,
+            ShortcutKey::Physical(key) => &event.info().physical_key == key,
         }
     }
 }

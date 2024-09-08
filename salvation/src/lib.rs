@@ -2,11 +2,11 @@
 #![allow(clippy::collapsible_else_if)]
 #![allow(clippy::comparison_chain)]
 
-pub mod accessible;
-pub mod callback;
-pub mod draw;
+mod accessible;
+mod callback;
+mod draw;
 pub mod event;
-pub mod event_loop;
+mod event_loop;
 pub mod layout;
 pub mod shortcut;
 pub mod style;
@@ -16,4 +16,7 @@ pub mod timer;
 pub mod types;
 pub mod widgets;
 pub mod window;
-pub use winit;
+
+pub use crate::accessible::new_accessible_node_id;
+pub use crate::event_loop::{run, App, CallbackContext};
+pub use winit::window::WindowAttributes;

@@ -66,7 +66,7 @@ impl TextInput {
             scroll_x: 0,
             blink_timer: None,
             selected_text: String::new(),
-            accessible_line_id: accessible::new_id(),
+            accessible_line_id: accessible::new_accessible_node_id(),
         }
     }
 
@@ -361,7 +361,8 @@ impl Widget for TextInput {
             .pressed_mouse_buttons
             .contains(&MouseButton::Left)
         {
-            let pos = event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
+            let pos =
+                event.pos() - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
             let old_selection = (self.editor.select_opt(), self.editor.cursor());
             self.editor.action(Action::Drag { x: pos.x, y: pos.y });
             let new_selection = (self.editor.select_opt(), self.editor.cursor());
@@ -375,7 +376,7 @@ impl Widget for TextInput {
 
     #[allow(clippy::if_same_then_else)]
     fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
-        if event.event.state == ElementState::Released {
+        if event.info().state == ElementState::Released {
             return Ok(true);
         }
 
@@ -468,13 +469,13 @@ impl Widget for TextInput {
             self.editor.action(Action::DeleteStartOfWord);
         } else if shortcuts.delete_end_of_word.matches(&event) {
             self.editor.action(Action::DeleteEndOfWord);
-        } else if let Some(text) = event.event.text {
-            if let Key::Named(key) = &event.event.logical_key {
+        } else if let Some(text) = &event.info().text {
+            if let Key::Named(key) = &event.info().logical_key {
                 if [NamedKey::Tab, NamedKey::Enter, NamedKey::Escape].contains(key) {
                     return Ok(false);
                 }
             }
-            self.editor.insert_string(&sanitize(&text), None);
+            self.editor.insert_string(&sanitize(text), None);
         } else {
             return Ok(false);
         }
@@ -485,7 +486,7 @@ impl Widget for TextInput {
     }
 
     fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
-        match event.0.clone() {
+        match event.info().clone() {
             Ime::Enabled => {}
             Ime::Preedit(preedit, cursor) => {
                 // TODO: can pretext have line breaks?
@@ -514,14 +515,17 @@ impl Widget for TextInput {
     }
 
     fn handle_mount(&mut self, event: MountEvent) -> Result<()> {
-        self.editor.set_window(Some(event.0.window.clone()));
+        self.editor
+            .set_window(Some(event.mount_point().window.clone()));
         self.reset_blink_timer();
 
-        event.0.window.0.borrow_mut().accessible_nodes.mount(
-            Some(self.common.id.into()),
-            self.accessible_line_id,
-            0,
-        );
+        event
+            .mount_point()
+            .window
+            .0
+            .borrow_mut()
+            .accessible_nodes
+            .mount(Some(self.common.id.into()), self.accessible_line_id, 0);
         //self.style_changed();
         Ok(())
     }
@@ -544,7 +548,7 @@ impl Widget for TextInput {
         Ok(())
     }
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
-        self.editor.on_focus_in(event.reason);
+        self.editor.on_focus_in(event.reason());
         self.common.update();
         self.reset_blink_timer();
         Ok(())
@@ -556,7 +560,7 @@ impl Widget for TextInput {
         Ok(())
     }
     fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
-        self.editor.on_window_focus_changed(event.focused);
+        self.editor.on_window_focus_changed(event.is_focused());
         self.common.update();
         self.reset_blink_timer();
         Ok(())
@@ -564,7 +568,7 @@ impl Widget for TextInput {
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
         let mount_point = self.common.mount_point_or_err()?;
 
-        match event.action {
+        match event.action() {
             accesskit::Action::Default | accesskit::Action::Focus => {
                 send_window_request(
                     mount_point.address.window_id,
@@ -576,11 +580,11 @@ impl Widget for TextInput {
                 );
             }
             accesskit::Action::SetTextSelection => {
-                let Some(ActionData::SetTextSelection(data)) = event.data else {
-                    warn!("expected SetTextSelection in data, got {:?}", event.data);
+                let Some(ActionData::SetTextSelection(data)) = event.data() else {
+                    warn!("expected SetTextSelection in data, got {:?}", event.data());
                     return Ok(());
                 };
-                self.editor.set_accessible_selection(data);
+                self.editor.set_accessible_selection(*data);
                 self.after_change();
                 self.common.update();
                 self.reset_blink_timer();

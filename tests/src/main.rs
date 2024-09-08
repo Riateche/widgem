@@ -9,7 +9,7 @@ use std::{
 use anyhow::{bail, Context as _};
 use clap::Parser;
 use context::{Context, SnapshotMode};
-use salvation::{event_loop::App, winit::error::EventLoopError};
+use salvation::App;
 use strum::{EnumIter, EnumString, IntoEnumIterator, IntoStaticStr};
 use uitest::Connection;
 
@@ -45,7 +45,7 @@ fn init_test_app() -> App {
         .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"))
 }
 
-fn run_test_case(test_case: TestCase) -> Result<(), EventLoopError> {
+fn run_test_case(test_case: TestCase) -> anyhow::Result<()> {
     match test_case {
         TestCase::text_input => test_cases::text_input::run(),
     }

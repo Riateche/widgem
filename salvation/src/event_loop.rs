@@ -9,10 +9,8 @@ use cosmic_text::{fontdb, FontSystem, SwashCache};
 use derive_more::From;
 use log::warn;
 use scoped_tls::scoped_thread_local;
-use tiny_skia::Pixmap;
 use winit::{
     application::ApplicationHandler,
-    error::EventLoopError,
     event::{StartCause, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     window::WindowId,
@@ -93,11 +91,8 @@ impl<'a, State> CallbackContext<'a, State> {
     }
 }
 
-#[derive(Debug)]
-pub struct Snapshot(pub Vec<Pixmap>);
-
 #[derive(Debug, From)]
-pub enum UserEvent {
+pub(crate) enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
     WindowRequest(WindowId, WindowRequest),
     WindowClosed(WindowId),
@@ -107,19 +102,12 @@ pub enum UserEvent {
 
 scoped_thread_local!(static ACTIVE_EVENT_LOOP: ActiveEventLoop);
 
-pub fn with_active_event_loop<F, R>(f: F) -> R
+pub(crate) fn with_active_event_loop<F, R>(f: F) -> R
 where
     F: FnOnce(&ActiveEventLoop) -> R,
 {
     ACTIVE_EVENT_LOOP.with(f)
 }
-
-// pub fn with_window_target<F, R>(f: F) -> R
-// where
-//     F: FnOnce(&EventLoopWindowTarget<UserEvent>) -> R,
-// {
-//     WINDOW_TARGET.with(f)
-// }
 
 fn dispatch_widget_callback(
     windows: &mut LinkedHashMap<WindowId, Window>,
@@ -206,11 +194,18 @@ impl App {
     pub fn run<State: 'static>(
         self,
         make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
-    ) -> Result<(), EventLoopError> {
+    ) -> anyhow::Result<()> {
         let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
         let mut handler = Handler::new(self, make_state, &event_loop);
-        event_loop.run_app(&mut handler)
+        event_loop.run_app(&mut handler)?;
+        Ok(())
     }
+}
+
+pub fn run<State: 'static>(
+    make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
+) -> anyhow::Result<()> {
+    App::new().run(make_state)
 }
 
 type DynMakeState<State> = dyn FnOnce(&mut CallbackContext<State>) -> State;

@@ -213,7 +213,7 @@ impl Window {
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(window_id);
             widget.dispatch(
-                MountEvent(MountPoint {
+                MountEvent::new(MountPoint {
                     address,
                     parent_id: None,
                     window: shared_window_data.clone(),
@@ -286,7 +286,7 @@ impl Window {
         {
             if let Some(root_widget) = &mut self.root_widget {
                 if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), id) {
-                    widget.dispatch(MouseLeaveEvent.into());
+                    widget.dispatch(MouseLeaveEvent::new().into());
                 }
             }
         }
@@ -410,25 +410,25 @@ impl Window {
                             {
                                 let pos_in_widget = pos_in_window - rect_in_window.top_left;
                                 mouse_grabber_widget.dispatch(
-                                    MouseMoveEvent {
-                                        device_id,
-                                        pos: pos_in_widget,
-                                        pos_in_window,
-                                        accepted_by: accepted_by.clone(),
-                                    }
-                                    .into(),
+                                    MouseMoveEvent::builder()
+                                        .device_id(device_id)
+                                        .pos(pos_in_widget)
+                                        .pos_in_window(pos_in_window)
+                                        .accepted_by(accepted_by.clone())
+                                        .build()
+                                        .into(),
                                 );
                             }
                         }
                     } else {
                         root_widget.dispatch(
-                            MouseMoveEvent {
-                                device_id,
-                                pos: pos_in_window,
-                                pos_in_window,
-                                accepted_by: accepted_by.clone(),
-                            }
-                            .into(),
+                            MouseMoveEvent::builder()
+                                .device_id(device_id)
+                                .pos(pos_in_window)
+                                .pos_in_window(pos_in_window)
+                                .accepted_by(accepted_by.clone())
+                                .build()
+                                .into(),
                         );
                     }
                 }
@@ -546,13 +546,13 @@ impl Window {
                         {
                             let modifiers = self.shared_window_data.0.borrow().modifiers_state;
                             widget.dispatch(
-                                KeyboardInputEvent {
-                                    device_id,
-                                    event: event.clone(),
-                                    is_synthetic,
-                                    modifiers,
-                                }
-                                .into(),
+                                KeyboardInputEvent::builder()
+                                    .device_id(device_id)
+                                    .info(event.clone())
+                                    .is_synthetic(is_synthetic)
+                                    .modifiers(modifiers)
+                                    .build()
+                                    .into(),
                             );
                         }
                     }
@@ -597,7 +597,7 @@ impl Window {
                         if let Ok(widget) =
                             get_widget_by_id_mut(root_widget.as_mut(), focused_widget.1)
                         {
-                            widget.dispatch(ImeEvent(ime).into());
+                            widget.dispatch(ImeEvent::new(ime).into());
                         }
                     }
                 }
@@ -610,7 +610,7 @@ impl Window {
                     self.dispatch_cursor_leave();
                 }
                 if let Some(root_widget) = &mut self.root_widget {
-                    root_widget.dispatch(WindowFocusChangeEvent { focused }.into());
+                    root_widget.dispatch(WindowFocusChangeEvent::new(focused).into());
                 }
             }
             _ => {}
@@ -692,12 +692,12 @@ impl Window {
 
     pub fn set_widget(&mut self, mut widget: Option<Box<dyn Widget>>) {
         if let Some(old_widget) = &mut self.root_widget {
-            old_widget.dispatch(UnmountEvent.into());
+            old_widget.dispatch(UnmountEvent::new().into());
         }
         if let Some(widget) = &mut widget {
             let address = WidgetAddress::window_root(self.id);
             widget.dispatch(
-                MountEvent(MountPoint {
+                MountEvent::new(MountPoint {
                     address,
                     parent_id: None,
                     window: self.shared_window_data.clone(),
@@ -762,12 +762,12 @@ impl Window {
                 .accessible_nodes
                 .set_focus(None);
             if let Ok(old_widget) = get_widget_by_id_mut(root_widget.as_mut(), old_widget_id.1) {
-                old_widget.dispatch(FocusOutEvent.into());
+                old_widget.dispatch(FocusOutEvent::new().into());
             }
         }
 
         if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_addr_id.1) {
-            widget.dispatch(FocusInEvent { reason }.into());
+            widget.dispatch(FocusInEvent::new(reason).into());
             self.shared_window_data
                 .0
                 .borrow_mut()
@@ -847,13 +847,7 @@ impl Window {
         let widget_id = RawWidgetId(request.target.0);
         if let Some(root_widget) = &mut self.root_widget {
             if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
-                widget.dispatch(
-                    AccessibleActionEvent {
-                        action: request.action,
-                        data: request.data,
-                    }
-                    .into(),
-                );
+                widget.dispatch(AccessibleActionEvent::new(request.action, request.data).into());
             } else {
                 warn!("cannot dispatch accessible event (no such widget): {request:?}");
             }

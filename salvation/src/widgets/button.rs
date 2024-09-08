@@ -219,7 +219,7 @@ impl Widget for Button {
             .as_ref()
             .expect("cannot handle event when unmounted");
 
-        match event.action {
+        match event.action() {
             Action::Default => self.click(),
             Action::Focus => {
                 send_window_request(

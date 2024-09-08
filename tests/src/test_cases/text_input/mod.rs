@@ -1,8 +1,7 @@
 use salvation::{
-    event_loop::CallbackContext,
     widgets::{padding_box::PaddingBox, text_input::TextInput, WidgetExt},
     window::create_window,
-    winit::{error::EventLoopError, window::Window},
+    CallbackContext, WindowAttributes,
 };
 
 use crate::{context::Context, init_test_app};
@@ -14,14 +13,14 @@ impl State {
         let input = TextInput::new("Hello world");
         // TODO: use module_path!
         create_window(
-            Window::default_attributes().with_title("salvation_tests::test_cases::text_input"),
+            WindowAttributes::default().with_title("salvation_tests::test_cases::text_input"),
             Some(PaddingBox::new(input.boxed()).boxed()),
         );
         State {}
     }
 }
 
-pub fn run() -> Result<(), EventLoopError> {
+pub fn run() -> anyhow::Result<()> {
     init_test_app().run(State::new)
 }
 
