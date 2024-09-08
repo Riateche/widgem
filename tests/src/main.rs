@@ -9,7 +9,7 @@ use std::{
 use anyhow::{bail, Context as _};
 use clap::Parser;
 use context::{Context, SnapshotMode};
-use salvation::{App, CallbackContext};
+use salvation::App;
 use strum::IntoEnumIterator;
 use test_cases::{run_test_case, run_test_check, TestCase};
 use uitest::Connection;
@@ -37,17 +37,17 @@ fn test_cases_dir() -> PathBuf {
     repo_dir().join("tests/src/test_cases")
 }
 
-fn run_test_app<State: 'static>(
-    make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
-) -> anyhow::Result<()> {
+fn test_app(default_scale: bool) -> App {
     let fonts_path = assets_dir().join("fonts");
-    App::new()
-        .with_scale(1.0)
+    let mut app = App::new()
         .with_system_fonts(false)
         .with_font(fonts_path.join("NotoSans-Regular.ttf"))
         .with_font(fonts_path.join("NotoColorEmoji.ttf"))
-        .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"))
-        .run(make_state)
+        .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"));
+    if !default_scale {
+        app = app.with_scale(1.0);
+    }
+    app
 }
 
 fn run_test_check_and_verify(
@@ -102,6 +102,8 @@ enum Args {
     },
     Run {
         test_case: TestCase,
+        #[clap(long)]
+        default_scale: bool,
     },
     Approve {
         screenshot_path: String,
@@ -161,8 +163,12 @@ fn main() -> anyhow::Result<()> {
                 std::process::exit(1);
             }
         }
-        Args::Run { test_case } => {
-            run_test_case(test_case)?;
+        Args::Run {
+            test_case,
+            default_scale,
+        } => {
+            let app = test_app(default_scale);
+            run_test_case(app, test_case)?;
         }
         Args::Approve { screenshot_path } => {
             let Some(str) = screenshot_path.strip_suffix(".new.png") else {

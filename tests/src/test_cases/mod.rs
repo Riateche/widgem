@@ -1,6 +1,7 @@
 use strum::{EnumIter, EnumString, IntoStaticStr};
 
-use crate::{context::Context, run_test_app};
+use crate::context::Context;
+use salvation::App;
 
 pub mod scroll_bar;
 pub mod text_input;
@@ -13,10 +14,10 @@ macro_rules! tests {
             $($name,)*
         }
 
-        pub fn run_test_case(test_case: TestCase) -> anyhow::Result<()> {
+        pub fn run_test_case(app: App, test_case: TestCase) -> anyhow::Result<()> {
             match test_case {
                 $(
-                    TestCase::$name => run_test_app($name::State::new),
+                    TestCase::$name => app.run($name::State::new),
                 )*
             }
         }
