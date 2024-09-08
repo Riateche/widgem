@@ -13,7 +13,7 @@ use crate::{
     draw::DrawEvent,
     event::{
         AccessibleActionEvent, FocusReason, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-        WidgetScopeChangeEvent,
+        MouseMoveEvent, WidgetScopeChangeEvent,
     },
     layout::SizeHintMode,
     style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
@@ -44,6 +44,7 @@ pub struct Button {
     // TODO: Option inside callback
     on_clicked: Option<Callback<String>>,
     is_pressed: bool,
+    was_pressed_but_moved_out: bool,
     common: WidgetCommon,
     role: Role1,
 }
@@ -61,6 +62,7 @@ impl Button {
             text_visible: true,
             on_clicked: None,
             is_pressed: false,
+            was_pressed_but_moved_out: false,
             common,
             role: Role1::Default,
         }
@@ -170,34 +172,57 @@ impl Widget for Button {
     }
 
     fn handle_mouse_leave(&mut self, _event: MouseLeaveEvent) -> Result<()> {
-        self.is_pressed = false;
-        self.common.update();
         Ok(())
     }
 
+    fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
+        let rect = self.common.rect_or_err()?;
+        if rect.contains(event.pos()) {
+            if self.was_pressed_but_moved_out {
+                self.was_pressed_but_moved_out = true;
+                self.is_pressed = true;
+                self.common.update();
+            }
+        } else {
+            if self.is_pressed {
+                self.was_pressed_but_moved_out = true;
+                self.is_pressed = false;
+                self.common.update();
+            }
+        }
+        Ok(true)
+    }
+
     fn handle_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
-        // TODO: only on release, check buttons
+        if !self.common.is_enabled() {
+            return Ok(true);
+        }
         if event.button() == MouseButton::Left {
-            self.is_pressed = self.common.is_enabled() && event.state().is_pressed();
             if event.state().is_pressed() {
-                self.click();
+                self.is_pressed = true;
+
+                let mount_point = &self
+                    .common
+                    .mount_point
+                    .as_ref()
+                    .expect("cannot handle event when unmounted");
+                if self.role == Role1::Default {
+                    send_window_request(
+                        mount_point.address.window_id,
+                        SetFocusRequest {
+                            widget_id: self.common.id,
+                            reason: FocusReason::Mouse,
+                        },
+                    );
+                }
+            } else {
+                self.was_pressed_but_moved_out = false;
+                if self.is_pressed {
+                    self.is_pressed = false;
+                    self.click();
+                }
             }
             self.common.update();
-        }
-
-        let mount_point = &self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted");
-        if self.role == Role1::Default {
-            send_window_request(
-                mount_point.address.window_id,
-                SetFocusRequest {
-                    widget_id: self.common.id,
-                    reason: FocusReason::Mouse,
-                },
-            );
         }
         Ok(true)
     }

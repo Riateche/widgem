@@ -25,7 +25,7 @@ use crate::{
     layout::{LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
     style::{computed::ComputedStyle, Style},
     system::{address, register_address, unregister_address, with_system, ReportError},
-    types::{Rect, Size},
+    types::{Point, Rect, Size},
     window::SharedWindowData,
 };
 
@@ -419,6 +419,13 @@ impl WidgetCommon {
 
     pub fn size_or_err(&self) -> Result<Size> {
         Ok(self.rect_in_window.context("no rect_in_window")?.size)
+    }
+
+    pub fn rect_or_err(&self) -> Result<Rect> {
+        Ok(Rect::from_pos_size(
+            Point::default(),
+            self.rect_in_window.context("no rect_in_window")?.size,
+        ))
     }
 
     fn register_focusable(&mut self) {
