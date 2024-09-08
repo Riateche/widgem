@@ -6,14 +6,17 @@ use cosmic_text::Attrs;
 use log::warn;
 use salvation_macros::impl_with;
 use tiny_skia::Pixmap;
-use winit::event::MouseButton;
+use winit::{
+    event::MouseButton,
+    keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
+};
 
 use crate::{
     callback::Callback,
     draw::DrawEvent,
     event::{
-        AccessibleActionEvent, FocusReason, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-        MouseMoveEvent, WidgetScopeChangeEvent,
+        AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent, MouseMoveEvent,
+        WidgetScopeChangeEvent,
     },
     layout::SizeHintMode,
     style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
@@ -42,7 +45,7 @@ pub struct Button {
     icon: Option<Rc<Pixmap>>,
     text_visible: bool,
     // TODO: Option inside callback
-    on_clicked: Option<Callback<String>>,
+    on_triggered: Option<Callback<String>>,
     is_pressed: bool,
     was_pressed_but_moved_out: bool,
     common: WidgetCommon,
@@ -60,7 +63,7 @@ impl Button {
             editor,
             icon: None,
             text_visible: true,
-            on_clicked: None,
+            on_triggered: None,
             is_pressed: false,
             was_pressed_but_moved_out: false,
             common,
@@ -88,12 +91,12 @@ impl Button {
     // }
 
     pub fn on_clicked(&mut self, callback: Callback<String>) {
-        self.on_clicked = Some(callback);
+        self.on_triggered = Some(callback);
     }
 
-    fn click(&mut self) {
-        if let Some(on_clicked) = &self.on_clicked {
-            on_clicked.invoke(self.editor.text());
+    fn trigger(&mut self) {
+        if let Some(on_triggered) = &self.on_triggered {
+            on_triggered.invoke(self.editor.text());
         }
     }
 
@@ -129,6 +132,18 @@ impl Button {
         self.common.set_focusable(role == Role1::Default);
         self.common.size_hint_changed();
         self.common.update();
+    }
+
+    fn set_pressed(&mut self, value: bool, suppress_trigger: bool) {
+        if self.is_pressed == value {
+            return;
+        }
+        self.is_pressed = value;
+        self.common.update();
+        if value {
+        } else if !suppress_trigger {
+            self.trigger();
+        }
     }
 }
 
@@ -167,26 +182,18 @@ impl Widget for Button {
         Ok(())
     }
 
-    fn handle_mouse_enter(&mut self, _event: MouseEnterEvent) -> Result<bool> {
-        Ok(true)
-    }
-
-    fn handle_mouse_leave(&mut self, _event: MouseLeaveEvent) -> Result<()> {
-        Ok(())
-    }
-
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let rect = self.common.rect_or_err()?;
         if rect.contains(event.pos()) {
             if self.was_pressed_but_moved_out {
                 self.was_pressed_but_moved_out = true;
-                self.is_pressed = true;
+                self.set_pressed(true, true);
                 self.common.update();
             }
         } else {
             if self.is_pressed {
                 self.was_pressed_but_moved_out = true;
-                self.is_pressed = false;
+                self.set_pressed(false, true);
                 self.common.update();
             }
         }
@@ -199,32 +206,47 @@ impl Widget for Button {
         }
         if event.button() == MouseButton::Left {
             if event.state().is_pressed() {
-                self.is_pressed = true;
-
-                let mount_point = &self
-                    .common
-                    .mount_point
-                    .as_ref()
-                    .expect("cannot handle event when unmounted");
-                if self.role == Role1::Default {
-                    send_window_request(
-                        mount_point.address.window_id,
-                        SetFocusRequest {
-                            widget_id: self.common.id,
-                            reason: FocusReason::Mouse,
-                        },
-                    );
+                self.set_pressed(true, false);
+                if !self.common.is_focused() {
+                    let mount_point = &self
+                        .common
+                        .mount_point
+                        .as_ref()
+                        .expect("cannot handle event when unmounted");
+                    if self.role == Role1::Default {
+                        send_window_request(
+                            mount_point.address.window_id,
+                            SetFocusRequest {
+                                widget_id: self.common.id,
+                                reason: FocusReason::Mouse,
+                            },
+                        );
+                    }
                 }
             } else {
                 self.was_pressed_but_moved_out = false;
-                if self.is_pressed {
-                    self.is_pressed = false;
-                    self.click();
-                }
+                self.set_pressed(false, false);
             }
             self.common.update();
         }
         Ok(true)
+    }
+
+    fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
+        if event.info().physical_key == PhysicalKey::Code(KeyCode::Space)
+            || event.info().logical_key == Key::Named(NamedKey::Space)
+        {
+            self.set_pressed(event.info().state.is_pressed(), false);
+            return Ok(true);
+        }
+        if event.info().physical_key == PhysicalKey::Code(KeyCode::Enter)
+            || event.info().physical_key == PhysicalKey::Code(KeyCode::NumpadEnter)
+            || event.info().logical_key == Key::Named(NamedKey::Enter)
+        {
+            self.trigger();
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     fn common(&self) -> &WidgetCommon {
@@ -245,7 +267,7 @@ impl Widget for Button {
             .expect("cannot handle event when unmounted");
 
         match event.action() {
-            Action::Default => self.click(),
+            Action::Default => self.trigger(),
             Action::Focus => {
                 send_window_request(
                     mount_point.address.window_id,
