@@ -12,7 +12,7 @@ use winit::{
 };
 
 use crate::{
-    callback::Callback,
+    callback::{Callback, CallbackVec},
     draw::DrawEvent,
     event::{
         AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent, MouseMoveEvent,
@@ -44,8 +44,7 @@ pub struct Button {
     editor: TextEditor,
     icon: Option<Rc<Pixmap>>,
     text_visible: bool,
-    // TODO: Option inside callback
-    on_triggered: Option<Callback<String>>,
+    on_triggered: CallbackVec<String>,
     is_pressed: bool,
     was_pressed_but_moved_out: bool,
     common: WidgetCommon,
@@ -63,7 +62,7 @@ impl Button {
             editor,
             icon: None,
             text_visible: true,
-            on_triggered: None,
+            on_triggered: CallbackVec::new(),
             is_pressed: false,
             was_pressed_but_moved_out: false,
             common,
@@ -90,14 +89,12 @@ impl Button {
     //     self.common.update();
     // }
 
-    pub fn on_clicked(&mut self, callback: Callback<String>) {
-        self.on_triggered = Some(callback);
+    pub fn on_triggered(&mut self, callback: Callback<String>) {
+        self.on_triggered.push(callback);
     }
 
-    fn trigger(&mut self) {
-        if let Some(on_triggered) = &self.on_triggered {
-            on_triggered.invoke(self.editor.text());
-        }
+    pub fn trigger(&mut self) {
+        self.on_triggered.invoke(self.editor.text());
     }
 
     fn current_style(&self) -> &ComputedStyle {

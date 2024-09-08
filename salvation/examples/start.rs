@@ -23,7 +23,7 @@ impl AnotherState {
     fn new(ctx: &mut CallbackContext<Self>) -> (Self, Box<dyn Widget>) {
         let another_state = AnotherState { counter: 0 };
         let mut btn = Button::new("another button");
-        btn.on_clicked(ctx.callback(|state, _ctx, _event| {
+        btn.on_triggered(ctx.callback(|state, _ctx, _event| {
             state.counter += 1;
             println!("counter: {}", state.counter);
             create_window(
@@ -72,21 +72,23 @@ impl State {
         */
 
         let btn1 = Button::new("btn1")
-            .with_on_clicked(ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)))
+            .with_on_triggered(
+                ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)),
+            )
             .with_id();
 
         root.add_child(btn1.widget.boxed());
 
         root.add_child(
             Button::new("btn2")
-                .with_on_clicked(
+                .with_on_triggered(
                     ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 2)),
                 )
                 .boxed(),
         );
 
         let button21 = Button::new("btn21")
-            .with_on_clicked(ctx.callback(|_, _, _| {
+            .with_on_triggered(ctx.callback(|_, _, _| {
                 println!("click!");
                 Ok(())
             }))
