@@ -104,9 +104,17 @@ enum TestCase {
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 enum Args {
-    Test { filter: Option<String>, check: bool },
-    Run { test_case: TestCase },
-    Approve { screenshot_path: String },
+    Test {
+        filter: Option<String>,
+        #[clap(long)]
+        check: bool,
+    },
+    Run {
+        test_case: TestCase,
+    },
+    Approve {
+        screenshot_path: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -133,7 +141,7 @@ fn main() -> anyhow::Result<()> {
             for test_case in TestCase::iter() {
                 let test_name: &'static str = test_case.into();
                 println!("running test: {}", test_name);
-                let child = Command::new(&exe).args(&["run", test_name]).spawn()?;
+                let child = Command::new(&exe).args(["run", test_name]).spawn()?;
                 let pid = child.id();
                 let fails =
                     run_test_check(test_case, &mut conn, mode, pid, child).unwrap_or_else(|err| {

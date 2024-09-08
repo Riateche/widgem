@@ -77,7 +77,7 @@ impl Connection {
         let output = Command::new("xdotool")
             .arg("getactivewindow")
             .output()
-            .with_context(|| format!("failed to execute command: xdotool getactivewindow"))?;
+            .with_context(|| "failed to execute command: xdotool getactivewindow")?;
         if !output.status.success() {
             bail!("xdotool failed: {:?}", output);
         }
@@ -107,6 +107,8 @@ impl Connection {
         self.run_xdotool(&["mouseup", &button.to_string()])
     }
 
+    // https://wiki.linuxquestions.org/wiki/List_of_keysyms
+    // https://manpages.ubuntu.com/manpages/trusty/man1/xdotool.1.html
     pub fn key(&self, key: &str) -> anyhow::Result<()> {
         self.run_xdotool(&["key", key])
     }

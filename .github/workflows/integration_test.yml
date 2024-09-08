@@ -25,4 +25,4 @@ jobs:
             break
           fi
         done
-        docker exec salvation_tests salvation_tests -- --check
+        docker exec salvation_tests salvation_tests test --check
