@@ -49,6 +49,7 @@ pub struct Button {
     icon: Option<Rc<Pixmap>>,
     text_visible: bool,
     auto_repeat: bool,
+    trigger_on_press: bool,
     on_triggered: CallbackVec<String>,
     is_pressed: bool,
     was_pressed_but_moved_out: bool,
@@ -70,6 +71,7 @@ impl Button {
             icon: None,
             text_visible: true,
             auto_repeat: false,
+            trigger_on_press: false,
             on_triggered: CallbackVec::new(),
             is_pressed: false,
             was_pressed_but_moved_out: false,
@@ -94,6 +96,10 @@ impl Button {
 
     pub fn set_auto_repeat(&mut self, value: bool) {
         self.auto_repeat = value;
+    }
+
+    pub fn set_trigger_on_press(&mut self, value: bool) {
+        self.trigger_on_press = value;
     }
 
     // TODO: set_icon should preferably work with SVG icons
@@ -152,6 +158,9 @@ impl Button {
         self.is_pressed = value;
         self.common.update();
         if value {
+            if self.trigger_on_press && !suppress_trigger {
+                self.trigger();
+            }
             if self.auto_repeat {
                 let id = add_timer(
                     AUTO_REPEAT_DELAY,
@@ -169,18 +178,23 @@ impl Button {
             if let Some(id) = self.auto_repeat_interval.take() {
                 id.cancel();
             }
-            if !suppress_trigger {
+            if !self.trigger_on_press && !suppress_trigger {
                 self.trigger();
             }
         }
     }
 
     fn start_auto_repeat(&mut self) {
+        if !self.common.is_enabled() {
+            return;
+        }
         self.trigger();
         let id = add_interval(
             AUTO_REPEAT_INTERVAL,
             self.callback(|this, _| {
-                this.trigger();
+                if this.common.is_enabled() {
+                    this.trigger();
+                }
                 Ok(())
             }),
         );
@@ -378,6 +392,16 @@ impl Widget for Button {
 
     fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
         self.icon = self.current_variant_style().icon.clone();
+        if !self.common.is_enabled() {
+            if let Some(id) = self.auto_repeat_delay_timer.take() {
+                id.cancel();
+            }
+            if let Some(id) = self.auto_repeat_interval.take() {
+                id.cancel();
+            }
+            self.is_pressed = false;
+            self.was_pressed_but_moved_out = false;
+        }
         self.common.size_hint_changed();
         self.common.update();
         Ok(())

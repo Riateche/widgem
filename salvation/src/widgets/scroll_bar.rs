@@ -1,4 +1,7 @@
-use std::{cmp::max, ops::RangeInclusive};
+use std::{
+    cmp::{max, min},
+    ops::RangeInclusive,
+};
 
 use crate::{
     callback::Callback,
@@ -27,6 +30,7 @@ pub struct ScrollBar {
     grip_size: Size,
     value_range: RangeInclusive<i32>,
     current_value: i32,
+    step: i32,
     slider_grab_pos: Option<(Point, i32)>,
     value_changed: Option<Callback<i32>>,
 }
@@ -53,6 +57,8 @@ impl ScrollBar {
             Button::new(names::SCROLL_LEFT)
                 .with_role(button::Role1::ScrollLeft)
                 .with_text_visible(false)
+                .with_auto_repeat(true)
+                .with_trigger_on_press(true)
                 .boxed(),
             LayoutItemOptions::from_pos_in_grid(0, 0),
         );
@@ -63,6 +69,7 @@ impl ScrollBar {
             Button::new(names::SCROLL_GRIP)
                 .with_role(button::Role1::ScrollGripX)
                 .with_text_visible(false)
+                .with_auto_repeat(true)
                 .boxed(),
             LayoutItemOptions::default(),
         );
@@ -71,6 +78,8 @@ impl ScrollBar {
             Button::new(names::SCROLL_RIGHT)
                 .with_role(button::Role1::ScrollRight)
                 .with_text_visible(false)
+                .with_auto_repeat(true)
+                .with_trigger_on_press(true)
                 .boxed(),
             LayoutItemOptions::from_pos_in_grid(2, 0),
         );
@@ -82,6 +91,7 @@ impl ScrollBar {
             grip_size: Size::default(),
             value_range: 0..=100,
             current_value: 0,
+            step: 5,
             slider_grab_pos: None,
             value_changed: None,
         };
@@ -106,6 +116,27 @@ impl ScrollBar {
             }
             Ok(false)
         }));
+
+        let decrease_callback = this.callback(|this, _| {
+            this.set_value(max(*this.value_range().start(), this.value() - this.step));
+            Ok(())
+        });
+        this.common.children[INDEX_DECREASE]
+            .widget
+            .downcast_mut::<Button>()
+            .unwrap()
+            .on_triggered(decrease_callback);
+
+        let increase_callback = this.callback(|this, _| {
+            this.set_value(min(*this.value_range().end(), this.value() + this.step));
+            Ok(())
+        });
+        this.common.children[INDEX_INCREASE]
+            .widget
+            .downcast_mut::<Button>()
+            .unwrap()
+            .on_triggered(increase_callback);
+
         this.update_decrease_increase();
         this
     }
@@ -254,6 +285,14 @@ impl ScrollBar {
             self.update_grip_pos();
         }
         self.update_decrease_increase();
+    }
+
+    pub fn value_range(&self) -> RangeInclusive<i32> {
+        self.value_range.clone()
+    }
+
+    pub fn set_step(&mut self, step: i32) {
+        self.step = step;
     }
 
     pub fn set_value(&mut self, mut value: i32) {
