@@ -9,13 +9,15 @@ use std::{
 use anyhow::{bail, Context as _};
 use clap::Parser;
 use context::{Context, SnapshotMode};
-use salvation::App;
-use strum::{EnumIter, EnumString, IntoEnumIterator, IntoStaticStr};
+use salvation::{App, CallbackContext};
+use strum::IntoEnumIterator;
+use test_cases::{run_test_case, run_test_check, TestCase};
 use uitest::Connection;
 
 pub mod context;
 mod test_cases;
 
+// TODO: lazy
 fn repo_dir() -> PathBuf {
     if let Ok(var) = env::var("SALVATION_REPO_DIR") {
         PathBuf::from(var)
@@ -35,7 +37,9 @@ fn test_cases_dir() -> PathBuf {
     repo_dir().join("tests/src/test_cases")
 }
 
-fn init_test_app() -> App {
+fn run_test_app<State: 'static>(
+    make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
+) -> anyhow::Result<()> {
     let fonts_path = assets_dir().join("fonts");
     App::new()
         .with_scale(1.0)
@@ -43,15 +47,10 @@ fn init_test_app() -> App {
         .with_font(fonts_path.join("NotoSans-Regular.ttf"))
         .with_font(fonts_path.join("NotoColorEmoji.ttf"))
         .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"))
+        .run(make_state)
 }
 
-fn run_test_case(test_case: TestCase) -> anyhow::Result<()> {
-    match test_case {
-        TestCase::text_input => test_cases::text_input::run(),
-    }
-}
-
-fn run_test_check(
+fn run_test_check_and_verify(
     test_case: TestCase,
     connection: &mut Connection,
     mode: SnapshotMode,
@@ -64,9 +63,7 @@ fn run_test_check(
         mode,
         pid,
     )?;
-    match test_case {
-        TestCase::text_input => test_cases::text_input::check(&mut ctx)?,
-    }
+    run_test_check(&mut ctx, test_case)?;
     verify_test_exit(child)?;
     Ok(ctx.finish())
 }
@@ -94,12 +91,6 @@ fn verify_test_exit(mut child: Child) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Copy, EnumString, EnumIter, IntoStaticStr)]
-#[allow(non_camel_case_types)]
-enum TestCase {
-    text_input,
-}
-
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
@@ -124,8 +115,7 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
     let args = Args::parse();
     match args {
-        // TODO: implement filter
-        Args::Test { check, .. } => {
+        Args::Test { check, filter } => {
             let exe = env::args()
                 .next()
                 .context("failed to get current executable path")?;
@@ -140,11 +130,17 @@ fn main() -> anyhow::Result<()> {
             };
             for test_case in TestCase::iter() {
                 let test_name: &'static str = test_case.into();
+                let matches_filter = filter
+                    .as_ref()
+                    .map_or(true, |filter| test_name.contains(filter));
+                if !matches_filter {
+                    continue;
+                }
                 println!("running test: {}", test_name);
                 let child = Command::new(&exe).args(["run", test_name]).spawn()?;
                 let pid = child.id();
-                let fails =
-                    run_test_check(test_case, &mut conn, mode, pid, child).unwrap_or_else(|err| {
+                let fails = run_test_check_and_verify(test_case, &mut conn, mode, pid, child)
+                    .unwrap_or_else(|err| {
                         let fail = format!("test {:?} failed: {:?}", test_case, err);
                         println!("{fail}");
                         vec![fail]

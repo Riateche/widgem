@@ -185,7 +185,9 @@ impl Window {
         self.inner.is_maximized()
     }
 
-    pub fn capture_image(&self) -> anyhow::Result<RgbaImage> {
+    pub fn capture_image(&mut self) -> anyhow::Result<RgbaImage> {
+        // Necessary to fetch new window size.
+        self.inner.refresh()?;
         Ok(self.inner.capture_image()?)
     }
 
@@ -245,6 +247,20 @@ impl Window {
             .status()?;
         if !status.success() {
             bail!("wmctrl failed: {:?}", status);
+        }
+        Ok(())
+    }
+
+    pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
+        let status = Command::new("xdotool")
+            .arg("windowsize")
+            .arg("--sync")
+            .arg(self.id().to_string())
+            .arg(width.to_string())
+            .arg(height.to_string())
+            .status()?;
+        if !status.success() {
+            bail!("xdotool failed: {:?}", status);
         }
         Ok(())
     }

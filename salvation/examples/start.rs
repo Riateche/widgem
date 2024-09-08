@@ -73,7 +73,7 @@ impl State {
 
         let btn1 = Button::new("btn1")
             .with_on_clicked(ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)))
-            .split_id();
+            .with_id();
 
         root.add_child(btn1.widget.boxed());
 
@@ -90,14 +90,14 @@ impl State {
                 println!("click!");
                 Ok(())
             }))
-            .split_id();
+            .with_id();
 
-        let button22 = Button::new("btn22").split_id();
+        let button22 = Button::new("btn22").with_id();
 
         let column2 = Column::new()
             .with_child(button21.widget.boxed())
             .with_child(button22.widget.boxed())
-            .split_id();
+            .with_id();
         root.add_child(column2.widget.boxed());
 
         let (another_state, btn3) =
@@ -114,7 +114,7 @@ impl State {
         //         }))
         //         .boxed(),
         // );
-        let label2 = Label::new("ok").split_id();
+        let label2 = Label::new("ok").with_id();
         root.add_child(label2.widget.boxed());
 
         let mut content = Column::new();

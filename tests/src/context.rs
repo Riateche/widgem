@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{bail, Context as _};
 use fs_err::read_dir;
-use image::RgbaImage;
+use image::{ImageReader, RgbaImage};
 use itertools::Itertools;
 use uitest::{Connection, Window};
 
@@ -101,7 +101,11 @@ impl<'a> Context<'a> {
         self.blinking_expected = value;
     }
 
-    fn capture_blinking(&mut self, window: &Window, file_name: &str) -> anyhow::Result<RgbaImage> {
+    fn capture_blinking(
+        &mut self,
+        window: &mut Window,
+        file_name: &str,
+    ) -> anyhow::Result<RgbaImage> {
         const CAPTURE_INTERVAL: Duration = Duration::from_millis(100);
         const MAX_DURATION: Duration = Duration::from_secs(2);
 
@@ -146,7 +150,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
+    pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
         self.last_snapshot_index += 1;
         let index = self.last_snapshot_index;
         let confirmed_snapshot_name = format!("{:02} - {}.png", index, text);
@@ -183,7 +187,21 @@ impl<'a> Context<'a> {
         }
         if let Some(confirmed) = &files.confirmed {
             let confirmed_image = load_image(&self.test_case_dir.join(confirmed))?;
-            if confirmed != &confirmed_snapshot_name {
+            if confirmed_image != new_image {
+                let new_path = self.test_case_dir.join(&unconfirmed_snapshot_name);
+                new_image
+                    .save(&new_path)
+                    .with_context(|| format!("failed to save image {:?}", &new_path))?;
+                record_fail(
+                    &mut self.fails,
+                    format!(
+                        "snapshot mismatch at {:?}",
+                        new_path
+                            .strip_prefix(repo_dir())
+                            .expect("failed to strip path prefix")
+                    ),
+                );
+            } else if confirmed != &confirmed_snapshot_name {
                 fs_err::rename(
                     self.test_case_dir.join(confirmed),
                     self.test_case_dir.join(&confirmed_snapshot_name),
@@ -204,21 +222,6 @@ impl<'a> Context<'a> {
                         ),
                     );
                 }
-            }
-            if confirmed_image != new_image {
-                let new_path = self.test_case_dir.join(&unconfirmed_snapshot_name);
-                new_image
-                    .save(&new_path)
-                    .with_context(|| format!("failed to save image {:?}", &new_path))?;
-                record_fail(
-                    &mut self.fails,
-                    format!(
-                        "snapshot mismatch at {:?}",
-                        new_path
-                            .strip_prefix(repo_dir())
-                            .expect("failed to strip path prefix")
-                    ),
-                );
             }
         } else {
             let new_path = self.test_case_dir.join(&unconfirmed_snapshot_name);
@@ -295,8 +298,8 @@ fn record_fail(fails: &mut Vec<String>, fail: impl Display) {
 }
 
 fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
-    let reader = image::io::Reader::open(path)
-        .with_context(|| format!("failed to open image {:?}", path))?;
+    let reader =
+        ImageReader::open(path).with_context(|| format!("failed to open image {:?}", path))?;
     let image = reader
         .decode()
         .with_context(|| format!("failed to decode image {:?}", path))?;

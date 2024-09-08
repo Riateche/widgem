@@ -644,7 +644,7 @@ pub trait WidgetExt {
         E: 'static,
         Self: Sized;
 
-    fn split_id(self) -> WidgetWithId<Self>
+    fn with_id(self) -> WidgetWithId<Self>
     where
         Self: Sized,
     {
