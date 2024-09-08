@@ -72,6 +72,7 @@ impl State {
         */
 
         let btn1 = Button::new("btn1")
+            .with_auto_repeat(true)
             .with_on_triggered(
                 ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)),
             )

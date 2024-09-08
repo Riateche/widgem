@@ -1,4 +1,4 @@
-use std::{cmp::max, fmt::Display, rc::Rc};
+use std::{cmp::max, fmt::Display, rc::Rc, time::Duration};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use anyhow::Result;
@@ -20,13 +20,17 @@ use crate::{
     },
     layout::SizeHintMode,
     style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
-    system::send_window_request,
+    system::{add_interval, add_timer, send_window_request},
     text_editor::TextEditor,
+    timer::TimerId,
     types::{Point, Rect},
     window::SetFocusRequest,
 };
 
-use super::{Widget, WidgetCommon};
+use super::{Widget, WidgetCommon, WidgetExt};
+
+const AUTO_REPEAT_DELAY: Duration = Duration::from_millis(500);
+const AUTO_REPEAT_INTERVAL: Duration = Duration::from_millis(50);
 
 // TODO: pub(crate)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,9 +48,12 @@ pub struct Button {
     editor: TextEditor,
     icon: Option<Rc<Pixmap>>,
     text_visible: bool,
+    auto_repeat: bool,
     on_triggered: CallbackVec<String>,
     is_pressed: bool,
     was_pressed_but_moved_out: bool,
+    auto_repeat_delay_timer: Option<TimerId>,
+    auto_repeat_interval: Option<TimerId>,
     common: WidgetCommon,
     role: Role1,
 }
@@ -62,11 +69,14 @@ impl Button {
             editor,
             icon: None,
             text_visible: true,
+            auto_repeat: false,
             on_triggered: CallbackVec::new(),
             is_pressed: false,
             was_pressed_but_moved_out: false,
             common,
             role: Role1::Default,
+            auto_repeat_delay_timer: None,
+            auto_repeat_interval: None,
         }
     }
 
@@ -80,6 +90,10 @@ impl Button {
         self.text_visible = value;
         self.common.size_hint_changed();
         self.common.update();
+    }
+
+    pub fn set_auto_repeat(&mut self, value: bool) {
+        self.auto_repeat = value;
     }
 
     // TODO: set_icon should preferably work with SVG icons
@@ -138,9 +152,39 @@ impl Button {
         self.is_pressed = value;
         self.common.update();
         if value {
-        } else if !suppress_trigger {
-            self.trigger();
+            if self.auto_repeat {
+                let id = add_timer(
+                    AUTO_REPEAT_DELAY,
+                    self.callback(|this, _| {
+                        this.start_auto_repeat();
+                        Ok(())
+                    }),
+                );
+                self.auto_repeat_delay_timer = Some(id);
+            }
+        } else {
+            if let Some(id) = self.auto_repeat_delay_timer.take() {
+                id.cancel();
+            }
+            if let Some(id) = self.auto_repeat_interval.take() {
+                id.cancel();
+            }
+            if !suppress_trigger {
+                self.trigger();
+            }
         }
+    }
+
+    fn start_auto_repeat(&mut self) {
+        self.trigger();
+        let id = add_interval(
+            AUTO_REPEAT_INTERVAL,
+            self.callback(|this, _| {
+                this.trigger();
+                Ok(())
+            }),
+        );
+        self.auto_repeat_interval = Some(id);
     }
 }
 
