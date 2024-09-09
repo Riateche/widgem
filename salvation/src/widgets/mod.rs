@@ -12,7 +12,7 @@ use anyhow::{bail, Context, Result};
 use downcast_rs::{impl_downcast, Downcast};
 use log::warn;
 use thiserror::Error;
-use winit::window::{CursorIcon, WindowId};
+use winit::window::{CursorIcon, WindowAttributes, WindowId};
 
 use crate::{
     callback::{widget_callback, Callback},
@@ -101,6 +101,7 @@ pub struct WidgetCommon {
     pub is_focusable: bool,
     pub enable_ime: bool,
     pub cursor_icon: CursorIcon,
+    pub initial_window_attrs: Option<WindowAttributes>,
 
     pub is_focused: bool,
     // TODO: set initial value in mount event
@@ -139,9 +140,6 @@ pub struct MountPoint {
     pub window: SharedWindowData,
     // TODO: move out? unmounted widget can have parent
     pub parent_id: Option<RawWidgetId>,
-    // Determines visual / accessible order.
-    // TODO: remove, use address
-    pub index_in_parent: usize,
 }
 
 impl WidgetCommon {
@@ -170,6 +168,7 @@ impl WidgetCommon {
             is_registered_as_focusable: false,
             event_filter: None,
             current_layout_event: None,
+            initial_window_attrs: None,
         }
     }
 
@@ -186,7 +185,7 @@ impl WidgetCommon {
         mount_point.window.0.borrow_mut().accessible_nodes.mount(
             mount_point.parent_id.map(|id| id.into()),
             self.id.into(),
-            mount_point.index_in_parent,
+            mount_point.address.path.last().copied().unwrap_or_default(),
         );
         self.mount_point = Some(mount_point);
         self.update();
@@ -290,7 +289,6 @@ impl WidgetCommon {
                     address,
                     window: mount_point.window.clone(),
                     parent_id: Some(self.id),
-                    index_in_parent: index,
                 })
                 .into(),
             );
@@ -328,7 +326,6 @@ impl WidgetCommon {
                         address: mount_point.address.clone().join(i),
                         window: mount_point.window.clone(),
                         parent_id: Some(self.id),
-                        index_in_parent: i,
                     })
                     .into(),
                 );
@@ -661,6 +658,10 @@ pub trait WidgetExt {
         }
     }
 
+    fn with_window_attrs(self, initial_attrs: WindowAttributes) -> Self
+    where
+        Self: Sized;
+
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
     fn size_hint_x(&mut self, mode: SizeHintMode) -> i32;
@@ -698,6 +699,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         widget_callback(self.id(), func)
     }
 
+    fn with_window_attrs(mut self, initial_attrs: WindowAttributes) -> Self
+    where
+        Self: Sized,
+    {
+        self.common_mut().initial_window_attrs = Some(initial_attrs);
+        self
+    }
+
     fn dispatch(&mut self, event: Event) -> bool {
         let mut accepted = false;
         let mut should_dispatch = true;
@@ -714,7 +723,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                             address: child_address,
                             parent_id: Some(id),
                             window: mount_point.window.clone(),
-                            index_in_parent: i,
                         })
                         .into(),
                     );

@@ -246,7 +246,6 @@ impl Window {
                 address,
                 parent_id: None,
                 window: shared_window_data.clone(),
-                index_in_parent: 0,
             })
             .into(),
         );
