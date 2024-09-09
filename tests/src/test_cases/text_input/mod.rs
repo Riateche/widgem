@@ -13,7 +13,7 @@ impl State {
         let input = TextInput::new("Hello world");
         create_window(
             WindowAttributes::default().with_title(module_path!()),
-            Some(PaddingBox::new(input.boxed()).boxed()),
+            PaddingBox::new(input.boxed()).boxed(),
         );
         State {}
     }

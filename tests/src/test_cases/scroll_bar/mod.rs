@@ -28,7 +28,7 @@ impl State {
         column.add_child(label.widget.boxed());
         create_window(
             WindowAttributes::default().with_title(module_path!()),
-            Some(PaddingBox::new(column.boxed()).boxed()),
+            PaddingBox::new(column.boxed()).boxed(),
         );
         State {
             label_id: label.id,

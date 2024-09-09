@@ -28,7 +28,7 @@ impl AnotherState {
             println!("counter: {}", state.counter);
             create_window(
                 Window::default_attributes().with_title("example"),
-                Some(Label::new(format!("counter: {}", state.counter)).boxed()),
+                Label::new(format!("counter: {}", state.counter)).boxed(),
             );
             Ok(())
         }));
@@ -129,7 +129,7 @@ impl State {
 
         create_window(
             Window::default_attributes().with_title("example"),
-            Some(PaddingBox::new(root.boxed()).boxed()),
+            PaddingBox::new(root.boxed()).boxed(),
         );
         add_interval(
             Duration::from_secs(2),

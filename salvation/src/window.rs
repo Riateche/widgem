@@ -8,6 +8,7 @@ use std::{
 };
 
 use accesskit::ActionRequest;
+use derivative::Derivative;
 use derive_more::From;
 use log::{trace, warn};
 use tiny_skia::Pixmap;
@@ -15,7 +16,7 @@ use winit::{
     dpi::{PhysicalPosition, PhysicalSize},
     event::{ElementState, Ime, MouseButton, WindowEvent},
     keyboard::{Key, ModifiersState, NamedKey},
-    window::{CursorIcon, Icon, WindowAttributes, WindowId},
+    window::{CursorIcon, WindowAttributes, WindowId},
 };
 
 use crate::{
@@ -24,7 +25,7 @@ use crate::{
     event::{
         AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
         KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseLeaveEvent,
-        MouseMoveEvent, UnmountEvent, WindowFocusChangeEvent,
+        MouseMoveEvent, WindowFocusChangeEvent,
     },
     event_loop::{with_active_event_loop, UserEvent},
     system::{address, with_system},
@@ -38,7 +39,8 @@ use crate::{
 // TODO: get system setting
 const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct SharedWindowDataInner {
     pub cursor_position: Option<Point>,
     pub cursor_entered: bool,
@@ -48,6 +50,16 @@ pub struct SharedWindowDataInner {
     pub accessible_nodes: AccessibleNodes,
     pub mouse_entered_widgets: Vec<(Rect, RawWidgetId)>,
     pub pending_size_hint_invalidations: Vec<WidgetAddress>,
+    pub pixmap: Rc<RefCell<Pixmap>>,
+    // Drop order must be maintained as
+    // `surface` -> `softbuffer_context` -> `winit_window`
+    // to maintain safety requirements.
+    #[derivative(Debug = "ignore")]
+    pub surface: softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>,
+    #[derivative(Debug = "ignore")]
+    pub softbuffer_context: softbuffer::Context<Rc<winit::window::Window>>,
+    #[derivative(Debug = "ignore")]
+    pub accesskit_adapter: accesskit_winit::Adapter,
     pub winit_window: Rc<winit::window::Window>,
     pub ime_allowed: bool,
     pub ime_cursor_area: Rect,
@@ -56,18 +68,24 @@ pub struct SharedWindowDataInner {
 
     pub focusable_widgets: Vec<(WidgetAddress, RawWidgetId)>,
     pub focusable_widgets_changed: bool,
+
+    pub focused_widget: Option<(WidgetAddress, RawWidgetId)>,
+    pub mouse_grabber_widget: Option<RawWidgetId>,
+    pub num_clicks: u32,
+    pub last_click_button: Option<MouseButton>,
+    pub last_click_instant: Option<Instant>,
 }
 
 #[derive(Debug, Clone)]
 pub struct SharedWindowData(pub Rc<RefCell<SharedWindowDataInner>>);
 
 impl SharedWindowData {
-    pub fn pop_mouse_entered_widget(&self, grabber: Option<RawWidgetId>) -> Option<RawWidgetId> {
-        let mut this = self.0.borrow_mut();
+    pub fn pop_mouse_entered_widget(&self) -> Option<RawWidgetId> {
+        let this = &mut *self.0.borrow_mut();
         let pos = this.cursor_position;
         let list = &mut this.mouse_entered_widgets;
         let index = list.iter().position(|(rect, id)| {
-            pos.map_or(true, |pos| !rect.contains(pos)) && Some(*id) != grabber
+            pos.map_or(true, |pos| !rect.contains(pos)) && Some(*id) != this.mouse_grabber_widget
         })?;
         Some(list.remove(index).1)
     }
@@ -138,34 +156,27 @@ impl SharedWindowData {
     }
 }
 
+// TODO: rename to something like WindowSystemData and hide
+#[derive(Debug, Clone)]
 pub struct Window {
     pub id: WindowId,
-
-    accesskit_adapter: accesskit_winit::Adapter,
-
-    // Drop order must be maintained as
-    // `surface` -> `softbuffer_context` -> `shared_window_data`
-    // to maintain safety requirements.
-    pub surface: softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>,
-    pub softbuffer_context: softbuffer::Context<Rc<winit::window::Window>>,
-    pub pixmap: Rc<RefCell<Pixmap>>,
-
     pub shared_window_data: SharedWindowData,
-
-    pub root_widget: Option<Box<dyn Widget>>,
-
-    pub focused_widget: Option<(WidgetAddress, RawWidgetId)>,
-    pub mouse_grabber_widget: Option<RawWidgetId>,
-
-    num_clicks: u32,
-    last_click_button: Option<MouseButton>,
-    last_click_instant: Option<Instant>,
+    pub root_widget_id: RawWidgetId,
 }
 
-pub fn create_window(attrs: WindowAttributes, widget: Option<Box<dyn Widget>>) -> WindowId {
-    let w = Window::new(attrs, widget);
+pub struct WindowWithWidget<'a> {
+    pub id: WindowId,
+    pub shared_window_data: SharedWindowData,
+    pub root_widget: &'a mut dyn Widget,
+}
+
+pub fn create_window(attrs: WindowAttributes, mut widget: Box<dyn Widget>) -> WindowId {
+    let w = Window::new(attrs, widget.as_mut());
     let id = w.id;
-    with_system(|system| system.new_windows.push(w));
+    with_system(|system| {
+        system.windows.insert(id, w);
+        system.new_root_widgets.push((id, widget));
+    });
     id
 }
 
@@ -174,25 +185,29 @@ pub fn create_window(attrs: WindowAttributes, widget: Option<Box<dyn Widget>>) -
 const EXTRA_SURFACE_SIZE: u32 = 50;
 
 impl Window {
-    fn new(mut attrs: WindowAttributes, mut widget: Option<Box<dyn Widget>>) -> Self {
-        if let Some(widget) = &mut widget {
-            // TODO: propagate style without mounting?
-            let size_hints_x = widget.size_hints_x();
-            // TODO: adjust size_x for screen size
-            let size_hints_y = widget.size_hints_y(size_hints_x.preferred);
-            attrs = attrs
-                .with_inner_size(PhysicalSize::new(
-                    size_hints_x.preferred,
-                    size_hints_y.preferred,
-                ))
-                .with_min_inner_size(PhysicalSize::new(size_hints_x.min, size_hints_y.min));
-        }
+    fn new(mut attrs: WindowAttributes, widget: &mut dyn Widget) -> Self {
+        // TODO: propagate style without mounting?
+        let size_hints_x = widget.size_hints_x();
+        // TODO: adjust size_x for screen size
+        let size_hints_y = widget.size_hints_y(size_hints_x.preferred);
+        attrs = attrs
+            .with_inner_size(PhysicalSize::new(
+                size_hints_x.preferred,
+                size_hints_y.preferred,
+            ))
+            .with_min_inner_size(PhysicalSize::new(size_hints_x.min, size_hints_y.min));
         let winit_window = Rc::new(with_active_event_loop(|event_loop| {
             event_loop.create_window(attrs).unwrap()
         }));
         let softbuffer_context = softbuffer::Context::new(winit_window.clone()).unwrap();
         let surface = softbuffer::Surface::new(&softbuffer_context, winit_window.clone()).unwrap();
         let window_id = winit_window.id();
+        let accesskit_adapter = accesskit_winit::Adapter::with_event_loop_proxy(
+            &winit_window,
+            with_system(|system| system.event_loop_proxy.clone()),
+        );
+        let inner_size = winit_window.inner_size();
+
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             cursor_position: None,
             cursor_entered: false,
@@ -202,45 +217,6 @@ impl Window {
             accessible_nodes: AccessibleNodes::new(),
             mouse_entered_widgets: Vec::new(),
             pending_size_hint_invalidations: Vec::new(),
-            winit_window,
-            ime_allowed: false,
-            ime_cursor_area: Rect::default(),
-            pending_redraw: false,
-            focusable_widgets: Vec::new(),
-            focusable_widgets_changed: false,
-        })));
-
-        if let Some(widget) = &mut widget {
-            let address = WidgetAddress::window_root(window_id);
-            widget.dispatch(
-                MountEvent::new(MountPoint {
-                    address,
-                    parent_id: None,
-                    window: shared_window_data.clone(),
-                    index_in_parent: 0,
-                })
-                .into(),
-            );
-        }
-
-        let accesskit_adapter = accesskit_winit::Adapter::with_event_loop_proxy(
-            &shared_window_data.0.borrow().winit_window,
-            with_system(|system| system.event_loop_proxy.clone()),
-        );
-
-        // Window must be hidden until we initialize accesskit
-        shared_window_data.0.borrow().winit_window.set_visible(true);
-        // For some reason it's necessary to request redraw again after initializing accesskit on Windows.
-        shared_window_data.0.borrow().winit_window.request_redraw();
-
-        let inner_size = shared_window_data.0.borrow().winit_window.inner_size();
-
-        let mut w = Self {
-            id: window_id,
-            accesskit_adapter,
-            surface,
-            softbuffer_context,
-            root_widget: widget,
             pixmap: Rc::new(RefCell::new(
                 Pixmap::new(
                     inner_size.width + EXTRA_SURFACE_SIZE,
@@ -248,29 +224,68 @@ impl Window {
                 )
                 .unwrap(),
             )),
-            shared_window_data,
+            surface,
+            softbuffer_context,
+            accesskit_adapter,
+            winit_window,
+            ime_allowed: false,
+            ime_cursor_area: Rect::default(),
+            pending_redraw: false,
+            focusable_widgets: Vec::new(),
+            focusable_widgets_changed: false,
             focused_widget: None,
             mouse_grabber_widget: None,
             num_clicks: 0,
             last_click_button: None,
             last_click_instant: None,
-        };
-        w.after_widget_activity();
+        })));
 
-        {
-            let pixmap = Pixmap::decode_png(include_bytes!("../assets/icon.png")).unwrap();
-            w.shared_window_data
-                .0
-                .borrow()
-                .winit_window
-                .set_window_icon(Some(
-                    Icon::from_rgba(pixmap.data().to_vec(), pixmap.width(), pixmap.height())
-                        .unwrap(),
-                ));
-        }
+        let address = WidgetAddress::window_root(window_id);
+        widget.dispatch(
+            MountEvent::new(MountPoint {
+                address,
+                parent_id: None,
+                window: shared_window_data.clone(),
+                index_in_parent: 0,
+            })
+            .into(),
+        );
+
+        // Window must be hidden until we initialize accesskit
+        shared_window_data.0.borrow().winit_window.set_visible(true);
+        // For some reason it's necessary to request redraw again after initializing accesskit on Windows.
+        shared_window_data.0.borrow().winit_window.request_redraw();
+
+        let w = Self {
+            id: window_id,
+            root_widget_id: widget.common().id,
+            shared_window_data,
+        };
+        w.clone().with_root(widget).after_widget_activity();
+
+        // {
+        //     let pixmap = Pixmap::decode_png(include_bytes!("../assets/icon.png")).unwrap();
+        //     w.shared_window_data
+        //         .0
+        //         .borrow()
+        //         .winit_window
+        //         .set_window_icon(Some(
+        //             Icon::from_rgba(pixmap.data().to_vec(), pixmap.width(), pixmap.height())
+        //                 .unwrap(),
+        //         ));
+        // }
         w
     }
 
+    pub fn with_root(self, root_widget: &mut dyn Widget) -> WindowWithWidget<'_> {
+        WindowWithWidget {
+            id: self.id,
+            shared_window_data: self.shared_window_data,
+            root_widget,
+        }
+    }
+}
+impl<'a> WindowWithWidget<'a> {
     pub fn close(&mut self) {
         with_system(|system| {
             let _ = system
@@ -280,21 +295,19 @@ impl Window {
     }
 
     fn dispatch_cursor_leave(&mut self) {
-        while let Some(id) = self
-            .shared_window_data
-            .pop_mouse_entered_widget(self.mouse_grabber_widget)
-        {
-            if let Some(root_widget) = &mut self.root_widget {
-                if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), id) {
-                    widget.dispatch(MouseLeaveEvent::new().into());
-                }
+        while let Some(id) = self.shared_window_data.pop_mouse_entered_widget() {
+            if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {
+                widget.dispatch(MouseLeaveEvent::new().into());
             }
         }
     }
 
     pub fn handle_event(&mut self, event: WindowEvent) {
-        self.accesskit_adapter
-            .process_event(&self.shared_window_data.0.borrow().winit_window, &event);
+        {
+            let data = &mut *self.shared_window_data.0.borrow_mut();
+            data.accesskit_adapter
+                .process_event(&data.winit_window, &event);
+        }
 
         // println!("{:?} {:?}", self.id, event);
         match event {
@@ -307,7 +320,10 @@ impl Window {
                     )
                 };
 
-                self.surface
+                self.shared_window_data
+                    .0
+                    .borrow_mut()
+                    .surface
                     .resize(
                         NonZeroU32::new(width).unwrap(),
                         NonZeroU32::new(height).unwrap(),
@@ -315,14 +331,12 @@ impl Window {
                     .unwrap();
 
                 {
-                    let mut pixmap = self.pixmap.borrow_mut();
+                    let data = self.shared_window_data.0.borrow();
+                    let mut pixmap = data.pixmap.borrow_mut();
                     if pixmap.width() != width || pixmap.height() != height {
                         *pixmap = Pixmap::new(width, height).unwrap();
                     }
                 }
-
-                // Draw something in the window
-                let mut buffer = self.surface.buffer_mut().unwrap();
 
                 let pending_redraw = self.shared_window_data.0.borrow().pending_redraw;
                 // static X: AtomicU64 = AtomicU64::new(0);
@@ -332,7 +346,7 @@ impl Window {
                 // );
                 if pending_redraw {
                     let draw_event = DrawEvent::new(
-                        Rc::clone(&self.pixmap),
+                        Rc::clone(&self.shared_window_data.0.borrow().pixmap),
                         Point::default(),
                         Rect {
                             top_left: Point::default(),
@@ -344,24 +358,34 @@ impl Window {
                     );
                     // TODO: option to turn off background, set style
                     let color = with_system(|system| system.default_style.background);
-                    self.pixmap.borrow_mut().fill(color);
-                    if let Some(widget) = &mut self.root_widget {
-                        widget.dispatch(draw_event.into());
-                    }
+                    self.shared_window_data
+                        .0
+                        .borrow()
+                        .pixmap
+                        .borrow_mut()
+                        .fill(color);
+                    self.root_widget.dispatch(draw_event.into());
+
                     self.shared_window_data.0.borrow_mut().pending_redraw = false;
                 }
 
-                buffer.copy_from_slice(bytemuck::cast_slice(self.pixmap.borrow().data()));
+                {
+                    // Draw something in the window
+                    let window_data = &mut *self.shared_window_data.0.borrow_mut();
+                    let mut buffer = window_data.surface.buffer_mut().unwrap();
+                    buffer
+                        .copy_from_slice(bytemuck::cast_slice(window_data.pixmap.borrow().data()));
 
-                // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
-                // iterate over the pixels and shift the pixels over.
-                buffer.iter_mut().for_each(|pixel| {
-                    let [r, g, b, _] = pixel.to_ne_bytes();
-                    *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
-                });
+                    // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
+                    // iterate over the pixels and shift the pixels over.
+                    buffer.iter_mut().for_each(|pixel| {
+                        let [r, g, b, _] = pixel.to_ne_bytes();
+                        *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
+                    });
 
-                //redraw(&mut buffer, width as usize, height as usize, flag);
-                buffer.present().unwrap();
+                    //redraw(&mut buffer, width as usize, height as usize, flag);
+                    buffer.present().unwrap();
+                }
             }
             WindowEvent::Resized(_) => {
                 self.layout(Vec::new());
@@ -400,37 +424,34 @@ impl Window {
                 self.dispatch_cursor_leave();
 
                 let accepted_by = Rc::new(Cell::new(None));
-                if let Some(root_widget) = &mut self.root_widget {
-                    if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
-                        if let Ok(mouse_grabber_widget) =
-                            get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
-                        {
-                            if let Some(rect_in_window) =
-                                mouse_grabber_widget.common().rect_in_window
-                            {
-                                let pos_in_widget = pos_in_window - rect_in_window.top_left;
-                                mouse_grabber_widget.dispatch(
-                                    MouseMoveEvent::builder()
-                                        .device_id(device_id)
-                                        .pos(pos_in_widget)
-                                        .pos_in_window(pos_in_window)
-                                        .accepted_by(accepted_by.clone())
-                                        .build()
-                                        .into(),
-                                );
-                            }
+                let mouse_grabber_widget1 = self.shared_window_data.0.borrow().mouse_grabber_widget;
+                if let Some(mouse_grabber_widget_id) = mouse_grabber_widget1 {
+                    if let Ok(mouse_grabber_widget) =
+                        get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
+                    {
+                        if let Some(rect_in_window) = mouse_grabber_widget.common().rect_in_window {
+                            let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                            mouse_grabber_widget.dispatch(
+                                MouseMoveEvent::builder()
+                                    .device_id(device_id)
+                                    .pos(pos_in_widget)
+                                    .pos_in_window(pos_in_window)
+                                    .accepted_by(accepted_by.clone())
+                                    .build()
+                                    .into(),
+                            );
                         }
-                    } else {
-                        root_widget.dispatch(
-                            MouseMoveEvent::builder()
-                                .device_id(device_id)
-                                .pos(pos_in_window)
-                                .pos_in_window(pos_in_window)
-                                .accepted_by(accepted_by.clone())
-                                .build()
-                                .into(),
-                        );
                     }
+                } else {
+                    self.root_widget.dispatch(
+                        MouseMoveEvent::builder()
+                            .device_id(device_id)
+                            .pos(pos_in_window)
+                            .pos_in_window(pos_in_window)
+                            .accepted_by(accepted_by.clone())
+                            .build()
+                            .into(),
+                    );
                 }
                 if accepted_by.get().is_none() {
                     self.shared_window_data
@@ -457,16 +478,20 @@ impl Window {
                             .pressed_mouse_buttons
                             .insert(button);
                         if self
+                            .shared_window_data
+                            .0
+                            .borrow()
                             .last_click_instant
                             .map_or(false, |last| last.elapsed() < DOUBLE_CLICK_TIMEOUT)
-                            && self.last_click_button == Some(button)
+                            && self.shared_window_data.0.borrow().last_click_button == Some(button)
                         {
-                            self.num_clicks += 1;
+                            self.shared_window_data.0.borrow_mut().num_clicks += 1;
                         } else {
-                            self.num_clicks = 1;
-                            self.last_click_button = Some(button);
+                            self.shared_window_data.0.borrow_mut().num_clicks = 1;
+                            self.shared_window_data.0.borrow_mut().last_click_button = Some(button);
                         }
-                        self.last_click_instant = Some(Instant::now());
+                        self.shared_window_data.0.borrow_mut().last_click_instant =
+                            Some(Instant::now());
                     }
                     ElementState::Released => {
                         self.shared_window_data
@@ -479,54 +504,55 @@ impl Window {
                 let cursor_position = self.shared_window_data.0.borrow().cursor_position;
                 // println!("click pos {:?}", cursor_position);
                 if let Some(pos_in_window) = cursor_position {
-                    if let Some(root_widget) = &mut self.root_widget {
-                        let accepted_by = Rc::new(Cell::new(None));
-                        if let Some(mouse_grabber_widget_id) = self.mouse_grabber_widget {
-                            if let Ok(mouse_grabber_widget) =
-                                get_widget_by_id_mut(root_widget.as_mut(), mouse_grabber_widget_id)
+                    let accepted_by = Rc::new(Cell::new(None));
+                    let mouse_grabber_widget1: Option<RawWidgetId> =
+                        self.shared_window_data.0.borrow().mouse_grabber_widget;
+                    if let Some(mouse_grabber_widget_id) = mouse_grabber_widget1 {
+                        if let Ok(mouse_grabber_widget) =
+                            get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
+                        {
+                            if let Some(rect_in_window) =
+                                mouse_grabber_widget.common().rect_in_window
                             {
-                                if let Some(rect_in_window) =
-                                    mouse_grabber_widget.common().rect_in_window
-                                {
-                                    let pos_in_widget = pos_in_window - rect_in_window.top_left;
-                                    let event = MouseInputEvent::builder()
-                                        .device_id(device_id)
-                                        .state(state)
-                                        .button(button)
-                                        .num_clicks(self.num_clicks)
-                                        .pos(pos_in_widget)
-                                        .pos_in_window(pos_in_window)
-                                        .accepted_by(Rc::clone(&accepted_by))
-                                        .build();
-                                    mouse_grabber_widget.dispatch(event.into());
-                                }
+                                let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                                let event = MouseInputEvent::builder()
+                                    .device_id(device_id)
+                                    .state(state)
+                                    .button(button)
+                                    .num_clicks(self.shared_window_data.0.borrow().num_clicks)
+                                    .pos(pos_in_widget)
+                                    .pos_in_window(pos_in_window)
+                                    .accepted_by(Rc::clone(&accepted_by))
+                                    .build();
+                                mouse_grabber_widget.dispatch(event.into());
                             }
-                            if self
-                                .shared_window_data
-                                .0
-                                .borrow_mut()
-                                .pressed_mouse_buttons
-                                .is_empty()
-                            {
-                                self.mouse_grabber_widget = None;
-                                self.dispatch_cursor_leave();
-                            }
-                        } else {
-                            let event = MouseInputEvent::builder()
-                                .device_id(device_id)
-                                .state(state)
-                                .button(button)
-                                .num_clicks(self.num_clicks)
-                                .pos(pos_in_window)
-                                .pos_in_window(pos_in_window)
-                                .accepted_by(Rc::clone(&accepted_by))
-                                .build();
-                            root_widget.dispatch(event.into());
+                        }
+                        if self
+                            .shared_window_data
+                            .0
+                            .borrow_mut()
+                            .pressed_mouse_buttons
+                            .is_empty()
+                        {
+                            self.shared_window_data.0.borrow_mut().mouse_grabber_widget = None;
+                            self.dispatch_cursor_leave();
+                        }
+                    } else {
+                        let event = MouseInputEvent::builder()
+                            .device_id(device_id)
+                            .state(state)
+                            .button(button)
+                            .num_clicks(self.shared_window_data.0.borrow().num_clicks)
+                            .pos(pos_in_window)
+                            .pos_in_window(pos_in_window)
+                            .accepted_by(Rc::clone(&accepted_by))
+                            .build();
+                        self.root_widget.dispatch(event.into());
 
-                            if state == ElementState::Pressed {
-                                if let Some(accepted_by_widget_id) = accepted_by.get() {
-                                    self.mouse_grabber_widget = Some(accepted_by_widget_id);
-                                }
+                        if state == ElementState::Pressed {
+                            if let Some(accepted_by_widget_id) = accepted_by.get() {
+                                self.shared_window_data.0.borrow_mut().mouse_grabber_widget =
+                                    Some(accepted_by_widget_id);
                             }
                         }
                     }
@@ -539,22 +565,19 @@ impl Window {
                 is_synthetic,
                 event,
             } => {
-                if let Some(root_widget) = &mut self.root_widget {
-                    if let Some(focused_widget) = &self.focused_widget {
-                        if let Ok(widget) =
-                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget.1)
-                        {
-                            let modifiers = self.shared_window_data.0.borrow().modifiers_state;
-                            widget.dispatch(
-                                KeyboardInputEvent::builder()
-                                    .device_id(device_id)
-                                    .info(event.clone())
-                                    .is_synthetic(is_synthetic)
-                                    .modifiers(modifiers)
-                                    .build()
-                                    .into(),
-                            );
-                        }
+                let focused_widget1 = self.shared_window_data.0.borrow().focused_widget.clone();
+                if let Some(focused_widget) = focused_widget1 {
+                    if let Ok(widget) = get_widget_by_id_mut(self.root_widget, focused_widget.1) {
+                        let modifiers = self.shared_window_data.0.borrow().modifiers_state;
+                        widget.dispatch(
+                            KeyboardInputEvent::builder()
+                                .device_id(device_id)
+                                .info(event.clone())
+                                .is_synthetic(is_synthetic)
+                                .modifiers(modifiers)
+                                .build()
+                                .into(),
+                        );
                     }
                 }
 
@@ -592,26 +615,30 @@ impl Window {
                     );
                 }
                 // TODO: deduplicate with ReceivedCharacter
-                if let Some(root_widget) = &mut self.root_widget {
-                    if let Some(focused_widget) = &self.focused_widget {
-                        if let Ok(widget) =
-                            get_widget_by_id_mut(root_widget.as_mut(), focused_widget.1)
-                        {
-                            widget.dispatch(ImeEvent::new(ime).into());
-                        }
+                if let Some(focused_widget) =
+                    self.shared_window_data.0.borrow().focused_widget.clone()
+                {
+                    if let Ok(widget) = get_widget_by_id_mut(self.root_widget, focused_widget.1) {
+                        widget.dispatch(ImeEvent::new(ime).into());
                     }
                 }
                 //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
             }
             WindowEvent::Focused(focused) => {
                 self.shared_window_data.0.borrow_mut().is_window_focused = focused;
-                if !focused && self.mouse_grabber_widget.is_some() {
-                    self.mouse_grabber_widget = None;
+                if !focused
+                    && self
+                        .shared_window_data
+                        .0
+                        .borrow()
+                        .mouse_grabber_widget
+                        .is_some()
+                {
+                    self.shared_window_data.0.borrow_mut().mouse_grabber_widget = None;
                     self.dispatch_cursor_leave();
                 }
-                if let Some(root_widget) = &mut self.root_widget {
-                    root_widget.dispatch(WindowFocusChangeEvent::new(focused).into());
-                }
+                self.root_widget
+                    .dispatch(WindowFocusChangeEvent::new(focused).into());
             }
             _ => {}
         }
@@ -641,10 +668,8 @@ impl Window {
                 .pending_size_hint_invalidations,
         );
         if !pending_size_hint_invalidations.is_empty() {
-            if let Some(root_widget) = &mut self.root_widget {
-                invalidate_size_hint_cache(root_widget.as_mut(), &pending_size_hint_invalidations);
-                self.layout(pending_size_hint_invalidations);
-            }
+            invalidate_size_hint_cache(self.root_widget, &pending_size_hint_invalidations);
+            self.layout(pending_size_hint_invalidations);
         }
 
         if self
@@ -659,13 +684,15 @@ impl Window {
                 .borrow_mut()
                 .focusable_widgets_changed = false;
 
-            if let Some(focused_widget) = &self.focused_widget {
+            let focused_widget1: Option<(WidgetAddress, RawWidgetId)> =
+                self.shared_window_data.0.borrow().focused_widget.clone();
+            if let Some(focused_widget) = focused_widget1 {
                 if self
                     .shared_window_data
                     .0
                     .borrow()
                     .focusable_widgets
-                    .binary_search(focused_widget)
+                    .binary_search(&focused_widget)
                     .is_err()
                 {
                     self.unset_focus();
@@ -677,10 +704,11 @@ impl Window {
     }
 
     pub fn move_keyboard_focus(&mut self, direction: i32) {
-        if let Some(focused_widget) = &self.focused_widget {
+        let focused_widget1 = self.shared_window_data.0.borrow().focused_widget.clone();
+        if let Some(focused_widget) = focused_widget1 {
             if let Some(new_addr_id) = self
                 .shared_window_data
-                .move_keyboard_focus(focused_widget, direction)
+                .move_keyboard_focus(&focused_widget, direction)
             {
                 self.set_focus(new_addr_id, FocusReason::Tab);
             } else {
@@ -690,37 +718,30 @@ impl Window {
         self.check_auto_focus();
     }
 
-    pub fn set_widget(&mut self, mut widget: Option<Box<dyn Widget>>) {
-        if let Some(old_widget) = &mut self.root_widget {
-            old_widget.dispatch(UnmountEvent::new().into());
-        }
-        if let Some(widget) = &mut widget {
-            let address = WidgetAddress::window_root(self.id);
-            widget.dispatch(
-                MountEvent::new(MountPoint {
-                    address,
-                    parent_id: None,
-                    window: self.shared_window_data.clone(),
-                    index_in_parent: 0,
-                })
-                .into(),
-            );
-        }
-        self.root_widget = widget;
-    }
+    // pub fn set_widget(&mut self, mut widget: Box<dyn Widget>) {
+    //     self.root_widget.dispatch(UnmountEvent::new().into());
+
+    //     let address = WidgetAddress::window_root(self.id);
+    //     widget.dispatch(
+    //         MountEvent::new(MountPoint {
+    //             address,
+    //             parent_id: None,
+    //             window: self.shared_window_data.clone(),
+    //             index_in_parent: 0,
+    //         })
+    //         .into(),
+    //     );
+    //     self.root_widget = widget;
+    // }
 
     fn push_accessible_updates(&mut self) {
-        self.accesskit_adapter.update_if_active(|| {
-            self.shared_window_data
-                .0
-                .borrow_mut()
-                .accessible_nodes
-                .take_update()
-        });
+        let data = &mut *self.shared_window_data.0.borrow_mut();
+        data.accesskit_adapter
+            .update_if_active(|| data.accessible_nodes.take_update());
     }
 
     fn check_auto_focus(&mut self) {
-        if self.focused_widget.is_none() {
+        if self.shared_window_data.0.borrow().focused_widget.is_none() {
             let id = self
                 .shared_window_data
                 .0
@@ -735,11 +756,7 @@ impl Window {
     }
 
     fn set_focus(&mut self, widget_addr_id: (WidgetAddress, RawWidgetId), reason: FocusReason) {
-        let Some(root_widget) = &mut self.root_widget else {
-            warn!("set_focus: no root widget");
-            return;
-        };
-        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_addr_id.1) {
+        if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
             if !widget.common().is_focusable {
                 warn!("cannot focus widget that is not focusable");
                 return;
@@ -755,32 +772,33 @@ impl Window {
             warn!("set_focus: widget not found");
         }
 
-        if let Some(old_widget_id) = self.focused_widget.take() {
+        let old_widget_id1 = self.shared_window_data.0.borrow_mut().focused_widget.take();
+        if let Some(old_widget_id) = old_widget_id1 {
             self.shared_window_data
                 .0
                 .borrow_mut()
                 .accessible_nodes
                 .set_focus(None);
-            if let Ok(old_widget) = get_widget_by_id_mut(root_widget.as_mut(), old_widget_id.1) {
+            if let Ok(old_widget) = get_widget_by_id_mut(self.root_widget, old_widget_id.1) {
                 old_widget.dispatch(FocusOutEvent::new().into());
             }
         }
 
-        if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_addr_id.1) {
+        if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
             widget.dispatch(FocusInEvent::new(reason).into());
             self.shared_window_data
                 .0
                 .borrow_mut()
                 .accessible_nodes
                 .set_focus(Some(widget_addr_id.1.into()));
-            self.focused_widget = Some(widget_addr_id);
+            self.shared_window_data.0.borrow_mut().focused_widget = Some(widget_addr_id);
         } else {
             warn!("set_focus: widget not found on second pass");
         }
     }
 
     fn unset_focus(&mut self) {
-        self.focused_widget = None;
+        self.shared_window_data.0.borrow_mut().focused_widget = None;
         self.shared_window_data
             .0
             .borrow()
@@ -795,22 +813,20 @@ impl Window {
     }
 
     fn layout(&mut self, changed_size_hints: Vec<WidgetAddress>) {
-        if let Some(root) = &mut self.root_widget {
-            let inner_size = self.shared_window_data.0.borrow().winit_window.inner_size();
-            root.dispatch(
-                LayoutEvent {
-                    new_rect_in_window: Some(Rect {
-                        top_left: Point::default(),
-                        size: Size {
-                            x: inner_size.width as i32,
-                            y: inner_size.height as i32,
-                        },
-                    }),
-                    changed_size_hints,
-                }
-                .into(),
-            );
-        }
+        let inner_size = self.shared_window_data.0.borrow().winit_window.inner_size();
+        self.root_widget.dispatch(
+            LayoutEvent {
+                new_rect_in_window: Some(Rect {
+                    top_left: Point::default(),
+                    size: Size {
+                        x: inner_size.width as i32,
+                        y: inner_size.height as i32,
+                    },
+                }),
+                changed_size_hints,
+            }
+            .into(),
+        );
     }
 
     pub fn handle_request(&mut self, request: WindowRequest) {
@@ -845,14 +861,10 @@ impl Window {
             return;
         }
         let widget_id = RawWidgetId(request.target.0);
-        if let Some(root_widget) = &mut self.root_widget {
-            if let Ok(widget) = get_widget_by_id_mut(root_widget.as_mut(), widget_id) {
-                widget.dispatch(AccessibleActionEvent::new(request.action, request.data).into());
-            } else {
-                warn!("cannot dispatch accessible event (no such widget): {request:?}");
-            }
+        if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_id) {
+            widget.dispatch(AccessibleActionEvent::new(request.action, request.data).into());
         } else {
-            warn!("cannot dispatch accessible event (no root widget): {request:?}");
+            warn!("cannot dispatch accessible event (no such widget): {request:?}");
         }
     }
 }
