@@ -13,7 +13,7 @@ use winit::{
 
 use crate::{
     types::{Point, Rect},
-    widgets::{MountPoint, RawWidgetId, WidgetAddress},
+    widgets::{RawWidgetId, WidgetAddress, WidgetScope},
 };
 
 use derive_more::From;
@@ -28,8 +28,6 @@ pub enum Event {
     Ime(ImeEvent),
     Draw(DrawEvent),
     Layout(LayoutEvent),
-    Mount(MountEvent),
-    Unmount(UnmountEvent),
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
     WindowFocusChange(WindowFocusChangeEvent),
@@ -218,30 +216,6 @@ impl LayoutEvent {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct MountEvent {
-    mount_point: MountPoint,
-}
-
-impl MountEvent {
-    pub fn new(mount_point: MountPoint) -> Self {
-        Self { mount_point }
-    }
-
-    pub fn mount_point(&self) -> &MountPoint {
-        &self.mount_point
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct UnmountEvent(());
-
-impl UnmountEvent {
-    pub fn new() -> Self {
-        Self(())
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FocusReason {
     Mouse,
@@ -312,10 +286,16 @@ impl AccessibleActionEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct WidgetScopeChangeEvent(());
+pub struct WidgetScopeChangeEvent {
+    previous_scope: WidgetScope,
+}
 
 impl WidgetScopeChangeEvent {
-    pub fn new() -> Self {
-        Self(())
+    pub fn new(previous_scope: WidgetScope) -> Self {
+        Self { previous_scope }
+    }
+
+    pub fn previous_scope(&self) -> &WidgetScope {
+        &self.previous_scope
     }
 }

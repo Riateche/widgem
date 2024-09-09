@@ -19,8 +19,8 @@ use crate::{
     draw::DrawEvent,
     event::{
         AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
-        KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseMoveEvent, UnmountEvent,
-        WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseMoveEvent, WidgetScopeChangeEvent,
+        WindowFocusChangeEvent,
     },
     layout::SizeHintMode,
     shortcut::standard_shortcuts,
@@ -184,11 +184,11 @@ impl TextInput {
     }
 
     fn handle_main_click(&mut self, event: MouseInputEvent) -> Result<()> {
-        let mount_point = self.common.mount_point_or_err()?;
+        let window = self.common.window_or_err()?;
 
         if !self.common.is_focused {
             send_window_request(
-                mount_point.address.window_id,
+                window.0.borrow().id,
                 SetFocusRequest {
                     widget_id: self.common.id,
                     reason: FocusReason::Mouse,
@@ -198,7 +198,7 @@ impl TextInput {
         self.editor.on_mouse_input(
             event.pos() - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
             event.num_clicks(),
-            mount_point.window.0.borrow().modifiers_state.shift_key(),
+            window.0.borrow().modifiers_state.shift_key(),
         );
         self.common.update();
         Ok(())
@@ -259,14 +259,47 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
+    fn handle_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) -> Result<()> {
+        let addr_changed = self.common.scope.address != event.previous_scope().address;
+        let parent_id_changed = self.common.scope.parent_id != event.previous_scope().parent_id;
+        let window_changed = self.common.scope.window_id() != event.previous_scope().window_id();
+        let update_accessible = addr_changed || parent_id_changed || window_changed;
+
+        if update_accessible {
+            if let Some(previous_window) = &event.previous_scope().window {
+                previous_window
+                    .0
+                    .borrow_mut()
+                    .accessible_nodes
+                    .update(self.accessible_line_id, None);
+                previous_window
+                    .0
+                    .borrow_mut()
+                    .accessible_nodes
+                    .unmount(Some(self.common.id.into()), self.accessible_line_id);
+            }
+        }
+
         self.style_changed();
+
+        self.editor.set_window(self.common.scope.window.clone());
+        self.reset_blink_timer();
+
+        if update_accessible {
+            if let Some(window) = &self.common.scope.window {
+                window.0.borrow_mut().accessible_nodes.mount(
+                    Some(self.common.id.into()),
+                    self.accessible_line_id,
+                    0,
+                );
+            }
+        }
         Ok(())
     }
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let rect_in_window = self.common.rect_in_window_or_err()?;
-        let mount_point = self.common.mount_point_or_err()?;
+        let window = self.common.window_or_err()?;
         let is_focused = self.common.is_focused();
         let style = self.current_variant_style().clone();
 
@@ -298,9 +331,7 @@ impl Widget for TextInput {
                         y: self.editor.line_height().ceil() as i32,
                     };
                 let size = rect_in_window.size; // TODO: self.editor_viewport_rect.size
-                mount_point
-                    .window
-                    .set_ime_cursor_area(Rect { top_left, size });
+                window.set_ime_cursor_area(Rect { top_left, size });
             }
         }
         Ok(())
@@ -332,18 +363,9 @@ impl Widget for TextInput {
                 _ => {}
             }
         }
-        let is_released = self
-            .common
-            .mount_point
-            .as_ref()
-            .map_or(false, |mount_point| {
-                mount_point
-                    .window
-                    .0
-                    .borrow()
-                    .pressed_mouse_buttons
-                    .is_empty()
-            });
+        let is_released = self.common.scope.window.as_ref().map_or(false, |window| {
+            window.0.borrow().pressed_mouse_buttons.is_empty()
+        });
         if is_released {
             self.editor.mouse_released();
         }
@@ -353,9 +375,8 @@ impl Widget for TextInput {
     }
 
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
-        let mount_point = self.common.mount_point_or_err()?;
-        if mount_point
-            .window
+        let window = self.common.window_or_err()?;
+        if window
             .0
             .borrow()
             .pressed_mouse_buttons
@@ -514,39 +535,6 @@ impl Widget for TextInput {
         &mut self.common
     }
 
-    fn handle_mount(&mut self, event: MountEvent) -> Result<()> {
-        self.editor
-            .set_window(Some(event.mount_point().window.clone()));
-        self.reset_blink_timer();
-
-        event
-            .mount_point()
-            .window
-            .0
-            .borrow_mut()
-            .accessible_nodes
-            .mount(Some(self.common.id.into()), self.accessible_line_id, 0);
-        //self.style_changed();
-        Ok(())
-    }
-    fn handle_unmount(&mut self, _event: UnmountEvent) -> Result<()> {
-        let mount_point = self.common.mount_point_or_err()?;
-        mount_point
-            .window
-            .0
-            .borrow_mut()
-            .accessible_nodes
-            .unmount(Some(self.common.id.into()), self.accessible_line_id);
-        mount_point
-            .window
-            .0
-            .borrow_mut()
-            .accessible_nodes
-            .update(self.accessible_line_id, None);
-        self.editor.set_window(None);
-        self.reset_blink_timer();
-        Ok(())
-    }
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         self.editor.on_focus_in(event.reason());
         self.common.update();
@@ -566,12 +554,12 @@ impl Widget for TextInput {
         Ok(())
     }
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
-        let mount_point = self.common.mount_point_or_err()?;
+        let address = self.common.address_or_err()?;
 
         match event.action() {
             accesskit::Action::Default | accesskit::Action::Focus => {
                 send_window_request(
-                    mount_point.address.window_id,
+                    address.window_id,
                     SetFocusRequest {
                         widget_id: self.common.id,
                         // TODO: separate reason?
@@ -594,7 +582,7 @@ impl Widget for TextInput {
         Ok(())
     }
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
-        let mount_point = self.common.mount_point.as_ref()?;
+        let window = self.common.scope.window.as_ref()?;
         let mut line_node = NodeBuilder::new(Role::InlineTextBox);
         let mut line = self.editor.acccessible_line();
         for pos in &mut line.character_positions {
@@ -617,8 +605,7 @@ impl Widget for TextInput {
             });
         }
 
-        mount_point
-            .window
+        window
             .0
             .borrow_mut()
             .accessible_nodes

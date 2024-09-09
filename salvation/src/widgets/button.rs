@@ -263,14 +263,10 @@ impl Widget for Button {
             if event.state().is_pressed() {
                 self.set_pressed(true, false);
                 if !self.common.is_focused() {
-                    let mount_point = &self
-                        .common
-                        .mount_point
-                        .as_ref()
-                        .expect("cannot handle event when unmounted");
+                    let address = self.common.address_or_err()?;
                     if self.role == Role1::Default {
                         send_window_request(
-                            mount_point.address.window_id,
+                            address.window_id,
                             SetFocusRequest {
                                 widget_id: self.common.id,
                                 reason: FocusReason::Mouse,
@@ -315,17 +311,12 @@ impl Widget for Button {
             warn!("unexpected accessible action for role: {:?}", self.role);
             return Ok(());
         }
-        let mount_point = &self
-            .common
-            .mount_point
-            .as_ref()
-            .expect("cannot handle event when unmounted");
 
         match event.action() {
             Action::Default => self.trigger(),
             Action::Focus => {
                 send_window_request(
-                    mount_point.address.window_id,
+                    self.common.address_or_err()?.window_id,
                     SetFocusRequest {
                         widget_id: self.common.id,
                         // TODO: separate reason?

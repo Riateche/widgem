@@ -19,8 +19,8 @@ use crate::{
     draw::DrawEvent,
     event::{
         AccessibleActionEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent,
-        LayoutEvent, MountEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
-        UnmountEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
+        WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
     layout::{LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
     style::{computed::ComputedStyle, Style},
@@ -80,15 +80,26 @@ impl<T> Copy for WidgetId<T> {}
 #[derive(Debug, Clone)]
 pub struct WidgetScope {
     pub parent_id: Option<RawWidgetId>,
+    pub address: Option<WidgetAddress>,
+    pub window: Option<SharedWindowData>,
+
     pub is_visible: bool,
     pub is_enabled: bool,
     pub style: Rc<ComputedStyle>,
+}
+
+impl WidgetScope {
+    pub fn window_id(&self) -> Option<WindowId> {
+        self.window.as_ref().map(|w| w.0.borrow().id)
+    }
 }
 
 impl Default for WidgetScope {
     fn default() -> Self {
         with_system(|s| Self {
             parent_id: None,
+            address: None,
+            window: None,
             is_visible: true,
             is_enabled: true,
             style: s.default_style.clone(),
@@ -111,7 +122,6 @@ pub struct WidgetCommon {
     pub scope: WidgetScope,
 
     pub is_mouse_over: bool,
-    pub mount_point: Option<MountPoint>,
     // Present if the widget is mounted, not hidden, and only after layout.
     pub rect_in_window: Option<Rect>,
 
@@ -136,12 +146,6 @@ pub struct WidgetCommon {
     pub event_filter: Option<Box<EventFilterFn>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct MountPoint {
-    pub address: WidgetAddress,
-    pub window: SharedWindowData,
-}
-
 impl WidgetCommon {
     pub fn new() -> Self {
         Self {
@@ -154,7 +158,6 @@ impl WidgetCommon {
             is_mouse_over: false,
             is_window_focused: false,
             enable_ime: false,
-            mount_point: None,
             rect_in_window: None,
             cursor_icon: CursorIcon::Default,
             children: Vec::new(),
@@ -170,55 +173,6 @@ impl WidgetCommon {
             current_layout_event: None,
             initial_window_attrs: None,
         }
-    }
-
-    //    let address = parent_address.join(self.id);
-
-    pub fn mount(&mut self, mount_point: MountPoint) {
-        if self.mount_point.is_some() {
-            warn!("widget was already mounted");
-        }
-        let old = register_address(self.id, mount_point.address.clone());
-        if old.is_some() {
-            warn!("widget address was already registered");
-        }
-        mount_point.window.0.borrow_mut().accessible_nodes.mount(
-            self.scope.parent_id.map(|id| id.into()),
-            self.id.into(),
-            mount_point.address.path.last().copied().unwrap_or_default(),
-        );
-        self.mount_point = Some(mount_point);
-        self.update();
-        self.register_focusable();
-        // TODO: set is_window_focused
-    }
-
-    pub fn unmount(&mut self) {
-        if let Some(mount_point) = self.mount_point.take() {
-            if self.is_registered_as_focusable {
-                mount_point
-                    .window
-                    .remove_focusable_widget(mount_point.address.clone(), self.id);
-                self.is_registered_as_focusable = false;
-            }
-            unregister_address(self.id);
-            mount_point
-                .window
-                .0
-                .borrow_mut()
-                .accessible_nodes
-                .update(self.id.0.into(), None);
-            mount_point
-                .window
-                .0
-                .borrow_mut()
-                .accessible_nodes
-                .unmount(self.scope.parent_id.map(|id| id.into()), self.id.into());
-        } else {
-            warn!("widget was not mounted");
-        }
-        self.is_focused = false;
-        self.is_window_focused = false;
     }
 
     pub fn is_visible(&self) -> bool {
@@ -241,9 +195,15 @@ impl WidgetCommon {
         self.explicit_style.as_ref().unwrap_or(&self.scope.style)
     }
 
-    pub fn scope_for_child(&self) -> WidgetScope {
+    pub fn scope_for_child(&self, child_index: usize) -> WidgetScope {
         WidgetScope {
             parent_id: Some(self.id),
+            address: self
+                .scope
+                .address
+                .clone()
+                .map(|addr| addr.join(child_index)),
+            window: self.scope.window.clone(),
             is_visible: self.is_visible(),
             is_enabled: self.is_enabled(),
             // TODO: allow overriding scale?
@@ -257,10 +217,10 @@ impl WidgetCommon {
 
     // Request redraw and accessible update
     pub fn update(&mut self) {
-        let Some(mount_point) = &self.mount_point else {
+        let Some(window) = &self.scope.window else {
             return;
         };
-        mount_point.window.request_redraw();
+        window.request_redraw();
         self.pending_accessible_update = true;
     }
 
@@ -281,17 +241,7 @@ impl WidgetCommon {
         if index > self.children.len() {
             bail!("index out of bounds");
         }
-        if let Some(mount_point) = &self.mount_point {
-            let address = mount_point.address.clone().join(index);
-            widget.dispatch(
-                MountEvent::new(MountPoint {
-                    address,
-                    window: mount_point.window.clone(),
-                })
-                .into(),
-            );
-        }
-        widget.set_parent_scope(self.scope_for_child());
+        widget.set_scope(self.scope_for_child(index));
         self.children.insert(
             index,
             Child {
@@ -301,7 +251,7 @@ impl WidgetCommon {
                 rect_set_during_layout: false,
             },
         );
-        self.remount_children(index + 1);
+        self.update_children_scope(index + 1);
         self.size_hint_changed();
         Ok(())
     }
@@ -315,18 +265,13 @@ impl WidgetCommon {
         Ok(())
     }
 
-    fn remount_children(&mut self, from_index: usize) {
-        if let Some(mount_point) = &self.mount_point {
-            for i in from_index..self.children.len() {
-                self.children[i].widget.dispatch(UnmountEvent::new().into());
-                self.children[i].widget.dispatch(
-                    MountEvent::new(MountPoint {
-                        address: mount_point.address.clone().join(i),
-                        window: mount_point.window.clone(),
-                    })
-                    .into(),
-                );
+    fn update_children_scope(&mut self, from_index: usize) {
+        let mut scope = self.scope_for_child(0);
+        for (i, child) in self.children.iter_mut().enumerate().skip(from_index) {
+            if let Some(addr) = &mut scope.address {
+                *addr.path.last_mut().unwrap() = i;
             }
+            child.widget.as_mut().set_scope(scope.clone());
         }
     }
 
@@ -335,11 +280,8 @@ impl WidgetCommon {
             bail!("invalid child index");
         }
         let mut widget = self.children.remove(index).widget;
-        if self.mount_point.is_some() {
-            widget.dispatch(UnmountEvent::new().into());
-        }
-        widget.set_parent_scope(WidgetScope::default());
-        self.remount_children(index);
+        widget.set_scope(WidgetScope::default());
+        self.update_children_scope(index);
         self.size_hint_changed();
         Ok(widget)
     }
@@ -358,8 +300,8 @@ impl WidgetCommon {
         child.rect_in_parent = rect_in_parent;
         let rect_changed = child.widget.common().rect_in_window != rect_in_window;
         if let Some(event) = &self.current_layout_event {
-            let mount_point = child.widget.common().mount_point_or_err()?;
-            if rect_changed || event.size_hints_changed_within(&mount_point.address) {
+            let address = child.widget.common().address_or_err()?;
+            if rect_changed || event.size_hints_changed_within(address) {
                 child.widget.dispatch(
                     LayoutEvent::new(rect_in_window, event.changed_size_hints.clone()).into(),
                 );
@@ -385,15 +327,18 @@ impl WidgetCommon {
 
     pub fn size_hint_changed(&mut self) {
         self.clear_size_hint_cache();
-        let Some(mount_point) = &self.mount_point else {
+        let Some(window) = &self.scope.window else {
             return;
         };
-        mount_point
-            .window
+        let Some(address) = &self.scope.address else {
+            warn!("widget scope has window but no address");
+            return;
+        };
+        window
             .0
             .borrow_mut()
             .pending_size_hint_invalidations
-            .push(mount_point.address.clone());
+            .push(address.clone());
     }
 
     fn clear_size_hint_cache(&mut self) {
@@ -403,8 +348,12 @@ impl WidgetCommon {
         self.size_y_fixed_cache = None;
     }
 
-    pub fn mount_point_or_err(&self) -> Result<&MountPoint> {
-        self.mount_point.as_ref().context("no mount point")
+    pub fn window_or_err(&self) -> Result<&SharedWindowData> {
+        self.scope.window.as_ref().context("no window")
+    }
+
+    pub fn address_or_err(&self) -> Result<&WidgetAddress> {
+        self.scope.address.as_ref().context("no window")
     }
 
     pub fn rect_in_window_or_err(&self) -> Result<Rect> {
@@ -425,15 +374,13 @@ impl WidgetCommon {
     fn register_focusable(&mut self) {
         let is_focusable = self.is_focusable();
         if is_focusable != self.is_registered_as_focusable {
-            if let Some(mount_point) = &self.mount_point {
-                if is_focusable {
-                    mount_point
-                        .window
-                        .add_focusable_widget(mount_point.address.clone(), self.id);
-                } else {
-                    mount_point
-                        .window
-                        .remove_focusable_widget(mount_point.address.clone(), self.id);
+            if let Some(window) = &self.scope.window {
+                if let Some(address) = &self.scope.address {
+                    if is_focusable {
+                        window.add_focusable_widget(address.clone(), self.id);
+                    } else {
+                        window.remove_focusable_widget(address.clone(), self.id);
+                    }
                 }
                 self.is_registered_as_focusable = is_focusable;
             } else {
@@ -452,9 +399,68 @@ impl WidgetCommon {
         self.register_focusable();
     }
 
-    pub fn set_parent_scope(&mut self, scope: WidgetScope) {
+    pub fn set_scope(&mut self, scope: WidgetScope) {
+        let addr_changed = self.scope.address != scope.address;
+        let parent_id_changed = self.scope.parent_id != scope.parent_id;
+        let window_changed = self.scope.window_id() != scope.window_id();
+        let update_accessible = addr_changed || parent_id_changed || window_changed;
+
+        if window_changed {
+            self.is_focused = false;
+            self.is_window_focused = false;
+        }
+        if window_changed && self.is_registered_as_focusable {
+            if let Some(window) = &self.scope.window {
+                if let Some(addr) = &self.scope.address {
+                    window.remove_focusable_widget(addr.clone(), self.id);
+                } else {
+                    warn!("widget scope has window but doesn't have address");
+                }
+                self.is_registered_as_focusable = false;
+            }
+        }
+        if update_accessible {
+            if let Some(window) = &self.scope.window {
+                if scope.window.is_none() {
+                    window
+                        .0
+                        .borrow_mut()
+                        .accessible_nodes
+                        .update(self.id.0.into(), None);
+                }
+                window
+                    .0
+                    .borrow_mut()
+                    .accessible_nodes
+                    .unmount(self.scope.parent_id.map(|id| id.into()), self.id.into());
+            }
+        }
+
         self.scope = scope;
+
+        if addr_changed {
+            if let Some(addr) = self.scope.address.clone() {
+                register_address(self.id, addr);
+            } else {
+                unregister_address(self.id);
+            }
+        }
+        if update_accessible {
+            if let Some(window) = &self.scope.window {
+                if let Some(addr) = &self.scope.address {
+                    window.0.borrow_mut().accessible_nodes.mount(
+                        self.scope.parent_id.map(|id| id.into()),
+                        self.id.into(),
+                        addr.path.last().copied().unwrap_or_default(),
+                    );
+                } else {
+                    warn!("widget scope has window but doesn't have address");
+                }
+            }
+        }
+        self.update();
         self.register_focusable();
+        // TODO: set is_window_focused
     }
 
     /*pub fn only_child_size_hint_x(&mut self) -> Result<SizeHint> {
@@ -570,14 +576,6 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(())
     }
-    fn handle_mount(&mut self, event: MountEvent) -> Result<()> {
-        let _ = event;
-        Ok(())
-    }
-    fn handle_unmount(&mut self, event: UnmountEvent) -> Result<()> {
-        let _ = event;
-        Ok(())
-    }
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         let _ = event;
         Ok(())
@@ -604,8 +602,6 @@ pub trait Widget: Downcast {
             Event::Ime(e) => self.handle_ime(e),
             Event::Draw(e) => self.handle_draw(e).map(|()| true),
             Event::Layout(e) => self.handle_layout(e).map(|()| true),
-            Event::Mount(e) => self.handle_mount(e).map(|()| true),
-            Event::Unmount(e) => self.handle_unmount(e).map(|()| true),
             Event::FocusIn(e) => self.handle_focus_in(e).map(|()| true),
             Event::FocusOut(e) => self.handle_focus_out(e).map(|()| true),
             Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
@@ -669,7 +665,7 @@ pub trait WidgetExt {
     fn size_y_fixed(&mut self) -> bool;
 
     // TODO: private
-    fn set_parent_scope(&mut self, scope: WidgetScope);
+    fn set_scope(&mut self, scope: WidgetScope);
     fn set_enabled(&mut self, enabled: bool);
     fn set_visible(&mut self, visible: bool);
     fn set_style(&mut self, style: Option<Style>) -> Result<()>;
@@ -708,27 +704,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let mut accepted = false;
         let mut should_dispatch = true;
         match &event {
-            Event::Mount(event) => {
-                let mount_point = event.mount_point().clone();
-                self.common_mut().mount(mount_point.clone());
-
-                for (i, child) in self.common_mut().children.iter_mut().enumerate() {
-                    let child_address = mount_point.address.clone().join(i);
-                    child.widget.dispatch(
-                        MountEvent::new(MountPoint {
-                            address: child_address,
-                            window: mount_point.window.clone(),
-                        })
-                        .into(),
-                    );
-                }
-            }
-            // TODO: before or after handler?
-            Event::Unmount(_event) => {
-                for child in &mut self.common_mut().children {
-                    child.widget.dispatch(UnmountEvent::new().into());
-                }
-            }
             Event::FocusIn(_) => {
                 self.common_mut().is_focused = true;
             }
@@ -771,20 +746,18 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
 
                     if !accepted {
-                        let is_enter = if let Some(mount_point) =
-                            self.common().mount_point_or_err().or_report_err()
-                        {
-                            let self_id = self.common().id;
-                            !mount_point
-                                .window
-                                .0
-                                .borrow()
-                                .mouse_entered_widgets
-                                .iter()
-                                .any(|(_, id)| *id == self_id)
-                        } else {
-                            false
-                        };
+                        let is_enter =
+                            if let Some(window) = self.common().window_or_err().or_report_err() {
+                                let self_id = self.common().id;
+                                !window
+                                    .0
+                                    .borrow()
+                                    .mouse_entered_widgets
+                                    .iter()
+                                    .any(|(_, id)| *id == self_id)
+                            } else {
+                                false
+                            };
 
                         if is_enter {
                             self.dispatch(event.create_enter_event().into());
@@ -828,9 +801,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::MouseMove(event) => {
                 accept_mouse_event(self, false, &event.accepted_by);
             }
-            Event::Unmount(_) => {
-                self.common_mut().unmount();
-            }
             Event::Draw(event) => {
                 for child in &mut self.common_mut().children {
                     if let Some(rect_in_parent) = child.rect_in_parent {
@@ -846,10 +816,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::WidgetScopeChange(_) => {
-                let scope = self.common().scope_for_child();
-                for child in &mut self.common_mut().children {
-                    child.widget.as_mut().set_parent_scope(scope.clone());
-                }
+                self.common_mut().update_children_scope(0);
                 self.common_mut().update();
             }
             Event::FocusIn(_) | Event::FocusOut(_) | Event::MouseLeave(_) => {
@@ -869,7 +836,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().current_layout_event = None;
                 self.common_mut().update();
             }
-            Event::KeyboardInput(_) | Event::Ime(_) | Event::Mount(_) | Event::Accessible(_) => {}
+            Event::KeyboardInput(_) | Event::Ime(_) | Event::Accessible(_) => {}
         }
 
         self.update_accessible();
@@ -881,7 +848,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             return;
         }
         let node = self.accessible_node();
-        let Some(mount_point) = self.common().mount_point.as_ref() else {
+        let Some(window) = self.common().scope.window.as_ref() else {
             return;
         };
         let rect = self.common().rect_in_window;
@@ -896,8 +863,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             node
         });
-        mount_point
-            .window
+        window
             .0
             .borrow_mut()
             .accessible_nodes
@@ -966,22 +932,26 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         }
     }
 
-    fn set_parent_scope(&mut self, scope: WidgetScope) {
-        self.common_mut().set_parent_scope(scope);
-        self.dispatch(WidgetScopeChangeEvent::new().into());
+    fn set_scope(&mut self, scope: WidgetScope) {
+        let previous_scope = self.common().scope.clone();
+        self.common_mut().set_scope(scope);
+        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
     }
 
     fn set_enabled(&mut self, enabled: bool) {
+        let previous_scope = self.common().scope.clone();
         self.common_mut().set_enabled(enabled);
-        self.dispatch(WidgetScopeChangeEvent::new().into());
+        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
     }
 
     fn set_visible(&mut self, visible: bool) {
+        let previous_scope = self.common().scope.clone();
         self.common_mut().is_explicitly_visible = visible;
-        self.dispatch(WidgetScopeChangeEvent::new().into());
+        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
     }
 
     fn set_style(&mut self, style: Option<Style>) -> Result<()> {
+        let previous_scope = self.common().scope.clone();
         let scale = self.common().scope.style.scale;
         let style = if let Some(style) = style {
             Some(Rc::new(ComputedStyle::new(&style, scale)?))
@@ -989,7 +959,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             None
         };
         self.common_mut().explicit_style = style;
-        self.dispatch(WidgetScopeChangeEvent::new().into());
+        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
         Ok(())
     }
 
@@ -1010,21 +980,19 @@ fn accept_mouse_event(
         let Some(rect_in_window) = widget.common().rect_in_window_or_err().or_report_err() else {
             return;
         };
-        let Some(mount_point) = widget.common().mount_point_or_err().or_report_err() else {
+        let Some(window) = widget.common().window_or_err().or_report_err() else {
             return;
         };
         let id = widget.common().id;
         accepted_by.set(Some(id));
 
-        mount_point
-            .window
+        window
             .0
             .borrow()
             .winit_window
             .set_cursor(widget.common().cursor_icon);
         if is_enter {
-            mount_point
-                .window
+            window
                 .0
                 .borrow_mut()
                 .mouse_entered_widgets
@@ -1038,11 +1006,11 @@ fn accept_mouse_event(
 
 pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddress]) {
     let common = widget.common_mut();
-    let Some(mount_point) = &common.mount_point else {
+    let Some(address) = &common.scope.address else {
         return;
     };
     for pending_addr in pending {
-        if pending_addr.starts_with(&mount_point.address) {
+        if pending_addr.starts_with(address) {
             common.clear_size_hint_cache();
             for child in &mut common.children {
                 invalidate_size_hint_cache(child.widget.as_mut(), pending);

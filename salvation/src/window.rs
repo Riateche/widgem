@@ -24,15 +24,15 @@ use crate::{
     draw::DrawEvent,
     event::{
         AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
-        KeyboardInputEvent, LayoutEvent, MountEvent, MouseInputEvent, MouseLeaveEvent,
-        MouseMoveEvent, WindowFocusChangeEvent,
+        KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
+        WindowFocusChangeEvent,
     },
     event_loop::{with_active_event_loop, UserEvent},
     system::{address, with_system},
     types::{Point, Rect, Size},
     widgets::{
-        get_widget_by_id_mut, invalidate_size_hint_cache, MountPoint, RawWidgetId, Widget,
-        WidgetAddress, WidgetExt,
+        get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget, WidgetAddress,
+        WidgetExt, WidgetScope,
     },
 };
 
@@ -42,6 +42,7 @@ const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct SharedWindowDataInner {
+    pub id: WindowId,
     pub cursor_position: Option<Point>,
     pub cursor_entered: bool,
     pub modifiers_state: ModifiersState,
@@ -209,6 +210,7 @@ impl Window {
         let inner_size = winit_window.inner_size();
 
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
+            id: winit_window.id(),
             cursor_position: None,
             cursor_entered: false,
             modifiers_state: ModifiersState::default(),
@@ -241,13 +243,11 @@ impl Window {
         })));
 
         let address = WidgetAddress::window_root(window_id);
-        widget.dispatch(
-            MountEvent::new(MountPoint {
-                address,
-                window: shared_window_data.clone(),
-            })
-            .into(),
-        );
+        widget.set_scope(WidgetScope {
+            address: Some(address),
+            window: Some(shared_window_data.clone()),
+            ..Default::default()
+        });
 
         // Window must be hidden until we initialize accesskit
         shared_window_data.0.borrow().winit_window.set_visible(true);
@@ -475,14 +475,15 @@ impl<'a> WindowWithWidget<'a> {
                             .borrow_mut()
                             .pressed_mouse_buttons
                             .insert(button);
-                        if self
+                        let had_recent_click = self
                             .shared_window_data
                             .0
                             .borrow()
                             .last_click_instant
-                            .map_or(false, |last| last.elapsed() < DOUBLE_CLICK_TIMEOUT)
-                            && self.shared_window_data.0.borrow().last_click_button == Some(button)
-                        {
+                            .map_or(false, |last| last.elapsed() < DOUBLE_CLICK_TIMEOUT);
+                        let same_button =
+                            self.shared_window_data.0.borrow().last_click_button == Some(button);
+                        if had_recent_click && same_button {
                             self.shared_window_data.0.borrow_mut().num_clicks += 1;
                         } else {
                             self.shared_window_data.0.borrow_mut().num_clicks = 1;
@@ -525,13 +526,13 @@ impl<'a> WindowWithWidget<'a> {
                                 mouse_grabber_widget.dispatch(event.into());
                             }
                         }
-                        if self
+                        let no_buttons1 = self
                             .shared_window_data
                             .0
                             .borrow_mut()
                             .pressed_mouse_buttons
-                            .is_empty()
-                        {
+                            .is_empty();
+                        if no_buttons1 {
                             self.shared_window_data.0.borrow_mut().mouse_grabber_widget = None;
                             self.dispatch_cursor_leave();
                         }
@@ -583,13 +584,13 @@ impl<'a> WindowWithWidget<'a> {
                 if event.state == ElementState::Pressed {
                     let logical_key = event.logical_key;
                     if logical_key == Key::Named(NamedKey::Tab) {
-                        if self
+                        let shift1 = self
                             .shared_window_data
                             .0
                             .borrow()
                             .modifiers_state
-                            .shift_key()
-                        {
+                            .shift_key();
+                        if shift1 {
                             self.move_keyboard_focus(-1);
                         } else {
                             self.move_keyboard_focus(1);
@@ -613,9 +614,8 @@ impl<'a> WindowWithWidget<'a> {
                     );
                 }
                 // TODO: deduplicate with ReceivedCharacter
-                if let Some(focused_widget) =
-                    self.shared_window_data.0.borrow().focused_widget.clone()
-                {
+                let focused_widget1 = self.shared_window_data.0.borrow().focused_widget.clone();
+                if let Some(focused_widget) = focused_widget1 {
                     if let Ok(widget) = get_widget_by_id_mut(self.root_widget, focused_widget.1) {
                         widget.dispatch(ImeEvent::new(ime).into());
                     }
@@ -624,14 +624,13 @@ impl<'a> WindowWithWidget<'a> {
             }
             WindowEvent::Focused(focused) => {
                 self.shared_window_data.0.borrow_mut().is_window_focused = focused;
-                if !focused
-                    && self
-                        .shared_window_data
-                        .0
-                        .borrow()
-                        .mouse_grabber_widget
-                        .is_some()
-                {
+                let mouse_grabber_widget_is_some1 = self
+                    .shared_window_data
+                    .0
+                    .borrow()
+                    .mouse_grabber_widget
+                    .is_some();
+                if !focused && mouse_grabber_widget_is_some1 {
                     self.shared_window_data.0.borrow_mut().mouse_grabber_widget = None;
                     self.dispatch_cursor_leave();
                 }
@@ -670,12 +669,9 @@ impl<'a> WindowWithWidget<'a> {
             self.layout(pending_size_hint_invalidations);
         }
 
-        if self
-            .shared_window_data
-            .0
-            .borrow_mut()
-            .focusable_widgets_changed
-        {
+        let focusable_widgets_changed1 =
+            self.shared_window_data.0.borrow().focusable_widgets_changed;
+        if focusable_widgets_changed1 {
             //println!("focusable_widgets_changed!");
             self.shared_window_data
                 .0
@@ -685,14 +681,14 @@ impl<'a> WindowWithWidget<'a> {
             let focused_widget1: Option<(WidgetAddress, RawWidgetId)> =
                 self.shared_window_data.0.borrow().focused_widget.clone();
             if let Some(focused_widget) = focused_widget1 {
-                if self
+                let is_err1 = self
                     .shared_window_data
                     .0
                     .borrow()
                     .focusable_widgets
                     .binary_search(&focused_widget)
-                    .is_err()
-                {
+                    .is_err();
+                if is_err1 {
                     self.unset_focus();
                 }
             }
@@ -739,7 +735,8 @@ impl<'a> WindowWithWidget<'a> {
     }
 
     fn check_auto_focus(&mut self) {
-        if self.shared_window_data.0.borrow().focused_widget.is_none() {
+        let is_none1 = self.shared_window_data.0.borrow().focused_widget.is_none();
+        if is_none1 {
             let id = self
                 .shared_window_data
                 .0
@@ -835,14 +832,14 @@ impl<'a> WindowWithWidget<'a> {
                     return;
                 };
                 let pair = (addr, request.widget_id);
-                if self
+                let is_err1 = self
                     .shared_window_data
                     .0
                     .borrow()
                     .focusable_widgets
                     .binary_search(&pair)
-                    .is_err()
-                {
+                    .is_err();
+                if is_err1 {
                     warn!("cannot focus widget: not registered as focusable");
                     return;
                 }
