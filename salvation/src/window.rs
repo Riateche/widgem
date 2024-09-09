@@ -244,7 +244,6 @@ impl Window {
         widget.dispatch(
             MountEvent::new(MountPoint {
                 address,
-                parent_id: None,
                 window: shared_window_data.clone(),
             })
             .into(),

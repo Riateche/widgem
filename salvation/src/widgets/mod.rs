@@ -79,6 +79,7 @@ impl<T> Copy for WidgetId<T> {}
 
 #[derive(Debug, Clone)]
 pub struct WidgetScope {
+    pub parent_id: Option<RawWidgetId>,
     pub is_visible: bool,
     pub is_enabled: bool,
     pub style: Rc<ComputedStyle>,
@@ -87,6 +88,7 @@ pub struct WidgetScope {
 impl Default for WidgetScope {
     fn default() -> Self {
         with_system(|s| Self {
+            parent_id: None,
             is_visible: true,
             is_enabled: true,
             style: s.default_style.clone(),
@@ -106,7 +108,7 @@ pub struct WidgetCommon {
     pub is_focused: bool,
     // TODO: set initial value in mount event
     pub is_window_focused: bool,
-    pub parent_scope: WidgetScope,
+    pub scope: WidgetScope,
 
     pub is_mouse_over: bool,
     pub mount_point: Option<MountPoint>,
@@ -138,8 +140,6 @@ pub struct WidgetCommon {
 pub struct MountPoint {
     pub address: WidgetAddress,
     pub window: SharedWindowData,
-    // TODO: move out? unmounted widget can have parent
-    pub parent_id: Option<RawWidgetId>,
 }
 
 impl WidgetCommon {
@@ -163,7 +163,7 @@ impl WidgetCommon {
             size_x_fixed_cache: None,
             size_y_fixed_cache: None,
             pending_accessible_update: false,
-            parent_scope: WidgetScope::default(),
+            scope: WidgetScope::default(),
 
             is_registered_as_focusable: false,
             event_filter: None,
@@ -183,7 +183,7 @@ impl WidgetCommon {
             warn!("widget address was already registered");
         }
         mount_point.window.0.borrow_mut().accessible_nodes.mount(
-            mount_point.parent_id.map(|id| id.into()),
+            self.scope.parent_id.map(|id| id.into()),
             self.id.into(),
             mount_point.address.path.last().copied().unwrap_or_default(),
         );
@@ -213,7 +213,7 @@ impl WidgetCommon {
                 .0
                 .borrow_mut()
                 .accessible_nodes
-                .unmount(mount_point.parent_id.map(|id| id.into()), self.id.into());
+                .unmount(self.scope.parent_id.map(|id| id.into()), self.id.into());
         } else {
             warn!("widget was not mounted");
         }
@@ -222,11 +222,11 @@ impl WidgetCommon {
     }
 
     pub fn is_visible(&self) -> bool {
-        self.parent_scope.is_visible && self.is_explicitly_visible
+        self.scope.is_visible && self.is_explicitly_visible
     }
 
     pub fn is_enabled(&self) -> bool {
-        self.parent_scope.is_enabled && self.is_explicitly_enabled
+        self.scope.is_enabled && self.is_explicitly_enabled
     }
 
     pub fn is_focusable(&self) -> bool {
@@ -238,13 +238,12 @@ impl WidgetCommon {
     }
 
     pub fn style(&self) -> &Rc<ComputedStyle> {
-        self.explicit_style
-            .as_ref()
-            .unwrap_or(&self.parent_scope.style)
+        self.explicit_style.as_ref().unwrap_or(&self.scope.style)
     }
 
-    pub fn effective_scope(&self) -> WidgetScope {
+    pub fn scope_for_child(&self) -> WidgetScope {
         WidgetScope {
+            parent_id: Some(self.id),
             is_visible: self.is_visible(),
             is_enabled: self.is_enabled(),
             // TODO: allow overriding scale?
@@ -288,12 +287,11 @@ impl WidgetCommon {
                 MountEvent::new(MountPoint {
                     address,
                     window: mount_point.window.clone(),
-                    parent_id: Some(self.id),
                 })
                 .into(),
             );
         }
-        widget.set_parent_scope(self.effective_scope());
+        widget.set_parent_scope(self.scope_for_child());
         self.children.insert(
             index,
             Child {
@@ -325,7 +323,6 @@ impl WidgetCommon {
                     MountEvent::new(MountPoint {
                         address: mount_point.address.clone().join(i),
                         window: mount_point.window.clone(),
-                        parent_id: Some(self.id),
                     })
                     .into(),
                 );
@@ -456,7 +453,7 @@ impl WidgetCommon {
     }
 
     pub fn set_parent_scope(&mut self, scope: WidgetScope) {
-        self.parent_scope = scope;
+        self.scope = scope;
         self.register_focusable();
     }
 
@@ -715,13 +712,11 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 let mount_point = event.mount_point().clone();
                 self.common_mut().mount(mount_point.clone());
 
-                let id = self.common().id;
                 for (i, child) in self.common_mut().children.iter_mut().enumerate() {
                     let child_address = mount_point.address.clone().join(i);
                     child.widget.dispatch(
                         MountEvent::new(MountPoint {
                             address: child_address,
-                            parent_id: Some(id),
                             window: mount_point.window.clone(),
                         })
                         .into(),
@@ -851,7 +846,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::WidgetScopeChange(_) => {
-                let scope = self.common().effective_scope();
+                let scope = self.common().scope_for_child();
                 for child in &mut self.common_mut().children {
                     child.widget.as_mut().set_parent_scope(scope.clone());
                 }
@@ -987,7 +982,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn set_style(&mut self, style: Option<Style>) -> Result<()> {
-        let scale = self.common().parent_scope.style.scale;
+        let scale = self.common().scope.style.scale;
         let style = if let Some(style) = style {
             Some(Rc::new(ComputedStyle::new(&style, scale)?))
         } else {
