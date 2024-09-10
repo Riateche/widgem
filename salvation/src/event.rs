@@ -214,6 +214,10 @@ impl LayoutEvent {
             .iter()
             .any(|changed| changed.starts_with(addr))
     }
+
+    pub fn new_rect_in_window(&self) -> Option<Rect> {
+        self.new_rect_in_window
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

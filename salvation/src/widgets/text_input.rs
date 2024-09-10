@@ -554,12 +554,12 @@ impl Widget for TextInput {
         Ok(())
     }
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
-        let address = self.common.address_or_err()?;
+        let window = self.common.window_or_err()?;
 
         match event.action() {
             accesskit::Action::Default | accesskit::Action::Focus => {
                 send_window_request(
-                    address.window_id,
+                    window.0.borrow().id,
                     SetFocusRequest {
                         widget_id: self.common.id,
                         // TODO: separate reason?

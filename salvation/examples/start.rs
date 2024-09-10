@@ -5,39 +5,79 @@ use std::time::Duration;
 use anyhow::Result;
 
 use salvation::{
+    event::LayoutEvent,
+    layout::SizeHintMode,
     system::add_interval,
+    types::Rect,
     widgets::{
         button::Button, column::Column, label::Label, padding_box::PaddingBox,
-        scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetExt, WidgetId,
+        scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetCommon, WidgetExt, WidgetId,
     },
-    window::create_window,
-    App, CallbackContext,
+    App,
 };
 use winit::window::Window;
 
-struct AnotherState {
+struct AnotherWidget {
+    common: WidgetCommon,
     counter: i32,
 }
 
-impl AnotherState {
-    fn new(ctx: &mut CallbackContext<Self>) -> (Self, Box<dyn Widget>) {
-        let another_state = AnotherState { counter: 0 };
-        let mut btn = Button::new("another button");
-        btn.on_triggered(ctx.callback(|state, _ctx, _event| {
-            state.counter += 1;
-            println!("counter: {}", state.counter);
-            create_window(
-                Window::default_attributes().with_title("example"),
-                Label::new(format!("counter: {}", state.counter)).boxed(),
-            );
+impl AnotherWidget {
+    fn new() -> Self {
+        let mut this = Self {
+            counter: 0,
+            common: WidgetCommon::new(),
+        };
+        let mut button = Button::new("another button");
+        button.on_triggered(this.callback(|this, _event| {
+            this.counter += 1;
+            println!("counter: {}", this.counter);
+            let label = Label::new(format!("counter: {}", this.counter)).boxed();
+            this.common_mut()
+                .add_window(label, Window::default_attributes().with_title("example"));
             Ok(())
         }));
-        (another_state, btn.boxed())
+        this.common_mut()
+            .add_child(button.boxed(), Default::default());
+        this
     }
 }
 
-struct State {
-    another_state: AnotherState,
+impl Widget for AnotherWidget {
+    fn common(&self) -> &WidgetCommon {
+        &self.common
+    }
+
+    fn common_mut(&mut self) -> &mut WidgetCommon {
+        &mut self.common
+    }
+
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        Ok(self.common_mut().children[0].widget.size_hint_x(mode))
+    }
+    fn recalculate_size_x_fixed(&mut self) -> bool {
+        self.common_mut().children[0].widget.size_x_fixed()
+    }
+    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+        Ok(self.common_mut().children[0]
+            .widget
+            .size_hint_y(size_x, mode))
+    }
+    fn recalculate_size_y_fixed(&mut self) -> bool {
+        self.common_mut().children[0].widget.size_y_fixed()
+    }
+    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
+        self.common.set_child_rect(
+            0,
+            event
+                .new_rect_in_window()
+                .map(|r| Rect::from_pos_size(Default::default(), r.size)),
+        )
+    }
+}
+
+struct RootWidget {
+    common: WidgetCommon,
     button_id: WidgetId<Button>,
     column2_id: WidgetId<Column>,
     button21_id: WidgetId<Button>,
@@ -48,8 +88,9 @@ struct State {
     label2_id: WidgetId<Label>,
 }
 
-impl State {
-    fn new(ctx: &mut CallbackContext<Self>) -> Self {
+impl RootWidget {
+    fn new() -> Self {
+        let mut common = WidgetCommon::new();
         let mut root = Column::new();
 
         root.add_child(TextInput::new("Hello, Rust! 🦀😂\n").boxed());
@@ -74,7 +115,9 @@ impl State {
         let btn1 = Button::new("btn1")
             .with_auto_repeat(true)
             .with_on_triggered(
-                ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 1)),
+                common
+                    .id
+                    .callback(|this: &mut Self, event| this.button_clicked(event, 1)),
             )
             .with_id();
 
@@ -83,13 +126,15 @@ impl State {
         root.add_child(
             Button::new("btn2")
                 .with_on_triggered(
-                    ctx.callback(|state, ctx, event| state.button_clicked(ctx, event, 2)),
+                    common
+                        .id
+                        .callback(|this: &mut Self, event| this.button_clicked(event, 2)),
                 )
                 .boxed(),
         );
 
         let button21 = Button::new("btn21")
-            .with_on_triggered(ctx.callback(|_, _, _| {
+            .with_on_triggered(common.id.callback(|_: &mut Self, _| {
                 println!("click!");
                 Ok(())
             }))
@@ -103,8 +148,7 @@ impl State {
             .with_id();
         root.add_child(column2.widget.boxed());
 
-        let (another_state, btn3) =
-            AnotherState::new(&mut ctx.map_state(|state| Some(&mut state.another_state)));
+        let btn3 = AnotherWidget::new().boxed();
         root.add_child(btn3);
 
         // root.add_child(
@@ -127,17 +171,17 @@ impl State {
 
         root.add_child(ScrollArea::new(content.boxed()).boxed());
 
-        create_window(
-            Window::default_attributes().with_title("example"),
+        common.add_window(
             PaddingBox::new(root.boxed()).boxed(),
+            Window::default_attributes().with_title("example"),
         );
         add_interval(
             Duration::from_secs(2),
-            ctx.callback(|this, ctx, _| this.inc(ctx)),
+            common.id.callback(|this: &mut Self, _| this.inc()),
         );
 
-        State {
-            another_state,
+        RootWidget {
+            common,
             button_id: btn1.id,
             column2_id: column2.id,
             button21_id: button21.id,
@@ -149,31 +193,29 @@ impl State {
         }
     }
 
-    fn inc(&mut self, ctx: &mut CallbackContext<Self>) -> Result<()> {
+    fn inc(&mut self) -> Result<()> {
         self.i += 1;
-        if let Ok(widget) = ctx.widget(self.button21_id) {
+        if let Ok(widget) = self.common.widget(self.button21_id) {
             widget.set_text(format!("i = {}", self.i));
         }
         Ok(())
     }
 
-    fn button_clicked(
-        &mut self,
-        ctx: &mut CallbackContext<Self>,
-        data: String,
-        k: u32,
-    ) -> Result<()> {
+    fn button_clicked(&mut self, data: String, k: u32) -> Result<()> {
         println!("callback! {:?}, {}", data, k);
-        let button = ctx.widget(self.button_id)?;
+        let button = self.common.widget(self.button_id)?;
         button.set_text(&format!("ok {}", if k == 1 { "1" } else { "22222" }));
 
         if k == 1 {
             self.flag_column = !self.flag_column;
-            ctx.widget(self.column2_id)?.set_enabled(self.flag_column);
+            self.common
+                .widget(self.column2_id)?
+                .set_enabled(self.flag_column);
             println!("set enabled {:?} {:?}", self.column2_id, self.flag_column);
         } else {
             self.flag_button21 = !self.flag_button21;
-            ctx.widget(self.button21_id)?
+            self.common
+                .widget(self.button21_id)?
                 .set_enabled(self.flag_button21);
             println!(
                 "set enabled {:?} {:?}",
@@ -181,6 +223,24 @@ impl State {
             );
         }
         Ok(())
+    }
+}
+
+impl Widget for RootWidget {
+    fn common(&self) -> &WidgetCommon {
+        &self.common
+    }
+
+    fn common_mut(&mut self) -> &mut WidgetCommon {
+        &mut self.common
+    }
+
+    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+        Ok(0)
+    }
+
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+        Ok(0)
     }
 }
 
@@ -224,5 +284,5 @@ fn main() {
     //         }
     //     }
     // }
-    App::new().run(State::new).unwrap();
+    App::new().run(|| RootWidget::new().boxed()).unwrap();
 }

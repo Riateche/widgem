@@ -32,7 +32,7 @@ use crate::{
     types::{Point, Rect, Size},
     widgets::{
         get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget, WidgetAddress,
-        WidgetExt, WidgetScope,
+        WidgetExt,
     },
 };
 
@@ -43,6 +43,7 @@ const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 #[derivative(Debug)]
 pub struct SharedWindowDataInner {
     pub id: WindowId,
+    pub root_widget_id: RawWidgetId,
     pub cursor_position: Option<Point>,
     pub cursor_entered: bool,
     pub modifiers_state: ModifiersState,
@@ -171,14 +172,14 @@ pub struct WindowWithWidget<'a> {
     pub root_widget: &'a mut dyn Widget,
 }
 
-pub fn create_window(attrs: WindowAttributes, mut widget: Box<dyn Widget>) -> WindowId {
-    let w = Window::new(attrs, widget.as_mut());
-    let id = w.id;
+pub fn create_window(attrs: WindowAttributes, widget: &mut dyn Widget) -> SharedWindowData {
+    // println!("create_window OK!");
+    let w = Window::new(attrs, widget);
+    let data = w.shared_window_data.clone();
     with_system(|system| {
-        system.windows.insert(id, w);
-        system.new_root_widgets.push((id, widget));
+        system.windows.insert(w.id, w);
     });
-    id
+    data
 }
 
 // Extra size to avoid visual artifacts when resizing the window.
@@ -186,7 +187,7 @@ pub fn create_window(attrs: WindowAttributes, mut widget: Box<dyn Widget>) -> Wi
 const EXTRA_SURFACE_SIZE: u32 = 50;
 
 impl Window {
-    fn new(mut attrs: WindowAttributes, widget: &mut dyn Widget) -> Self {
+    pub fn new(mut attrs: WindowAttributes, widget: &mut dyn Widget) -> Self {
         // TODO: propagate style without mounting?
         let size_hints_x = widget.size_hints_x();
         // TODO: adjust size_x for screen size
@@ -211,6 +212,7 @@ impl Window {
 
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
             id: winit_window.id(),
+            root_widget_id: widget.common().id,
             cursor_position: None,
             cursor_entered: false,
             modifiers_state: ModifiersState::default(),
@@ -242,12 +244,9 @@ impl Window {
             last_click_instant: None,
         })));
 
-        let address = WidgetAddress::window_root(window_id);
-        widget.set_scope(WidgetScope {
-            address: Some(address),
-            window: Some(shared_window_data.clone()),
-            ..Default::default()
-        });
+        let mut scope = widget.common().scope.clone();
+        scope.window = Some(shared_window_data.clone());
+        widget.set_scope(scope);
 
         // Window must be hidden until we initialize accesskit
         shared_window_data.0.borrow().winit_window.set_visible(true);

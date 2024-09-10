@@ -16,7 +16,7 @@ use crate::{
     event_loop::UserEvent,
     style::computed::ComputedStyle,
     timer::{Timer, TimerId, Timers},
-    widgets::{RawWidgetId, Widget, WidgetAddress},
+    widgets::{RawWidgetId, WidgetAddress},
     window::{Window, WindowRequest},
 };
 
@@ -34,7 +34,6 @@ pub struct SharedSystemDataInner {
     pub timers: Timers,
     pub clipboard: Clipboard,
     pub windows: HashMap<WindowId, Window>,
-    pub new_root_widgets: Vec<(WindowId, Box<dyn Widget>)>,
     pub exit_after_last_window_closes: bool,
 
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,

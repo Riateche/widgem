@@ -114,6 +114,7 @@ impl Button {
     }
 
     pub fn trigger(&mut self) {
+        println!("button trigger!");
         self.on_triggered.invoke(self.editor.text());
     }
 
@@ -263,10 +264,10 @@ impl Widget for Button {
             if event.state().is_pressed() {
                 self.set_pressed(true, false);
                 if !self.common.is_focused() {
-                    let address = self.common.address_or_err()?;
+                    let window = self.common.window_or_err()?;
                     if self.role == Role1::Default {
                         send_window_request(
-                            address.window_id,
+                            window.0.borrow().id,
                             SetFocusRequest {
                                 widget_id: self.common.id,
                                 reason: FocusReason::Mouse,
@@ -316,7 +317,7 @@ impl Widget for Button {
             Action::Default => self.trigger(),
             Action::Focus => {
                 send_window_request(
-                    self.common.address_or_err()?.window_id,
+                    self.common.window_or_err()?.0.borrow().id,
                     SetFocusRequest {
                         widget_id: self.common.id,
                         // TODO: separate reason?

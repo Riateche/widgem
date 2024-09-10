@@ -96,7 +96,7 @@ impl AccessibleNodes {
             } else if let Some(next) = self.direct_parents.get(&parent) {
                 parent = *next;
             } else {
-                warn!("parent not found");
+                warn!("parent not found for {:?}", parent);
                 break;
             }
         }
@@ -116,7 +116,7 @@ impl AccessibleNodes {
             if let Some(parent) = self.direct_parents.get(&id) {
                 self.mark_parent_as_pending(*parent);
             } else {
-                warn!("parent not found");
+                warn!("parent not found for {:?}", id);
             }
         }
     }

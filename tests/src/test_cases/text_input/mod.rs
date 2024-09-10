@@ -1,6 +1,5 @@
 use salvation::{
     widgets::{padding_box::PaddingBox, text_input::TextInput, WidgetExt},
-    window::create_window,
     CallbackContext, WindowAttributes,
 };
 
@@ -11,10 +10,10 @@ pub struct State {}
 impl State {
     pub fn new(_ctx: &mut CallbackContext<Self>) -> Self {
         let input = TextInput::new("Hello world");
-        create_window(
-            WindowAttributes::default().with_title(module_path!()),
-            PaddingBox::new(input.boxed()).boxed(),
-        );
+        // TODO: add_child
+        PaddingBox::new(input.boxed())
+            .with_initial_window_attrs(WindowAttributes::default().with_title(module_path!()))
+            .boxed();
         State {}
     }
 }

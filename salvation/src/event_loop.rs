@@ -1,9 +1,5 @@
-use std::{
-    any::Any, collections::HashMap, fmt::Debug, marker::PhantomData, path::PathBuf, rc::Rc,
-    time::Instant,
-};
+use std::{any::Any, collections::HashMap, fmt::Debug, path::PathBuf, rc::Rc, time::Instant};
 
-use anyhow::{anyhow, Result};
 use arboard::Clipboard;
 use cosmic_text::{fontdb, FontSystem, SwashCache};
 use derive_more::From;
@@ -17,76 +13,13 @@ use winit::{
 };
 
 use crate::{
-    callback::{
-        Callback, CallbackDataFn, CallbackId, CallbackKind, CallbackMaker, Callbacks,
-        InvokeCallbackEvent,
-    },
+    callback::{CallbackId, InvokeCallbackEvent},
     style::{computed::ComputedStyle, defaults::default_style},
     system::{address, with_system, ReportError, SharedSystemDataInner, SYSTEM},
     timer::Timers,
-    widgets::{
-        get_widget_by_address_mut, RawWidgetId, Widget, WidgetExt, WidgetId, WidgetNotFound,
-    },
+    widgets::{get_widget_by_address_mut, get_widget_by_id_mut, Widget, WidgetExt},
     window::WindowRequest,
 };
-
-pub struct CallbackContext<'a, State> {
-    widgets: &'a mut HashMap<WindowId, Box<dyn Widget>>,
-    add_callback: Box<dyn FnMut(Box<CallbackDataFn<State>>) -> CallbackId + 'a>,
-    marker: PhantomData<State>,
-}
-
-impl<'a, State> CallbackContext<'a, State> {
-    pub fn map_state<AnotherState: 'static>(
-        &mut self,
-        mapper: impl Fn(&mut State) -> Option<&mut AnotherState> + Clone + 'static,
-    ) -> CallbackContext<'_, AnotherState> {
-        let add_callback = &mut self.add_callback;
-        CallbackContext {
-            widgets: self.widgets,
-            marker: PhantomData,
-            add_callback: Box::new(move |mut f| -> CallbackId {
-                let mapper = mapper.clone();
-                (add_callback)(Box::new(move |state, ctx, any_event| {
-                    if let Some(another_state) = mapper(state) {
-                        let mut new_ctx = ctx.map_state::<AnotherState>(mapper.clone());
-                        f(another_state, &mut new_ctx, any_event)
-                    } else {
-                        Ok(())
-                    }
-                }))
-            }),
-        }
-    }
-
-    pub fn callback<Event: 'static>(
-        &mut self,
-        mut callback: impl FnMut(&mut State, &mut CallbackContext<State>, Event) -> Result<()> + 'static,
-    ) -> Callback<Event> {
-        let callback_id = (self.add_callback)(Box::new(move |state, ctx, any_event| {
-            let event = *any_event
-                .downcast::<Event>()
-                .map_err(|_| anyhow!("event downcast failed"))?;
-            callback(state, ctx, event)
-        }));
-        let event_loop_proxy = with_system(|s| s.event_loop_proxy.clone());
-        Callback::new(event_loop_proxy, callback_id, CallbackKind::State)
-    }
-
-    pub fn widget<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
-        let w = self.widget_raw(id.0)?;
-        Ok(w.downcast_mut::<W>().expect("widget downcast failed"))
-    }
-
-    pub fn widget_raw(&mut self, id: RawWidgetId) -> Result<&mut dyn Widget, WidgetNotFound> {
-        let address = address(id).ok_or(WidgetNotFound)?;
-        let root = self
-            .widgets
-            .get_mut(&address.window_id)
-            .ok_or(WidgetNotFound)?;
-        get_widget_by_address_mut(root.as_mut(), &address)
-    }
-}
 
 #[derive(Debug, From)]
 pub(crate) enum UserEvent {
@@ -106,7 +39,7 @@ where
 }
 
 fn dispatch_widget_callback(
-    widgets: &mut HashMap<WindowId, Box<dyn Widget>>,
+    root_widget: &mut dyn Widget,
     callback_id: CallbackId,
     event: Box<dyn Any + Send>,
 ) {
@@ -117,29 +50,29 @@ fn dispatch_widget_callback(
     let Some(address) = address(callback.widget_id) else {
         return;
     };
-    let Some(root_widget) = widgets.get_mut(&address.window_id) else {
-        return;
-    };
-    let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &address) else {
+    let Ok(widget) = get_widget_by_address_mut(root_widget, &address) else {
         return;
     };
     (callback.func)(widget, event).or_report_err();
     widget.update_accessible();
-    let Some(window) = with_system(|s| s.windows.get(&address.window_id).cloned()) else {
-        warn!("missing window object");
-        return;
-    };
-    window
-        .with_root(root_widget.as_mut())
-        .after_widget_activity();
-}
 
-fn fetch_new_root_widgets(widgets: &mut HashMap<WindowId, Box<dyn Widget>>) {
-    with_system(|system| {
-        for (window_id, widget) in system.new_root_widgets.drain(..) {
-            widgets.insert(window_id, widget);
+    let window_id = widget
+        .common()
+        .scope
+        .window
+        .as_ref()
+        .map(|w| w.0.borrow().id);
+    if let Some(window_id) = window_id {
+        let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
+            warn!("missing window object");
+            return;
+        };
+        if let Some(window_root_widget) =
+            get_widget_by_id_mut(root_widget, window.root_widget_id).or_report_err()
+        {
+            window.with_root(window_root_widget).after_widget_activity();
         }
-    });
+    }
 }
 
 fn default_scale(event_loop: &ActiveEventLoop) -> f32 {
@@ -190,68 +123,56 @@ impl App {
         self
     }
 
-    pub fn run<State: 'static>(
+    pub fn run(
         self,
-        make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
+        make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static,
     ) -> anyhow::Result<()> {
         let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
-        let mut handler = Handler::new(self, make_state, &event_loop);
+        let mut handler = Handler::new(self, make_root_widget, &event_loop);
         event_loop.run_app(&mut handler)?;
         Ok(())
     }
 }
 
-pub fn run<State: 'static>(
-    make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
-) -> anyhow::Result<()> {
-    App::new().run(make_state)
+pub fn run(make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static) -> anyhow::Result<()> {
+    App::new().run(make_root_widget)
 }
 
-type DynMakeState<State> = dyn FnOnce(&mut CallbackContext<State>) -> State;
-
-struct Handler<State: 'static> {
+struct Handler {
     app: App,
-    widgets: HashMap<WindowId, Box<dyn Widget>>,
-    callback_maker: CallbackMaker<State>,
-    callbacks: Callbacks<State>,
-    make_state: Option<Box<DynMakeState<State>>>,
+    is_initialized: bool,
+    root_widget: Option<Box<dyn Widget>>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
-    state: Option<State>,
+    make_root_widget: Option<Box<dyn FnOnce() -> Box<dyn Widget>>>,
 }
 
-impl<State: 'static> Handler<State> {
+impl Handler {
     fn new(
         app: App,
-        make_state: impl FnOnce(&mut CallbackContext<State>) -> State + 'static,
+        make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static,
         event_loop: &EventLoop<UserEvent>,
     ) -> Self {
         Self {
             app,
-            widgets: Default::default(),
-            callback_maker: CallbackMaker::new(),
-            callbacks: Callbacks::new(),
-            make_state: Some(Box::new(make_state)),
+            is_initialized: false,
+            root_widget: None,
             event_loop_proxy: Some(event_loop.create_proxy()),
-            state: None,
+            make_root_widget: Some(Box::new(make_root_widget)),
         }
     }
 
     fn before_handler(&mut self) {
-        // If initialized.
-        if self.make_state.is_none() {
-            fetch_new_root_widgets(&mut self.widgets);
+        if self.is_initialized {
             while let Some(timer) = with_system(|system| system.timers.pop()) {
                 timer.callback.invoke(Instant::now());
             }
         }
     }
 
-    fn after_handler(&mut self) {
-        fetch_new_root_widgets(&mut self.widgets);
-    }
+    fn after_handler(&mut self) {}
 }
 
-impl<State> ApplicationHandler<UserEvent> for Handler<State> {
+impl ApplicationHandler<UserEvent> for Handler {
     // TODO: It's recommended that applications should only initialize their graphics context
     // and create a window after they have received their first `Resumed` event.
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
@@ -269,11 +190,15 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
                 warn!("missing window object when dispatching event: {:?}", event);
                 return;
             };
-            let Some(root_widget) = self.widgets.get_mut(&window_id) else {
-                warn!("missing root widget when dispatching event");
-                return;
-            };
-            window.with_root(root_widget.as_mut()).handle_event(event);
+
+            if let Some(window_root_widget) = get_widget_by_id_mut(
+                self.root_widget.as_mut().unwrap().as_mut(),
+                window.root_widget_id,
+            )
+            .or_report_err()
+            {
+                window.with_root(window_root_widget).handle_event(event);
+            }
 
             self.after_handler();
         })
@@ -312,7 +237,6 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
                     timers: Timers::new(),
                     clipboard: Clipboard::new().expect("failed to initialize clipboard"),
                     windows: HashMap::new(),
-                    new_root_widgets: Vec::new(),
                     exit_after_last_window_closes: true,
                     widget_callbacks: HashMap::new(),
                 };
@@ -320,16 +244,22 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
                     *system.0.borrow_mut() = Some(shared_system_data);
                 });
 
-                self.state = {
-                    let mut ctx = CallbackContext {
-                        widgets: &mut self.widgets,
-                        add_callback: Box::new(|f| self.callback_maker.add(f)),
-                        marker: PhantomData,
-                    };
-                    let make_state = self.make_state.take().expect("only happens once");
-                    Some(make_state(&mut ctx))
-                };
-                self.callbacks.add_all(&mut self.callback_maker);
+                let root_widget = self.make_root_widget.take().unwrap()();
+                self.root_widget = Some(root_widget);
+
+                self.is_initialized = true;
+
+                let windows = with_system(|s| s.windows.clone());
+                for (_, window) in windows {
+                    if let Some(window_root_widget) = get_widget_by_id_mut(
+                        self.root_widget.as_mut().unwrap().as_mut(),
+                        window.root_widget_id,
+                    )
+                    .or_report_err()
+                    {
+                        window.with_root(window_root_widget).after_widget_activity();
+                    }
+                }
             }
             self.after_handler();
         })
@@ -344,13 +274,14 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
                         warn!("missing window object when dispatching WindowRequest");
                         return;
                     };
-                    let Some(root_widget) = self.widgets.get_mut(&window_id) else {
+                    let Ok(root_widget) = get_widget_by_id_mut(
+                        self.root_widget.as_mut().unwrap().as_mut(),
+                        window.root_widget_id,
+                    ) else {
                         warn!("missing root widget when dispatching WindowRequest");
                         return;
                     };
-                    window
-                        .with_root(root_widget.as_mut())
-                        .handle_request(request);
+                    window.with_root(root_widget).handle_request(request);
                 }
                 // TODO: remove event, remove window directly
                 UserEvent::WindowClosed(window_id) => {
@@ -362,47 +293,28 @@ impl<State> ApplicationHandler<UserEvent> for Handler<State> {
                         event_loop.exit();
                     }
                 }
-                UserEvent::InvokeCallback(event) => match event.kind {
-                    CallbackKind::State => {
-                        {
-                            let mut ctx = CallbackContext {
-                                widgets: &mut self.widgets,
-                                add_callback: Box::new(|f| self.callback_maker.add(f)),
-                                marker: PhantomData,
-                            };
-
-                            self.callbacks
-                                .call(self.state.as_mut().unwrap(), &mut ctx, event);
-                        }
-                        self.callbacks.add_all(&mut self.callback_maker);
-                        let windows = with_system(|system| system.windows.clone());
-                        for window in windows.into_values() {
-                            let Some(root_widget) = self.widgets.get_mut(&window.id) else {
-                                warn!("missing root widget when dispatching after_widget_activity");
-                                return;
-                            };
-                            window
-                                .with_root(root_widget.as_mut())
-                                .after_widget_activity();
-                        }
-                    }
-                    CallbackKind::Widget => {
-                        dispatch_widget_callback(&mut self.widgets, event.callback_id, event.event);
-                    }
-                },
+                UserEvent::InvokeCallback(event) => {
+                    println!("InvokeCallback arrived");
+                    dispatch_widget_callback(
+                        self.root_widget.as_mut().unwrap().as_mut(),
+                        event.callback_id,
+                        event.event,
+                    );
+                }
                 UserEvent::Accesskit(event) => {
                     let Some(window) = with_system(|s| s.windows.get(&event.window_id).cloned())
                     else {
                         warn!("missing window object when dispatching Accesskit event");
                         return;
                     };
-                    let Some(root_widget) = self.widgets.get_mut(&event.window_id) else {
+                    let Ok(root_widget) = get_widget_by_id_mut(
+                        self.root_widget.as_mut().unwrap().as_mut(),
+                        window.root_widget_id,
+                    ) else {
                         warn!("missing root widget when dispatching Accesskit event");
                         return;
                     };
-                    window
-                        .with_root(root_widget.as_mut())
-                        .handle_accesskit_event(event);
+                    window.with_root(root_widget).handle_accesskit_event(event);
                 }
             }
             self.after_handler();

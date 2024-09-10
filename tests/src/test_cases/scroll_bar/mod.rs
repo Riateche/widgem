@@ -3,7 +3,6 @@ use salvation::{
         column::Column, label::Label, padding_box::PaddingBox, scroll_bar::ScrollBar, WidgetExt,
         WidgetId,
     },
-    window::create_window,
     CallbackContext, WindowAttributes,
 };
 
@@ -26,10 +25,10 @@ impl State {
         let mut column = Column::new();
         column.add_child(scroll_bar.widget.boxed());
         column.add_child(label.widget.boxed());
-        create_window(
-            WindowAttributes::default().with_title(module_path!()),
-            PaddingBox::new(column.boxed()).boxed(),
-        );
+        // TODO: add_child
+        PaddingBox::new(column.boxed())
+            .with_initial_window_attrs(WindowAttributes::default().with_title(module_path!()))
+            .boxed();
         State {
             label_id: label.id,
             scroll_bar_id: scroll_bar.id,

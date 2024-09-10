@@ -90,7 +90,9 @@ impl Widget for Column {
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let options = self.grid_options();
-        let size = self.common.size_or_err()?;
+        let Some(size) = self.common.size() else {
+            return Ok(());
+        };
         let rects = grid::layout(&mut self.common.children, &options, size)?;
         self.common.set_child_rects(&rects)?;
         Ok(())

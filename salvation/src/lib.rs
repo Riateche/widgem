@@ -18,5 +18,5 @@ pub mod widgets;
 pub mod window;
 
 pub use crate::accessible::new_accessible_node_id;
-pub use crate::event_loop::{run, App, CallbackContext};
+pub use crate::event_loop::{run, App};
 pub use winit::window::WindowAttributes;

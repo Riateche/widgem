@@ -26,7 +26,7 @@ use crate::{
     style::{computed::ComputedStyle, Style},
     system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Point, Rect, Size},
-    window::SharedWindowData,
+    window::{create_window, SharedWindowData},
 };
 
 pub mod button;
@@ -47,6 +47,15 @@ impl RawWidgetId {
     pub fn new() -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+    }
+
+    pub fn callback<W, E, F>(self, func: F) -> Callback<E>
+    where
+        W: Widget,
+        F: Fn(&mut W, E) -> Result<()> + 'static,
+        E: 'static,
+    {
+        widget_callback(WidgetId::<W>::new(self), func)
     }
 }
 
@@ -80,7 +89,7 @@ impl<T> Copy for WidgetId<T> {}
 #[derive(Debug, Clone)]
 pub struct WidgetScope {
     pub parent_id: Option<RawWidgetId>,
-    pub address: Option<WidgetAddress>,
+    pub address: WidgetAddress,
     pub window: Option<SharedWindowData>,
 
     pub is_visible: bool,
@@ -94,11 +103,11 @@ impl WidgetScope {
     }
 }
 
-impl Default for WidgetScope {
-    fn default() -> Self {
+impl WidgetScope {
+    fn new(id: RawWidgetId) -> Self {
         with_system(|s| Self {
             parent_id: None,
-            address: None,
+            address: WidgetAddress::root(id),
             window: None,
             is_visible: true,
             is_enabled: true,
@@ -114,12 +123,12 @@ pub struct WidgetCommon {
     pub is_focusable: bool,
     pub enable_ime: bool,
     pub cursor_icon: CursorIcon,
-    pub initial_window_attrs: Option<WindowAttributes>,
 
     pub is_focused: bool,
     // TODO: set initial value in mount event
     pub is_window_focused: bool,
     pub scope: WidgetScope,
+    pub is_window_root: bool,
 
     pub is_mouse_over: bool,
     // Present if the widget is mounted, not hidden, and only after layout.
@@ -146,10 +155,19 @@ pub struct WidgetCommon {
     pub event_filter: Option<Box<EventFilterFn>>,
 }
 
+impl Drop for WidgetCommon {
+    fn drop(&mut self) {
+        unregister_address(self.id);
+    }
+}
+
 impl WidgetCommon {
     pub fn new() -> Self {
+        let id = RawWidgetId::new();
+        let scope = WidgetScope::new(id);
+        register_address(id, scope.address.clone());
         Self {
-            id: RawWidgetId::new(),
+            id,
             is_explicitly_enabled: true,
             is_explicitly_visible: true,
             explicit_style: None,
@@ -166,12 +184,11 @@ impl WidgetCommon {
             size_x_fixed_cache: None,
             size_y_fixed_cache: None,
             pending_accessible_update: false,
-            scope: WidgetScope::default(),
-
+            scope,
             is_registered_as_focusable: false,
             event_filter: None,
             current_layout_event: None,
-            initial_window_attrs: None,
+            is_window_root: false,
         }
     }
 
@@ -195,15 +212,21 @@ impl WidgetCommon {
         self.explicit_style.as_ref().unwrap_or(&self.scope.style)
     }
 
-    pub fn scope_for_child(&self, child_index: usize) -> WidgetScope {
+    pub fn scope_for_child(&mut self, child_index: usize) -> WidgetScope {
+        let child = &mut self.children[child_index];
+        let window = if child.widget.common().is_window_root {
+            child.widget.common().scope.window.clone()
+        } else {
+            self.scope.window.clone()
+        };
         WidgetScope {
             parent_id: Some(self.id),
             address: self
                 .scope
                 .address
                 .clone()
-                .map(|addr| addr.join(child_index)),
-            window: self.scope.window.clone(),
+                .join(child_index, child.widget.common().id),
+            window,
             is_visible: self.is_visible(),
             is_enabled: self.is_enabled(),
             // TODO: allow overriding scale?
@@ -231,17 +254,27 @@ impl WidgetCommon {
         index
     }
 
+    pub fn add_window(
+        &mut self,
+        mut widget: Box<dyn Widget>,
+        attrs: WindowAttributes,
+    ) -> SharedWindowData {
+        widget.common_mut().is_window_root = true;
+        let index = self.add_child(widget, Default::default());
+        let window = create_window(attrs, self.children[index].widget.as_mut());
+        window
+    }
+
     // TODO: fn replace_child
     pub fn insert_child(
         &mut self,
         index: usize,
-        mut widget: Box<dyn Widget>,
+        widget: Box<dyn Widget>,
         options: LayoutItemOptions,
     ) -> Result<()> {
         if index > self.children.len() {
             bail!("index out of bounds");
         }
-        widget.set_scope(self.scope_for_child(index));
         self.children.insert(
             index,
             Child {
@@ -251,7 +284,7 @@ impl WidgetCommon {
                 rect_set_during_layout: false,
             },
         );
-        self.update_children_scope(index + 1);
+        self.update_children_scope(index);
         self.size_hint_changed();
         Ok(())
     }
@@ -266,12 +299,10 @@ impl WidgetCommon {
     }
 
     fn update_children_scope(&mut self, from_index: usize) {
-        let mut scope = self.scope_for_child(0);
-        for (i, child) in self.children.iter_mut().enumerate().skip(from_index) {
-            if let Some(addr) = &mut scope.address {
-                *addr.path.last_mut().unwrap() = i;
-            }
-            child.widget.as_mut().set_scope(scope.clone());
+        let num_children = self.children.len();
+        for i in from_index..num_children {
+            let scope = self.scope_for_child(i);
+            self.children[i].widget.as_mut().set_scope(scope);
         }
     }
 
@@ -280,7 +311,8 @@ impl WidgetCommon {
             bail!("invalid child index");
         }
         let mut widget = self.children.remove(index).widget;
-        widget.set_scope(WidgetScope::default());
+        let id = widget.common().id;
+        widget.set_scope(WidgetScope::new(id));
         self.update_children_scope(index);
         self.size_hint_changed();
         Ok(widget)
@@ -300,8 +332,7 @@ impl WidgetCommon {
         child.rect_in_parent = rect_in_parent;
         let rect_changed = child.widget.common().rect_in_window != rect_in_window;
         if let Some(event) = &self.current_layout_event {
-            let address = child.widget.common().address_or_err()?;
-            if rect_changed || event.size_hints_changed_within(address) {
+            if rect_changed || event.size_hints_changed_within(&child.widget.common().address()) {
                 child.widget.dispatch(
                     LayoutEvent::new(rect_in_window, event.changed_size_hints.clone()).into(),
                 );
@@ -330,15 +361,11 @@ impl WidgetCommon {
         let Some(window) = &self.scope.window else {
             return;
         };
-        let Some(address) = &self.scope.address else {
-            warn!("widget scope has window but no address");
-            return;
-        };
         window
             .0
             .borrow_mut()
             .pending_size_hint_invalidations
-            .push(address.clone());
+            .push(self.scope.address.clone());
     }
 
     fn clear_size_hint_cache(&mut self) {
@@ -352,8 +379,8 @@ impl WidgetCommon {
         self.scope.window.as_ref().context("no window")
     }
 
-    pub fn address_or_err(&self) -> Result<&WidgetAddress> {
-        self.scope.address.as_ref().context("no window")
+    pub fn address(&self) -> &WidgetAddress {
+        &self.scope.address
     }
 
     pub fn rect_in_window_or_err(&self) -> Result<Rect> {
@@ -375,12 +402,10 @@ impl WidgetCommon {
         let is_focusable = self.is_focusable();
         if is_focusable != self.is_registered_as_focusable {
             if let Some(window) = &self.scope.window {
-                if let Some(address) = &self.scope.address {
-                    if is_focusable {
-                        window.add_focusable_widget(address.clone(), self.id);
-                    } else {
-                        window.remove_focusable_widget(address.clone(), self.id);
-                    }
+                if is_focusable {
+                    window.add_focusable_widget(self.scope.address.clone(), self.id);
+                } else {
+                    window.remove_focusable_widget(self.scope.address.clone(), self.id);
                 }
                 self.is_registered_as_focusable = is_focusable;
             } else {
@@ -411,11 +436,7 @@ impl WidgetCommon {
         }
         if window_changed && self.is_registered_as_focusable {
             if let Some(window) = &self.scope.window {
-                if let Some(addr) = &self.scope.address {
-                    window.remove_focusable_widget(addr.clone(), self.id);
-                } else {
-                    warn!("widget scope has window but doesn't have address");
-                }
+                window.remove_focusable_widget(self.scope.address.clone(), self.id);
                 self.is_registered_as_focusable = false;
             }
         }
@@ -439,28 +460,51 @@ impl WidgetCommon {
         self.scope = scope;
 
         if addr_changed {
-            if let Some(addr) = self.scope.address.clone() {
-                register_address(self.id, addr);
-            } else {
-                unregister_address(self.id);
-            }
+            register_address(self.id, self.scope.address.clone());
         }
         if update_accessible {
             if let Some(window) = &self.scope.window {
-                if let Some(addr) = &self.scope.address {
-                    window.0.borrow_mut().accessible_nodes.mount(
-                        self.scope.parent_id.map(|id| id.into()),
-                        self.id.into(),
-                        addr.path.last().copied().unwrap_or_default(),
-                    );
-                } else {
-                    warn!("widget scope has window but doesn't have address");
-                }
+                let root_widget_id = window.0.borrow().root_widget_id;
+                window.0.borrow_mut().accessible_nodes.mount(
+                    if self.id == root_widget_id {
+                        None
+                    } else if let Some(parent_id) = self.scope.parent_id {
+                        Some(parent_id.into())
+                    } else {
+                        warn!("widget is not a window root so it must have a parent");
+                        None
+                    },
+                    self.id.into(),
+                    self.scope
+                        .address
+                        .path
+                        .last()
+                        .map(|(index, _id)| *index)
+                        .unwrap_or_default(),
+                );
             }
         }
         self.update();
         self.register_focusable();
         // TODO: set is_window_focused
+    }
+
+    pub fn widget<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
+        let w = self.widget_raw(id.0)?;
+        Ok(w.downcast_mut::<W>().expect("widget downcast failed"))
+    }
+
+    pub fn widget_raw(&mut self, id: RawWidgetId) -> Result<&mut dyn Widget, WidgetNotFound> {
+        // TODO: speed up
+        for child in &mut self.children {
+            if child.widget.common().id == id {
+                return Ok(child.widget.as_mut());
+            }
+            if let Ok(widget) = child.widget.common_mut().widget_raw(id) {
+                return Ok(widget);
+            }
+        }
+        Err(WidgetNotFound)
     }
 
     /*pub fn only_child_size_hint_x(&mut self) -> Result<SizeHint> {
@@ -509,12 +553,19 @@ pub fn get_widget_by_address_mut<'a>(
     root_widget: &'a mut dyn Widget,
     address: &WidgetAddress,
 ) -> Result<&'a mut dyn Widget, WidgetNotFound> {
+    let root_address = &root_widget.common().scope.address;
+
+    if !address.starts_with(root_address) {
+        warn!("get_widget_by_address_mut: address is not within root widget");
+        return Err(WidgetNotFound);
+    }
+    let root_address_len = root_address.path.len();
     let mut current_widget = root_widget;
-    for &index in &address.path {
+    for (index, _id) in &address.path[root_address_len..] {
         current_widget = current_widget
             .common_mut()
             .children
-            .get_mut(index)
+            .get_mut(*index)
             .ok_or(WidgetNotFound)?
             .widget
             .as_mut();
@@ -651,10 +702,6 @@ pub trait WidgetExt {
         }
     }
 
-    fn with_window_attrs(self, initial_attrs: WindowAttributes) -> Self
-    where
-        Self: Sized;
-
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
     fn size_hint_x(&mut self, mode: SizeHintMode) -> i32;
@@ -690,14 +737,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         Self: Sized,
     {
         widget_callback(self.id(), func)
-    }
-
-    fn with_window_attrs(mut self, initial_attrs: WindowAttributes) -> Self
-    where
-        Self: Sized,
-    {
-        self.common_mut().initial_window_attrs = Some(initial_attrs);
-        self
     }
 
     fn dispatch(&mut self, event: Event) -> bool {
@@ -933,6 +972,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn set_scope(&mut self, scope: WidgetScope) {
+        // println!(
+        //     "set scope {:?} parent={:?} address={:?} window={:?}",
+        //     self.common().id,
+        //     scope.parent_id,
+        //     scope.address,
+        //     scope.window.as_ref().map(|w| w.0.borrow().id)
+        // );
         let previous_scope = self.common().scope.clone();
         self.common_mut().set_scope(scope);
         self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
@@ -1006,11 +1052,8 @@ fn accept_mouse_event(
 
 pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddress]) {
     let common = widget.common_mut();
-    let Some(address) = &common.scope.address else {
-        return;
-    };
     for pending_addr in pending {
-        if pending_addr.starts_with(address) {
+        if pending_addr.starts_with(&common.scope.address) {
             common.clear_size_hint_cache();
             for child in &mut common.children {
                 invalidate_size_hint_cache(child.widget.as_mut(), pending);
@@ -1022,24 +1065,20 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WidgetAddress {
-    pub window_id: WindowId,
-    pub path: Vec<usize>,
+    pub path: Vec<(usize, RawWidgetId)>,
 }
 
 impl WidgetAddress {
-    pub fn window_root(window_id: WindowId) -> Self {
+    pub fn root(id: RawWidgetId) -> Self {
         Self {
-            window_id,
-            path: Vec::new(),
+            path: vec![(0, id)],
         }
     }
-    pub fn join(mut self, index: usize) -> Self {
-        self.path.push(index);
+    pub fn join(mut self, index: usize, id: RawWidgetId) -> Self {
+        self.path.push((index, id));
         self
     }
     pub fn starts_with(&self, base: &WidgetAddress) -> bool {
-        self.window_id == base.window_id
-            && base.path.len() <= self.path.len()
-            && base.path == self.path[..base.path.len()]
+        base.path.len() <= self.path.len() && base.path == self.path[..base.path.len()]
     }
 }
