@@ -1,7 +1,9 @@
 use anyhow::Result;
 use std::collections::HashMap;
 
-use crate::{event::LayoutEvent, layout::SizeHintMode, system::ReportError, types::Rect};
+use crate::{
+    event::LayoutEvent, impl_widget_common, layout::SizeHintMode, system::ReportError, types::Rect,
+};
 
 use super::{RawWidgetId, Widget, WidgetCommon};
 
@@ -32,12 +34,8 @@ impl Stack {
 }
 
 impl Widget for Stack {
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
-    }
+    impl_widget_common!();
+
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         Ok(())
     }

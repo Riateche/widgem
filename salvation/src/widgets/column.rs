@@ -2,17 +2,11 @@ use anyhow::{Context, Result};
 use salvation_macros::impl_with;
 
 use crate::{
-    event::LayoutEvent,
-    layout::{
-        grid::{self, GridAxisOptions, GridOptions},
-        Alignment, LayoutItemOptions, SizeHintMode,
-    },
+    impl_widget_common,
+    layout::{Alignment, LayoutItemOptions},
 };
 
 use super::{Widget, WidgetCommon};
-
-// TODO: get from style, apply scale
-const SPACING: i32 = 10;
 
 pub struct Column {
     // TODO: add layout options
@@ -59,59 +53,8 @@ impl Column {
             .expect("should not fail with correct index");
         self
     }
-
-    fn grid_options(&self) -> GridOptions {
-        GridOptions {
-            x: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: 0,
-                preferred_padding: 0,
-                preferred_spacing: 0,
-                border_collapse: 0,
-            },
-            y: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: SPACING,
-                preferred_padding: 0,
-                preferred_spacing: SPACING,
-                border_collapse: 0,
-            },
-        }
-    }
 }
 
 impl Widget for Column {
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
-    }
-
-    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
-        let options = self.grid_options();
-        let Some(size) = self.common.size() else {
-            return Ok(());
-        };
-        let rects = grid::layout(&mut self.common.children, &options, size)?;
-        self.common.set_child_rects(&rects)?;
-        Ok(())
-    }
-
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let options = self.grid_options();
-        grid::size_hint_x(&mut self.common.children, &options, mode)
-    }
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        let options = self.grid_options();
-        grid::size_x_fixed(&mut self.common.children, &options)
-    }
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        let options = self.grid_options();
-        grid::size_y_fixed(&mut self.common.children, &options)
-    }
-    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
-        let options = self.grid_options();
-        grid::size_hint_y(&mut self.common.children, &options, size_x, mode)
-    }
+    impl_widget_common!();
 }

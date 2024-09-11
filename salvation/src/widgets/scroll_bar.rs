@@ -6,6 +6,7 @@ use std::{
 use crate::{
     callback::Callback,
     event::{Event, LayoutEvent},
+    impl_widget_common,
     layout::{
         grid::{self, GridAxisOptions, GridOptions},
         LayoutItemOptions, SizeHintMode,
@@ -52,6 +53,24 @@ const INDEX_GRIP_IN_PAGER: usize = 0;
 impl ScrollBar {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
+        let border_collapse = common.style().scroll_bar.border_collapse.get();
+        // TODO: update when style changes
+        common.set_grid_options(Some(GridOptions {
+            x: GridAxisOptions {
+                min_padding: 0,
+                min_spacing: 0,
+                preferred_padding: 0,
+                preferred_spacing: 0,
+                border_collapse,
+            },
+            y: GridAxisOptions {
+                min_padding: 0,
+                min_spacing: 0,
+                preferred_padding: 0,
+                preferred_spacing: 0,
+                border_collapse,
+            },
+        }));
         // TODO: localized name
         common.add_child(
             Button::new(names::SCROLL_LEFT)
@@ -347,26 +366,6 @@ impl ScrollBar {
         self.current_value
     }
 
-    fn grid_options(&self) -> GridOptions {
-        let border_collapse = self.common.style().scroll_bar.border_collapse.get();
-        GridOptions {
-            x: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: 0,
-                preferred_padding: 0,
-                preferred_spacing: 0,
-                border_collapse,
-            },
-            y: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: 0,
-                preferred_padding: 0,
-                preferred_spacing: 0,
-                border_collapse,
-            },
-        }
-    }
-
     fn value_to_slider_pos(&self) -> i32 {
         if *self.value_range.start() > *self.value_range.end() {
             warn!("invalid scroll bar range");
@@ -412,7 +411,7 @@ impl Widget for ScrollBar {
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
-        let options = self.grid_options();
+        let options = self.common.grid_options();
         let size = self.common.size_or_err()?;
         let rects = grid::layout(&mut self.common.children, &options, size)?;
         self.common.set_child_rects(&rects)?;
@@ -458,21 +457,6 @@ impl Widget for ScrollBar {
         self.update_grip_pos();
         Ok(())
     }
-
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let options = self.grid_options();
-        grid::size_hint_x(&mut self.common.children, &options, mode)
-    }
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        self.axis == Axis::Y
-    }
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        self.axis == Axis::X
-    }
-    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
-        let options = self.grid_options();
-        grid::size_hint_y(&mut self.common.children, &options, size_x, mode)
-    }
 }
 
 struct Pager {
@@ -497,13 +481,7 @@ impl Pager {
 const PAGER_SIZE_HINT_MULTIPLIER: i32 = 2;
 
 impl Widget for Pager {
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
-    }
+    impl_widget_common!();
 
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         let grip_hint = self.common.children[INDEX_GRIP_IN_PAGER]
@@ -524,9 +502,9 @@ impl Widget for Pager {
         }
     }
     fn recalculate_size_x_fixed(&mut self) -> bool {
-        false
+        self.axis == Axis::Y
     }
     fn recalculate_size_y_fixed(&mut self) -> bool {
-        false
+        self.axis == Axis::X
     }
 }

@@ -22,7 +22,10 @@ use crate::{
         LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
         WidgetScopeChangeEvent, WindowFocusChangeEvent,
     },
-    layout::{LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
+    layout::{
+        grid::{self, GridAxisOptions, GridOptions},
+        LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT,
+    },
     style::{computed::ComputedStyle, Style},
     system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Point, Rect, Size},
@@ -153,6 +156,8 @@ pub struct WidgetCommon {
     // TODO: multiple filters?
     // TODO: accept/reject event from filter; option to run filter after on_event
     pub event_filter: Option<Box<EventFilterFn>>,
+    pub accessible_mounted: bool,
+    pub grid_options: Option<GridOptions>,
 }
 
 impl Drop for WidgetCommon {
@@ -166,6 +171,7 @@ impl WidgetCommon {
         let id = RawWidgetId::new();
         let scope = WidgetScope::new(id);
         register_address(id, scope.address.clone());
+
         Self {
             id,
             is_explicitly_enabled: true,
@@ -189,7 +195,36 @@ impl WidgetCommon {
             event_filter: None,
             current_layout_event: None,
             is_window_root: false,
+            accessible_mounted: false,
+            grid_options: None,
         }
+    }
+
+    pub fn set_grid_options(&mut self, options: Option<GridOptions>) {
+        self.grid_options = options;
+        self.size_hint_changed();
+    }
+
+    fn grid_options(&self) -> GridOptions {
+        // TODO: get from style, apply scale
+        const SPACING: i32 = 10;
+        const PADDING: i32 = 10;
+        self.grid_options.clone().unwrap_or_else(|| GridOptions {
+            x: GridAxisOptions {
+                min_padding: PADDING,
+                min_spacing: SPACING,
+                preferred_padding: PADDING,
+                preferred_spacing: SPACING,
+                border_collapse: 0,
+            },
+            y: GridAxisOptions {
+                min_padding: PADDING,
+                min_spacing: SPACING,
+                preferred_padding: PADDING,
+                preferred_spacing: SPACING,
+                border_collapse: 0,
+            },
+        })
     }
 
     pub fn is_visible(&self) -> bool {
@@ -312,7 +347,15 @@ impl WidgetCommon {
         }
         let mut widget = self.children.remove(index).widget;
         let id = widget.common().id;
+        let window_id = widget.common().scope.window_id();
         widget.set_scope(WidgetScope::new(id));
+        if widget.common().is_window_root {
+            if let Some(window_id) = window_id {
+                with_system(|system| {
+                    system.windows.remove(&window_id);
+                });
+            }
+        }
         self.update_children_scope(index);
         self.size_hint_changed();
         Ok(widget)
@@ -424,6 +467,28 @@ impl WidgetCommon {
         self.register_focusable();
     }
 
+    fn unmount_accessible(&mut self) {
+        if !self.accessible_mounted {
+            return;
+        }
+        // println!("unmount_accessible {:?}", self.id);
+        for child in &mut self.children {
+            child.widget.common_mut().unmount_accessible();
+        }
+        if let Some(window) = &self.scope.window {
+            let root_widget_id = window.0.borrow().root_widget_id;
+            window.0.borrow_mut().accessible_nodes.unmount(
+                if self.id == root_widget_id {
+                    None
+                } else {
+                    self.scope.parent_id.map(|id| id.into())
+                },
+                self.id.into(),
+            );
+        }
+        self.accessible_mounted = false;
+    }
+
     pub fn set_scope(&mut self, scope: WidgetScope) {
         let addr_changed = self.scope.address != scope.address;
         let parent_id_changed = self.scope.parent_id != scope.parent_id;
@@ -441,19 +506,15 @@ impl WidgetCommon {
             }
         }
         if update_accessible {
+            self.unmount_accessible();
             if let Some(window) = &self.scope.window {
-                if scope.window.is_none() {
+                if self.scope.window.is_none() {
                     window
                         .0
                         .borrow_mut()
                         .accessible_nodes
                         .update(self.id.0.into(), None);
                 }
-                window
-                    .0
-                    .borrow_mut()
-                    .accessible_nodes
-                    .unmount(self.scope.parent_id.map(|id| id.into()), self.id.into());
             }
         }
 
@@ -482,6 +543,7 @@ impl WidgetCommon {
                         .map(|(index, _id)| *index)
                         .unwrap_or_default(),
                 );
+                self.accessible_mounted = true;
             }
         }
         self.update();
@@ -619,9 +681,13 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(false)
     }
-    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        let _ = event;
-        Ok(())
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        let options = self.common().grid_options();
+        let Some(size) = self.common().size() else {
+            return Ok(());
+        };
+        let rects = grid::layout(&mut self.common_mut().children, &options, size)?;
+        self.common_mut().set_child_rects(&rects)
     }
     fn handle_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) -> Result<()> {
         let _ = event;
@@ -660,13 +726,21 @@ pub trait Widget: Downcast {
             Event::WidgetScopeChange(e) => self.handle_widget_scope_change(e).map(|()| true),
         }
     }
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32>;
-    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32>;
+    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+        let options = self.common().grid_options();
+        grid::size_hint_x(&mut self.common_mut().children, &options, mode)
+    }
+    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+        let options = self.common().grid_options();
+        grid::size_hint_y(&mut self.common_mut().children, &options, size_x, mode)
+    }
     fn recalculate_size_x_fixed(&mut self) -> bool {
-        true
+        let options = self.common().grid_options();
+        grid::size_x_fixed(&mut self.common_mut().children, &options)
     }
     fn recalculate_size_y_fixed(&mut self) -> bool {
-        true
+        let options = self.common().grid_options();
+        grid::size_y_fixed(&mut self.common_mut().children, &options)
     }
 
     // TODO: result?
@@ -972,13 +1046,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn set_scope(&mut self, scope: WidgetScope) {
-        // println!(
-        //     "set scope {:?} parent={:?} address={:?} window={:?}",
-        //     self.common().id,
-        //     scope.parent_id,
-        //     scope.address,
-        //     scope.window.as_ref().map(|w| w.0.borrow().id)
-        // );
         let previous_scope = self.common().scope.clone();
         self.common_mut().set_scope(scope);
         self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
@@ -1081,4 +1148,24 @@ impl WidgetAddress {
     pub fn starts_with(&self, base: &WidgetAddress) -> bool {
         base.path.len() <= self.path.len() && base.path == self.path[..base.path.len()]
     }
+    pub fn parent_widget_id(&self) -> Option<RawWidgetId> {
+        if self.path.len() > 1 {
+            Some(self.path[self.path.len() - 2].1)
+        } else {
+            None
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! impl_widget_common {
+    () => {
+        fn common(&self) -> &WidgetCommon {
+            &self.common
+        }
+
+        fn common_mut(&mut self) -> &mut WidgetCommon {
+            &mut self.common
+        }
+    };
 }

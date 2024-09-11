@@ -1,7 +1,7 @@
 use strum::{EnumIter, EnumString, IntoStaticStr};
 
 use crate::context::Context;
-use salvation::App;
+use salvation::{widgets::WidgetExt, App};
 
 pub mod scroll_bar;
 pub mod text_input;
@@ -17,7 +17,7 @@ macro_rules! tests {
         pub fn run_test_case(app: App, test_case: TestCase) -> anyhow::Result<()> {
             match test_case {
                 $(
-                    TestCase::$name => app.run($name::State::new),
+                    TestCase::$name => app.run(|| $name::RootWidget::new().boxed()),
                 )*
             }
         }

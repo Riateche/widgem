@@ -76,6 +76,7 @@ pub struct SharedWindowDataInner {
     pub num_clicks: u32,
     pub last_click_button: Option<MouseButton>,
     pub last_click_instant: Option<Instant>,
+    pub delete_widget_on_close: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -173,7 +174,6 @@ pub struct WindowWithWidget<'a> {
 }
 
 pub fn create_window(attrs: WindowAttributes, widget: &mut dyn Widget) -> SharedWindowData {
-    // println!("create_window OK!");
     let w = Window::new(attrs, widget);
     let data = w.shared_window_data.clone();
     with_system(|system| {
@@ -242,6 +242,7 @@ impl Window {
             num_clicks: 0,
             last_click_button: None,
             last_click_instant: None,
+            delete_widget_on_close: true,
         })));
 
         let mut scope = widget.common().scope.clone();
@@ -283,14 +284,6 @@ impl Window {
     }
 }
 impl<'a> WindowWithWidget<'a> {
-    pub fn close(&mut self) {
-        with_system(|system| {
-            let _ = system
-                .event_loop_proxy
-                .send_event(UserEvent::WindowClosed(self.id));
-        });
-    }
-
     fn dispatch_cursor_leave(&mut self) {
         while let Some(id) = self.shared_window_data.pop_mouse_entered_widget() {
             if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {
@@ -306,7 +299,6 @@ impl<'a> WindowWithWidget<'a> {
                 .process_event(&data.winit_window, &event);
         }
 
-        // println!("{:?} {:?}", self.id, event);
         match event {
             WindowEvent::RedrawRequested => {
                 let (width, height) = {
@@ -336,11 +328,6 @@ impl<'a> WindowWithWidget<'a> {
                 }
 
                 let pending_redraw = self.shared_window_data.0.borrow().pending_redraw;
-                // static X: AtomicU64 = AtomicU64::new(0);
-                // println!(
-                //     "redraw event {pending_redraw} {}",
-                //     X.fetch_add(1, Ordering::Relaxed)
-                // );
                 if pending_redraw {
                     let draw_event = DrawEvent::new(
                         Rc::clone(&self.shared_window_data.0.borrow().pixmap),
@@ -389,7 +376,13 @@ impl<'a> WindowWithWidget<'a> {
             }
             WindowEvent::CloseRequested => {
                 // TODO: add option to confirm close or do something else
-                self.close();
+                if self.shared_window_data.0.borrow().delete_widget_on_close {
+                    with_system(|system| {
+                        let _ = system.event_loop_proxy.send_event(UserEvent::DeleteWidget(
+                            self.shared_window_data.0.borrow().root_widget_id,
+                        ));
+                    });
+                }
             }
             // TODO: should use device id?
             WindowEvent::CursorEntered { .. } => {
@@ -500,7 +493,6 @@ impl<'a> WindowWithWidget<'a> {
                     }
                 }
                 let cursor_position = self.shared_window_data.0.borrow().cursor_position;
-                // println!("click pos {:?}", cursor_position);
                 if let Some(pos_in_window) = cursor_position {
                     let accepted_by = Rc::new(Cell::new(None));
                     let mouse_grabber_widget1: Option<RawWidgetId> =
@@ -671,7 +663,6 @@ impl<'a> WindowWithWidget<'a> {
         let focusable_widgets_changed1 =
             self.shared_window_data.0.borrow().focusable_widgets_changed;
         if focusable_widgets_changed1 {
-            //println!("focusable_widgets_changed!");
             self.shared_window_data
                 .0
                 .borrow_mut()

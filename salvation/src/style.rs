@@ -144,7 +144,6 @@ impl Style {
                 for selector in &rule.selectors.0 {
                     if check_selector(selector) {
                         let specificity = selector.specificity();
-                        // println!("matching selector: {selector:?}");
                         results.extend(
                             rule.declarations
                                 .iter()

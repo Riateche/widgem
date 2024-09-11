@@ -17,7 +17,7 @@ use crate::{
     style::{computed::ComputedStyle, defaults::default_style},
     system::{address, with_system, ReportError, SharedSystemDataInner, SYSTEM},
     timer::Timers,
-    widgets::{get_widget_by_address_mut, get_widget_by_id_mut, Widget, WidgetExt},
+    widgets::{get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetExt},
     window::WindowRequest,
 };
 
@@ -25,8 +25,8 @@ use crate::{
 pub(crate) enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
     WindowRequest(WindowId, WindowRequest),
-    WindowClosed(WindowId),
     Accesskit(accesskit_winit::Event),
+    DeleteWidget(RawWidgetId),
 }
 
 scoped_thread_local!(static ACTIVE_EVENT_LOOP: ActiveEventLoop);
@@ -169,7 +169,12 @@ impl Handler {
         }
     }
 
-    fn after_handler(&mut self) {}
+    fn after_handler(&mut self) {
+        let exit = with_system(|s| s.windows.is_empty() && s.exit_after_last_window_closes);
+        if exit {
+            with_active_event_loop(|event_loop| event_loop.exit());
+        }
+    }
 }
 
 impl ApplicationHandler<UserEvent> for Handler {
@@ -187,7 +192,9 @@ impl ApplicationHandler<UserEvent> for Handler {
             self.before_handler();
 
             let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
-                warn!("missing window object when dispatching event: {:?}", event);
+                if !matches!(event, WindowEvent::Destroyed) {
+                    warn!("missing window object when dispatching event: {:?}", event);
+                }
                 return;
             };
 
@@ -284,17 +291,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     window.with_root(root_widget).handle_request(request);
                 }
                 // TODO: remove event, remove window directly
-                UserEvent::WindowClosed(window_id) => {
-                    let exit = with_system(|s| {
-                        s.windows.remove(&window_id);
-                        s.windows.is_empty() && s.exit_after_last_window_closes
-                    });
-                    if exit {
-                        event_loop.exit();
-                    }
-                }
                 UserEvent::InvokeCallback(event) => {
-                    println!("InvokeCallback arrived");
                     dispatch_widget_callback(
                         self.root_widget.as_mut().unwrap().as_mut(),
                         event.callback_id,
@@ -315,6 +312,32 @@ impl ApplicationHandler<UserEvent> for Handler {
                         return;
                     };
                     window.with_root(root_widget).handle_accesskit_event(event);
+                }
+                UserEvent::DeleteWidget(id) => {
+                    if let Some(address) = address(id) {
+                        if let Some(parent_id) = address.parent_widget_id() {
+                            if let Ok(parent) = get_widget_by_id_mut(
+                                self.root_widget.as_mut().unwrap().as_mut(),
+                                parent_id,
+                            ) {
+                                match parent
+                                    .common_mut()
+                                    .remove_child(address.path.last().unwrap().0)
+                                {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        warn!("failed to remove widget: {:?}", err);
+                                    }
+                                }
+                            } else {
+                                warn!("DeleteWidget: failed to get parent widget");
+                            }
+                        } else {
+                            warn!("DeleteWidget: no parent");
+                        }
+                    } else {
+                        warn!("DeleteWidget: no address");
+                    }
                 }
             }
             self.after_handler();

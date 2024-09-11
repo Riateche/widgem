@@ -6,6 +6,7 @@ use anyhow::Result;
 
 use salvation::{
     event::LayoutEvent,
+    impl_widget_common,
     layout::SizeHintMode,
     system::add_interval,
     types::Rect,
@@ -44,13 +45,7 @@ impl AnotherWidget {
 }
 
 impl Widget for AnotherWidget {
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
-    }
+    impl_widget_common!();
 
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         Ok(self.common_mut().children[0].widget.size_hint_x(mode))
@@ -227,13 +222,7 @@ impl RootWidget {
 }
 
 impl Widget for RootWidget {
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
-    }
+    impl_widget_common!();
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         Ok(0)

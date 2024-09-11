@@ -23,7 +23,6 @@ pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
             if item.sig.output != ReturnType::Default {
                 continue;
             }
-            //println!("found fn: {:?}", item.sig.ident);
             let mut new_fn = item.clone();
             let mut stripped_name = item.sig.ident.to_string();
             if let Some(x) = stripped_name.strip_prefix("set_") {

@@ -75,7 +75,7 @@ impl AccessibleNodes {
     pub fn unmount(&mut self, parent: Option<NodeId>, child: NodeId) {
         // TODO: stricter checks and warnings
         let parent = parent.unwrap_or(self.root);
-        self.direct_parents.remove(&parent);
+        self.direct_parents.remove(&child);
         if let Entry::Occupied(mut entry) = self.direct_children.entry(parent) {
             entry.get_mut().retain(|(_, id)| *id == child);
             if entry.get_mut().is_empty() {

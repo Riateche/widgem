@@ -3,7 +3,10 @@ use std::fmt::Display;
 use anyhow::Result;
 use cosmic_text::Attrs;
 
-use crate::{draw::DrawEvent, layout::SizeHintMode, text_editor::TextEditor, types::Point};
+use crate::{
+    draw::DrawEvent, impl_widget_common, layout::SizeHintMode, text_editor::TextEditor,
+    types::Point,
+};
 
 use super::{Widget, WidgetCommon};
 
@@ -30,16 +33,11 @@ impl Label {
 }
 
 impl Widget for Label {
+    impl_widget_common!();
+
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         event.draw_pixmap(Point::default(), self.editor.pixmap().as_ref());
         Ok(())
-    }
-
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
     }
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {

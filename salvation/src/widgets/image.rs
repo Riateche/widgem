@@ -4,7 +4,7 @@ use anyhow::Result;
 use png::DecodingError;
 use tiny_skia::Pixmap;
 
-use crate::{draw::DrawEvent, layout::SizeHintMode, types::Point};
+use crate::{draw::DrawEvent, impl_widget_common, layout::SizeHintMode, types::Point};
 
 use super::{Widget, WidgetCommon};
 
@@ -30,18 +30,13 @@ impl Image {
 }
 
 impl Widget for Image {
+    impl_widget_common!();
+
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         if let Some(pixmap) = &self.pixmap {
             event.draw_pixmap(Point::default(), pixmap.as_ref());
         }
         Ok(())
-    }
-
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
     }
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {

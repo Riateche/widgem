@@ -22,6 +22,7 @@ use crate::{
         KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseMoveEvent, WidgetScopeChangeEvent,
         WindowFocusChangeEvent,
     },
+    impl_widget_common,
     layout::SizeHintMode,
     shortcut::standard_shortcuts,
     style::text_input::{ComputedVariantStyle, TextInputState},
@@ -254,6 +255,8 @@ impl TextInput {
 }
 
 impl Widget for TextInput {
+    impl_widget_common!();
+
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         self.update_viewport_rect();
         Ok(())
@@ -526,13 +529,6 @@ impl Widget for TextInput {
         self.common.update();
         self.reset_blink_timer();
         Ok(true)
-    }
-
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
     }
 
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {

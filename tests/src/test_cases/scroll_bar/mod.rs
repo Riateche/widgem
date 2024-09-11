@@ -1,48 +1,53 @@
 use salvation::{
+    impl_widget_common,
     widgets::{
-        column::Column, label::Label, padding_box::PaddingBox, scroll_bar::ScrollBar, WidgetExt,
+        column::Column, label::Label, scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt,
         WidgetId,
     },
-    CallbackContext, WindowAttributes,
+    WindowAttributes,
 };
 
 use crate::context::Context;
 
-pub struct State {
+pub struct RootWidget {
+    common: WidgetCommon,
     label_id: WidgetId<Label>,
-    #[allow(dead_code)]
-    scroll_bar_id: WidgetId<ScrollBar>,
 }
 
-impl State {
-    pub fn new(ctx: &mut CallbackContext<Self>) -> Self {
+impl RootWidget {
+    pub fn new() -> Self {
+        let mut common = WidgetCommon::new();
+
         let value = 0;
         let label = Label::new(value.to_string()).with_id();
         let scroll_bar = ScrollBar::new()
-            .with_on_value_changed(ctx.callback(State::on_scroll_bar_value_changed))
+            .with_on_value_changed(common.id.callback(Self::on_scroll_bar_value_changed))
             .with_value(value)
             .with_id();
         let mut column = Column::new();
         column.add_child(scroll_bar.widget.boxed());
         column.add_child(label.widget.boxed());
-        // TODO: add_child
-        PaddingBox::new(column.boxed())
-            .with_initial_window_attrs(WindowAttributes::default().with_title(module_path!()))
-            .boxed();
-        State {
+
+        common.add_window(
+            column.boxed(),
+            WindowAttributes::default().with_title(module_path!()),
+        );
+        Self {
+            common,
             label_id: label.id,
-            scroll_bar_id: scroll_bar.id,
         }
     }
 
-    fn on_scroll_bar_value_changed(
-        &mut self,
-        ctx: &mut CallbackContext<Self>,
-        value: i32,
-    ) -> anyhow::Result<()> {
-        ctx.widget(self.label_id)?.set_text(value.to_string());
+    fn on_scroll_bar_value_changed(&mut self, value: i32) -> anyhow::Result<()> {
+        self.common
+            .widget(self.label_id)?
+            .set_text(value.to_string());
         Ok(())
     }
+}
+
+impl Widget for RootWidget {
+    impl_widget_common!();
 }
 
 pub fn check(ctx: &mut Context) -> anyhow::Result<()> {

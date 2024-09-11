@@ -64,7 +64,6 @@ impl<Event> CallbackVec<Event> {
         Event: Send + Clone + 'static,
     {
         for item in &self.0 {
-            println!("item invoke!");
             item.invoke(event.clone());
         }
     }

@@ -15,11 +15,13 @@ use anyhow::Result;
 use itertools::Itertools;
 use log::warn;
 
+#[derive(Debug, Clone)]
 pub struct GridOptions {
     pub x: GridAxisOptions,
     pub y: GridAxisOptions,
 }
 
+#[derive(Debug, Clone)]
 pub struct GridAxisOptions {
     pub min_padding: i32,
     pub min_spacing: i32,

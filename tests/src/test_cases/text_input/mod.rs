@@ -1,21 +1,28 @@
+use crate::context::Context;
 use salvation::{
-    widgets::{padding_box::PaddingBox, text_input::TextInput, WidgetExt},
-    CallbackContext, WindowAttributes,
+    impl_widget_common,
+    widgets::{padding_box::PaddingBox, text_input::TextInput, Widget, WidgetCommon, WidgetExt},
+    WindowAttributes,
 };
 
-use crate::context::Context;
+pub struct RootWidget {
+    common: WidgetCommon,
+}
 
-pub struct State {}
-
-impl State {
-    pub fn new(_ctx: &mut CallbackContext<Self>) -> Self {
+impl RootWidget {
+    pub fn new() -> Self {
+        let mut common = WidgetCommon::new();
         let input = TextInput::new("Hello world");
-        // TODO: add_child
-        PaddingBox::new(input.boxed())
-            .with_initial_window_attrs(WindowAttributes::default().with_title(module_path!()))
-            .boxed();
-        State {}
+        common.add_window(
+            PaddingBox::new(input.boxed()).boxed(),
+            WindowAttributes::default().with_title(module_path!()),
+        );
+        Self { common }
     }
+}
+
+impl Widget for RootWidget {
+    impl_widget_common!();
 }
 
 pub fn check(ctx: &mut Context) -> anyhow::Result<()> {

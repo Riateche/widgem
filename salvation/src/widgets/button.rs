@@ -18,6 +18,7 @@ use crate::{
         AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent, MouseMoveEvent,
         WidgetScopeChangeEvent,
     },
+    impl_widget_common,
     layout::SizeHintMode,
     style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
     system::{add_interval, add_timer, send_window_request},
@@ -114,7 +115,6 @@ impl Button {
     }
 
     pub fn trigger(&mut self) {
-        println!("button trigger!");
         self.on_triggered.invoke(self.editor.text());
     }
 
@@ -204,6 +204,8 @@ impl Button {
 }
 
 impl Widget for Button {
+    impl_widget_common!();
+
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let size = self.common.size_or_err()?;
         let style = self.current_variant_style().clone();
@@ -301,12 +303,6 @@ impl Widget for Button {
         Ok(false)
     }
 
-    fn common(&self) -> &WidgetCommon {
-        &self.common
-    }
-    fn common_mut(&mut self) -> &mut WidgetCommon {
-        &mut self.common
-    }
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
         if self.role != Role1::Default {
             warn!("unexpected accessible action for role: {:?}", self.role);
