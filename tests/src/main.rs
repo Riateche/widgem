@@ -43,7 +43,9 @@ fn test_app(default_scale: bool) -> App {
         .with_system_fonts(false)
         .with_font(fonts_path.join("NotoSans-Regular.ttf"))
         .with_font(fonts_path.join("NotoColorEmoji.ttf"))
-        .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"));
+        .with_font(fonts_path.join("NotoSansHebrew-VariableFont_wdth,wght.ttf"))
+        .with_auto_repeat_delay(Duration::from_secs(2))
+        .with_auto_repeat_interval(Duration::from_secs(1));
     if !default_scale {
         app = app.with_scale(1.0);
     }

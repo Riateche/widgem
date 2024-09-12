@@ -1,4 +1,4 @@
-use std::{cmp::max, fmt::Display, rc::Rc, time::Duration};
+use std::{cmp::max, fmt::Display, rc::Rc};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use anyhow::Result;
@@ -21,7 +21,7 @@ use crate::{
     impl_widget_common,
     layout::SizeHintMode,
     style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
-    system::{add_interval, add_timer, send_window_request},
+    system::{add_interval, add_timer, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
     types::{Point, Rect},
@@ -29,9 +29,6 @@ use crate::{
 };
 
 use super::{Widget, WidgetCommon, WidgetExt};
-
-const AUTO_REPEAT_DELAY: Duration = Duration::from_millis(500);
-const AUTO_REPEAT_INTERVAL: Duration = Duration::from_millis(50);
 
 // TODO: pub(crate)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,9 +159,10 @@ impl Button {
             if self.trigger_on_press && !suppress_trigger {
                 self.trigger();
             }
+            let delay = with_system(|s| s.config.auto_repeat_delay);
             if self.auto_repeat {
                 let id = add_timer(
-                    AUTO_REPEAT_DELAY,
+                    delay,
                     self.callback(|this, _| {
                         this.start_auto_repeat();
                         Ok(())
@@ -190,8 +188,9 @@ impl Button {
             return;
         }
         self.trigger();
+        let interval = with_system(|s| s.config.auto_repeat_interval);
         let id = add_interval(
-            AUTO_REPEAT_INTERVAL,
+            interval,
             self.callback(|this, _| {
                 if this.common.is_enabled() {
                     this.trigger();

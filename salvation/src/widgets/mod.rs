@@ -209,7 +209,7 @@ impl WidgetCommon {
         // TODO: get from style, apply scale
         const SPACING: i32 = 10;
         const PADDING: i32 = 10;
-        self.grid_options.clone().unwrap_or_else(|| GridOptions {
+        self.grid_options.clone().unwrap_or(GridOptions {
             x: GridAxisOptions {
                 min_padding: PADDING,
                 min_spacing: SPACING,
@@ -375,7 +375,7 @@ impl WidgetCommon {
         child.rect_in_parent = rect_in_parent;
         let rect_changed = child.widget.common().rect_in_window != rect_in_window;
         if let Some(event) = &self.current_layout_event {
-            if rect_changed || event.size_hints_changed_within(&child.widget.common().address()) {
+            if rect_changed || event.size_hints_changed_within(child.widget.common().address()) {
                 child.widget.dispatch(
                     LayoutEvent::new(rect_in_window, event.changed_size_hints.clone()).into(),
                 );

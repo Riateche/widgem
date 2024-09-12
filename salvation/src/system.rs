@@ -24,7 +24,14 @@ thread_local! {
     pub static SYSTEM: SharedSystemData = const { SharedSystemData(RefCell::new(None)) };
 }
 
+pub struct SystemConfig {
+    pub auto_repeat_delay: Duration,
+    pub auto_repeat_interval: Duration,
+    pub exit_after_last_window_closes: bool,
+}
+
 pub struct SharedSystemDataInner {
+    pub config: SystemConfig,
     pub address_book: HashMap<RawWidgetId, WidgetAddress>,
     pub font_system: FontSystem,
     pub swash_cache: SwashCache,
@@ -34,8 +41,6 @@ pub struct SharedSystemDataInner {
     pub timers: Timers,
     pub clipboard: Clipboard,
     pub windows: HashMap<WindowId, Window>,
-    pub exit_after_last_window_closes: bool,
-
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
 }
 

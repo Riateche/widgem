@@ -1,4 +1,11 @@
-use std::{any::Any, collections::HashMap, fmt::Debug, path::PathBuf, rc::Rc, time::Instant};
+use std::{
+    any::Any,
+    collections::HashMap,
+    fmt::Debug,
+    path::PathBuf,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use arboard::Clipboard;
 use cosmic_text::{fontdb, FontSystem, SwashCache};
@@ -15,7 +22,7 @@ use winit::{
 use crate::{
     callback::{CallbackId, InvokeCallbackEvent},
     style::{computed::ComputedStyle, defaults::default_style},
-    system::{address, with_system, ReportError, SharedSystemDataInner, SYSTEM},
+    system::{address, with_system, ReportError, SharedSystemDataInner, SystemConfig, SYSTEM},
     timer::Timers,
     widgets::{get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetExt},
     window::WindowRequest,
@@ -91,6 +98,8 @@ pub struct App {
     system_fonts: bool,
     custom_font_paths: Vec<PathBuf>,
     fixed_scale: Option<f32>,
+    auto_repeat_delay: Option<Duration>,
+    auto_repeat_interval: Option<Duration>,
 }
 
 impl Default for App {
@@ -105,6 +114,8 @@ impl App {
             system_fonts: true,
             custom_font_paths: vec![],
             fixed_scale: None,
+            auto_repeat_delay: None,
+            auto_repeat_interval: None,
         }
     }
 
@@ -120,6 +131,16 @@ impl App {
 
     pub fn with_scale(mut self, scale: f32) -> App {
         self.fixed_scale = Some(scale);
+        self
+    }
+
+    pub fn with_auto_repeat_delay(mut self, delay: Duration) -> App {
+        self.auto_repeat_delay = Some(delay);
+        self
+    }
+
+    pub fn with_auto_repeat_interval(mut self, interval: Duration) -> App {
+        self.auto_repeat_interval = Some(interval);
         self
     }
 
@@ -170,12 +191,15 @@ impl Handler {
     }
 
     fn after_handler(&mut self) {
-        let exit = with_system(|s| s.windows.is_empty() && s.exit_after_last_window_closes);
+        let exit = with_system(|s| s.windows.is_empty() && s.config.exit_after_last_window_closes);
         if exit {
             with_active_event_loop(|event_loop| event_loop.exit());
         }
     }
 }
+
+const DEFAULT_AUTO_REPEAT_DELAY: Duration = Duration::from_millis(500);
+const DEFAULT_AUTO_REPEAT_INTERVAL: Duration = Duration::from_millis(50);
 
 impl ApplicationHandler<UserEvent> for Handler {
     // TODO: It's recommended that applications should only initialize their graphics context
@@ -235,6 +259,18 @@ impl ApplicationHandler<UserEvent> for Handler {
                 };
 
                 let shared_system_data = SharedSystemDataInner {
+                    config: SystemConfig {
+                        exit_after_last_window_closes: true,
+                        // TODO: should we fetch system settings instead?
+                        auto_repeat_delay: self
+                            .app
+                            .auto_repeat_delay
+                            .unwrap_or(DEFAULT_AUTO_REPEAT_DELAY),
+                        auto_repeat_interval: self
+                            .app
+                            .auto_repeat_interval
+                            .unwrap_or(DEFAULT_AUTO_REPEAT_INTERVAL),
+                    },
                     address_book: HashMap::new(),
                     font_system,
                     swash_cache: SwashCache::new(),
@@ -244,7 +280,6 @@ impl ApplicationHandler<UserEvent> for Handler {
                     timers: Timers::new(),
                     clipboard: Clipboard::new().expect("failed to initialize clipboard"),
                     windows: HashMap::new(),
-                    exit_after_last_window_closes: true,
                     widget_callbacks: HashMap::new(),
                 };
                 SYSTEM.with(|system| {
