@@ -28,9 +28,10 @@ fn rounded_line_in_square_corner(
 
 #[derive(Debug, Clone)]
 pub struct DrawEvent {
+    top_left: Point,
     pixmap: Rc<RefCell<Pixmap>>,
     mask: Mask,
-    top_left: Point,
+    transform: Transform,
     mask_rect: Rect,
 }
 
@@ -53,20 +54,21 @@ impl DrawEvent {
         );
 
         Self {
+            top_left,
             pixmap,
             mask,
-            top_left,
+            transform: Transform::from_translate(top_left.x as f32, top_left.y as f32),
             mask_rect,
         }
     }
 
     pub fn draw_pixmap(&self, pos: Point, pixmap: PixmapRef<'_>, transform: Transform) {
         self.pixmap.borrow_mut().draw_pixmap(
-            pos.x + self.top_left.x,
-            pos.y + self.top_left.y,
+            pos.x,
+            pos.y,
             pixmap,
             &PixmapPaint::default(),
-            transform,
+            self.transform.pre_concat(transform),
             Some(&self.mask),
         )
     }
@@ -79,7 +81,6 @@ impl DrawEvent {
         if target_rect.is_empty() {
             return;
         }
-        let target_rect = target_rect.translate(self.top_left);
         let translation = target_rect.top_left - pixmap_offset;
         let patt_transform = Transform::from_translate(translation.x as f32, translation.y as f32);
         let paint = Paint {
@@ -104,7 +105,7 @@ impl DrawEvent {
             )
             .unwrap(),
             &paint,
-            Transform::default(),
+            self.transform,
             Some(&self.mask),
         );
     }
@@ -115,7 +116,7 @@ impl DrawEvent {
             warn!("radius is bigger than fits in rectangle");
             radius = 0.0;
         }
-        let top_left_point = self.top_left + rect.top_left;
+        let top_left_point = rect.top_left;
         let top_left = tiny_skia::Point {
             x: top_left_point.x as f32 + width / 2.0,
             y: top_left_point.y as f32 + width / 2.0,
@@ -173,7 +174,7 @@ impl DrawEvent {
                 width,
                 ..Stroke::default()
             },
-            Transform::default(),
+            self.transform,
             Some(&self.mask),
         );
     }
@@ -187,7 +188,7 @@ impl DrawEvent {
                 ..Paint::default()
             },
             FillRule::default(),
-            Transform::default(),
+            self.transform,
             Some(&self.mask),
         );
     }
@@ -201,12 +202,11 @@ impl DrawEvent {
         let path =
             self.rounded_rect_path(rect, border.radius.get() as f32, border.width.get() as f32);
         if let Some(background) = background {
-            let global_rect = rect.translate(self.top_left);
             let shader = match background {
                 ComputedBackground::Solid { color } => Shader::SolidColor(*color),
                 ComputedBackground::LinearGradient(gradient) => LinearGradient::new(
-                    global_rect.relative_pos(gradient.start).into(),
-                    global_rect.relative_pos(gradient.end).into(),
+                    rect.relative_pos(gradient.start).into(),
+                    rect.relative_pos(gradient.end).into(),
                     gradient.stops.clone(),
                     gradient.mode,
                     Transform::default(),
@@ -239,7 +239,7 @@ impl DrawEvent {
 
     // TODO: add at least width
     pub fn stroke_rect(&self, rect: Rect, color: Color) {
-        let top_left = self.top_left + rect.top_left;
+        let top_left = rect.top_left;
         let path = PathBuilder::from_rect(
             tiny_skia::Rect::from_xywh(
                 top_left.x as f32 + 0.5,
@@ -256,13 +256,13 @@ impl DrawEvent {
                 ..Paint::default()
             },
             &Stroke::default(),
-            Transform::default(),
+            self.transform,
             Some(&self.mask),
         );
     }
 
     pub fn fill_rect(&self, rect: Rect, color: Color) {
-        let top_left = self.top_left + rect.top_left;
+        let top_left = rect.top_left;
         self.pixmap.borrow_mut().fill_rect(
             tiny_skia::Rect::from_xywh(
                 top_left.x as f32,
@@ -275,7 +275,7 @@ impl DrawEvent {
                 shader: tiny_skia::Shader::SolidColor(color),
                 ..Paint::default()
             },
-            Transform::default(),
+            self.transform,
             Some(&self.mask),
         );
     }

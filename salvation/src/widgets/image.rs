@@ -46,7 +46,7 @@ impl Widget for Image {
             event.draw_pixmap(
                 Point::default(),
                 pixmap.as_ref(),
-                Transform::default(), //from_scale(self.common.style().scale, self.common.style().scale),
+                Transform::from_scale(self.common.style().scale, self.common.style().scale),
             );
         }
         Ok(())

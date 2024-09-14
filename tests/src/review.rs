@@ -126,10 +126,9 @@ impl ReviewWidget {
             snapshot_name_id: snapshot_name.id,
             image_id: image.id,
             reviewer,
-        }
-        .with_window(WindowAttributes::default().with_title("salvation test review"));
+        };
         this.update_ui().unwrap();
-        this
+        this.with_window(WindowAttributes::default().with_title("salvation test review"))
     }
 
     fn update_ui(&mut self) -> anyhow::Result<()> {
@@ -355,12 +354,36 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
             let pixel_b = b.pixel(x, y);
             let pixel_out = if pixel_a == pixel_b {
                 pixel_a.unwrap()
+            // } else if let (Some(pixel_a), Some(pixel_b)) = (pixel_a, pixel_b) {
+            //     PremultipliedColorU8::from_rgba(
+            //         u8_diff(pixel_a.red(), pixel_b.red()),
+            //         u8_diff(pixel_a.green(), pixel_b.green()),
+            //         u8_diff(pixel_a.blue(), pixel_b.blue()),
+            //         255,
+            //     )
+            //     .unwrap()
+            } else if let Some(pixel_a) = pixel_a {
+                PremultipliedColorU8::from_rgba(
+                    pixel_a.red().saturating_sub(50),
+                    pixel_a.green().saturating_add(50),
+                    pixel_a.blue().saturating_sub(50),
+                    255,
+                )
+                .unwrap()
             } else {
-                PremultipliedColorU8::from_rgba(0, 255, 0, 255).unwrap()
+                PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap()
             };
             out.pixels_mut()[(y * width + x) as usize] = pixel_out;
         }
     }
 
     out
+}
+
+fn u8_diff(a: u8, b: u8) -> u8 {
+    if a > b {
+        a - b
+    } else {
+        b - a
+    }
 }
