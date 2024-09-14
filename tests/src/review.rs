@@ -1,6 +1,6 @@
 use std::{
     cmp::max,
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     path::{Path, PathBuf},
 };
 
@@ -26,9 +26,10 @@ pub struct ReviewWidget {
     snapshot_name_id: WidgetId<Label>,
     image_id: WidgetId<Image>,
     reviewer: Reviewer,
+    mode_button_ids: HashMap<Mode, WidgetId<Button>>,
 }
 
-#[derive(Debug, Clone, Copy, EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum Mode {
     New,
     Confirmed,
@@ -78,24 +79,17 @@ impl ReviewWidget {
         );
 
         let mut modes_row = Row::new();
+        let mut mode_button_ids = HashMap::new();
         for mode in Mode::iter() {
-            modes_row.add_child(
-                Button::new(mode.ui_name())
-                    .with_on_triggered(common.id.callback(move |w: &mut Self, _e| w.set_mode(mode)))
-                    .boxed(),
-            )
+            // TODO: radio buttons
+            let button = Button::new(mode.ui_name())
+                .with_on_triggered(common.id.callback(move |w: &mut Self, _e| w.set_mode(mode)))
+                .with_id();
+            modes_row.add_child(button.widget.boxed());
+            mode_button_ids.insert(mode, button.id);
         }
         // TODO: radio buttons
-        common.add_child(
-            // Row::new()
-            // .with_child(Button::new("New").boxed())
-            // .with_child(Button::new("Confirmed").boxed())
-            // .with_child(Button::new("Previous confirmed").boxed())
-            // .with_child(Button::new("Diff with confirmed").boxed())
-            // .with_child(Button::new("Diff with previous confirmed").boxed())
-            modes_row.boxed(),
-            LayoutItemOptions::from_pos_in_grid(2, 3),
-        );
+        common.add_child(modes_row.boxed(), LayoutItemOptions::from_pos_in_grid(2, 3));
 
         common.add_child(
             Label::new("Snapshot:").boxed(),
@@ -113,9 +107,30 @@ impl ReviewWidget {
         );
         common.add_child(
             Row::new()
-                .with_child(Button::new("Approve").boxed())
-                .with_child(Button::new("Skip snapshot").boxed())
-                .with_child(Button::new("Skip test").boxed())
+                .with_child(
+                    Button::new("Approve")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.approve()?;
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .with_child(
+                    Button::new("Skip snapshot")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.go_to_next_files();
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .with_child(
+                    Button::new("Skip test")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.go_to_next_test_case();
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
                 .boxed(),
             LayoutItemOptions::from_pos_in_grid(2, 5),
         );
@@ -125,6 +140,7 @@ impl ReviewWidget {
             test_name_id: test_name.id,
             snapshot_name_id: snapshot_name.id,
             image_id: image.id,
+            mode_button_ids,
             reviewer,
         };
         this.update_ui().unwrap();
@@ -132,6 +148,11 @@ impl ReviewWidget {
     }
 
     fn update_ui(&mut self) -> anyhow::Result<()> {
+        if !self.reviewer.has_current_files() {
+            salvation::exit();
+            return Ok(());
+        }
+
         let state = self.reviewer.current_state();
         self.common
             .widget(self.test_name_id)?
@@ -142,7 +163,11 @@ impl ReviewWidget {
         self.common
             .widget(self.image_id)?
             .set_pixmap(state.snapshot);
-
+        for (mode, id) in &self.mode_button_ids {
+            self.common
+                .widget(*id)?
+                .set_enabled(self.reviewer.is_mode_allowed(*mode));
+        }
         Ok(())
     }
 
@@ -336,11 +361,41 @@ impl Reviewer {
             warn!("mode not allowed");
         }
     }
+
+    pub fn approve(&mut self) -> anyhow::Result<()> {
+        let test_case_dir = self.test_cases_dir.join(format!(
+            "{:?}",
+            self.current_test_case.context("no current test case")?
+        ));
+        let current_files = self.current_files.as_mut().context("no current files")?;
+        let unconfirmed = current_files
+            .unconfirmed
+            .as_ref()
+            .context("no unconfirmed file")?;
+
+        if let Some(confirmed) = current_files.confirmed.take() {
+            fs_err::remove_file(test_case_dir.join(confirmed))?;
+        }
+        let unsuffixed = unconfirmed
+            .strip_suffix(".new.png")
+            .context("invalid unconfirmed file name")?;
+        let confirmed_name = format!("{unsuffixed}.png");
+        fs_err::rename(
+            test_case_dir.join(unconfirmed),
+            test_case_dir.join(confirmed_name),
+        )?;
+
+        self.go_to_next_files();
+
+        Ok(())
+    }
 }
 
 struct ReviewerState {
     test_case_name: String,
     snapshot_name: String,
+    // TODO: use it to set active radio button
+    #[allow(dead_code)]
     mode: Mode,
     snapshot: Option<Pixmap>,
 }
@@ -378,12 +433,4 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
     }
 
     out
-}
-
-fn u8_diff(a: u8, b: u8) -> u8 {
-    if a > b {
-        a - b
-    } else {
-        b - a
-    }
 }
