@@ -7,18 +7,11 @@ use std::{
 };
 
 use anyhow::{bail, Context as _};
-use fs_err::read_dir;
 use image::{ImageReader, RgbaImage};
 use itertools::Itertools;
 use uitest::{Connection, Window};
 
-use crate::repo_dir;
-
-#[derive(Debug, Default)]
-struct SingleSnapshotFiles {
-    confirmed: Option<String>,
-    unconfirmed: Option<String>,
-}
+use crate::{discover_snapshots, repo_dir, SingleSnapshotFiles};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SnapshotMode {
@@ -44,54 +37,13 @@ impl<'a> Context<'a> {
         snapshot_mode: SnapshotMode,
         pid: u32,
     ) -> anyhow::Result<Context> {
-        let mut unverified_files = BTreeMap::<u32, SingleSnapshotFiles>::new();
-        for entry in read_dir(&test_case_dir)? {
-            let entry = entry?;
-            let name = entry
-                .file_name()
-                .to_str()
-                .with_context(|| {
-                    format!("non-unicode file name in test case dir: {:?}", entry.path())
-                })?
-                .to_string();
-            if !name.ends_with(".png") {
-                continue;
-            }
-            let mut iter = name.splitn(2, " - ");
-            let first = iter.next().expect("never fails");
-            iter.next()
-                .with_context(|| format!("invalid snapshot name: {:?}", entry.path()))?;
-            let step: u32 = first
-                .parse()
-                .with_context(|| format!("invalid snapshot name: {:?}", entry.path()))?;
-            let files = unverified_files.entry(step).or_default();
-            if name.ends_with(".new.png") {
-                if let Some(unconfirmed) = &files.unconfirmed {
-                    bail!(
-                        "duplicate unconfirmed files: {:?}, {:?}",
-                        test_case_dir.join(unconfirmed),
-                        entry.path()
-                    );
-                }
-                files.unconfirmed = Some(name);
-            } else {
-                if let Some(confirmed) = &files.confirmed {
-                    bail!(
-                        "duplicate confirmed files: {:?}, {:?}",
-                        test_case_dir.join(confirmed),
-                        entry.path()
-                    );
-                }
-                files.confirmed = Some(name);
-            }
-        }
         Ok(Self {
+            unverified_files: discover_snapshots(&test_case_dir)?,
             connection,
             test_case_dir,
             pid,
             last_snapshot_index: 0,
             snapshot_mode,
-            unverified_files,
             fails: Vec::new(),
             blinking_expected: false,
         })

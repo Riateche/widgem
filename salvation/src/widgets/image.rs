@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use png::DecodingError;
+use salvation_macros::impl_with;
 use tiny_skia::Pixmap;
 
 use crate::{draw::DrawEvent, impl_widget_common, layout::SizeHintMode, types::Point};
@@ -13,6 +14,7 @@ pub struct Image {
     common: WidgetCommon,
 }
 
+#[impl_with]
 impl Image {
     pub fn load_png<P: AsRef<Path>>(path: P) -> Result<Self, DecodingError> {
         Ok(Self {
@@ -21,11 +23,17 @@ impl Image {
         })
     }
 
-    pub fn new(pixmap: Pixmap) -> Self {
+    pub fn new(pixmap: Option<Pixmap>) -> Self {
         Self {
-            pixmap: Some(pixmap),
+            pixmap,
             common: WidgetCommon::new(),
         }
+    }
+
+    pub fn set_pixmap(&mut self, pixmap: Option<Pixmap>) {
+        self.pixmap = pixmap;
+        self.common.size_hint_changed();
+        self.common.update();
     }
 }
 

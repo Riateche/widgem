@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     env,
     path::{Path, PathBuf},
     process::{Child, Command},
@@ -9,7 +10,8 @@ use std::{
 use anyhow::{bail, Context as _};
 use clap::Parser;
 use context::{Context, SnapshotMode};
-use review::ReviewWidget;
+use fs_err::read_dir;
+use review::{ReviewWidget, Reviewer};
 use salvation::{widgets::WidgetExt, App};
 use strum::IntoEnumIterator;
 use test_cases::{run_test_case, run_test_check, TestCase};
@@ -176,8 +178,12 @@ fn main() -> anyhow::Result<()> {
             run_test_case(app, test_case)?;
         }
         Args::Review => {
-            salvation::run(|| ReviewWidget::new().boxed())?;
-            println!("salvation::run finished");
+            let reviewer = Reviewer::new(&test_cases_dir());
+            if reviewer.has_current_files() {
+                salvation::run(|| ReviewWidget::new(reviewer).boxed())?;
+            } else {
+                println!("No unconfirmed snapshots found.");
+            }
         }
         Args::Approve { screenshot_path } => {
             let Some(str) = screenshot_path.strip_suffix(".new.png") else {
@@ -192,4 +198,53 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Debug, Default)]
+struct SingleSnapshotFiles {
+    confirmed: Option<String>,
+    unconfirmed: Option<String>,
+}
+
+fn discover_snapshots(test_case_dir: &Path) -> anyhow::Result<BTreeMap<u32, SingleSnapshotFiles>> {
+    let mut unverified_files = BTreeMap::<u32, SingleSnapshotFiles>::new();
+    for entry in read_dir(test_case_dir)? {
+        let entry = entry?;
+        let name = entry
+            .file_name()
+            .to_str()
+            .with_context(|| format!("non-unicode file name in test case dir: {:?}", entry.path()))?
+            .to_string();
+        if !name.ends_with(".png") {
+            continue;
+        }
+        let mut iter = name.splitn(2, " - ");
+        let first = iter.next().expect("never fails");
+        iter.next()
+            .with_context(|| format!("invalid snapshot name: {:?}", entry.path()))?;
+        let step: u32 = first
+            .parse()
+            .with_context(|| format!("invalid snapshot name: {:?}", entry.path()))?;
+        let files = unverified_files.entry(step).or_default();
+        if name.ends_with(".new.png") {
+            if let Some(unconfirmed) = &files.unconfirmed {
+                bail!(
+                    "duplicate unconfirmed files: {:?}, {:?}",
+                    test_case_dir.join(unconfirmed),
+                    entry.path()
+                );
+            }
+            files.unconfirmed = Some(name);
+        } else {
+            if let Some(confirmed) = &files.confirmed {
+                bail!(
+                    "duplicate confirmed files: {:?}, {:?}",
+                    test_case_dir.join(confirmed),
+                    entry.path()
+                );
+            }
+            files.confirmed = Some(name);
+        }
+    }
+    Ok(unverified_files)
 }

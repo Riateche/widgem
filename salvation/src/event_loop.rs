@@ -152,6 +152,8 @@ impl App {
         let mut handler = Handler::new(self, make_root_widget, &event_loop);
         event_loop.run_app(&mut handler)?;
         println!("run_app finished");
+        // Delete widgets before de-initializing the system.
+        handler.root_widget = None;
         // This is needed to make sure we drop winit window objects before
         // event loop is destroyed.
         SYSTEM.with(|system| *system.0.borrow_mut() = None);
