@@ -33,9 +33,10 @@ impl AnotherWidget {
         button.on_triggered(this.callback(|this, _event| {
             this.counter += 1;
             println!("counter: {}", this.counter);
-            let label = Label::new(format!("counter: {}", this.counter)).boxed();
-            this.common_mut()
-                .add_window(label, Window::default_attributes().with_title("example"));
+            let label = Label::new(format!("counter: {}", this.counter))
+                .with_window(Window::default_attributes().with_title("example"))
+                .boxed();
+            this.common_mut().add_child(label, Default::default());
             Ok(())
         }));
         this.common_mut()
@@ -166,9 +167,11 @@ impl RootWidget {
 
         root.add_child(ScrollArea::new(content.boxed()).boxed());
 
-        common.add_window(
-            PaddingBox::new(root.boxed()).boxed(),
-            Window::default_attributes().with_title("example"),
+        common.add_child(
+            PaddingBox::new(root.boxed())
+                .with_window(Window::default_attributes().with_title("example"))
+                .boxed(),
+            Default::default(),
         );
         add_interval(
             Duration::from_secs(2),

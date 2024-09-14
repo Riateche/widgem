@@ -151,6 +151,10 @@ impl App {
         let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
         let mut handler = Handler::new(self, make_root_widget, &event_loop);
         event_loop.run_app(&mut handler)?;
+        println!("run_app finished");
+        // This is needed to make sure we drop winit window objects before
+        // event loop is destroyed.
+        SYSTEM.with(|system| *system.0.borrow_mut() = None);
         Ok(())
     }
 }
@@ -165,6 +169,12 @@ struct Handler {
     root_widget: Option<Box<dyn Widget>>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
     make_root_widget: Option<Box<dyn FnOnce() -> Box<dyn Widget>>>,
+}
+
+impl Drop for Handler {
+    fn drop(&mut self) {
+        println!("drop Handler");
+    }
 }
 
 impl Handler {
@@ -221,12 +231,16 @@ impl ApplicationHandler<UserEvent> for Handler {
                 }
                 return;
             };
+            let Some(root_widget) = &mut self.root_widget else {
+                warn!(
+                    "cannot dispatch event when root widget doesn't exist: {:?}",
+                    event
+                );
+                return;
+            };
 
-            if let Some(window_root_widget) = get_widget_by_id_mut(
-                self.root_widget.as_mut().unwrap().as_mut(),
-                window.root_widget_id,
-            )
-            .or_report_err()
+            if let Some(window_root_widget) =
+                get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id).or_report_err()
             {
                 window.with_root(window_root_widget).handle_event(event);
             }
@@ -310,28 +324,31 @@ impl ApplicationHandler<UserEvent> for Handler {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
             self.before_handler();
+            let Some(root_widget) = &mut self.root_widget else {
+                warn!(
+                    "cannot dispatch event when root widget doesn't exist: {:?}",
+                    event
+                );
+                return;
+            };
             match event {
                 UserEvent::WindowRequest(window_id, request) => {
                     let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
                         warn!("missing window object when dispatching WindowRequest");
                         return;
                     };
-                    let Ok(root_widget) = get_widget_by_id_mut(
-                        self.root_widget.as_mut().unwrap().as_mut(),
-                        window.root_widget_id,
-                    ) else {
+
+                    let Ok(window_root_widget) =
+                        get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id)
+                    else {
                         warn!("missing root widget when dispatching WindowRequest");
                         return;
                     };
-                    window.with_root(root_widget).handle_request(request);
+                    window.with_root(window_root_widget).handle_request(request);
                 }
                 // TODO: remove event, remove window directly
                 UserEvent::InvokeCallback(event) => {
-                    dispatch_widget_callback(
-                        self.root_widget.as_mut().unwrap().as_mut(),
-                        event.callback_id,
-                        event.event,
-                    );
+                    dispatch_widget_callback(root_widget.as_mut(), event.callback_id, event.event);
                 }
                 UserEvent::Accesskit(event) => {
                     let Some(window) = with_system(|s| s.windows.get(&event.window_id).cloned())
@@ -339,22 +356,23 @@ impl ApplicationHandler<UserEvent> for Handler {
                         warn!("missing window object when dispatching Accesskit event");
                         return;
                     };
-                    let Ok(root_widget) = get_widget_by_id_mut(
-                        self.root_widget.as_mut().unwrap().as_mut(),
-                        window.root_widget_id,
-                    ) else {
+                    let Ok(root_widget) =
+                        get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id)
+                    else {
                         warn!("missing root widget when dispatching Accesskit event");
                         return;
                     };
                     window.with_root(root_widget).handle_accesskit_event(event);
                 }
                 UserEvent::DeleteWidget(id) => {
-                    if let Some(address) = address(id) {
+                    if id == root_widget.common().id {
+                        self.root_widget = None;
+                        with_active_event_loop(|event_loop| event_loop.exit());
+                    } else if let Some(address) = address(id) {
                         if let Some(parent_id) = address.parent_widget_id() {
-                            if let Ok(parent) = get_widget_by_id_mut(
-                                self.root_widget.as_mut().unwrap().as_mut(),
-                                parent_id,
-                            ) {
+                            if let Ok(parent) =
+                                get_widget_by_id_mut(root_widget.as_mut(), parent_id)
+                            {
                                 match parent
                                     .common_mut()
                                     .remove_child(address.path.last().unwrap().0)

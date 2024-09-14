@@ -28,9 +28,11 @@ impl RootWidget {
         column.add_child(scroll_bar.widget.boxed());
         column.add_child(label.widget.boxed());
 
-        common.add_window(
-            column.boxed(),
-            WindowAttributes::default().with_title(module_path!()),
+        common.add_child(
+            column
+                .with_window(WindowAttributes::default().with_title(module_path!()))
+                .boxed(),
+            Default::default(),
         );
         Self {
             common,

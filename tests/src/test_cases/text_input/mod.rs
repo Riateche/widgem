@@ -13,9 +13,11 @@ impl RootWidget {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
         let input = TextInput::new("Hello world");
-        common.add_window(
-            PaddingBox::new(input.boxed()).boxed(),
-            WindowAttributes::default().with_title(module_path!()),
+        common.add_child(
+            PaddingBox::new(input.boxed())
+                .with_window(WindowAttributes::default().with_title(module_path!()))
+                .boxed(),
+            Default::default(),
         );
         Self { common }
     }

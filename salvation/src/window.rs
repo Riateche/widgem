@@ -174,12 +174,7 @@ pub struct WindowWithWidget<'a> {
 }
 
 pub fn create_window(attrs: WindowAttributes, widget: &mut dyn Widget) -> SharedWindowData {
-    let w = Window::new(attrs, widget);
-    let data = w.shared_window_data.clone();
-    with_system(|system| {
-        system.windows.insert(w.id, w);
-    });
-    data
+    Window::new(attrs, widget).shared_window_data
 }
 
 // Extra size to avoid visual artifacts when resizing the window.
@@ -187,7 +182,7 @@ pub fn create_window(attrs: WindowAttributes, widget: &mut dyn Widget) -> Shared
 const EXTRA_SURFACE_SIZE: u32 = 50;
 
 impl Window {
-    pub fn new(mut attrs: WindowAttributes, widget: &mut dyn Widget) -> Self {
+    pub(crate) fn new(mut attrs: WindowAttributes, widget: &mut dyn Widget) -> Self {
         // TODO: propagate style without mounting?
         let size_hints_x = widget.size_hints_x();
         // TODO: adjust size_x for screen size
@@ -210,8 +205,9 @@ impl Window {
         );
         let inner_size = winit_window.inner_size();
 
+        let id = winit_window.id();
         let shared_window_data = SharedWindowData(Rc::new(RefCell::new(SharedWindowDataInner {
-            id: winit_window.id(),
+            id,
             root_widget_id: widget.common().id,
             cursor_position: None,
             cursor_entered: false,
@@ -245,6 +241,7 @@ impl Window {
             delete_widget_on_close: true,
         })));
 
+        widget.common_mut().is_window_root = true;
         let mut scope = widget.common().scope.clone();
         scope.window = Some(shared_window_data.clone());
         widget.set_scope(scope);
@@ -260,6 +257,10 @@ impl Window {
             shared_window_data,
         };
         w.clone().with_root(widget).after_widget_activity();
+        let w_clone = w.clone();
+        with_system(|system| {
+            system.windows.insert(id, w_clone);
+        });
 
         // {
         //     let pixmap = Pixmap::decode_png(include_bytes!("../assets/icon.png")).unwrap();

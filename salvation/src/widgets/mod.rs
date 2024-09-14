@@ -37,6 +37,7 @@ pub mod column;
 pub mod image;
 pub mod label;
 pub mod padding_box;
+pub mod row;
 pub mod scroll_area;
 pub mod scroll_bar;
 pub mod stack;
@@ -289,16 +290,16 @@ impl WidgetCommon {
         index
     }
 
-    pub fn add_window(
-        &mut self,
-        mut widget: Box<dyn Widget>,
-        attrs: WindowAttributes,
-    ) -> SharedWindowData {
-        widget.common_mut().is_window_root = true;
-        let index = self.add_child(widget, Default::default());
-        let window = create_window(attrs, self.children[index].widget.as_mut());
-        window
-    }
+    // pub fn add_window(
+    //     &mut self,
+    //     mut widget: Box<dyn Widget>,
+    //     attrs: WindowAttributes,
+    // ) -> SharedWindowData {
+    //     widget.common_mut().is_window_root = true;
+    //     let index = self.add_child(widget, Default::default());
+    //     let window = create_window(attrs, self.children[index].widget.as_mut());
+    //     window
+    // }
 
     // TODO: fn replace_child
     pub fn insert_child(
@@ -776,6 +777,10 @@ pub trait WidgetExt {
         }
     }
 
+    fn with_window(self, attrs: WindowAttributes) -> Self
+    where
+        Self: Sized;
+
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
     fn size_hint_x(&mut self, mode: SizeHintMode) -> i32;
@@ -802,6 +807,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         Self: Sized,
     {
         WidgetId(self.common().id, PhantomData)
+    }
+
+    fn with_window(mut self, attrs: WindowAttributes) -> Self
+    where
+        Self: Sized,
+    {
+        create_window(attrs, &mut self);
+        self
     }
 
     fn callback<F, E>(&self, func: F) -> Callback<E>

@@ -9,12 +9,14 @@ use std::{
 use anyhow::{bail, Context as _};
 use clap::Parser;
 use context::{Context, SnapshotMode};
-use salvation::App;
+use review::ReviewWidget;
+use salvation::{widgets::WidgetExt, App};
 use strum::IntoEnumIterator;
 use test_cases::{run_test_case, run_test_check, TestCase};
 use uitest::Connection;
 
 pub mod context;
+mod review;
 mod test_cases;
 
 // TODO: lazy
@@ -107,6 +109,7 @@ enum Args {
         #[clap(long)]
         default_scale: bool,
     },
+    Review,
     Approve {
         screenshot_path: String,
     },
@@ -171,6 +174,10 @@ fn main() -> anyhow::Result<()> {
         } => {
             let app = test_app(default_scale);
             run_test_case(app, test_case)?;
+        }
+        Args::Review => {
+            salvation::run(|| ReviewWidget::new().boxed())?;
+            println!("salvation::run finished");
         }
         Args::Approve { screenshot_path } => {
             let Some(str) = screenshot_path.strip_suffix(".new.png") else {

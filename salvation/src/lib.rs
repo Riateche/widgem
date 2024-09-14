@@ -19,4 +19,5 @@ pub mod window;
 
 pub use crate::accessible::new_accessible_node_id;
 pub use crate::event_loop::{run, App};
+pub use tiny_skia;
 pub use winit::window::WindowAttributes;
