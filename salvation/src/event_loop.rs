@@ -151,7 +151,6 @@ impl App {
         let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
         let mut handler = Handler::new(self, make_root_widget, &event_loop);
         event_loop.run_app(&mut handler)?;
-        println!("run_app finished");
         // Delete widgets before de-initializing the system.
         handler.root_widget = None;
         // This is needed to make sure we drop winit window objects before
@@ -171,12 +170,6 @@ struct Handler {
     root_widget: Option<Box<dyn Widget>>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
     make_root_widget: Option<Box<dyn FnOnce() -> Box<dyn Widget>>>,
-}
-
-impl Drop for Handler {
-    fn drop(&mut self) {
-        println!("drop Handler");
-    }
 }
 
 impl Handler {

@@ -37,8 +37,8 @@ fn assets_dir() -> PathBuf {
     repo_dir().join("tests/assets")
 }
 
-fn test_cases_dir() -> PathBuf {
-    repo_dir().join("tests/src/test_cases")
+fn snapshots_dir() -> PathBuf {
+    repo_dir().join("tests/snapshots")
 }
 
 fn test_app(default_scale: bool) -> App {
@@ -65,7 +65,7 @@ fn run_test_check_and_verify(
 ) -> anyhow::Result<Vec<String>> {
     let mut ctx = Context::new(
         connection,
-        test_cases_dir().join(format!("{:?}", test_case)),
+        snapshots_dir().join(format!("{:?}", test_case)),
         mode,
         pid,
     )?;
@@ -178,7 +178,7 @@ fn main() -> anyhow::Result<()> {
             run_test_case(app, test_case)?;
         }
         Args::Review => {
-            let reviewer = Reviewer::new(&test_cases_dir());
+            let reviewer = Reviewer::new(&snapshots_dir());
             if reviewer.has_current_files() {
                 salvation::run(|| ReviewWidget::new(reviewer).boxed())?;
             } else {

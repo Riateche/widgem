@@ -1,3 +1,5 @@
+use std::{thread::sleep, time::Duration};
+
 use salvation::{
     impl_widget_common,
     widgets::{
@@ -74,6 +76,13 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.snapshot(&mut window, "highlighted left arrow")?;
     ctx.connection.mouse_click(1)?;
     ctx.snapshot(&mut window, "step left by 5")?;
+    window.mouse_move(140, 20)?;
+    ctx.snapshot(&mut window, "highlighted right arrow")?;
+    ctx.connection.mouse_down(1)?;
+    ctx.snapshot(&mut window, "pressed right arrow - step right by 5")?;
+    sleep(Duration::from_millis(1200));
+    ctx.connection.mouse_up(1)?;
+    ctx.snapshot(&mut window, "released right arrow - no auto repeat")?;
 
     window.close()?;
     Ok(())

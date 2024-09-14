@@ -17,6 +17,14 @@ jobs:
         with:
           command: test
 
+  ui-tests:
+    name: UI tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run UI tests
+      run: TEST_ARG=--check tests/run.sh
+
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest

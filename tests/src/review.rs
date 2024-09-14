@@ -382,8 +382,10 @@ impl Reviewer {
         let confirmed_name = format!("{unsuffixed}.png");
         fs_err::rename(
             test_case_dir.join(unconfirmed),
-            test_case_dir.join(confirmed_name),
+            test_case_dir.join(&confirmed_name),
         )?;
+        current_files.confirmed = Some(confirmed_name);
+        current_files.unconfirmed = None;
 
         self.go_to_next_files();
 
