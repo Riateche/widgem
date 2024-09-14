@@ -225,7 +225,7 @@ impl Widget for Button {
                 x: max(0, size.x - editor_pixmap.width() as i32) / 2,
                 y: max(0, size.y - editor_pixmap.height() as i32) / 2,
             };
-            event.draw_pixmap(padding, editor_pixmap.as_ref());
+            event.draw_pixmap(padding, editor_pixmap.as_ref(), Default::default());
         }
 
         // TODO: display icon and text side by side if both are present
@@ -234,7 +234,7 @@ impl Widget for Button {
                 x: max(0, size.x - icon.width() as i32) / 2,
                 y: max(0, size.y - icon.height() as i32) / 2,
             };
-            event.draw_pixmap(pos, (**icon).as_ref());
+            event.draw_pixmap(pos, (**icon).as_ref(), Default::default());
         }
         Ok(())
     }

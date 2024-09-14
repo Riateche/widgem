@@ -36,7 +36,11 @@ impl Widget for Label {
     impl_widget_common!();
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
-        event.draw_pixmap(Point::default(), self.editor.pixmap().as_ref());
+        event.draw_pixmap(
+            Point::default(),
+            self.editor.pixmap().as_ref(),
+            Default::default(),
+        );
         Ok(())
     }
 

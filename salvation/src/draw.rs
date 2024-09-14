@@ -60,13 +60,13 @@ impl DrawEvent {
         }
     }
 
-    pub fn draw_pixmap(&self, pos: Point, pixmap: PixmapRef<'_>) {
+    pub fn draw_pixmap(&self, pos: Point, pixmap: PixmapRef<'_>, transform: Transform) {
         self.pixmap.borrow_mut().draw_pixmap(
             pos.x + self.top_left.x,
             pos.y + self.top_left.y,
             pixmap,
             &PixmapPaint::default(),
-            Transform::default(),
+            transform,
             Some(&self.mask),
         )
     }

@@ -4,6 +4,7 @@ use anyhow::Result;
 use png::DecodingError;
 use salvation_macros::impl_with;
 use tiny_skia::Pixmap;
+use usvg::Transform;
 
 use crate::{draw::DrawEvent, impl_widget_common, layout::SizeHintMode, types::Point};
 
@@ -42,16 +43,26 @@ impl Widget for Image {
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         if let Some(pixmap) = &self.pixmap {
-            event.draw_pixmap(Point::default(), pixmap.as_ref());
+            event.draw_pixmap(
+                Point::default(),
+                pixmap.as_ref(),
+                Transform::default(), //from_scale(self.common.style().scale, self.common.style().scale),
+            );
         }
         Ok(())
     }
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(self.pixmap.as_ref().map_or(0, |p| p.width() as i32))
+        Ok(
+            (self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * self.common.style().scale)
+                .ceil() as i32,
+        )
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(self.pixmap.as_ref().map_or(0, |p| p.height() as i32))
+        Ok(
+            (self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32) * self.common.style().scale)
+                .ceil() as i32,
+        )
     }
 }

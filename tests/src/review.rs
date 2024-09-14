@@ -1,4 +1,5 @@
 use std::{
+    cmp::max,
     collections::{BTreeMap, VecDeque},
     path::{Path, PathBuf},
 };
@@ -8,7 +9,7 @@ use log::warn;
 use salvation::{
     impl_widget_common,
     layout::LayoutItemOptions,
-    tiny_skia::Pixmap,
+    tiny_skia::{Pixmap, PremultipliedColorU8},
     widgets::{
         button::Button, image::Image, label::Label, row::Row, Widget, WidgetCommon, WidgetExt,
         WidgetId,
@@ -17,7 +18,7 @@ use salvation::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::{discover_snapshots, test_cases::TestCase, test_cases_dir, SingleSnapshotFiles};
+use crate::{discover_snapshots, test_cases::TestCase, SingleSnapshotFiles};
 
 pub struct ReviewWidget {
     common: WidgetCommon,
@@ -223,7 +224,7 @@ impl Reviewer {
     fn load_new(&self) -> anyhow::Result<Pixmap> {
         Pixmap::load_png(self.test_cases_dir.join(format!(
             "{:?}/{}",
-            self.current_test_case.unwrap(),
+            self.current_test_case.context("no current test case")?,
             self.current_files.as_ref().context("no current files")?.unconfirmed.clone().unwrap()
         )))
         .map_err(From::from)
@@ -232,7 +233,7 @@ impl Reviewer {
     fn load_confirmed(&self) -> anyhow::Result<Pixmap> {
         Pixmap::load_png(self.test_cases_dir.join(format!(
                 "{:?}/{}",
-                self.current_test_case.unwrap(),
+                self.current_test_case.context("no current test case")?,
                 self.current_files
                     .as_ref()
                     .context("no current files")?
@@ -243,49 +244,68 @@ impl Reviewer {
         .map_err(From::from)
     }
 
+    fn load_previous_confirmed(&self) -> anyhow::Result<Pixmap> {
+        Pixmap::load_png(self.test_cases_dir.join(format!(
+                "{:?}/{}",
+                self.current_test_case.context("no current test case")?,
+                self.previous_files
+                    .as_ref()
+                    .context("no previous files")?
+                    .confirmed
+                    .clone()
+                    .context("no previous confirmed snapshot")?
+            )))
+        .map_err(From::from)
+    }
+
+    fn make_pixmap(&self) -> anyhow::Result<Pixmap> {
+        match self.mode {
+            Mode::New => self.load_new(),
+            Mode::Confirmed => self.load_confirmed(),
+            Mode::PreviousConfirmed => self.load_previous_confirmed(),
+            Mode::DiffWithConfirmed => Ok(pixmap_diff(&self.load_new()?, &self.load_confirmed()?)),
+            Mode::DiffWithPreviousConfirmed => Ok(pixmap_diff(
+                &self.load_new()?,
+                &self.load_previous_confirmed()?,
+            )),
+        }
+    }
+
     fn current_state(&self) -> ReviewerState {
         let test_case_name = self
             .current_test_case
             .map(|t| format!("{:?}", t))
             .unwrap_or_else(|| "none".into());
-        let snapshot_name: String;
-        let snapshot: Option<Pixmap>;
-        if let Some(current_files) = &self.current_files {
+        let snapshot_name = if let Some(current_files) = &self.current_files {
             // TODO: name should depend on mode
 
             match self.mode {
-                Mode::New => {
-                    snapshot_name = current_files.unconfirmed.clone().unwrap();
-                    snapshot = self
-                        .load_new()
-                        .map_err(|err| {
-                            warn!("failed to load png: {:?}", err);
-                        })
-                        .ok();
+                Mode::New | Mode::DiffWithConfirmed | Mode::DiffWithPreviousConfirmed => {
+                    current_files.unconfirmed.clone().unwrap()
                 }
-                Mode::Confirmed => {
-                    snapshot_name = current_files.confirmed.clone().unwrap();
-                    snapshot = self
-                        .load_confirmed()
-                        .map_err(|err| {
-                            warn!("failed to load png: {:?}", err);
-                        })
-                        .ok();
-                }
-                Mode::PreviousConfirmed => todo!(),
-                Mode::DiffWithConfirmed => todo!(),
-                Mode::DiffWithPreviousConfirmed => todo!(),
+                Mode::Confirmed => current_files.confirmed.clone().unwrap(),
+                Mode::PreviousConfirmed => self
+                    .previous_files
+                    .as_ref()
+                    .unwrap()
+                    .confirmed
+                    .clone()
+                    .unwrap(),
             }
         } else {
-            snapshot_name = "none".into();
-            snapshot = None;
+            "none".into()
         };
 
         ReviewerState {
             test_case_name,
             mode: self.mode,
             snapshot_name,
-            snapshot,
+            snapshot: self
+                .make_pixmap()
+                .map_err(|err| {
+                    warn!("failed to make pixmap: {:?}", err);
+                })
+                .ok(),
         }
     }
 
@@ -324,4 +344,23 @@ struct ReviewerState {
     snapshot_name: String,
     mode: Mode,
     snapshot: Option<Pixmap>,
+}
+
+fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
+    let mut out = Pixmap::new(max(a.width(), b.width()), max(a.height(), b.height())).unwrap();
+    let width = out.width();
+    for y in 0..out.height() {
+        for x in 0..width {
+            let pixel_a = a.pixel(x, y);
+            let pixel_b = b.pixel(x, y);
+            let pixel_out = if pixel_a == pixel_b {
+                pixel_a.unwrap()
+            } else {
+                PremultipliedColorU8::from_rgba(0, 255, 0, 255).unwrap()
+            };
+            out.pixels_mut()[(y * width + x) as usize] = pixel_out;
+        }
+    }
+
+    out
 }
