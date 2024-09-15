@@ -47,6 +47,7 @@ pub struct Button {
     icon: Option<Rc<Pixmap>>,
     text_visible: bool,
     auto_repeat: bool,
+    is_mouse_leave_sensitive: bool,
     trigger_on_press: bool,
     on_triggered: CallbackVec<String>,
     is_pressed: bool,
@@ -69,6 +70,7 @@ impl Button {
             icon: None,
             text_visible: true,
             auto_repeat: false,
+            is_mouse_leave_sensitive: true,
             trigger_on_press: false,
             on_triggered: CallbackVec::new(),
             is_pressed: false,
@@ -94,6 +96,10 @@ impl Button {
 
     pub fn set_auto_repeat(&mut self, value: bool) {
         self.auto_repeat = value;
+    }
+
+    pub fn set_mouse_leave_sensitive(&mut self, value: bool) {
+        self.is_mouse_leave_sensitive = value;
     }
 
     pub fn set_trigger_on_press(&mut self, value: bool) {
@@ -248,7 +254,7 @@ impl Widget for Button {
                 self.common.update();
             }
         } else {
-            if self.is_pressed {
+            if self.is_pressed && self.is_mouse_leave_sensitive {
                 self.was_pressed_but_moved_out = true;
                 self.set_pressed(false, true);
                 self.common.update();

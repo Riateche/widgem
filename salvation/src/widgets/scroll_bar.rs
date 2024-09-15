@@ -44,6 +44,7 @@ mod names {
     pub const SCROLL_GRIP: &str = "scroll grip";
 }
 
+// TODO: use IDs instead
 const INDEX_DECREASE: usize = 0;
 const INDEX_PAGER: usize = 1;
 const INDEX_INCREASE: usize = 2;
@@ -88,7 +89,7 @@ impl ScrollBar {
             Button::new(names::SCROLL_GRIP)
                 .with_role(button::Role1::ScrollGripX)
                 .with_text_visible(false)
-                .with_auto_repeat(true)
+                .with_mouse_leave_sensitive(false)
                 .boxed(),
             LayoutItemOptions::default(),
         );

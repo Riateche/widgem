@@ -231,7 +231,6 @@ impl Reviewer {
     }
 
     fn go_to_next_files(&mut self) {
-        self.current_files = None;
         self.mode = Mode::New;
         while let Some((_, files)) = self.remaining_files.pop_first() {
             self.previous_files = self.current_files.take();
