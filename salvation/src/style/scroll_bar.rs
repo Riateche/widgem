@@ -23,6 +23,7 @@ pub struct ComputedStyle {
     pub scroll_down: button::ComputedStyle,
     pub scroll_grip_x: button::ComputedStyle,
     pub scroll_grip_y: button::ComputedStyle,
+    pub scroll_pager: button::ComputedStyle,
 }
 
 impl ComputedStyle {
@@ -71,6 +72,12 @@ impl ComputedStyle {
                 scale,
                 root_font,
                 Some("scroll_grip_y"),
+            )?,
+            scroll_pager: button::ComputedStyle::new(
+                style,
+                scale,
+                root_font,
+                Some("scroll_pager"),
             )?,
         })
     }

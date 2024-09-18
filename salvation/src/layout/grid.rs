@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    layout::{fare_split, solve_layout},
+    layout::{fair_split, solve_layout},
     types::{Rect, Size},
     widgets::{Child, WidgetExt},
 };
@@ -54,7 +54,7 @@ fn size_hint(
             .map(|pos| max_per_column.get(&pos).copied().unwrap_or(0))
             .sum();
         if hint > current {
-            let extra_per_column = fare_split(*range.end() - *range.start() + 1, hint - current);
+            let extra_per_column = fair_split(*range.end() - *range.start() + 1, hint - current);
             for (pos, extra) in range.clone().zip(extra_per_column) {
                 *max_per_column.entry(pos).or_default() += extra;
             }
@@ -108,14 +108,24 @@ pub fn size_hint_y(
 
 // TODO: skip hidden, check item options
 pub fn size_x_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
-    items
-        .iter_mut()
-        .all(|item| !item.options.is_in_grid() || item.widget.size_x_fixed())
+    items.iter_mut().all(|item| {
+        !item.options.is_in_grid()
+            || item
+                .options
+                .x
+                .is_fixed
+                .unwrap_or_else(|| item.widget.size_x_fixed())
+    })
 }
 pub fn size_y_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
-    items
-        .iter_mut()
-        .all(|item| !item.options.is_in_grid() || item.widget.size_y_fixed())
+    items.iter_mut().all(|item| {
+        !item.options.is_in_grid()
+            || item
+                .options
+                .y
+                .is_fixed
+                .unwrap_or_else(|| item.widget.size_y_fixed())
+    })
 }
 
 struct XLayout {
@@ -138,7 +148,10 @@ fn x_layout(items: &mut [Child], options: &GridAxisOptions, size_x: i32) -> Resu
             warn!("spanned items are not supported yet");
         }
         let pos = *pos.start();
-        let hints = item.widget.size_hints_x();
+        let mut hints = item.widget.size_hints_x();
+        if let Some(is_fixed) = item.options.x.is_fixed {
+            hints.is_fixed = is_fixed;
+        }
         let column_hints = hints_per_column.entry(pos).or_insert(hints);
         column_hints.min = max(column_hints.min, hints.min);
         column_hints.preferred = max(column_hints.preferred, hints.preferred);
@@ -165,7 +178,12 @@ fn x_layout(items: &mut [Child], options: &GridAxisOptions, size_x: i32) -> Resu
             warn!("missing column data for existing child");
             continue;
         };
-        let child_size = if item.widget.size_x_fixed() {
+        let child_size = if item
+            .options
+            .x
+            .is_fixed
+            .unwrap_or_else(|| item.widget.size_x_fixed())
+        {
             let hint = item.widget.size_hint_x(SizeHintMode::Preferred);
             min(hint, *column_size)
         } else {
@@ -188,6 +206,7 @@ pub fn layout(
 ) -> Result<BTreeMap<usize, Rect>> {
     let x_layout = x_layout(items, &options.x, size.x)?;
     let mut hints_per_row = BTreeMap::new();
+    let mut debug = false;
     for (index, item) in items.iter_mut().enumerate() {
         if !item.options.is_in_grid() {
             continue;
@@ -202,7 +221,11 @@ pub fn layout(
             continue;
         };
         let pos = *pos.start();
-        let hints = item.widget.size_hints_y(*item_size_x);
+        let mut hints = item.widget.size_hints_y(*item_size_x);
+        if let Some(is_fixed) = item.options.y.is_fixed {
+            hints.is_fixed = is_fixed;
+            debug = true;
+        }
         let row_hints = hints_per_row.entry(pos).or_insert(hints);
         row_hints.min = max(row_hints.min, hints.min);
         row_hints.preferred = max(row_hints.preferred, hints.preferred);
@@ -214,6 +237,10 @@ pub fn layout(
         .map(|hints| super::LayoutItem { size_hints: *hints })
         .collect_vec();
     let output_y = solve_layout(&layout_items, size.y, &options.y);
+    if debug {
+        dbg!(&layout_items);
+        dbg!(&output_y);
+    }
     let row_sizes: BTreeMap<_, _> = hints_per_row.keys().copied().zip(output_y.sizes).collect();
     let positions_x = positions(&x_layout.column_sizes, x_layout.padding, x_layout.spacing);
     let positions_y = positions(&row_sizes, output_y.padding, output_y.spacing);
@@ -241,7 +268,12 @@ pub fn layout(
             warn!("missing item in row_sizes");
             continue;
         };
-        let size_y = if item.widget.size_y_fixed() {
+        let size_y = if item
+            .options
+            .y
+            .is_fixed
+            .unwrap_or_else(|| item.widget.size_y_fixed())
+        {
             min(
                 *row_size,
                 item.widget.size_hint_y(*size_x, SizeHintMode::Preferred),
@@ -253,6 +285,9 @@ pub fn layout(
             index,
             Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
         );
+    }
+    if debug {
+        dbg!(&result);
     }
     Ok(result)
 }

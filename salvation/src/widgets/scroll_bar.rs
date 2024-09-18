@@ -34,6 +34,8 @@ pub struct ScrollBar {
     step: i32,
     slider_grab_pos: Option<(Point, i32)>,
     value_changed: Option<Callback<i32>>,
+    pager_direction: i32,
+    pager_mouse_pos_in_window: Point,
 }
 
 mod names {
@@ -42,13 +44,15 @@ mod names {
     pub const SCROLL_UP: &str = "scroll up";
     pub const SCROLL_DOWN: &str = "scroll down";
     pub const SCROLL_GRIP: &str = "scroll grip";
+    pub const SCROLL_PAGER: &str = "scroll pager";
 }
 
-// TODO: use IDs instead
 const INDEX_DECREASE: usize = 0;
 const INDEX_PAGER: usize = 1;
 const INDEX_INCREASE: usize = 2;
-const INDEX_GRIP_IN_PAGER: usize = 0;
+
+const INDEX_BUTTON_IN_PAGER: usize = 0;
+const INDEX_GRIP_IN_PAGER: usize = 1;
 
 #[impl_with]
 impl ScrollBar {
@@ -85,6 +89,34 @@ impl ScrollBar {
 
         let axis = Axis::X;
         let mut pager = Pager::new(axis);
+        pager.common.set_grid_options(Some(GridOptions {
+            x: GridAxisOptions {
+                min_padding: 0,
+                min_spacing: 0,
+                preferred_padding: 0,
+                preferred_spacing: 0,
+                border_collapse: 0,
+            },
+            y: GridAxisOptions {
+                min_padding: 0,
+                min_spacing: 0,
+                preferred_padding: 0,
+                preferred_spacing: 0,
+                border_collapse: 0,
+            },
+        }));
+        let mut pager_options = LayoutItemOptions::from_pos_in_grid(0, 0);
+        pager_options.x.is_fixed = Some(false);
+        pager_options.y.is_fixed = Some(false);
+        pager.common.add_child(
+            Button::new(names::SCROLL_PAGER)
+                .with_role(button::Role1::ScrollPager)
+                .with_text_visible(false)
+                .with_auto_repeat(true)
+                .with_trigger_on_press(true)
+                .boxed(),
+            pager_options,
+        );
         pager.common.add_child(
             Button::new(names::SCROLL_GRIP)
                 .with_role(button::Role1::ScrollGripX)
@@ -114,6 +146,8 @@ impl ScrollBar {
             step: 5,
             slider_grab_pos: None,
             value_changed: None,
+            pager_direction: 0,
+            pager_mouse_pos_in_window: Point::default(),
         };
 
         let slider_pressed = this.callback(Self::slider_pressed);
@@ -156,6 +190,32 @@ impl ScrollBar {
             .downcast_mut::<Button>()
             .unwrap()
             .on_triggered(increase_callback);
+
+        let pager_triggered_callback = this.callback(|this, _| this.pager_triggered());
+        let pager_pressed = this.callback(Self::pager_pressed);
+        let pager_mouse_moved = this.callback(Self::pager_mouse_move);
+        let pager_button = this.common.children[INDEX_PAGER]
+            .widget
+            .downcast_mut::<Pager>()
+            .unwrap()
+            .common
+            .children[INDEX_BUTTON_IN_PAGER]
+            .widget
+            .downcast_mut::<Button>()
+            .unwrap();
+        pager_button.on_triggered(pager_triggered_callback);
+        pager_button.common_mut().event_filter = Some(Box::new(move |event| {
+            match event {
+                Event::MouseInput(e) => {
+                    if e.button() == MouseButton::Left && e.state() == ElementState::Pressed {
+                        pager_pressed.invoke(e.pos_in_window());
+                    }
+                }
+                Event::MouseMove(e) => pager_mouse_moved.invoke(e.pos_in_window()),
+                _ => {}
+            }
+            Ok(false)
+        }));
 
         this.update_decrease_increase();
         this
@@ -285,6 +345,98 @@ impl ScrollBar {
         Ok(())
     }
 
+    fn pager_pressed(&mut self, pos_in_window: Point) -> Result<()> {
+        let Some(grip_rect_in_window) = self.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .children[INDEX_GRIP_IN_PAGER]
+            .widget
+            .common_mut()
+            .rect_in_window
+        else {
+            return Ok(());
+        };
+        self.pager_direction = match self.axis {
+            Axis::X => {
+                if grip_rect_in_window.right() < pos_in_window.x {
+                    1
+                } else {
+                    -1
+                }
+            }
+            Axis::Y => {
+                if grip_rect_in_window.bottom() < pos_in_window.y {
+                    1
+                } else {
+                    -1
+                }
+            }
+        };
+
+        Ok(())
+    }
+
+    fn pager_mouse_move(&mut self, pos_in_window: Point) -> Result<()> {
+        self.pager_mouse_pos_in_window = pos_in_window;
+        Ok(())
+    }
+
+    fn pager_triggered(&mut self /* ...*/) -> Result<()> {
+        let Some(grip_rect_in_window) = self.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .children[INDEX_GRIP_IN_PAGER]
+            .widget
+            .common_mut()
+            .rect_in_window
+        else {
+            return Ok(());
+        };
+
+        if self.pager_direction > 0 {
+            let condition = match self.axis {
+                Axis::X => grip_rect_in_window.right() < self.pager_mouse_pos_in_window.x,
+                Axis::Y => grip_rect_in_window.bottom() < self.pager_mouse_pos_in_window.y,
+            };
+            if condition {
+                self.page_forward();
+            }
+        } else {
+            let condition = match self.axis {
+                Axis::X => grip_rect_in_window.left() > self.pager_mouse_pos_in_window.x,
+                Axis::Y => grip_rect_in_window.top() > self.pager_mouse_pos_in_window.y,
+            };
+            if condition {
+                self.page_back();
+            }
+        }
+        Ok(())
+    }
+
+    fn page_step(&self) -> i32 {
+        let Some(size) = self.common.size() else {
+            return 1;
+        };
+        match self.axis {
+            Axis::X => size.x,
+            Axis::Y => size.y,
+        }
+    }
+
+    pub fn page_forward(&mut self) {
+        self.set_value(min(
+            *self.value_range.end(),
+            self.current_value + self.page_step(),
+        ));
+    }
+
+    pub fn page_back(&mut self) {
+        self.set_value(max(
+            *self.value_range.start(),
+            self.current_value - self.page_step(),
+        ));
+    }
+
     pub fn set_value_range(&mut self, mut range: RangeInclusive<i32>) {
         if range.end() < range.start() {
             warn!("invalid scroll bar range");
@@ -351,16 +503,28 @@ impl ScrollBar {
             Axis::X => Point::new(self.current_grip_pos, 0),
             Axis::Y => Point::new(0, self.current_grip_pos),
         };
-        let rect = if self.value_range.start() == self.value_range.end() {
-            None
-        } else {
+        let can_scroll = self.value_range.start() != self.value_range.end();
+        let rect = if can_scroll {
             Some(Rect::from_pos_size(shift, self.grip_size))
+        } else {
+            None
         };
         self.common.children[INDEX_PAGER]
             .widget
             .common_mut()
             .set_child_rect(INDEX_GRIP_IN_PAGER, rect)
             .unwrap();
+
+        let pager_button = self.common.children[INDEX_PAGER]
+            .widget
+            .downcast_mut::<Pager>()
+            .unwrap()
+            .common
+            .children[INDEX_BUTTON_IN_PAGER]
+            .widget
+            .downcast_mut::<Button>()
+            .unwrap();
+        pager_button.set_enabled(can_scroll);
     }
 
     pub fn value(&self) -> i32 {
@@ -397,20 +561,6 @@ impl Widget for ScrollBar {
         &mut self.common
     }
 
-    fn handle_draw(&mut self, event: crate::draw::DrawEvent) -> Result<()> {
-        let size = self.common.size_or_err()?;
-        let style = &self.common.style().scroll_bar;
-        event.stroke_and_fill_rounded_rect(
-            Rect {
-                top_left: Point::default(),
-                size,
-            },
-            &style.border,
-            style.background.as_ref(),
-        );
-        Ok(())
-    }
-
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let options = self.common.grid_options();
         let size = self.common.size_or_err()?;
@@ -434,6 +584,13 @@ impl Widget for ScrollBar {
             Axis::X => (size.x, grip_size_hint_x, pager_rect.size.x),
             Axis::Y => (size.y, grip_size_hint_y, pager_rect.size.y),
         };
+        // For a scroll bar that's a part of a scroll area, we assume the following:
+        // min value is 0; max value is the max displacement of the content in pixels;
+        // size_along_axis == viewport_size;
+        // max_value == content_size - viewport_size;
+        // visible_ratio = viewport_size / content_size;
+        // visible_ratio = viewport_size / (max_value + viewport_size);
+        // we may consider adding a page_step property instead of always using size_along_axis.
         let size_plus_range = self.value_range.end() - self.value_range.start() + size_along_axis;
         let visible_ratio = if size_plus_range == 0 {
             0.0

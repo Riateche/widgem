@@ -40,6 +40,7 @@ pub enum Role1 {
     ScrollDown,
     ScrollGripX,
     ScrollGripY,
+    ScrollPager,
 }
 
 pub struct Button {
@@ -130,6 +131,7 @@ impl Button {
             Role1::ScrollDown => &self.common.style().scroll_bar.scroll_down,
             Role1::ScrollGripX => &self.common.style().scroll_bar.scroll_grip_x,
             Role1::ScrollGripY => &self.common.style().scroll_bar.scroll_grip_y,
+            Role1::ScrollPager => &self.common.style().scroll_bar.scroll_pager,
         }
     }
 

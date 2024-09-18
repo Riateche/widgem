@@ -64,8 +64,6 @@ button.scroll_down {
     padding: 4px 2px;
 }
 scroll-bar {
-    border: 1px solid #c4c4c4;
-    background: #e6e6e6;
     border-collapse: collapse;
 }
 
@@ -86,6 +84,17 @@ button.scroll_grip_x {
 }
 button.scroll_grip_y {
     content: url('scroll_grip_y.svg');
+}
+button.scroll_pager {
+    border: 1px solid #c4c4c4;
+    border-radius: 0;
+    background: #e6e6e6;
+}
+button.scroll_pager:hover {
+    background: #f0f0f0;
+}
+button.scroll_pager:active {
+    background: #c2c2c2;
 }
 
 button.scroll_left:disabled {

@@ -146,6 +146,22 @@ impl Rect {
         }
     }
 
+    pub fn left(&self) -> i32 {
+        self.top_left.x
+    }
+
+    pub fn right(&self) -> i32 {
+        self.top_left.x + self.size.x
+    }
+
+    pub fn top(&self) -> i32 {
+        self.top_left.y
+    }
+
+    pub fn bottom(&self) -> i32 {
+        self.top_left.y + self.size.y
+    }
+
     pub fn is_empty(&self) -> bool {
         self.size.x == 0 || self.size.y == 0
     }

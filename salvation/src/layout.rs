@@ -57,6 +57,7 @@ pub struct LayoutItemAxisOptions {
     // row or column
     pub pos_in_grid: Option<RangeInclusive<i32>>,
     pub alignment: Option<Alignment>,
+    pub is_fixed: Option<bool>,
     // TODO: alignment, priority, stretch, etc.
 }
 
@@ -76,7 +77,7 @@ pub enum Alignment {
     End,
 }
 
-pub(crate) fn fare_split(count: i32, total: i32) -> Vec<i32> {
+pub(crate) fn fair_split(count: i32, total: i32) -> Vec<i32> {
     if count == 0 {
         return Vec::new();
     }
@@ -91,11 +92,13 @@ pub(crate) fn fare_split(count: i32, total: i32) -> Vec<i32> {
     results
 }
 
+#[derive(Debug)]
 pub(crate) struct LayoutItem {
     pub(crate) size_hints: SizeHints,
     // TODO: params
 }
 
+#[derive(Debug)]
 pub(crate) struct SolveLayoutOutput {
     pub(crate) sizes: Vec<i32>,
     pub(crate) padding: i32,
@@ -153,7 +156,7 @@ pub(crate) fn solve_layout(
             .filter(|item| !item.size_hints.is_fixed)
             .count() as i32;
         let mut remaining = total;
-        let mut extras = fare_split(num_flexible, max(0, total - total_preferred));
+        let mut extras = fair_split(num_flexible, max(0, total - total_preferred));
         for item in items {
             let item_size = if item.size_hints.is_fixed {
                 item.size_hints.preferred

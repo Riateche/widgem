@@ -161,7 +161,7 @@ impl RootWidget {
         root.add_child(label2.widget.boxed());
 
         let mut content = Column::new();
-        for i in 1..=8 {
+        for i in 1..=80 {
             content.add_child(Button::new(format!("btn{i}")).boxed());
         }
 
