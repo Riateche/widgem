@@ -206,7 +206,6 @@ pub fn layout(
 ) -> Result<BTreeMap<usize, Rect>> {
     let x_layout = x_layout(items, &options.x, size.x)?;
     let mut hints_per_row = BTreeMap::new();
-    let mut debug = false;
     for (index, item) in items.iter_mut().enumerate() {
         if !item.options.is_in_grid() {
             continue;
@@ -224,7 +223,6 @@ pub fn layout(
         let mut hints = item.widget.size_hints_y(*item_size_x);
         if let Some(is_fixed) = item.options.y.is_fixed {
             hints.is_fixed = is_fixed;
-            debug = true;
         }
         let row_hints = hints_per_row.entry(pos).or_insert(hints);
         row_hints.min = max(row_hints.min, hints.min);
@@ -237,10 +235,6 @@ pub fn layout(
         .map(|hints| super::LayoutItem { size_hints: *hints })
         .collect_vec();
     let output_y = solve_layout(&layout_items, size.y, &options.y);
-    if debug {
-        dbg!(&layout_items);
-        dbg!(&output_y);
-    }
     let row_sizes: BTreeMap<_, _> = hints_per_row.keys().copied().zip(output_y.sizes).collect();
     let positions_x = positions(&x_layout.column_sizes, x_layout.padding, x_layout.spacing);
     let positions_y = positions(&row_sizes, output_y.padding, output_y.spacing);
@@ -285,9 +279,6 @@ pub fn layout(
             index,
             Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
         );
-    }
-    if debug {
-        dbg!(&result);
     }
     Ok(result)
 }

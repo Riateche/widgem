@@ -68,10 +68,11 @@ pub struct SharedWindowDataInner {
 
     pub pending_redraw: bool,
 
-    pub focusable_widgets: Vec<(WidgetAddress, RawWidgetId)>,
+    // TODO: refactor as struct
+    pub focusable_widgets: Vec<(Vec<(usize, RawWidgetId)>, RawWidgetId)>,
     pub focusable_widgets_changed: bool,
 
-    pub focused_widget: Option<(WidgetAddress, RawWidgetId)>,
+    pub focused_widget: Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
     pub num_clicks: u32,
     pub last_click_button: Option<MouseButton>,
@@ -123,7 +124,11 @@ impl SharedWindowData {
 
     pub fn add_focusable_widget(&self, addr: WidgetAddress, id: RawWidgetId) {
         let mut this = self.0.borrow_mut();
-        let pair = (addr, id);
+        let Some(relative_addr) = addr.strip_prefix(this.root_widget_id) else {
+            warn!("add_focusable_widget: address outside root");
+            return;
+        };
+        let pair = (relative_addr.to_vec(), id);
         if let Err(index) = this.focusable_widgets.binary_search(&pair) {
             this.focusable_widgets.insert(index, pair);
             this.focusable_widgets_changed = true;
@@ -132,7 +137,11 @@ impl SharedWindowData {
 
     pub fn remove_focusable_widget(&self, addr: WidgetAddress, id: RawWidgetId) {
         let mut this = self.0.borrow_mut();
-        let pair = (addr, id);
+        let Some(relative_addr) = addr.strip_prefix(this.root_widget_id) else {
+            warn!("remove_focusable_widget: address outside root");
+            return;
+        };
+        let pair = (relative_addr.to_vec(), id);
         if let Ok(index) = this.focusable_widgets.binary_search(&pair) {
             this.focusable_widgets.remove(index);
             this.focusable_widgets_changed = true;
@@ -141,9 +150,9 @@ impl SharedWindowData {
 
     fn move_keyboard_focus(
         &self,
-        focused_widget: &(WidgetAddress, RawWidgetId),
+        focused_widget: &(Vec<(usize, RawWidgetId)>, RawWidgetId),
         direction: i32,
-    ) -> Option<(WidgetAddress, RawWidgetId)> {
+    ) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
         let this = self.0.borrow();
         if this.focusable_widgets.is_empty() {
             return None;
@@ -669,7 +678,7 @@ impl<'a> WindowWithWidget<'a> {
                 .borrow_mut()
                 .focusable_widgets_changed = false;
 
-            let focused_widget1: Option<(WidgetAddress, RawWidgetId)> =
+            let focused_widget1: Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> =
                 self.shared_window_data.0.borrow().focused_widget.clone();
             if let Some(focused_widget) = focused_widget1 {
                 let is_err1 = self
@@ -741,7 +750,11 @@ impl<'a> WindowWithWidget<'a> {
         }
     }
 
-    fn set_focus(&mut self, widget_addr_id: (WidgetAddress, RawWidgetId), reason: FocusReason) {
+    fn set_focus(
+        &mut self,
+        widget_addr_id: (Vec<(usize, RawWidgetId)>, RawWidgetId),
+        reason: FocusReason,
+    ) {
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
             if !widget.common().is_focusable {
                 warn!("cannot focus widget that is not focusable");
@@ -822,7 +835,14 @@ impl<'a> WindowWithWidget<'a> {
                     warn!("cannot focus unmounted widget");
                     return;
                 };
-                let pair = (addr, request.widget_id);
+                let Some(relative_addr) =
+                    addr.strip_prefix(self.shared_window_data.0.borrow().root_widget_id)
+                else {
+                    warn!("SetFocus: address outside root");
+                    return;
+                };
+                let pair = (relative_addr.to_vec(), request.widget_id);
+
                 let is_err1 = self
                     .shared_window_data
                     .0

@@ -1168,6 +1168,13 @@ impl WidgetAddress {
             None
         }
     }
+    pub fn strip_prefix(&self, parent: RawWidgetId) -> Option<&[(usize, RawWidgetId)]> {
+        if let Some(index) = self.path.iter().position(|(_index, id)| *id == parent) {
+            Some(&self.path[index + 1..])
+        } else {
+            None
+        }
+    }
 }
 
 #[macro_export]
