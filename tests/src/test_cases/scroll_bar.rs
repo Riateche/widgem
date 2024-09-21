@@ -60,6 +60,7 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     // https://github.com/rust-windowing/winit/issues/2841
     window.minimize()?;
     window.activate()?;
+    window.mouse_move(0, 0)?;
     ctx.snapshot(&mut window, "scroll bar and label")?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "resized")?;
@@ -124,6 +125,7 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.connection.mouse_down(1)?;
     ctx.snapshot(&mut window, "grabbed slider")?;
     window.mouse_move(300, 24)?;
+    sleep(Duration::from_millis(500));
     ctx.snapshot(&mut window, "dragged all the way right")?;
     ctx.connection.mouse_up(1)?;
     ctx.snapshot(&mut window, "released slider - no highlight")?;

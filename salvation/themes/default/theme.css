@@ -46,8 +46,7 @@ button:disabled {
     color: #bfbfbf;
 }
 button:hover {
-    background: linear-gradient(#fefefe 0%, #f7f7f7 100%);
-    /* background: linear-gradient(#fefefe 0%, #00ff00 100%); */
+    background: linear-gradient(#ffffff 0%, #f9f9f9 100%);
 }
 button:active {
     background: #dbdbdb;

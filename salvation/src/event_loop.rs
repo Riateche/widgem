@@ -221,7 +221,7 @@ impl ApplicationHandler<UserEvent> for Handler {
             self.before_handler();
 
             let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
-                if !matches!(event, WindowEvent::Destroyed) {
+                if !matches!(event, WindowEvent::Destroyed | WindowEvent::RedrawRequested) {
                     warn!("missing window object when dispatching event: {:?}", event);
                 }
                 return;
