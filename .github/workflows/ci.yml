@@ -24,6 +24,12 @@ jobs:
     - uses: actions/checkout@v2
     - name: Run UI tests
       run: TEST_ARG=--check tests/run.sh
+    - name: Upload test snapshots
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test_snapshots
+        path: tests/snapshots
 
   fmt:
     name: Rustfmt
