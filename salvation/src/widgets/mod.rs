@@ -207,24 +207,24 @@ impl WidgetCommon {
     }
 
     fn grid_options(&self) -> GridOptions {
-        // TODO: get from style, apply scale
-        const SPACING: i32 = 10;
-        const PADDING: i32 = 10;
-        self.grid_options.clone().unwrap_or(GridOptions {
-            x: GridAxisOptions {
-                min_padding: PADDING,
-                min_spacing: SPACING,
-                preferred_padding: PADDING,
-                preferred_spacing: SPACING,
-                border_collapse: 0,
-            },
-            y: GridAxisOptions {
-                min_padding: PADDING,
-                min_spacing: SPACING,
-                preferred_padding: PADDING,
-                preferred_spacing: SPACING,
-                border_collapse: 0,
-            },
+        self.grid_options.clone().unwrap_or_else(|| {
+            let style = self.style();
+            GridOptions {
+                x: GridAxisOptions {
+                    min_padding: style.grid.min_padding.x,
+                    min_spacing: style.grid.min_spacing.x,
+                    preferred_padding: style.grid.preferred_padding.x,
+                    preferred_spacing: style.grid.preferred_spacing.x,
+                    border_collapse: 0,
+                },
+                y: GridAxisOptions {
+                    min_padding: style.grid.min_padding.y,
+                    min_spacing: style.grid.min_spacing.y,
+                    preferred_padding: style.grid.preferred_padding.y,
+                    preferred_spacing: style.grid.preferred_spacing.y,
+                    border_collapse: 0,
+                },
+            }
         })
     }
 

@@ -8,7 +8,7 @@ use crate::{
     event::LayoutEvent,
     impl_widget_common,
     layout::{
-        grid::{self, GridAxisOptions, GridOptions},
+        grid::{self, GridOptions},
         LayoutItemOptions, SizeHintMode,
     },
     types::{Axis, Rect},
@@ -28,22 +28,7 @@ const INDEX_VIEWPORT: usize = 2;
 impl ScrollArea {
     pub fn new(content: Box<dyn Widget>) -> Self {
         let mut this = Self::default();
-        this.common.set_grid_options(Some(GridOptions {
-            x: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: 0,
-                preferred_padding: 0,
-                preferred_spacing: 0,
-                border_collapse: 0,
-            },
-            y: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: 0,
-                preferred_padding: 0,
-                preferred_spacing: 0,
-                border_collapse: 0,
-            },
-        }));
+        this.common.set_grid_options(Some(GridOptions::ZERO));
         this.set_content(content);
         this
     }

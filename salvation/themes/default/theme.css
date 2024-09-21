@@ -11,6 +11,14 @@
     color: #ffffff;
     background: #308cc6;
 }
+grid {
+    padding: 11px;
+    gap: 7px;
+}
+grid:min {
+    padding: 1px;
+    gap: 1px;
+}
 text-input {
     border: 1px solid #c8c8c8;
     border-radius: 2px;

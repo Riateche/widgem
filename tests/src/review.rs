@@ -402,6 +402,13 @@ struct ReviewerState {
 }
 
 fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
+    println!(
+        "a {} {}, b {} {}",
+        a.width(),
+        a.height(),
+        b.width(),
+        b.height()
+    );
     let mut out = Pixmap::new(max(a.width(), b.width()), max(a.height(), b.height())).unwrap();
     let width = out.width();
     for y in 0..out.height() {
@@ -409,7 +416,7 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
             let pixel_a = a.pixel(x, y);
             let pixel_b = b.pixel(x, y);
             let pixel_out = if pixel_a == pixel_b {
-                pixel_a.unwrap()
+                pixel_a.unwrap_or_else(|| PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap())
             // } else if let (Some(pixel_a), Some(pixel_b)) = (pixel_a, pixel_b) {
             //     PremultipliedColorU8::from_rgba(
             //         u8_diff(pixel_a.red(), pixel_b.red()),

@@ -5,7 +5,10 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use lightningcss::{
-    properties::custom::{CustomPropertyName, Token, TokenOrValue},
+    properties::{
+        align::GapValue,
+        custom::{CustomPropertyName, Token, TokenOrValue},
+    },
     rules::CssRule,
     selector::{Component, PseudoClass, PseudoElement, Selector},
     stylesheet::StyleSheet,
@@ -173,6 +176,18 @@ fn convert_single_padding(
     }
 }
 
+fn convert_single_spacing(value: &GapValue, font_size: LogicalPixels) -> Result<LogicalPixels> {
+    match value {
+        GapValue::Normal => Ok(0.0.into()),
+        GapValue::LengthPercentage(value) => match value {
+            DimensionPercentage::Dimension(value) => convert_length(value, Some(font_size)),
+            DimensionPercentage::Percentage(_) | DimensionPercentage::Calc(_) => {
+                bail!("unsupported value ({value:?})")
+            }
+        },
+    }
+}
+
 pub fn convert_padding(
     properties: &[&Property<'static>],
     scale: f32,
@@ -198,6 +213,34 @@ pub fn convert_padding(
     Ok(Point::new(
         left.unwrap_or_default().to_physical(scale).get(),
         top.unwrap_or_default().to_physical(scale).get(),
+    ))
+}
+
+pub fn convert_spacing(
+    properties: &[&Property<'static>],
+    scale: f32,
+    font_size: LogicalPixels,
+) -> Result<Point> {
+    let mut x = None;
+    let mut y = None;
+    for property in properties {
+        match property {
+            Property::Gap(value) => {
+                x = Some(convert_single_spacing(&value.column, font_size)?);
+                y = Some(convert_single_spacing(&value.row, font_size)?);
+            }
+            Property::ColumnGap(value) => {
+                x = Some(convert_single_spacing(value, font_size)?);
+            }
+            Property::RowGap(value) => {
+                y = Some(convert_single_spacing(value, font_size)?);
+            }
+            _ => {}
+        }
+    }
+    Ok(Point::new(
+        x.unwrap_or_default().to_physical(scale).get(),
+        y.unwrap_or_default().to_physical(scale).get(),
     ))
 }
 

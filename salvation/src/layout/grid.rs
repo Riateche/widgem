@@ -21,6 +21,25 @@ pub struct GridOptions {
     pub y: GridAxisOptions,
 }
 
+impl GridOptions {
+    pub const ZERO: Self = GridOptions {
+        x: GridAxisOptions {
+            min_padding: 0,
+            min_spacing: 0,
+            preferred_padding: 0,
+            preferred_spacing: 0,
+            border_collapse: 0,
+        },
+        y: GridAxisOptions {
+            min_padding: 0,
+            min_spacing: 0,
+            preferred_padding: 0,
+            preferred_spacing: 0,
+            border_collapse: 0,
+        },
+    };
+}
+
 #[derive(Debug, Clone)]
 pub struct GridAxisOptions {
     pub min_padding: i32,
