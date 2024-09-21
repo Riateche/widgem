@@ -21,6 +21,7 @@ pub use crate::accessible::new_accessible_node_id;
 pub use crate::event_loop::{run, App};
 use event_loop::with_active_event_loop;
 pub use tiny_skia;
+pub use winit;
 pub use winit::window::WindowAttributes;
 
 pub fn exit() {
