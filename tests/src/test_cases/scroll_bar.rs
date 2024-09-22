@@ -129,6 +129,17 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.connection.mouse_up(1)?;
     ctx.snapshot(&mut window, "released slider - no highlight")?;
 
+    window.mouse_move(43, 20)?;
+    ctx.snapshot(&mut window, "highlighted pager")?;
+    ctx.connection.mouse_click(1)?;
+    ctx.snapshot(&mut window, "page left")?;
+    window.mouse_move(0, 0)?;
+    ctx.snapshot(&mut window, "no highlight")?;
+    window.mouse_move(100, 20)?;
+    ctx.snapshot(&mut window, "highlighted pager")?;
+    ctx.connection.mouse_click(1)?;
+    ctx.snapshot(&mut window, "page right")?;
+
     window.close()?;
     Ok(())
 }
