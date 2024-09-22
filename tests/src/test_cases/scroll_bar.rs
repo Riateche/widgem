@@ -2,6 +2,8 @@ use std::{thread::sleep, time::Duration};
 
 use salvation::{
     impl_widget_common,
+    shortcut::{KeyCombinations, Shortcut, ShortcutScope},
+    types::Axis,
     widgets::{
         column::Column, label::Label, scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt,
         WidgetId,
@@ -14,6 +16,7 @@ use crate::context::Context;
 pub struct RootWidget {
     common: WidgetCommon,
     label_id: WidgetId<Label>,
+    scroll_bar_id: WidgetId<ScrollBar>,
 }
 
 impl RootWidget {
@@ -36,10 +39,37 @@ impl RootWidget {
                 .boxed(),
             Default::default(),
         );
-        Self {
+
+        let mut this = Self {
             common,
             label_id: label.id,
-        }
+            scroll_bar_id: scroll_bar.id,
+        };
+
+        let on_r = this.callback(|this, _| {
+            let scroll_bar = this.common.widget(this.scroll_bar_id)?;
+            match scroll_bar.axis() {
+                Axis::X => scroll_bar.set_axis(Axis::Y),
+                Axis::Y => scroll_bar.set_axis(Axis::X),
+            }
+            Ok(())
+        });
+        let on_1 = this.callback(|this, _| {
+            let scroll_bar = this.common.widget(this.scroll_bar_id)?;
+            scroll_bar.set_value_range(0..=10000);
+            Ok(())
+        });
+        this.common.add_shortcut(Shortcut::new(
+            KeyCombinations::from_str_portable("R").unwrap(),
+            ShortcutScope::Application,
+            on_r,
+        ));
+        this.common.add_shortcut(Shortcut::new(
+            KeyCombinations::from_str_portable("1").unwrap(),
+            ShortcutScope::Application,
+            on_1,
+        ));
+        this
     }
 
     fn on_scroll_bar_value_changed(&mut self, value: i32) -> anyhow::Result<()> {

@@ -7,14 +7,16 @@ use winit::keyboard::{KeyCode, ModifiersState, NamedKey};
 mod parse;
 
 use crate::{
+    callback::Callback,
     event::KeyboardInputEvent,
     shortcut::parse::{parse_key, parse_keycode},
+    widgets::RawWidgetId,
 };
 
-#[derive(PartialEq, Debug)]
-pub struct Shortcut(pub Vec<KeyCombination>);
+#[derive(PartialEq, Debug, Clone)]
+pub struct KeyCombinations(pub Vec<KeyCombination>);
 
-impl Shortcut {
+impl KeyCombinations {
     pub fn new(modifiers: Modifiers, key: impl Into<ShortcutKey>) -> Self {
         Self(vec![KeyCombination::new(modifiers, key)])
     }
@@ -161,38 +163,38 @@ impl From<ModifiersState> for Modifiers {
 }
 
 pub struct StandardShortcuts {
-    pub move_to_next_char: Shortcut,
-    pub move_to_previous_char: Shortcut,
-    pub delete: Shortcut,
-    pub backspace: Shortcut,
-    pub cut: Shortcut,
-    pub copy: Shortcut,
-    pub paste: Shortcut,
-    pub undo: Shortcut,
-    pub redo: Shortcut,
-    pub select_all: Shortcut,
-    pub deselect: Shortcut,
-    pub bold: Shortcut,
-    pub italic: Shortcut,
-    pub underline: Shortcut,
-    pub move_to_next_word: Shortcut,
-    pub move_to_previous_word: Shortcut,
-    pub move_to_start_of_line: Shortcut,
-    pub move_to_end_of_line: Shortcut,
-    pub select_next_char: Shortcut,
-    pub select_previous_char: Shortcut,
-    pub select_next_word: Shortcut,
-    pub select_previous_word: Shortcut,
-    pub select_start_of_line: Shortcut,
-    pub select_end_of_line: Shortcut,
-    pub delete_start_of_word: Shortcut,
-    pub delete_end_of_word: Shortcut,
-    pub insert_paragraph_separator: Shortcut,
+    pub move_to_next_char: KeyCombinations,
+    pub move_to_previous_char: KeyCombinations,
+    pub delete: KeyCombinations,
+    pub backspace: KeyCombinations,
+    pub cut: KeyCombinations,
+    pub copy: KeyCombinations,
+    pub paste: KeyCombinations,
+    pub undo: KeyCombinations,
+    pub redo: KeyCombinations,
+    pub select_all: KeyCombinations,
+    pub deselect: KeyCombinations,
+    pub bold: KeyCombinations,
+    pub italic: KeyCombinations,
+    pub underline: KeyCombinations,
+    pub move_to_next_word: KeyCombinations,
+    pub move_to_previous_word: KeyCombinations,
+    pub move_to_start_of_line: KeyCombinations,
+    pub move_to_end_of_line: KeyCombinations,
+    pub select_next_char: KeyCombinations,
+    pub select_previous_char: KeyCombinations,
+    pub select_next_word: KeyCombinations,
+    pub select_previous_word: KeyCombinations,
+    pub select_start_of_line: KeyCombinations,
+    pub select_end_of_line: KeyCombinations,
+    pub delete_start_of_word: KeyCombinations,
+    pub delete_end_of_word: KeyCombinations,
+    pub insert_paragraph_separator: KeyCombinations,
 }
 
 impl StandardShortcuts {
     pub fn new() -> Self {
-        let s = |text| Shortcut::from_str_portable(text).unwrap();
+        let s = |text| KeyCombinations::from_str_portable(text).unwrap();
         Self {
             #[cfg(not(target_os = "macos"))]
             move_to_next_char: s("Right"),
@@ -313,13 +315,54 @@ pub fn standard_shortcuts() -> &'static StandardShortcuts {
     CELL.get_or_init(StandardShortcuts::new)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShortcutScope {
+    Widget,
+    Window,
+    Application,
+    // TODO: support global shortcuts?
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ShortcutId(RawWidgetId);
+
+impl ShortcutId {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self(RawWidgetId::new())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Shortcut {
+    pub id: ShortcutId,
+    pub key_combinations: KeyCombinations,
+    pub scope: ShortcutScope,
+    pub callback: Callback<()>,
+}
+
+impl Shortcut {
+    pub fn new(
+        key_combinations: KeyCombinations,
+        scope: ShortcutScope,
+        callback: Callback<()>,
+    ) -> Self {
+        Self {
+            id: ShortcutId::new(),
+            key_combinations,
+            scope,
+            callback,
+        }
+    }
+}
+
 #[test]
 fn test_standard_shortcuts() {
     let shortcuts = StandardShortcuts::new();
 
     #[cfg(not(target_os = "macos"))]
     {
-        let shortcut1 = Shortcut(vec![KeyCombination::new(
+        let shortcut1 = KeyCombinations(vec![KeyCombination::new(
             Modifiers::empty(),
             NamedKey::ArrowRight,
         )]);
@@ -329,7 +372,7 @@ fn test_standard_shortcuts() {
             shortcut1, shortcuts.move_to_next_char
         );
 
-        let shortcut2 = Shortcut(vec![
+        let shortcut2 = KeyCombinations(vec![
             KeyCombination::new(Modifiers::CTRL_OR_MAC_CMD, KeyCode::KeyY),
             KeyCombination::new(Modifiers::CTRL_OR_MAC_CMD | Modifiers::SHIFT, KeyCode::KeyZ),
             KeyCombination::new(Modifiers::ALT | Modifiers::SHIFT, NamedKey::Backspace),
@@ -340,7 +383,7 @@ fn test_standard_shortcuts() {
             shortcut1, shortcuts.redo
         );
 
-        let shortcut3 = Shortcut(vec![KeyCombination::new(Modifiers::SHIFT, NamedKey::End)]);
+        let shortcut3 = KeyCombinations(vec![KeyCombination::new(Modifiers::SHIFT, NamedKey::End)]);
         assert_eq!(
             shortcuts.select_end_of_line, shortcut3,
             "standard_shortcuts: expected {:?}, got {:?}",
@@ -350,7 +393,7 @@ fn test_standard_shortcuts() {
 
     #[cfg(target_os = "macos")]
     {
-        let shortcut1 = Shortcut(vec![
+        let shortcut1 = KeyCombinations(vec![
             KeyCombination::new(Modifiers::empty(), NamedKey::ArrowRight),
             KeyCombination::new(Modifiers::META_OR_MAC_CTRL, KeyCode::KeyF),
         ]);
@@ -360,7 +403,7 @@ fn test_standard_shortcuts() {
             shortcut1, shortcuts.move_to_next_char
         );
 
-        let shortcut2 = Shortcut(vec![KeyCombination::new(
+        let shortcut2 = KeyCombinations(vec![KeyCombination::new(
             Modifiers::CTRL_OR_MAC_CMD | Modifiers::SHIFT,
             KeyCode::KeyZ,
         )]);
@@ -370,7 +413,7 @@ fn test_standard_shortcuts() {
             shortcut1, shortcuts.redo
         );
 
-        let shortcut3 = Shortcut(vec![KeyCombination::new(
+        let shortcut3 = KeyCombinations(vec![KeyCombination::new(
             Modifiers::SHIFT | Modifiers::CTRL_OR_MAC_CMD,
             NamedKey::ArrowRight,
         )]);

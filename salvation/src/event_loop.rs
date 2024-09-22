@@ -290,6 +290,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     clipboard: Clipboard::new().expect("failed to initialize clipboard"),
                     windows: HashMap::new(),
                     widget_callbacks: HashMap::new(),
+                    application_shortcuts: Vec::new(),
                 };
                 SYSTEM.with(|system| {
                     *system.0.borrow_mut() = Some(shared_system_data);

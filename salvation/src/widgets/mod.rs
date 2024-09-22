@@ -26,6 +26,7 @@ use crate::{
         grid::{self, GridAxisOptions, GridOptions},
         LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT,
     },
+    shortcut::{Shortcut, ShortcutId, ShortcutScope},
     style::{computed::ComputedStyle, Style},
     system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Point, Rect, Size},
@@ -159,11 +160,19 @@ pub struct WidgetCommon {
     pub event_filter: Option<Box<EventFilterFn>>,
     pub accessible_mounted: bool,
     pub grid_options: Option<GridOptions>,
+
+    pub shortcuts: Vec<Shortcut>,
 }
 
 impl Drop for WidgetCommon {
     fn drop(&mut self) {
         unregister_address(self.id);
+        for shortcut in &self.shortcuts {
+            // TODO: deregister widget/window shortcuts
+            if shortcut.scope == ShortcutScope::Application {
+                with_system(|system| system.application_shortcuts.retain(|s| s.id != shortcut.id));
+            }
+        }
     }
 }
 
@@ -198,6 +207,7 @@ impl WidgetCommon {
             is_window_root: false,
             accessible_mounted: false,
             grid_options: None,
+            shortcuts: Vec::new(),
         }
     }
 
@@ -289,17 +299,6 @@ impl WidgetCommon {
             .expect("should never fail with correct index");
         index
     }
-
-    // pub fn add_window(
-    //     &mut self,
-    //     mut widget: Box<dyn Widget>,
-    //     attrs: WindowAttributes,
-    // ) -> SharedWindowData {
-    //     widget.common_mut().is_window_root = true;
-    //     let index = self.add_child(widget, Default::default());
-    //     let window = create_window(attrs, self.children[index].widget.as_mut());
-    //     window
-    // }
 
     // TODO: fn replace_child
     pub fn insert_child(
@@ -491,6 +490,8 @@ impl WidgetCommon {
     }
 
     pub fn set_scope(&mut self, scope: WidgetScope) {
+        // TODO: (de)register widget/window shortcuts
+
         let addr_changed = self.scope.address != scope.address;
         let parent_id_changed = self.scope.parent_id != scope.parent_id;
         let window_changed = self.scope.window_id() != scope.window_id();
@@ -570,36 +571,17 @@ impl WidgetCommon {
         Err(WidgetNotFound)
     }
 
-    /*pub fn only_child_size_hint_x(&mut self) -> Result<SizeHint> {
-        if self.children.is_empty() {
-            bail!("no children");
+    pub fn add_shortcut(&mut self, shortcut: Shortcut) -> ShortcutId {
+        let id = shortcut.id;
+        if shortcut.scope == ShortcutScope::Application {
+            with_system(|system| system.application_shortcuts.push(shortcut.clone()));
         }
-        if self.children.len() > 1 {
-            warn!("more than one child found, using first child's size hint");
-        }
-        Ok(self.children[0].widget.cached_size_hint_x())
+        // TODO: register widget/window shortcuts
+        self.shortcuts.push(shortcut);
+        id
     }
 
-    pub fn only_child_size_hint_y(&mut self, size_x: i32) -> Result<SizeHint> {
-        if self.children.is_empty() {
-            bail!("no children");
-        }
-        if self.children.len() > 1 {
-            warn!("more than one child found, using first child's size hint");
-        }
-        Ok(self.children[0].widget.cached_size_hint_y(size_x))
-    }
-
-    pub fn layout_child_as_self(&self) -> Vec<Option<Rect>> {
-        let rect = self
-            .rect_in_window_or_err()
-            .or_report_err()
-            .map(|rect| Rect {
-                top_left: Point::default(),
-                size: rect.size,
-            });
-        self.children.iter().map(|_| rect).collect()
-    }*/
+    // TODO: remove_shortcut
 }
 
 impl Default for WidgetCommon {

@@ -566,25 +566,23 @@ impl<'a> WindowWithWidget<'a> {
                 event,
             } => {
                 let focused_widget1 = self.shared_window_data.0.borrow().focused_widget.clone();
+                let modifiers = self.shared_window_data.0.borrow().modifiers_state;
+                let event = KeyboardInputEvent::builder()
+                    .device_id(device_id)
+                    .info(event.clone())
+                    .is_synthetic(is_synthetic)
+                    .modifiers(modifiers)
+                    .build();
                 if let Some(focused_widget) = focused_widget1 {
                     if let Ok(widget) = get_widget_by_id_mut(self.root_widget, focused_widget.1) {
-                        let modifiers = self.shared_window_data.0.borrow().modifiers_state;
-                        widget.dispatch(
-                            KeyboardInputEvent::builder()
-                                .device_id(device_id)
-                                .info(event.clone())
-                                .is_synthetic(is_synthetic)
-                                .modifiers(modifiers)
-                                .build()
-                                .into(),
-                        );
+                        widget.dispatch(event.clone().into());
                     }
                 }
 
                 // TODO: only if event is not accepted by a widget
-                if event.state == ElementState::Pressed {
-                    let logical_key = event.logical_key;
-                    if logical_key == Key::Named(NamedKey::Tab) {
+                if event.info().state == ElementState::Pressed {
+                    let logical_key = &event.info().logical_key;
+                    if logical_key == &Key::Named(NamedKey::Tab) {
                         let shift1 = self
                             .shared_window_data
                             .0
@@ -597,6 +595,19 @@ impl<'a> WindowWithWidget<'a> {
                             self.move_keyboard_focus(1);
                         }
                     }
+                }
+
+                // TODO: only if event is not accepted above
+                let mut triggered_callbacks = Vec::new();
+                with_system(|system| {
+                    for shortcut in &system.application_shortcuts {
+                        if shortcut.key_combinations.matches(&event) {
+                            triggered_callbacks.push(shortcut.callback.clone());
+                        }
+                    }
+                });
+                for callback in triggered_callbacks {
+                    callback.invoke(());
                 }
             }
             WindowEvent::Ime(ime) => {

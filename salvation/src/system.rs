@@ -14,6 +14,7 @@ use winit::{event_loop::EventLoopProxy, window::WindowId};
 use crate::{
     callback::{Callback, CallbackId, WidgetCallbackData},
     event_loop::UserEvent,
+    shortcut::Shortcut,
     style::computed::ComputedStyle,
     timer::{Timer, TimerId, Timers},
     widgets::{RawWidgetId, WidgetAddress},
@@ -42,6 +43,7 @@ pub struct SharedSystemDataInner {
     pub clipboard: Clipboard,
     pub windows: HashMap<WindowId, Window>,
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
+    pub application_shortcuts: Vec<Shortcut>,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);

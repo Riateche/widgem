@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    fmt,
     marker::PhantomData,
     rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
@@ -27,6 +28,15 @@ impl<Event> Clone for Callback<Event> {
             callback_id: self.callback_id,
             _marker: self._marker,
         }
+    }
+}
+
+impl<Event> fmt::Debug for Callback<Event> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Callback")
+            .field("sender", &self.sender)
+            .field("callback_id", &self.callback_id)
+            .finish()
     }
 }
 

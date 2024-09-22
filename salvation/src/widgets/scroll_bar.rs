@@ -209,6 +209,10 @@ impl ScrollBar {
         this
     }
 
+    pub fn axis(&mut self) -> Axis {
+        self.axis
+    }
+
     pub fn set_axis(&mut self, axis: Axis) {
         self.axis = axis;
         match axis {
