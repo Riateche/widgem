@@ -109,7 +109,7 @@ pub(crate) struct SolveLayoutOutput {
 // TODO: support spanned items
 pub(crate) fn solve_layout(
     items: &[LayoutItem],
-    mut total: i32,
+    total: i32,
     options: &GridAxisOptions,
 ) -> SolveLayoutOutput {
     let mut output = SolveLayoutOutput {
@@ -120,25 +120,34 @@ pub(crate) fn solve_layout(
     if items.is_empty() {
         return output;
     }
-    total = max(
-        0,
-        total
-            - 2 * options.preferred_padding
-            - items.len().saturating_sub(1) as i32
-                * (options.preferred_spacing - options.border_collapse),
-    );
-    let total_preferred: i32 = items.iter().map(|item| item.size_hints.preferred).sum();
+    let total_preferred = items
+        .iter()
+        .map(|item| item.size_hints.preferred)
+        .sum::<i32>()
+        + 2 * options.preferred_padding
+        + items.len().saturating_sub(1) as i32
+            * (options.preferred_spacing - options.border_collapse);
     if total_preferred == total {
+        // Available size is exactly equal to the requested size.
         output.sizes = items.iter().map(|item| item.size_hints.preferred).collect();
         return output;
     } else if total_preferred > total {
-        let total_min: i32 = items.iter().map(|item| item.size_hints.min).sum();
+        // Available size is less than the preferred size. Scaling down flexible items.
+        let total_min: i32 = items.iter().map(|item| item.size_hints.min).sum::<i32>()
+            + 2 * options.min_padding
+            + items.len().saturating_sub(1) as i32
+                * max(0, options.min_spacing - options.border_collapse);
         let factor = if total_preferred == total_min {
             0.0
         } else {
             (total - total_min) as f32 / (total_preferred - total_min) as f32
         };
-        let mut remaining = total;
+        output.padding =
+            options.min_padding + (options.preferred_padding as f32 * factor).round() as i32;
+        output.spacing =
+            options.min_spacing + (options.preferred_spacing as f32 * factor).round() as i32;
+        let mut remaining =
+            total - output.padding * 2 - output.spacing * items.len().saturating_sub(1) as i32;
         for item in items {
             let item_size = item.size_hints.min
                 + ((item.size_hints.preferred - item.size_hints.min) as f32 * factor).round()
@@ -155,7 +164,8 @@ pub(crate) fn solve_layout(
             .iter()
             .filter(|item| !item.size_hints.is_fixed)
             .count() as i32;
-        let mut remaining = total;
+        let mut remaining =
+            total - output.padding * 2 - output.spacing * items.len().saturating_sub(1) as i32;
         let mut extras = fair_split(num_flexible, max(0, total - total_preferred));
         for item in items {
             let item_size = if item.size_hints.is_fixed {
