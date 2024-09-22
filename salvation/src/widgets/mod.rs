@@ -769,6 +769,7 @@ pub trait WidgetExt {
     fn size_hints_x(&mut self) -> SizeHints;
     fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32;
     fn size_hints_y(&mut self, size_x: i32) -> SizeHints;
+    fn size_hints_y_from_hints_x(&mut self, hints_x: SizeHints) -> SizeHints;
     fn size_x_fixed(&mut self) -> bool;
     fn size_y_fixed(&mut self) -> bool;
 
@@ -1017,6 +1018,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         SizeHints {
             min: self.size_hint_y(size_x, SizeHintMode::Min),
             preferred: self.size_hint_y(size_x, SizeHintMode::Preferred),
+            is_fixed: self.size_y_fixed(),
+        }
+    }
+
+    fn size_hints_y_from_hints_x(&mut self, hints_x: SizeHints) -> SizeHints {
+        SizeHints {
+            min: self.size_hint_y(hints_x.min, SizeHintMode::Min),
+            preferred: self.size_hint_y(hints_x.preferred, SizeHintMode::Preferred),
             is_fixed: self.size_y_fixed(),
         }
     }

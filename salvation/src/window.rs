@@ -1,5 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
+    cmp::max,
     collections::HashSet,
     mem,
     num::NonZeroU32,
@@ -63,6 +64,8 @@ pub struct SharedWindowDataInner {
     #[derivative(Debug = "ignore")]
     pub accesskit_adapter: accesskit_winit::Adapter,
     pub winit_window: Rc<winit::window::Window>,
+    pub min_size: Size,
+    pub preferred_size: Size,
     pub ime_allowed: bool,
     pub ime_cursor_area: Rect,
 
@@ -192,16 +195,14 @@ const EXTRA_SURFACE_SIZE: u32 = 50;
 
 impl Window {
     pub(crate) fn new(mut attrs: WindowAttributes, widget: &mut dyn Widget) -> Self {
-        // TODO: propagate style without mounting?
         let size_hints_x = widget.size_hints_x();
         // TODO: adjust size_x for screen size
-        let size_hints_y = widget.size_hints_y(size_hints_x.preferred);
+        let size_hints_y = widget.size_hints_y_from_hints_x(size_hints_x);
+        let preferred_size = Size::new(size_hints_x.preferred, size_hints_y.preferred);
+        let min_size = Size::new(size_hints_x.min, size_hints_y.min);
         attrs = attrs
-            .with_inner_size(PhysicalSize::new(
-                size_hints_x.preferred,
-                size_hints_y.preferred,
-            ))
-            .with_min_inner_size(PhysicalSize::new(size_hints_x.min, size_hints_y.min));
+            .with_inner_size(PhysicalSize::new(preferred_size.x, preferred_size.y))
+            .with_min_inner_size(PhysicalSize::new(min_size.x, min_size.y));
         let winit_window = Rc::new(with_active_event_loop(|event_loop| {
             event_loop.create_window(attrs).unwrap()
         }));
@@ -248,6 +249,8 @@ impl Window {
             last_click_button: None,
             last_click_instant: None,
             delete_widget_on_close: true,
+            min_size,
+            preferred_size,
         })));
 
         widget.common_mut().is_window_root = true;
@@ -824,14 +827,46 @@ impl<'a> WindowWithWidget<'a> {
 
     fn layout(&mut self, changed_size_hints: Vec<WidgetAddress>) {
         let inner_size = self.shared_window_data.0.borrow().winit_window.inner_size();
+        let mut inner_size = Size::new(inner_size.width as i32, inner_size.height as i32);
+        let old_min_size = self.shared_window_data.0.borrow().min_size;
+        let old_preferred_size = self.shared_window_data.0.borrow().preferred_size;
+        let hints_x = self.root_widget.size_hints_x();
+        let hints_y = self.root_widget.size_hints_y_from_hints_x(hints_x);
+        let preferred_size = Size::new(hints_x.preferred, hints_y.preferred);
+        let min_size = Size::new(hints_x.min, hints_y.min);
+        if min_size != old_min_size {
+            self.shared_window_data
+                .0
+                .borrow()
+                .winit_window
+                .set_min_inner_size(Some(PhysicalSize::new(min_size.x, min_size.y)));
+            self.shared_window_data.0.borrow_mut().min_size = min_size;
+        }
+        if min_size != old_min_size || preferred_size != old_preferred_size {
+            self.shared_window_data.0.borrow_mut().preferred_size = preferred_size;
+            if inner_size.x < preferred_size.x || inner_size.y < preferred_size.y {
+                let new_size = Size::new(
+                    max(inner_size.x, preferred_size.x),
+                    max(inner_size.y, preferred_size.y),
+                );
+                let response = self
+                    .shared_window_data
+                    .0
+                    .borrow()
+                    .winit_window
+                    .request_inner_size(PhysicalSize::new(new_size.x, new_size.y));
+                if let Some(response) = response {
+                    inner_size.x = response.width as i32;
+                    inner_size.y = response.height as i32;
+                }
+            }
+        }
+
         self.root_widget.dispatch(
             LayoutEvent {
                 new_rect_in_window: Some(Rect {
                     top_left: Point::default(),
-                    size: Size {
-                        x: inner_size.width as i32,
-                        y: inner_size.height as i32,
-                    },
+                    size: inner_size,
                 }),
                 changed_size_hints,
             }
