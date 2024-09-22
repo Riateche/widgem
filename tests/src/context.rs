@@ -103,6 +103,7 @@ impl<'a> Context<'a> {
     }
 
     pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
+        sleep(Duration::from_millis(500));
         self.last_snapshot_index += 1;
         let index = self.last_snapshot_index;
         let confirmed_snapshot_name = format!("{:02} - {}.png", index, text);

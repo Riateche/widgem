@@ -82,17 +82,17 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
 
     ctx.connection.mouse_down(1)?;
     ctx.snapshot(&mut window, "pressed right arrow - step right by 5")?;
-    sleep(Duration::from_millis(1200)); // auto repeat delay is 2 s
+    sleep(Duration::from_millis(700)); // auto repeat delay is 2 s; snapshot delay is 0.5 s
     ctx.connection.mouse_up(1)?;
     ctx.snapshot(&mut window, "released right arrow - no auto repeat")?;
 
     ctx.connection.mouse_down(1)?;
     ctx.snapshot(&mut window, "pressed right arrow - step right by 5")?;
-    sleep(Duration::from_millis(2300));
+    sleep(Duration::from_millis(1300));
     ctx.snapshot(&mut window, "first auto repeat")?;
-    sleep(Duration::from_millis(1000));
+    sleep(Duration::from_millis(500));
     ctx.snapshot(&mut window, "second auto repeat")?;
-    sleep(Duration::from_millis(1000));
+    sleep(Duration::from_millis(500));
     ctx.snapshot(&mut window, "third auto repeat")?;
     ctx.connection.mouse_up(1)?;
     ctx.snapshot(&mut window, "released right arrow - no more auto repeats")?;
@@ -125,7 +125,6 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.connection.mouse_down(1)?;
     ctx.snapshot(&mut window, "grabbed slider")?;
     window.mouse_move(300, 24)?;
-    sleep(Duration::from_millis(500));
     ctx.snapshot(&mut window, "dragged all the way right")?;
     ctx.connection.mouse_up(1)?;
     ctx.snapshot(&mut window, "released slider - no highlight")?;
