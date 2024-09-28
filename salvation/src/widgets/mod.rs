@@ -16,6 +16,7 @@ use winit::window::{CursorIcon, WindowAttributes, WindowId};
 
 use crate::{
     callback::{widget_callback, Callback},
+    create_window,
     draw::DrawEvent,
     event::{
         AccessibleActionEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent,
@@ -30,7 +31,7 @@ use crate::{
     style::{computed::ComputedStyle, Style},
     system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Point, Rect, Size},
-    window::{create_window, SharedWindowData},
+    window::Window,
 };
 
 pub mod button;
@@ -95,7 +96,7 @@ impl<T> Copy for WidgetId<T> {}
 pub struct WidgetScope {
     pub parent_id: Option<RawWidgetId>,
     pub address: WidgetAddress,
-    pub window: Option<SharedWindowData>,
+    pub window: Option<Window>,
 
     pub is_visible: bool,
     pub is_enabled: bool,
@@ -418,7 +419,7 @@ impl WidgetCommon {
         self.size_y_fixed_cache = None;
     }
 
-    pub fn window_or_err(&self) -> Result<&SharedWindowData> {
+    pub fn window_or_err(&self) -> Result<&Window> {
         self.scope.window.as_ref().context("no window")
     }
 

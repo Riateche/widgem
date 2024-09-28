@@ -19,7 +19,7 @@ use crate::{
     event::FocusReason,
     system::with_system,
     types::{Point, Size},
-    window::SharedWindowData,
+    window::Window,
 };
 
 pub struct TextEditor {
@@ -29,7 +29,7 @@ pub struct TextEditor {
     selected_text_color: Color,
     selected_text_background: Color,
     size: Size,
-    window: Option<SharedWindowData>,
+    window: Option<Window>,
     is_cursor_hidden: bool,
     forbid_mouse_interaction: bool,
 }
@@ -74,7 +74,7 @@ impl TextEditor {
         });
     }
 
-    pub fn set_window(&mut self, window: Option<SharedWindowData>) {
+    pub fn set_window(&mut self, window: Option<Window>) {
         self.window = window;
     }
 

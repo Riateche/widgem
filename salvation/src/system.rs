@@ -18,7 +18,8 @@ use crate::{
     style::computed::ComputedStyle,
     timer::{Timer, TimerId, Timers},
     widgets::{RawWidgetId, WidgetAddress},
-    window::{Window, WindowRequest},
+    window::WindowRequest,
+    window_handler::WindowInfo,
 };
 
 thread_local! {
@@ -41,7 +42,7 @@ pub struct SharedSystemDataInner {
     pub(crate) event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
-    pub windows: HashMap<WindowId, Window>,
+    pub windows: HashMap<WindowId, WindowInfo>,
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
     pub application_shortcuts: Vec<Shortcut>,
 }

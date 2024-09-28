@@ -16,9 +16,11 @@ pub mod timer;
 pub mod types;
 pub mod widgets;
 pub mod window;
+mod window_handler;
 
 pub use crate::accessible::new_accessible_node_id;
 pub use crate::event_loop::{run, App};
+pub use crate::window_handler::create_window;
 use event_loop::with_active_event_loop;
 pub use tiny_skia;
 pub use winit;
