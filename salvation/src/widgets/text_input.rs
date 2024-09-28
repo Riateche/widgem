@@ -189,7 +189,7 @@ impl TextInput {
 
         if !self.common.is_focused {
             send_window_request(
-                window.0.borrow().id,
+                window.id(),
                 SetFocusRequest {
                     widget_id: self.common.id,
                     reason: FocusReason::Mouse,
@@ -199,7 +199,7 @@ impl TextInput {
         self.editor.on_mouse_input(
             event.pos() - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
             event.num_clicks(),
-            window.0.borrow().modifiers_state.shift_key(),
+            window.modifiers().shift_key(),
         );
         self.common.update();
         Ok(())
@@ -270,16 +270,9 @@ impl Widget for TextInput {
 
         if update_accessible {
             if let Some(previous_window) = &event.previous_scope().window {
+                previous_window.accessible_update(self.accessible_line_id, None);
                 previous_window
-                    .0
-                    .borrow_mut()
-                    .accessible_nodes
-                    .update(self.accessible_line_id, None);
-                previous_window
-                    .0
-                    .borrow_mut()
-                    .accessible_nodes
-                    .unmount(Some(self.common.id.into()), self.accessible_line_id);
+                    .accessible_unmount(Some(self.common.id.into()), self.accessible_line_id);
             }
         }
 
@@ -290,11 +283,7 @@ impl Widget for TextInput {
 
         if update_accessible {
             if let Some(window) = &self.common.scope.window {
-                window.0.borrow_mut().accessible_nodes.mount(
-                    Some(self.common.id.into()),
-                    self.accessible_line_id,
-                    0,
-                );
+                window.accessible_mount(Some(self.common.id.into()), self.accessible_line_id, 0);
             }
         }
         Ok(())
@@ -366,9 +355,12 @@ impl Widget for TextInput {
                 _ => {}
             }
         }
-        let is_released = self.common.scope.window.as_ref().map_or(false, |window| {
-            window.0.borrow().pressed_mouse_buttons.is_empty()
-        });
+        let is_released = self
+            .common
+            .scope
+            .window
+            .as_ref()
+            .map_or(false, |window| !window.any_mouse_buttons_pressed());
         if is_released {
             self.editor.mouse_released();
         }
@@ -379,12 +371,7 @@ impl Widget for TextInput {
 
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let window = self.common.window_or_err()?;
-        if window
-            .0
-            .borrow()
-            .pressed_mouse_buttons
-            .contains(&MouseButton::Left)
-        {
+        if window.is_mouse_button_pressed(MouseButton::Left) {
             let pos =
                 event.pos() - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
             let old_selection = (self.editor.select_opt(), self.editor.cursor());
@@ -555,7 +542,7 @@ impl Widget for TextInput {
         match event.action() {
             accesskit::Action::Default | accesskit::Action::Focus => {
                 send_window_request(
-                    window.0.borrow().id,
+                    window.id(),
                     SetFocusRequest {
                         widget_id: self.common.id,
                         // TODO: separate reason?
@@ -601,11 +588,7 @@ impl Widget for TextInput {
             });
         }
 
-        window
-            .0
-            .borrow_mut()
-            .accessible_nodes
-            .update(self.accessible_line_id, Some(line_node));
+        window.accessible_update(self.accessible_line_id, Some(line_node));
 
         let mut node = NodeBuilder::new(Role::TextInput);
         // TODO: use label

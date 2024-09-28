@@ -63,12 +63,7 @@ fn dispatch_widget_callback(
     (callback.func)(widget, event).or_report_err();
     widget.update_accessible();
 
-    let window_id = widget
-        .common()
-        .scope
-        .window
-        .as_ref()
-        .map(|w| w.0.borrow().id);
+    let window_id = widget.common().scope.window.as_ref().map(|w| w.id());
     if let Some(window_id) = window_id {
         let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
             warn!("missing window object");

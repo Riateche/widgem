@@ -276,7 +276,7 @@ impl Widget for Button {
                     let window = self.common.window_or_err()?;
                     if self.role == Role1::Default {
                         send_window_request(
-                            window.0.borrow().id,
+                            window.id(),
                             SetFocusRequest {
                                 widget_id: self.common.id,
                                 reason: FocusReason::Mouse,
@@ -320,7 +320,7 @@ impl Widget for Button {
             Action::Default => self.trigger(),
             Action::Focus => {
                 send_window_request(
-                    self.common.window_or_err()?.0.borrow().id,
+                    self.common.window_or_err()?.id(),
                     SetFocusRequest {
                         widget_id: self.common.id,
                         // TODO: separate reason?

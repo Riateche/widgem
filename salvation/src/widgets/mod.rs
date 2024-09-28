@@ -105,7 +105,7 @@ pub struct WidgetScope {
 
 impl WidgetScope {
     pub fn window_id(&self) -> Option<WindowId> {
-        self.window.as_ref().map(|w| w.0.borrow().id)
+        self.window.as_ref().map(|w| w.id())
     }
 }
 
@@ -405,11 +405,7 @@ impl WidgetCommon {
         let Some(window) = &self.scope.window else {
             return;
         };
-        window
-            .0
-            .borrow_mut()
-            .pending_size_hint_invalidations
-            .push(self.scope.address.clone());
+        window.invalidate_size_hint(self.scope.address.clone());
     }
 
     fn clear_size_hint_cache(&mut self) {
@@ -477,8 +473,8 @@ impl WidgetCommon {
             child.widget.common_mut().unmount_accessible();
         }
         if let Some(window) = &self.scope.window {
-            let root_widget_id = window.0.borrow().root_widget_id;
-            window.0.borrow_mut().accessible_nodes.unmount(
+            let root_widget_id = window.root_widget_id();
+            window.accessible_unmount(
                 if self.id == root_widget_id {
                     None
                 } else {
@@ -512,11 +508,7 @@ impl WidgetCommon {
             self.unmount_accessible();
             if let Some(window) = &self.scope.window {
                 if self.scope.window.is_none() {
-                    window
-                        .0
-                        .borrow_mut()
-                        .accessible_nodes
-                        .update(self.id.0.into(), None);
+                    window.accessible_update(self.id.0.into(), None);
                 }
             }
         }
@@ -528,8 +520,8 @@ impl WidgetCommon {
         }
         if update_accessible {
             if let Some(window) = &self.scope.window {
-                let root_widget_id = window.0.borrow().root_widget_id;
-                window.0.borrow_mut().accessible_nodes.mount(
+                let root_widget_id = window.root_widget_id();
+                window.accessible_mount(
                     if self.id == root_widget_id {
                         None
                     } else if let Some(parent_id) = self.scope.parent_id {
@@ -858,13 +850,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     if !accepted {
                         let is_enter =
                             if let Some(window) = self.common().window_or_err().or_report_err() {
-                                let self_id = self.common().id;
-                                !window
-                                    .0
-                                    .borrow()
-                                    .mouse_entered_widgets
-                                    .iter()
-                                    .any(|(_, id)| *id == self_id)
+                                !window.is_mouse_entered(self.common().id)
                             } else {
                                 false
                             };
@@ -973,11 +959,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             node
         });
-        window
-            .0
-            .borrow_mut()
-            .accessible_nodes
-            .update(self.common().id.0.into(), node);
+        window.accessible_update(self.common().id.0.into(), node);
         self.common_mut().pending_accessible_update = false;
     }
 
@@ -1104,18 +1086,9 @@ fn accept_mouse_event(
         let id = widget.common().id;
         accepted_by.set(Some(id));
 
-        window
-            .0
-            .borrow()
-            .winit_window
-            .set_cursor(widget.common().cursor_icon);
+        window.set_cursor(widget.common().cursor_icon);
         if is_enter {
-            window
-                .0
-                .borrow_mut()
-                .mouse_entered_widgets
-                .push((rect_in_window, id));
-
+            window.add_mouse_entered(rect_in_window, id);
             widget.common_mut().is_mouse_over = true;
             widget.common_mut().update();
         }
