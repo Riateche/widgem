@@ -4,6 +4,10 @@ use crate::context::Context;
 use salvation::{widgets::WidgetExt, App};
 
 pub mod scroll_bar;
+pub mod scroll_bar_pager;
+pub mod scroll_bar_right_arrow;
+pub mod scroll_bar_slider;
+pub mod scroll_bar_slider_extremes;
 pub mod text_input;
 
 macro_rules! tests {
@@ -34,5 +38,9 @@ macro_rules! tests {
 
 tests! {
     scroll_bar,
+    scroll_bar_right_arrow,
+    scroll_bar_slider,
+    scroll_bar_slider_extremes,
+    scroll_bar_pager,
     text_input,
 }

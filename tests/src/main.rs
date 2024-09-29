@@ -207,6 +207,9 @@ struct SingleSnapshotFiles {
 }
 
 fn discover_snapshots(test_case_dir: &Path) -> anyhow::Result<BTreeMap<u32, SingleSnapshotFiles>> {
+    if !test_case_dir.try_exists()? {
+        return Ok(BTreeMap::new());
+    }
     let mut unverified_files = BTreeMap::<u32, SingleSnapshotFiles>::new();
     for entry in read_dir(test_case_dir)? {
         let entry = entry?;

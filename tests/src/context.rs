@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{bail, Context as _};
+use fs_err::create_dir;
 use image::{ImageReader, RgbaImage};
 use itertools::Itertools;
 use uitest::{Connection, Window};
@@ -103,6 +104,9 @@ impl<'a> Context<'a> {
     }
 
     pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
+        if !self.test_case_dir.try_exists()? {
+            create_dir(&self.test_case_dir)?;
+        }
         sleep(Duration::from_millis(500));
         self.last_snapshot_index += 1;
         let index = self.last_snapshot_index;

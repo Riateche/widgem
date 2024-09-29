@@ -118,7 +118,7 @@ impl ReviewWidget {
                 .with_child(
                     Button::new("Skip snapshot")
                         .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
-                            w.reviewer.go_to_next_files();
+                            w.reviewer.go_to_next_files(true);
                             w.update_ui()
                         }))
                         .boxed(),
@@ -223,14 +223,14 @@ impl Reviewer {
                         warn!("failed to fetch snapshots: {:?}", err);
                         Default::default()
                     });
-            self.go_to_next_files();
+            self.go_to_next_files(false);
             if self.current_files.is_some() {
                 return;
             }
         }
     }
 
-    fn go_to_next_files(&mut self) {
+    fn go_to_next_files(&mut self, allow_next_test: bool) {
         self.mode = Mode::New;
         while let Some((_, files)) = self.remaining_files.pop_first() {
             self.previous_files = self.current_files.take();
@@ -242,6 +242,9 @@ impl Reviewer {
         }
         self.previous_files = None;
         self.current_files = None;
+        if allow_next_test {
+            self.go_to_next_test_case();
+        }
     }
 
     fn load_new(&self) -> anyhow::Result<Pixmap> {
@@ -386,7 +389,7 @@ impl Reviewer {
         current_files.confirmed = Some(confirmed_name);
         current_files.unconfirmed = None;
 
-        self.go_to_next_files();
+        self.go_to_next_files(true);
 
         Ok(())
     }
