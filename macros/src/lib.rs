@@ -20,7 +20,7 @@ pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
             if !is_ref_mut_self(first_arg) {
                 continue;
             }
-            if item.sig.output != ReturnType::Default {
+            if !matches!(item.sig.output, ReturnType::Default) {
                 continue;
             }
             let mut new_fn = item.clone();

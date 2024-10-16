@@ -7,8 +7,8 @@ use std::{
 
 use anyhow::Result;
 use arboard::Clipboard;
-use cosmic_text::{FontSystem, SwashCache};
 use log::warn;
+use salvation_cosmic_text::{FontSystem, SwashCache};
 use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{

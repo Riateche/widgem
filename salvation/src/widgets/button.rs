@@ -2,8 +2,8 @@ use std::{cmp::max, fmt::Display, rc::Rc};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use anyhow::Result;
-use cosmic_text::Attrs;
 use log::warn;
+use salvation_cosmic_text::Attrs;
 use salvation_macros::impl_with;
 use tiny_skia::Pixmap;
 use winit::{

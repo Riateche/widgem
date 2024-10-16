@@ -99,7 +99,7 @@ pub struct ComputedVariantStyle {
 pub struct ComputedStyle {
     pub min_padding_with_border: Point,
     pub preferred_padding_with_border: Point,
-    pub font_metrics: cosmic_text::Metrics,
+    pub font_metrics: salvation_cosmic_text::Metrics,
     pub variants: HashMap<ButtonState, ComputedVariantStyle>,
 }
 

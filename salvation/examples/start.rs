@@ -202,7 +202,7 @@ impl RootWidget {
     fn button_clicked(&mut self, data: String, k: u32) -> Result<()> {
         println!("callback! {:?}, {}", data, k);
         let button = self.common.widget(self.button_id)?;
-        button.set_text(&format!("ok {}", if k == 1 { "1" } else { "22222" }));
+        button.set_text(format!("ok {}", if k == 1 { "1" } else { "22222" }));
 
         if k == 1 {
             self.flag_column = !self.flag_column;

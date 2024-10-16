@@ -33,7 +33,7 @@ pub struct ComputedStyle {
 
     pub background: Color,
     pub grid: grid::ComputedStyle,
-    pub font_metrics: cosmic_text::Metrics,
+    pub font_metrics: salvation_cosmic_text::Metrics,
     pub text_input: text_input::ComputedStyle,
     pub button: button::ComputedStyle,
     pub scroll_bar: scroll_bar::ComputedStyle,

@@ -8,9 +8,9 @@ use std::{
 };
 
 use arboard::Clipboard;
-use cosmic_text::{fontdb, FontSystem, SwashCache};
 use derive_more::From;
 use log::warn;
+use salvation_cosmic_text::{fontdb, FontSystem, SwashCache};
 use scoped_tls::scoped_thread_local;
 use winit::{
     application::ApplicationHandler,

@@ -6,8 +6,8 @@ use std::{
 
 use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
 use anyhow::Result;
-use cosmic_text::{Action, Attrs, Motion, Wrap};
 use log::warn;
+use salvation_cosmic_text::{Action, Attrs, Motion, Wrap};
 use winit::{
     event::{ElementState, Ime, MouseButton},
     keyboard::{Key, NamedKey},

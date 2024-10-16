@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::Result;
-use cosmic_text::Attrs;
+use salvation_cosmic_text::Attrs;
 
 use crate::{
     draw::DrawEvent, impl_widget_common, layout::SizeHintMode, text_editor::TextEditor,

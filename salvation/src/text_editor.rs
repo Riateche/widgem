@@ -4,13 +4,13 @@ use std::{
 };
 
 use accesskit::{NodeId, TextDirection, TextPosition, TextSelection};
-use cosmic_text::{
-    Action, Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Edit,
-    Editor, Shaping, Wrap,
-};
 use line_straddler::{GlyphStyle, LineGenerator, LineType};
 use log::warn;
 use range_ext::intersect::Intersect;
+use salvation_cosmic_text::{
+    Action, Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Edit,
+    Editor, Shaping, Wrap,
+};
 use strict_num::FiniteF32;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform};
 use unicode_segmentation::UnicodeSegmentation;
@@ -67,7 +67,7 @@ impl TextEditor {
         e
     }
 
-    pub fn set_font_metrics(&mut self, metrics: cosmic_text::Metrics) {
+    pub fn set_font_metrics(&mut self, metrics: salvation_cosmic_text::Metrics) {
         with_system(|system| {
             self.editor
                 .with_buffer_mut(|buffer| buffer.set_metrics(&mut system.font_system, metrics));
@@ -455,7 +455,7 @@ impl TextEditor {
     }
     // TODO: update API
     pub fn select_opt(&self) -> Option<Cursor> {
-        if let cosmic_text::Selection::Normal(value) = self.editor.selection() {
+        if let salvation_cosmic_text::Selection::Normal(value) = self.editor.selection() {
             Some(value)
         } else {
             None
@@ -463,9 +463,9 @@ impl TextEditor {
     }
     pub fn set_select_opt(&mut self, select_opt: Option<Cursor>) {
         self.editor.set_selection(if let Some(cursor) = select_opt {
-            cosmic_text::Selection::Normal(cursor)
+            salvation_cosmic_text::Selection::Normal(cursor)
         } else {
-            cosmic_text::Selection::None
+            salvation_cosmic_text::Selection::None
         })
     }
 
@@ -607,11 +607,7 @@ fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Si
     }
 }
 
-fn convert_color(color: Color) -> cosmic_text::Color {
+fn convert_color(color: Color) -> salvation_cosmic_text::Color {
     let c = color.to_color_u8();
-    cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
+    salvation_cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
 }
-
-// fn convert_color_back(c: cosmic_text::Color) -> Color {
-//     Color::from_rgba8(c.r(), c.g(), c.b(), c.a())
-// }
