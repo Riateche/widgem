@@ -161,6 +161,7 @@ pub struct WidgetCommon {
     pub event_filter: Option<Box<EventFilterFn>>,
     pub accessible_mounted: bool,
     pub grid_options: Option<GridOptions>,
+    pub no_padding: bool,
 
     pub shortcuts: Vec<Shortcut>,
 }
@@ -208,6 +209,7 @@ impl WidgetCommon {
             is_window_root: false,
             accessible_mounted: false,
             grid_options: None,
+            no_padding: false,
             shortcuts: Vec::new(),
         }
     }
@@ -217,21 +219,42 @@ impl WidgetCommon {
         self.size_hint_changed();
     }
 
+    pub fn set_no_padding(&mut self, value: bool) {
+        self.no_padding = value;
+        self.size_hint_changed();
+    }
+
     fn grid_options(&self) -> GridOptions {
         self.grid_options.clone().unwrap_or_else(|| {
             let style = self.style();
             GridOptions {
                 x: GridAxisOptions {
-                    min_padding: style.grid.min_padding.x,
+                    min_padding: if self.no_padding {
+                        0
+                    } else {
+                        style.grid.min_padding.x
+                    },
                     min_spacing: style.grid.min_spacing.x,
-                    preferred_padding: style.grid.preferred_padding.x,
+                    preferred_padding: if self.no_padding {
+                        0
+                    } else {
+                        style.grid.preferred_padding.x
+                    },
                     preferred_spacing: style.grid.preferred_spacing.x,
                     border_collapse: 0,
                 },
                 y: GridAxisOptions {
-                    min_padding: style.grid.min_padding.y,
+                    min_padding: if self.no_padding {
+                        0
+                    } else {
+                        style.grid.min_padding.y
+                    },
                     min_spacing: style.grid.min_spacing.y,
-                    preferred_padding: style.grid.preferred_padding.y,
+                    preferred_padding: if self.no_padding {
+                        0
+                    } else {
+                        style.grid.preferred_padding.y
+                    },
                     preferred_spacing: style.grid.preferred_spacing.y,
                     border_collapse: 0,
                 },
@@ -294,6 +317,7 @@ impl WidgetCommon {
         self.pending_accessible_update = true;
     }
 
+    // TODO: check for row/column conflict
     pub fn add_child(&mut self, widget: Box<dyn Widget>, options: LayoutItemOptions) -> usize {
         let index = self.children.len();
         self.insert_child(index, widget, options)
@@ -752,6 +776,10 @@ pub trait WidgetExt {
         }
     }
 
+    fn with_no_padding(self, no_padding: bool) -> Self
+    where
+        Self: Sized;
+
     fn with_window(self, attrs: WindowAttributes) -> Self
     where
         Self: Sized;
@@ -783,6 +811,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         Self: Sized,
     {
         WidgetId(self.common().id, PhantomData)
+    }
+
+    fn with_no_padding(mut self, no_padding: bool) -> Self
+    where
+        Self: Sized,
+    {
+        self.common_mut().set_no_padding(no_padding);
+        self
     }
 
     fn with_window(mut self, attrs: WindowAttributes) -> Self

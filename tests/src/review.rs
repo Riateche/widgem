@@ -1,6 +1,6 @@
 use std::{
     cmp::max,
-    collections::{BTreeMap, HashMap, VecDeque},
+    collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
 };
 
@@ -18,7 +18,7 @@ use salvation::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 
-use crate::{discover_snapshots, test_cases::TestCase, SingleSnapshotFiles};
+use crate::{discover_snapshots, test_cases::TestCase, SingleSnapshotFile, SingleSnapshotFiles};
 
 pub struct ReviewWidget {
     common: WidgetCommon,
@@ -51,6 +51,7 @@ impl Mode {
 }
 
 impl ReviewWidget {
+    #[allow(clippy::collapsible_if)]
     pub fn new(reviewer: Reviewer) -> Self {
         let mut common = WidgetCommon::new();
         common.add_child(
@@ -64,21 +65,84 @@ impl ReviewWidget {
         );
 
         common.add_child(
-            Label::new("Snapshot:").boxed(),
-            LayoutItemOptions::from_pos_in_grid(1, 2),
-        );
-        let snapshot_name = Label::new("").with_id();
-        common.add_child(
-            snapshot_name.widget.boxed(),
+            Row::new()
+                .with_no_padding(true)
+                .with_child(
+                    Button::new("First test")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.go_to_test_case(0);
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .with_child(
+                    Button::new("Previous test")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.go_to_previous_test_case();
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .with_child(
+                    Button::new("Next test")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.go_to_next_test_case();
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .with_child(
+                    Button::new("Last test")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            let index = w.reviewer.test_cases().len().saturating_sub(1);
+                            w.reviewer.go_to_test_case(index);
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .boxed(),
             LayoutItemOptions::from_pos_in_grid(2, 2),
         );
 
         common.add_child(
-            Label::new("Display mode:").boxed(),
+            Label::new("Snapshot:").boxed(),
             LayoutItemOptions::from_pos_in_grid(1, 3),
         );
+        let snapshot_name = Label::new("").with_id();
+        common.add_child(
+            snapshot_name.widget.boxed(),
+            LayoutItemOptions::from_pos_in_grid(2, 3),
+        );
 
-        let mut modes_row = Row::new();
+        common.add_child(
+            Row::new()
+                .with_no_padding(true)
+                .with_child(
+                    Button::new("Previous snapshot")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.go_to_previous_snapshot();
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .with_child(
+                    Button::new("Next snapshot")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.reviewer.go_to_next_snapshot();
+                            w.update_ui()
+                        }))
+                        .boxed(),
+                )
+                .boxed(),
+            LayoutItemOptions::from_pos_in_grid(2, 4),
+        );
+
+        common.add_child(
+            Label::new("Display mode:").boxed(),
+            LayoutItemOptions::from_pos_in_grid(1, 5),
+        );
+
+        let mut modes_row = Row::new().with_no_padding(true);
         let mut mode_button_ids = HashMap::new();
         for mode in Mode::iter() {
             // TODO: radio buttons
@@ -89,24 +153,25 @@ impl ReviewWidget {
             mode_button_ids.insert(mode, button.id);
         }
         // TODO: radio buttons
-        common.add_child(modes_row.boxed(), LayoutItemOptions::from_pos_in_grid(2, 3));
+        common.add_child(modes_row.boxed(), LayoutItemOptions::from_pos_in_grid(2, 5));
 
         common.add_child(
             Label::new("Snapshot:").boxed(),
-            LayoutItemOptions::from_pos_in_grid(1, 4),
+            LayoutItemOptions::from_pos_in_grid(1, 6),
         );
         let image = Image::new(None).with_id();
         common.add_child(
             image.widget.boxed(),
-            LayoutItemOptions::from_pos_in_grid(2, 4),
+            LayoutItemOptions::from_pos_in_grid(2, 6),
         );
 
         common.add_child(
             Label::new("Actions:").boxed(),
-            LayoutItemOptions::from_pos_in_grid(1, 5),
+            LayoutItemOptions::from_pos_in_grid(1, 7),
         );
         common.add_child(
             Row::new()
+                .with_no_padding(true)
                 .with_child(
                     Button::new("Approve")
                         .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
@@ -118,7 +183,9 @@ impl ReviewWidget {
                 .with_child(
                     Button::new("Skip snapshot")
                         .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
-                            w.reviewer.go_to_next_files(true);
+                            if !w.reviewer.go_to_next_unconfirmed_file() {
+                                salvation::exit();
+                            }
                             w.update_ui()
                         }))
                         .boxed(),
@@ -127,12 +194,17 @@ impl ReviewWidget {
                     Button::new("Skip test")
                         .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
                             w.reviewer.go_to_next_test_case();
+                            if !w.reviewer.has_unconfirmed() {
+                                if !w.reviewer.go_to_next_unconfirmed_file() {
+                                    salvation::exit();
+                                }
+                            }
                             w.update_ui()
                         }))
                         .boxed(),
                 )
                 .boxed(),
-            LayoutItemOptions::from_pos_in_grid(2, 5),
+            LayoutItemOptions::from_pos_in_grid(2, 7),
         );
 
         let mut this = Self {
@@ -148,11 +220,6 @@ impl ReviewWidget {
     }
 
     fn update_ui(&mut self) -> anyhow::Result<()> {
-        if !self.reviewer.has_current_files() {
-            salvation::exit();
-            return Ok(());
-        }
-
         let state = self.reviewer.current_state();
         self.common
             .widget(self.test_name_id)?
@@ -184,11 +251,10 @@ impl Widget for ReviewWidget {
 pub struct Reviewer {
     test_cases_dir: PathBuf,
     mode: Mode,
-    remaining_test_cases: VecDeque<TestCase>,
-    current_test_case: Option<TestCase>,
-    remaining_files: BTreeMap<u32, SingleSnapshotFiles>,
-    previous_files: Option<SingleSnapshotFiles>,
-    current_files: Option<SingleSnapshotFiles>,
+    test_cases: Vec<TestCase>,
+    current_test_case_index: Option<usize>,
+    all_current_snapshots: BTreeMap<u32, SingleSnapshotFiles>,
+    current_snapshot_index: Option<u32>,
 }
 
 impl Reviewer {
@@ -196,92 +262,164 @@ impl Reviewer {
         let mut this = Self {
             test_cases_dir: test_cases_dir.into(),
             mode: Mode::New,
-            remaining_test_cases: TestCase::iter().collect(),
-            current_test_case: None,
-            remaining_files: Default::default(),
-            previous_files: None,
-            current_files: None,
+            test_cases: TestCase::iter().collect(),
+            current_test_case_index: None,
+            all_current_snapshots: BTreeMap::new(),
+            current_snapshot_index: None,
         };
         this.go_to_next_test_case();
         this
     }
 
-    fn go_to_next_test_case(&mut self) {
+    pub fn test_cases(&self) -> &[TestCase] {
+        &self.test_cases
+    }
+
+    #[allow(clippy::collapsible_if)]
+    pub fn go_to_next_unconfirmed_file(&mut self) -> bool {
         loop {
-            self.current_test_case = None;
-            self.remaining_files.clear();
-            self.current_files = None;
-            self.previous_files = None;
-            let Some(test_case) = self.remaining_test_cases.pop_front() else {
-                return;
-            };
-            self.current_test_case = Some(test_case);
-            self.remaining_files =
-                discover_snapshots(&self.test_cases_dir.join(format!("{:?}", test_case)))
-                    .unwrap_or_else(|err| {
-                        // TODO: ui message
-                        warn!("failed to fetch snapshots: {:?}", err);
-                        Default::default()
-                    });
-            self.go_to_next_files(false);
-            if self.current_files.is_some() {
-                return;
+            if !self.go_to_next_snapshot() {
+                if !self.go_to_next_test_case() {
+                    return false;
+                }
+            }
+            if self
+                .current_snapshot()
+                .map_or(false, |f| f.unconfirmed.is_some())
+            {
+                return true;
             }
         }
     }
 
-    fn go_to_next_files(&mut self, allow_next_test: bool) {
-        self.mode = Mode::New;
-        while let Some((_, files)) = self.remaining_files.pop_first() {
-            self.previous_files = self.current_files.take();
-            let has_unconfirmed = files.unconfirmed.is_some();
-            self.current_files = Some(files);
-            if has_unconfirmed {
-                return;
-            }
+    pub fn go_to_next_test_case(&mut self) -> bool {
+        let index = self.current_test_case_index.map_or(0, |i| i + 1);
+        self.go_to_test_case(index)
+    }
+
+    pub fn go_to_previous_test_case(&mut self) -> bool {
+        if self.current_test_case_index == Some(0) {
+            return false;
         }
-        self.previous_files = None;
-        self.current_files = None;
-        if allow_next_test {
-            self.go_to_next_test_case();
+        let index = self.current_test_case_index.map_or(0, |i| i - 1);
+        self.go_to_test_case(index)
+    }
+
+    pub fn go_to_test_case(&mut self, index: usize) -> bool {
+        let Some(test_case) = self.test_cases.get(index) else {
+            return false;
+        };
+        self.current_snapshot_index = None;
+        self.all_current_snapshots.clear();
+        self.current_test_case_index = Some(index);
+        self.all_current_snapshots =
+            discover_snapshots(&self.test_cases_dir.join(format!("{:?}", test_case)))
+                .unwrap_or_else(|err| {
+                    // TODO: ui message
+                    warn!("failed to fetch snapshots: {:?}", err);
+                    Default::default()
+                });
+        self.go_to_next_snapshot();
+        true
+    }
+
+    pub fn go_to_previous_snapshot(&mut self) -> bool {
+        if self.current_snapshot_index == Some(1) {
+            return false;
         }
+        let index = self.current_snapshot_index.map_or(0, |i| i - 1);
+        self.go_to_snapshot(index)
+    }
+
+    pub fn go_to_next_snapshot(&mut self) -> bool {
+        let index = self.current_snapshot_index.map_or(1, |i| i + 1);
+        self.go_to_snapshot(index)
+    }
+
+    pub fn go_to_snapshot(&mut self, index: u32) -> bool {
+        let Some(files) = self.all_current_snapshots.get(&index) else {
+            self.mode = Mode::Confirmed;
+            return false;
+        };
+        self.current_snapshot_index = Some(index);
+        self.mode = if files.unconfirmed.is_some() {
+            Mode::New
+        } else {
+            Mode::Confirmed
+        };
+        true
+    }
+
+    fn current_test_case(&self) -> anyhow::Result<TestCase> {
+        self.test_cases
+            .get(
+                self.current_test_case_index
+                    .context("no current test case")?,
+            )
+            .context("test case not found")
+            .copied()
+    }
+
+    fn previous_snapshot(&self) -> anyhow::Result<&SingleSnapshotFiles> {
+        let index = self
+            .current_snapshot_index
+            .context("no current files")?
+            .checked_sub(1)
+            .context("no previous files")?;
+        self.all_current_snapshots
+            .get(&index)
+            .context("previous files not found")
+    }
+
+    fn current_snapshot(&self) -> anyhow::Result<&SingleSnapshotFiles> {
+        self.all_current_snapshots
+            .get(&self.current_snapshot_index.context("no current files")?)
+            .context("current files not found")
+    }
+
+    fn current_snapshot_mut(&mut self) -> anyhow::Result<&mut SingleSnapshotFiles> {
+        self.all_current_snapshots
+            .get_mut(&self.current_snapshot_index.context("no current files")?)
+            .context("current files not found")
     }
 
     fn load_new(&self) -> anyhow::Result<Pixmap> {
-        Pixmap::load_png(self.test_cases_dir.join(format!(
+        let path = self.test_cases_dir.join(format!(
             "{:?}/{}",
-            self.current_test_case.context("no current test case")?,
-            self.current_files.as_ref().context("no current files")?.unconfirmed.clone().unwrap()
-        )))
-        .map_err(From::from)
+            self.current_test_case()?,
+            self.current_snapshot()?
+                .unconfirmed
+                .as_ref()
+                .context("no unconfirmed file")?
+                .full_name
+        ));
+        Ok(Pixmap::load_png(path)?)
     }
 
     fn load_confirmed(&self) -> anyhow::Result<Pixmap> {
-        Pixmap::load_png(self.test_cases_dir.join(format!(
-                "{:?}/{}",
-                self.current_test_case.context("no current test case")?,
-                self.current_files
-                    .as_ref()
-                    .context("no current files")?
-                    .confirmed
-                    .clone()
-                    .context("no confirmed snapshot")?
-            )))
-        .map_err(From::from)
+        let path = self.test_cases_dir.join(format!(
+            "{:?}/{}",
+            self.current_test_case()?,
+            self.current_snapshot()?
+                .confirmed
+                .as_ref()
+                .context("no unconfirmed file")?
+                .full_name
+        ));
+        Ok(Pixmap::load_png(path)?)
     }
 
     fn load_previous_confirmed(&self) -> anyhow::Result<Pixmap> {
-        Pixmap::load_png(self.test_cases_dir.join(format!(
-                "{:?}/{}",
-                self.current_test_case.context("no current test case")?,
-                self.previous_files
-                    .as_ref()
-                    .context("no previous files")?
-                    .confirmed
-                    .clone()
-                    .context("no previous confirmed snapshot")?
-            )))
-        .map_err(From::from)
+        let path = self.test_cases_dir.join(format!(
+            "{:?}/{}",
+            self.current_test_case()?,
+            self.previous_snapshot()?
+                .confirmed
+                .as_ref()
+                .context("no unconfirmed file")?
+                .full_name
+        ));
+        Ok(Pixmap::load_png(path)?)
     }
 
     fn make_pixmap(&self) -> anyhow::Result<Pixmap> {
@@ -298,29 +436,50 @@ impl Reviewer {
     }
 
     fn current_state(&self) -> ReviewerState {
-        let test_case_name = self
-            .current_test_case
-            .map(|t| format!("{:?}", t))
-            .unwrap_or_else(|| "none".into());
-        let snapshot_name = if let Some(current_files) = &self.current_files {
-            // TODO: name should depend on mode
-
-            match self.mode {
-                Mode::New | Mode::DiffWithConfirmed | Mode::DiffWithPreviousConfirmed => {
-                    current_files.unconfirmed.clone().unwrap()
-                }
-                Mode::Confirmed => current_files.confirmed.clone().unwrap(),
-                Mode::PreviousConfirmed => self
-                    .previous_files
-                    .as_ref()
-                    .unwrap()
-                    .confirmed
-                    .clone()
-                    .unwrap(),
-            }
-        } else {
-            "none".into()
+        let Ok(test_case) = self.current_test_case() else {
+            return ReviewerState {
+                test_case_name: "none".into(),
+                snapshot_name: "none".into(),
+                mode: Mode::Confirmed,
+                snapshot: None,
+            };
         };
+        let test_case_name = format!(
+            "({}/{}) {:?}",
+            self.current_test_case_index.unwrap() + 1,
+            self.test_cases.len(),
+            test_case
+        );
+        let Ok(current_files) = self.current_snapshot() else {
+            return ReviewerState {
+                test_case_name,
+                snapshot_name: "none".into(),
+                mode: Mode::Confirmed,
+                snapshot: None,
+            };
+        };
+        let snapshot_name = match self.mode {
+            Mode::New | Mode::DiffWithConfirmed | Mode::DiffWithPreviousConfirmed => current_files
+                .unconfirmed
+                .as_ref()
+                .map_or_else(|| "none".into(), |f| f.description.clone()),
+            Mode::Confirmed => current_files
+                .confirmed
+                .as_ref()
+                .map_or_else(|| "none".into(), |f| f.description.clone()),
+            Mode::PreviousConfirmed => self
+                .previous_snapshot()
+                .unwrap()
+                .confirmed
+                .as_ref()
+                .map_or_else(|| "none".into(), |f| f.description.clone()),
+        };
+        let snapshot_name = format!(
+            "({}/{}) {}",
+            self.current_snapshot_index.unwrap(),
+            self.all_current_snapshots.len(),
+            snapshot_name
+        );
 
         ReviewerState {
             test_case_name,
@@ -335,24 +494,29 @@ impl Reviewer {
         }
     }
 
-    pub fn has_current_files(&self) -> bool {
-        self.current_files.is_some()
+    pub fn has_unconfirmed(&self) -> bool {
+        let current_files = self.current_snapshot();
+        current_files.map_or(false, |f| f.unconfirmed.is_some())
     }
 
     pub fn is_mode_allowed(&self, mode: Mode) -> bool {
+        let current_files = self.current_snapshot();
+        let has_new = current_files
+            .as_ref()
+            .map_or(false, |f| f.unconfirmed.is_some());
+        let has_confirmed = current_files
+            .as_ref()
+            .map_or(false, |f| f.confirmed.is_some());
+        let has_previous_confirmed = self
+            .previous_snapshot()
+            .map_or(false, |f| f.confirmed.is_some());
+
         match mode {
-            Mode::New => self.current_files.is_some(),
-            Mode::Confirmed | Mode::DiffWithConfirmed => self
-                .current_files
-                .as_ref()
-                .map_or(false, |f| f.confirmed.is_some()),
-            Mode::DiffWithPreviousConfirmed | Mode::PreviousConfirmed => {
-                self.current_files.is_some()
-                    && self
-                        .previous_files
-                        .as_ref()
-                        .map_or(false, |f| f.confirmed.is_some())
-            }
+            Mode::New => has_new,
+            Mode::Confirmed => has_confirmed,
+            Mode::DiffWithConfirmed => has_new && has_confirmed,
+            Mode::DiffWithPreviousConfirmed => has_new && has_previous_confirmed,
+            Mode::PreviousConfirmed => has_previous_confirmed,
         }
     }
 
@@ -365,32 +529,33 @@ impl Reviewer {
     }
 
     pub fn approve(&mut self) -> anyhow::Result<()> {
-        let test_case_dir = self.test_cases_dir.join(format!(
-            "{:?}",
-            self.current_test_case.context("no current test case")?
-        ));
-        let current_files = self.current_files.as_mut().context("no current files")?;
+        let test_case = self.current_test_case()?;
+        let test_case_dir = self.test_cases_dir.join(format!("{:?}", test_case));
+        let current_files = self.current_snapshot_mut()?;
         let unconfirmed = current_files
             .unconfirmed
             .as_ref()
             .context("no unconfirmed file")?;
 
         if let Some(confirmed) = current_files.confirmed.take() {
-            fs_err::remove_file(test_case_dir.join(confirmed))?;
+            fs_err::remove_file(test_case_dir.join(&confirmed.full_name))?;
         }
         let unsuffixed = unconfirmed
+            .full_name
             .strip_suffix(".new.png")
             .context("invalid unconfirmed file name")?;
         let confirmed_name = format!("{unsuffixed}.png");
         fs_err::rename(
-            test_case_dir.join(unconfirmed),
+            test_case_dir.join(&unconfirmed.full_name),
             test_case_dir.join(&confirmed_name),
         )?;
-        current_files.confirmed = Some(confirmed_name);
+        current_files.confirmed = Some(SingleSnapshotFile {
+            full_name: confirmed_name,
+            description: unconfirmed.description.clone(),
+        });
         current_files.unconfirmed = None;
 
-        self.go_to_next_files(true);
-
+        self.go_to_next_unconfirmed_file();
         Ok(())
     }
 }

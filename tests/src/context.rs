@@ -128,14 +128,14 @@ impl<'a> Context<'a> {
 
         let files = self.unverified_files.remove(&index).unwrap_or_default();
         if let Some(unconfirmed) = &files.unconfirmed {
-            fs_err::remove_file(self.test_case_dir.join(unconfirmed))?;
+            fs_err::remove_file(self.test_case_dir.join(&unconfirmed.full_name))?;
             if self.snapshot_mode == SnapshotMode::Check {
                 record_fail(
                     &mut self.fails,
                     format!(
                         "unexpected unconfirmed snapshot: {:?}",
                         self.test_case_dir
-                            .join(unconfirmed)
+                            .join(&unconfirmed.full_name)
                             .strip_prefix(repo_dir())
                             .expect("failed to strip path prefix"),
                     ),
@@ -143,7 +143,7 @@ impl<'a> Context<'a> {
             }
         }
         if let Some(confirmed) = &files.confirmed {
-            let confirmed_image = load_image(&self.test_case_dir.join(confirmed))?;
+            let confirmed_image = load_image(&self.test_case_dir.join(&confirmed.full_name))?;
             if confirmed_image != new_image {
                 let new_path = self.test_case_dir.join(&unconfirmed_snapshot_name);
                 new_image
@@ -158,9 +158,9 @@ impl<'a> Context<'a> {
                             .expect("failed to strip path prefix")
                     ),
                 );
-            } else if confirmed != &confirmed_snapshot_name {
+            } else if confirmed.full_name != confirmed_snapshot_name {
                 fs_err::rename(
-                    self.test_case_dir.join(confirmed),
+                    self.test_case_dir.join(&confirmed.full_name),
                     self.test_case_dir.join(&confirmed_snapshot_name),
                 )?;
                 if self.snapshot_mode == SnapshotMode::Check {
@@ -173,7 +173,7 @@ impl<'a> Context<'a> {
                                 .strip_prefix(repo_dir())
                                 .expect("failed to strip path prefix"),
                             self.test_case_dir
-                                .join(confirmed)
+                                .join(&confirmed.full_name)
                                 .strip_prefix(repo_dir())
                                 .expect("failed to strip path prefix"),
                         ),
@@ -216,11 +216,11 @@ impl<'a> Context<'a> {
                     .into_iter()
                     .chain(&files.unconfirmed)
             })
-            .map(|name| {
+            .map(|file| {
                 format!(
                     "{:?}",
                     self.test_case_dir
-                        .join(name)
+                        .join(&file.full_name)
                         .strip_prefix(repo_dir())
                         .expect("failed to strip path prefix")
                 )
