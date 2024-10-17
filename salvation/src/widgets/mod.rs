@@ -232,30 +232,30 @@ impl WidgetCommon {
                     min_padding: if self.no_padding {
                         0
                     } else {
-                        style.grid.min_padding.x
+                        style.0.grid.min_padding.x
                     },
-                    min_spacing: style.grid.min_spacing.x,
+                    min_spacing: style.0.grid.min_spacing.x,
                     preferred_padding: if self.no_padding {
                         0
                     } else {
-                        style.grid.preferred_padding.x
+                        style.0.grid.preferred_padding.x
                     },
-                    preferred_spacing: style.grid.preferred_spacing.x,
+                    preferred_spacing: style.0.grid.preferred_spacing.x,
                     border_collapse: 0,
                 },
                 y: GridAxisOptions {
                     min_padding: if self.no_padding {
                         0
                     } else {
-                        style.grid.min_padding.y
+                        style.0.grid.min_padding.y
                     },
-                    min_spacing: style.grid.min_spacing.y,
+                    min_spacing: style.0.grid.min_spacing.y,
                     preferred_padding: if self.no_padding {
                         0
                     } else {
-                        style.grid.preferred_padding.y
+                        style.0.grid.preferred_padding.y
                     },
-                    preferred_spacing: style.grid.preferred_spacing.y,
+                    preferred_spacing: style.0.grid.preferred_spacing.y,
                     border_collapse: 0,
                 },
             }
@@ -798,7 +798,7 @@ pub trait WidgetExt {
     fn set_scope(&mut self, scope: WidgetScope);
     fn set_enabled(&mut self, enabled: bool);
     fn set_visible(&mut self, visible: bool);
-    fn set_style(&mut self, style: Option<Style>) -> Result<()>;
+    fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()>;
 
     fn boxed(self) -> Box<dyn Widget>
     where
@@ -813,6 +813,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         WidgetId(self.common().id, PhantomData)
     }
 
+    // TODO: use classes instead?
     fn with_no_padding(mut self, no_padding: bool) -> Self
     where
         Self: Sized,
@@ -1086,11 +1087,11 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
     }
 
-    fn set_style(&mut self, style: Option<Style>) -> Result<()> {
+    fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()> {
         let previous_scope = self.common().scope.clone();
-        let scale = self.common().scope.style.scale;
+        let scale = self.common().scope.style.0.scale;
         let style = if let Some(style) = style {
-            Some(Rc::new(ComputedStyle::new(&style, scale)?))
+            Some(Rc::new(ComputedStyle::new(style, scale)?))
         } else {
             None
         };

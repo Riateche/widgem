@@ -688,7 +688,7 @@ pub fn is_selection(selector: &Selector) -> bool {
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum MyPseudoClass {
     Hover,
     Focus,
@@ -719,29 +719,40 @@ impl<'a, 'b> From<&'a PseudoClass<'b>> for MyPseudoClass {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Element {
-    pub tag: &'static str,
-    pub classes: HashSet<&'static str>,
-    pub pseudo_classes: HashSet<MyPseudoClass>,
+    tag: &'static str,
+    // TODO: small vec?
+    classes: Vec<&'static str>,
+    pseudo_classes: Vec<MyPseudoClass>,
 }
 
 impl Element {
     pub fn new(tag: &'static str) -> Self {
         Self {
             tag,
-            classes: HashSet::new(),
-            pseudo_classes: HashSet::new(),
+            classes: Vec::new(),
+            pseudo_classes: Vec::new(),
         }
     }
 
+    pub fn add_class(&mut self, class: &'static str) {
+        self.classes.push(class);
+        self.classes.sort_unstable();
+    }
+
+    pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
+        self.pseudo_classes.push(class);
+        self.pseudo_classes.sort_unstable();
+    }
+
     pub fn with_class(mut self, class: &'static str) -> Self {
-        self.classes.insert(class);
+        self.add_class(class);
         self
     }
 
     pub fn with_pseudo_class(mut self, class: MyPseudoClass) -> Self {
-        self.pseudo_classes.insert(class);
+        self.add_pseudo_class(class);
         self
     }
 
@@ -757,7 +768,7 @@ impl Element {
                     }
                 }
                 Component::Class(c) => {
-                    if !self.classes.contains(c.as_ref()) {
+                    if !self.classes.contains(&c.as_ref()) {
                         return false;
                     }
                 }

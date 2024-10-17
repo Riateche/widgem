@@ -43,16 +43,16 @@ impl TextInputState {
                 focused,
                 mouse_over,
             } => {
-                element.pseudo_classes.insert(MyPseudoClass::Enabled);
+                element.add_pseudo_class(MyPseudoClass::Enabled);
                 if *focused {
-                    element.pseudo_classes.insert(MyPseudoClass::Focus);
+                    element.add_pseudo_class(MyPseudoClass::Focus);
                 }
                 if *mouse_over {
-                    element.pseudo_classes.insert(MyPseudoClass::Hover);
+                    element.add_pseudo_class(MyPseudoClass::Hover);
                 }
             }
             Self::Disabled => {
-                element.pseudo_classes.insert(MyPseudoClass::Disabled);
+                element.add_pseudo_class(MyPseudoClass::Disabled);
             }
         }
         element

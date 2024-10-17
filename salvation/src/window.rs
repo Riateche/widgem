@@ -304,7 +304,7 @@ impl Window {
             },
         );
         // TODO: option to turn off background, set style
-        let color = with_system(|system| system.default_style.background);
+        let color = with_system(|system| system.default_style.0.background);
         this.pixmap.borrow_mut().fill(color);
         this.pending_redraw = false;
         Some(draw_event)

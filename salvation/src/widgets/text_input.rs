@@ -214,11 +214,17 @@ impl TextInput {
         } else {
             TextInputState::Disabled
         };
-        self.common.style().text_input.variants.get(&state).unwrap()
+        self.common
+            .style()
+            .0
+            .text_input
+            .variants
+            .get(&state)
+            .unwrap()
     }
 
     fn style_changed(&mut self) {
-        let style = &self.common.style().text_input;
+        let style = &self.common.style().0.text_input;
         self.editor.set_font_metrics(style.font_metrics);
         let style = self.current_variant_style().clone();
         // TODO: support color changes based on state
@@ -232,7 +238,7 @@ impl TextInput {
     }
 
     fn update_viewport_rect(&mut self) {
-        let style = &self.common.style().text_input;
+        let style = &self.common.style().0.text_input;
         if let Some(rect_in_window) = self.common.rect_in_window {
             let offset_y = max(0, rect_in_window.size.y - self.editor.size().y) / 2;
             self.editor_viewport_rect = Rect {
@@ -600,7 +606,7 @@ impl Widget for TextInput {
     }
 
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let style = &self.common.style().text_input;
+        let style = &self.common.style().0.text_input;
         let r = match mode {
             SizeHintMode::Min => style.min_width,
             SizeHintMode::Preferred => style.preferred_width,
@@ -609,7 +615,7 @@ impl Widget for TextInput {
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
-        let style = &self.common.style().text_input;
+        let style = &self.common.style().0.text_input;
         let padding = match mode {
             SizeHintMode::Min => style.min_padding_with_border,
             SizeHintMode::Preferred => style.preferred_padding_with_border,

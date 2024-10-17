@@ -47,7 +47,7 @@ impl Image {
     }
 
     fn total_scale(&self) -> f32 {
-        self.scale.unwrap_or(1.0) * self.common.style().image.scale
+        self.scale.unwrap_or(1.0) * self.common.style().0.image.scale
     }
 
     pub fn map_widget_pos_to_content_pos(&self, pos: Point) -> Point {

@@ -124,14 +124,14 @@ impl Button {
 
     fn current_style(&self) -> &ComputedStyle {
         match self.role {
-            Role1::Default => &self.common.style().button,
-            Role1::ScrollLeft => &self.common.style().scroll_bar.scroll_left,
-            Role1::ScrollRight => &self.common.style().scroll_bar.scroll_right,
-            Role1::ScrollUp => &self.common.style().scroll_bar.scroll_up,
-            Role1::ScrollDown => &self.common.style().scroll_bar.scroll_down,
-            Role1::ScrollGripX => &self.common.style().scroll_bar.scroll_grip_x,
-            Role1::ScrollGripY => &self.common.style().scroll_bar.scroll_grip_y,
-            Role1::ScrollPager => &self.common.style().scroll_bar.scroll_pager,
+            Role1::Default => &self.common.style().0.button,
+            Role1::ScrollLeft => &self.common.style().0.scroll_bar.scroll_left,
+            Role1::ScrollRight => &self.common.style().0.scroll_bar.scroll_right,
+            Role1::ScrollUp => &self.common.style().0.scroll_bar.scroll_up,
+            Role1::ScrollDown => &self.common.style().0.scroll_bar.scroll_down,
+            Role1::ScrollGripX => &self.common.style().0.scroll_bar.scroll_grip_x,
+            Role1::ScrollGripY => &self.common.style().0.scroll_bar.scroll_grip_y,
+            Role1::ScrollPager => &self.common.style().0.scroll_bar.scroll_pager,
         }
     }
 
@@ -347,7 +347,7 @@ impl Widget for Button {
     }
 
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let style = &self.common.style().button;
+        let style = &self.common.style().0.button;
         let padding = match mode {
             SizeHintMode::Min => style.min_padding_with_border,
             SizeHintMode::Preferred => style.preferred_padding_with_border,
@@ -367,7 +367,7 @@ impl Widget for Button {
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         // TODO: use size_x, handle multiple lines
-        let style = &self.common.style().button;
+        let style = &self.common.style().0.button;
         let padding = match mode {
             SizeHintMode::Min => style.min_padding_with_border,
             SizeHintMode::Preferred => style.preferred_padding_with_border,

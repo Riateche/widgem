@@ -58,7 +58,7 @@ const INDEX_GRIP_IN_PAGER: usize = 1;
 impl ScrollBar {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new();
-        let border_collapse = common.style().scroll_bar.border_collapse.get();
+        let border_collapse = common.style().0.scroll_bar.border_collapse.get();
         let mut grid_options = GridOptions::ZERO;
         grid_options.x.border_collapse = border_collapse;
         grid_options.y.border_collapse = border_collapse;

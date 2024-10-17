@@ -51,7 +51,7 @@ impl TextEditor {
         let mut e = with_system(|system| Self {
             editor: Editor::new(Buffer::new(
                 &mut system.font_system,
-                system.default_style.font_metrics,
+                system.default_style.0.font_metrics,
             )),
             pixmap: None,
             text_color: Color::BLACK,

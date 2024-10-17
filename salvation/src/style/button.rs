@@ -52,19 +52,19 @@ impl ButtonState {
                 mouse_over,
                 pressed,
             } => {
-                element.pseudo_classes.insert(MyPseudoClass::Enabled);
+                element.add_pseudo_class(MyPseudoClass::Enabled);
                 if *focused {
-                    element.pseudo_classes.insert(MyPseudoClass::Focus);
+                    element.add_pseudo_class(MyPseudoClass::Focus);
                 }
                 if *mouse_over {
-                    element.pseudo_classes.insert(MyPseudoClass::Hover);
+                    element.add_pseudo_class(MyPseudoClass::Hover);
                 }
                 if *pressed {
-                    element.pseudo_classes.insert(MyPseudoClass::Active);
+                    element.add_pseudo_class(MyPseudoClass::Active);
                 }
             }
             Self::Disabled => {
-                element.pseudo_classes.insert(MyPseudoClass::Disabled);
+                element.add_pseudo_class(MyPseudoClass::Disabled);
             }
         }
         element
@@ -115,7 +115,7 @@ impl ComputedStyle {
     ) -> Result<ComputedStyle> {
         let mut element = Element::new("button");
         if let Some(class) = class {
-            element.classes.insert(class);
+            element.add_class(class);
         }
 
         let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
@@ -134,7 +134,7 @@ impl ComputedStyle {
             .map(|state| {
                 let mut element_variant = state.element();
                 if let Some(class) = class {
-                    element_variant.classes.insert(class);
+                    element_variant.add_class(class);
                 }
                 //println!("element_variant: {element_variant:?}");
                 let rules = style.find_rules(|selector| element_variant.matches(selector));

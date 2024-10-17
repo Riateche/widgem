@@ -81,6 +81,7 @@ impl FontStyle {
 }
 
 // TODO: not pub
+#[derive(Debug)]
 pub enum StyleSource {
     File {
         parent_dir: PathBuf,
@@ -90,6 +91,7 @@ pub enum StyleSource {
     },
 }
 
+#[derive(Debug)]
 pub struct Style {
     pub css: StyleSheet<'static, 'static>,
     pub source: StyleSource,
