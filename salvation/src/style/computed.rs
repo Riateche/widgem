@@ -7,7 +7,7 @@ use crate::types::PhysicalPixels;
 use super::{
     button,
     css::{convert_background_color, convert_font, is_root},
-    grid, scroll_bar, text_input, RelativeOffset, Style,
+    grid, image, scroll_bar, text_input, RelativeOffset, Style,
 };
 
 #[derive(Debug, Clone)]
@@ -37,6 +37,7 @@ pub struct ComputedStyle {
     pub text_input: text_input::ComputedStyle,
     pub button: button::ComputedStyle,
     pub scroll_bar: scroll_bar::ComputedStyle,
+    pub image: image::ComputedStyle,
 }
 
 impl ComputedStyle {
@@ -57,6 +58,7 @@ impl ComputedStyle {
             text_input: text_input::ComputedStyle::new(style, scale, &font)?,
             button: button::ComputedStyle::new(style, scale, &font, None)?,
             scroll_bar: scroll_bar::ComputedStyle::new(style, scale, &font)?,
+            image: image::ComputedStyle::new(style, scale)?,
         })
     }
 }

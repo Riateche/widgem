@@ -25,6 +25,7 @@ pub mod computed;
 mod css;
 pub mod defaults;
 pub mod grid;
+pub mod image;
 pub mod scroll_bar;
 pub mod text_input;
 

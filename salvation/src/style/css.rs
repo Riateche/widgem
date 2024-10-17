@@ -147,6 +147,40 @@ pub fn convert_font(
     })
 }
 
+pub fn convert_zoom(properties: &[&Property<'static>]) -> f32 {
+    let mut zoom = 1.0;
+    for property in properties {
+        match property {
+            Property::Custom(property) => {
+                if property.name.as_ref() != "zoom" {
+                    continue;
+                }
+                if property.value.0.len() != 1 {
+                    warn!("expected 1 token in value of zoom property");
+                    continue;
+                }
+                let TokenOrValue::Token(Token::Percentage { unit_value, .. }) =
+                    &property.value.0[0]
+                else {
+                    warn!(
+                        "unexpected token in value of zoom property: {:?}",
+                        &property.value.0[0]
+                    );
+                    continue;
+                };
+                if *unit_value < 0.0 {
+                    warn!("negative zoom is invalid");
+                    continue;
+                }
+
+                zoom = *unit_value;
+            }
+            _ => {}
+        }
+    }
+    zoom
+}
+
 pub fn convert_main_color(properties: &[&Property<'static>]) -> Result<Option<Color>> {
     let mut color = None;
     for property in properties {

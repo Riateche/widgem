@@ -386,6 +386,8 @@ impl Widget for Button {
     }
 
     fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
+        self.editor
+            .set_font_metrics(self.current_style().font_metrics);
         self.icon = self.current_variant_style().icon.clone();
         if !self.common.is_enabled() {
             if let Some(id) = self.auto_repeat_delay_timer.take() {

@@ -6,7 +6,10 @@ use log::warn;
 use tiny_skia::Pixmap;
 
 use crate::{
-    style::{css::convert_content_url, defaults},
+    style::{
+        css::{convert_content_url, convert_zoom},
+        defaults,
+    },
     types::Point,
 };
 
@@ -106,7 +109,7 @@ pub struct ComputedStyle {
 impl ComputedStyle {
     pub fn new(
         style: &Style,
-        scale: f32,
+        mut scale: f32,
         root_font: &FontStyle,
         class: Option<&'static str>,
     ) -> Result<ComputedStyle> {
@@ -118,6 +121,8 @@ impl ComputedStyle {
         let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
 
         let properties = style.find_rules(|s| element.matches(s));
+
+        scale *= convert_zoom(&properties);
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
 

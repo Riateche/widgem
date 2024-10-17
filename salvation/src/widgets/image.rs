@@ -46,23 +46,24 @@ impl Widget for Image {
             event.draw_pixmap(
                 Point::default(),
                 pixmap.as_ref(),
-                Transform::from_scale(self.common.style().scale, self.common.style().scale),
+                Transform::from_scale(
+                    self.common.style().image.scale,
+                    self.common.style().image.scale,
+                ),
             );
         }
         Ok(())
     }
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(
-            (self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * self.common.style().scale)
-                .ceil() as i32,
-        )
+        Ok((self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32)
+            * self.common.style().image.scale)
+            .ceil() as i32)
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(
-            (self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32) * self.common.style().scale)
-                .ceil() as i32,
-        )
+        Ok((self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32)
+            * self.common.style().image.scale)
+            .ceil() as i32)
     }
 }

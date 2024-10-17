@@ -72,6 +72,7 @@ impl TextEditor {
             self.editor
                 .with_buffer_mut(|buffer| buffer.set_metrics(&mut system.font_system, metrics));
         });
+        self.adjust_size();
     }
 
     pub fn set_window(&mut self, window: Option<Window>) {

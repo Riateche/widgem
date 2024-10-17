@@ -15,7 +15,7 @@ use crate::{
 
 use super::{
     computed::{ComputedBackground, ComputedBorderStyle},
-    css::{convert_font, convert_padding, convert_width, Element, MyPseudoClass},
+    css::{convert_font, convert_padding, convert_width, convert_zoom, Element, MyPseudoClass},
     defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
     ElementState, FontStyle, Style,
 };
@@ -86,11 +86,12 @@ pub struct ComputedStyle {
 }
 
 impl ComputedStyle {
-    pub fn new(style: &Style, scale: f32, root_font: &FontStyle) -> Result<ComputedStyle> {
+    pub fn new(style: &Style, mut scale: f32, root_font: &FontStyle) -> Result<ComputedStyle> {
         let element = Element::new("text-input");
         let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
 
         let properties = style.find_rules(|s| element.matches(s));
+        scale *= convert_zoom(&properties);
         let font = convert_font(&properties, Some(root_font))?;
         let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
         let preferred_width = convert_width(&properties, scale, font.font_size)?
