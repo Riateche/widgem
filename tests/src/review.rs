@@ -7,9 +7,11 @@ use std::{
 use anyhow::Context;
 use log::warn;
 use salvation::{
+    event::Event,
     impl_widget_common,
     layout::LayoutItemOptions,
     tiny_skia::{Pixmap, PremultipliedColorU8},
+    types::Point,
     widgets::{
         button::Button, image::Image, label::Label, row::Row, Widget, WidgetCommon, WidgetExt,
         WidgetId,
@@ -24,6 +26,7 @@ pub struct ReviewWidget {
     common: WidgetCommon,
     test_name_id: WidgetId<Label>,
     snapshot_name_id: WidgetId<Label>,
+    coords_id: WidgetId<Label>,
     image_id: WidgetId<Image>,
     reviewer: Reviewer,
     mode_button_ids: HashMap<Mode, WidgetId<Button>>,
@@ -159,15 +162,53 @@ impl ReviewWidget {
             Label::new("Snapshot:").boxed(),
             LayoutItemOptions::from_pos_in_grid(1, 6),
         );
-        let image = Image::new(None).with_id();
+
+        let coords = Label::new("").with_id();
+        common.add_child(
+            Row::new()
+                .with_no_padding(true)
+                .with_child(
+                    Button::new("100%")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.common.widget(w.image_id)?.set_scale(Some(1.0));
+                            Ok(())
+                        }))
+                        .boxed(),
+                )
+                .with_child(
+                    Button::new("200%")
+                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                            w.common.widget(w.image_id)?.set_scale(Some(2.0));
+                            Ok(())
+                        }))
+                        .boxed(),
+                )
+                .with_child(coords.widget.boxed())
+                .boxed(),
+            LayoutItemOptions::from_pos_in_grid(2, 6),
+        );
+        let mut image = Image::new(None).with_id();
+        let image_mouse_move = common.id.callback(Self::image_mouse_move);
+        image.widget.common_mut().event_filter = Some(Box::new(move |event| {
+            match event {
+                Event::MouseMove(event) => {
+                    image_mouse_move.invoke(Some(event.pos()));
+                }
+                Event::MouseLeave(_) => {
+                    image_mouse_move.invoke(None);
+                }
+                _ => (),
+            }
+            Ok(false)
+        }));
         common.add_child(
             image.widget.boxed(),
-            LayoutItemOptions::from_pos_in_grid(2, 6),
+            LayoutItemOptions::from_pos_in_grid(2, 7),
         );
 
         common.add_child(
             Label::new("Actions:").boxed(),
-            LayoutItemOptions::from_pos_in_grid(1, 7),
+            LayoutItemOptions::from_pos_in_grid(1, 8),
         );
         common.add_child(
             Row::new()
@@ -204,7 +245,7 @@ impl ReviewWidget {
                         .boxed(),
                 )
                 .boxed(),
-            LayoutItemOptions::from_pos_in_grid(2, 7),
+            LayoutItemOptions::from_pos_in_grid(2, 8),
         );
 
         let mut this = Self {
@@ -212,6 +253,7 @@ impl ReviewWidget {
             test_name_id: test_name.id,
             snapshot_name_id: snapshot_name.id,
             image_id: image.id,
+            coords_id: coords.id,
             mode_button_ids,
             reviewer,
         };
@@ -241,6 +283,21 @@ impl ReviewWidget {
     fn set_mode(&mut self, mode: Mode) -> anyhow::Result<()> {
         self.reviewer.set_mode(mode);
         self.update_ui()
+    }
+
+    fn image_mouse_move(&mut self, pos_in_widget: Option<Point>) -> anyhow::Result<()> {
+        let Some(pos_in_widget) = pos_in_widget else {
+            self.common.widget(self.coords_id)?.set_text("");
+            return Ok(());
+        };
+        let pos_in_content = self
+            .common
+            .widget(self.image_id)?
+            .map_widget_pos_to_content_pos(pos_in_widget);
+        self.common
+            .widget(self.coords_id)?
+            .set_text(format!("{}, {}", pos_in_content.x, pos_in_content.y));
+        Ok(())
     }
 }
 
