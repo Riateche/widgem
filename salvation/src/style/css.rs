@@ -139,7 +139,10 @@ pub fn convert_font(
         }
     }
 
-    let line_height = line_height.unwrap_or_else(|| font_size * DEFAULT_LINE_HEIGHT);
+    let line_height = line_height.unwrap_or_else(|| {
+        root.map(|root| root.line_height)
+            .unwrap_or_else(|| font_size * DEFAULT_LINE_HEIGHT)
+    });
 
     Ok(FontStyle {
         font_size,
