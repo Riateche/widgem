@@ -1,6 +1,6 @@
 #![allow(clippy::single_match)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;

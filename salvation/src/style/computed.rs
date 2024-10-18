@@ -4,12 +4,18 @@ use anyhow::Result;
 use log::warn;
 use tiny_skia::{Color, GradientStop, SpreadMode};
 
-use crate::types::{PhysicalPixels, Point};
+use crate::{
+    style::defaults,
+    types::{PhysicalPixels, Point},
+};
 
 use super::{
     button,
-    css::{convert_background_color, convert_font, is_root, Element},
-    grid, image, scroll_bar, text_input, RelativeOffset, Style,
+    css::{
+        convert_background, convert_background_color, convert_border, convert_font,
+        convert_main_color, convert_padding, convert_zoom, is_root, Element, MyPseudoClass,
+    },
+    grid, image, scroll_bar, text_input, FontStyle, RelativeOffset, Style,
 };
 
 #[derive(Debug, Clone)]
@@ -36,6 +42,7 @@ pub struct ComputedStyleInner {
 
     pub background: Color,
     pub grid: grid::ComputedStyle,
+    pub font_style: FontStyle,
     pub font_metrics: salvation_cosmic_text::Metrics,
     pub text_input: text_input::ComputedStyle,
     pub button: button::ComputedStyle,
@@ -60,8 +67,60 @@ pub struct CommonComputedStyle {
 }
 
 impl CommonComputedStyle {
-    pub fn new(style: &ComputedStyle) -> Self {
-        todo!()
+    pub fn new(style: &ComputedStyle, element: &Element) -> Self {
+        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
+        let properties = style.0.style.find_rules(|s| element.matches(s));
+
+        let scale = style.0.scale * convert_zoom(&properties);
+        let font = convert_font(&properties, Some(&style.0.font_style)).unwrap_or_else(|err| {
+            warn!("invalid font: {err:?}");
+            style.0.font_style.clone()
+        });
+        let preferred_padding =
+            convert_padding(&properties, scale, font.font_size).unwrap_or_else(|err| {
+                warn!("invalid padding: {err:?}");
+                Point::default()
+            });
+
+        let min_properties = style.0.style.find_rules(|s| element_min.matches(s));
+        let min_padding =
+            convert_padding(&min_properties, scale, font.font_size).unwrap_or_else(|err| {
+                warn!("invalid min padding: {err:?}");
+                Point::default()
+            });
+
+        let rules_with_root = style
+            .0
+            .style
+            .find_rules(|selector| is_root(selector) || element.matches(selector));
+        let text_color = convert_main_color(&rules_with_root)
+            .unwrap_or_else(|err| {
+                warn!("invalid text color: {err:?}");
+                None
+            })
+            .unwrap_or_else(|| {
+                warn!("main text color is unspecified");
+                defaults::text_color()
+            });
+        let border = convert_border(&properties, scale, text_color).unwrap_or_else(|err| {
+            warn!("invalid border: {err:?}");
+            Default::default()
+        });
+        let background = convert_background(&properties).unwrap_or_else(|err| {
+            warn!("invalid background: {err:?}");
+            None
+        });
+
+        Self {
+            min_padding_with_border: min_padding
+                + Point::new(border.width.get(), border.width.get()),
+            preferred_padding_with_border: preferred_padding
+                + Point::new(border.width.get(), border.width.get()),
+            font_metrics: font.to_metrics(scale),
+            border,
+            background,
+            text_color,
+        }
     }
 }
 
@@ -69,7 +128,7 @@ impl ComputedStyle {
     pub fn new(style: Rc<Style>, scale: f32) -> Result<Self> {
         let root_properties = style.find_rules(is_root);
         let background = convert_background_color(&root_properties)?;
-        let font = convert_font(&root_properties, None)?;
+        let font_style = convert_font(&root_properties, None)?;
 
         Ok(Self(Rc::new(ComputedStyleInner {
             scale,
@@ -77,15 +136,16 @@ impl ComputedStyle {
                 warn!("missing root background color");
                 Color::WHITE
             }),
-            font_metrics: font.to_metrics(scale),
-            grid: grid::ComputedStyle::new(&style, scale, &font)?,
-            text_input: text_input::ComputedStyle::new(&style, scale, &font)?,
-            button: button::ComputedStyle::new(&style, scale, &font, None)?,
-            scroll_bar: scroll_bar::ComputedStyle::new(&style, scale, &font)?,
+            font_metrics: font_style.to_metrics(scale),
+            grid: grid::ComputedStyle::new(&style, scale, &font_style)?,
+            text_input: text_input::ComputedStyle::new(&style, scale, &font_style)?,
+            button: button::ComputedStyle::new(&style, scale, &font_style, None)?,
+            scroll_bar: scroll_bar::ComputedStyle::new(&style, scale, &font_style)?,
             image: image::ComputedStyle::new(&style, scale)?,
             style,
             common_cache: RefCell::new(HashMap::new()),
             specific_cache: RefCell::new(HashMap::new()),
+            font_style,
         })))
     }
 
@@ -108,7 +168,7 @@ impl ComputedStyle {
         if let Some(data) = cache.get(element) {
             return data.clone();
         }
-        let common = Rc::new(CommonComputedStyle::new(self));
+        let common = Rc::new(CommonComputedStyle::new(self, element));
         let common_clone = common.clone();
         cache.insert(element.clone(), common);
         common_clone
