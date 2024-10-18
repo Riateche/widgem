@@ -18,7 +18,7 @@ impl ComputedStyle {
         let properties = style.find_rules(|s| element.matches(s));
         scale *= convert_zoom(&properties);
         // TODO: use main color
-        let border = convert_border(&properties, scale, defaults::text_color())?;
+        let border = convert_border(&properties, scale, defaults::text_color());
         Ok(Self { border, scale })
     }
 }

@@ -32,8 +32,8 @@ impl ComputedStyle {
         let rules = style.find_rules(|s| element.matches(s));
 
         // TODO: Option<Color> or compute proper color
-        let border = convert_border(&rules, scale, Color::TRANSPARENT)?;
-        let background = convert_background(&rules)?;
+        let border = convert_border(&rules, scale, Color::TRANSPARENT);
+        let background = convert_background(&rules);
 
         let scroll_left = button::ComputedStyle::new(style, scale, root_font, Some("scroll_left"))?;
         let border_collapse = if get_border_collapse(&rules) {

@@ -32,7 +32,10 @@ use lightningcss::{
 use log::warn;
 use tiny_skia::{Color, GradientStop, SpreadMode};
 
-use crate::types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point};
+use crate::{
+    style::defaults,
+    types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point},
+};
 
 use super::{
     computed::{ComputedBackground, ComputedBorderStyle, ComputedLinearGradient},
@@ -107,47 +110,58 @@ fn convert_line_height(value: &LineHeight, font_size: LogicalPixels) -> Result<L
     }
 }
 
-// TODO: pass root properties instead?
-pub fn convert_font(
-    properties: &[&Property<'static>],
-    root: Option<&FontStyle>,
-) -> Result<FontStyle> {
-    let mut font_size = None;
+// This function requires passing root font separately because it has special logic
+// for default line height depending on whether font size was specified for the element or not.
+pub fn convert_font(properties: &[&Property<'static>], root: Option<&FontStyle>) -> FontStyle {
+    let mut self_font_size = None;
     let mut line_height = None;
     for property in properties {
         match property {
-            Property::FontSize(size) => {
-                font_size = Some(convert_font_size(size)?);
-            }
-            Property::Font(font) => {
-                font_size = Some(convert_font_size(&font.size)?);
-            }
+            Property::FontSize(size) => match convert_font_size(size) {
+                Ok(value) => self_font_size = Some(value),
+                Err(err) => warn!("invalid font size: {err:?}"),
+            },
+            Property::Font(font) => match convert_font_size(&font.size) {
+                Ok(value) => self_font_size = Some(value),
+                Err(err) => warn!("invalid font size: {err:?}"),
+            },
             _ => {}
         }
     }
 
-    let font_size = font_size
+    let final_font_size = self_font_size
         .or_else(|| root.map(|root| root.font_size))
-        .context("missing root font size")?;
+        .unwrap_or_else(|| {
+            warn!("font size is not specified in style");
+            defaults::font_size()
+        });
 
     for property in properties {
         match property {
-            Property::LineHeight(value) => {
-                line_height = Some(convert_line_height(value, font_size)?);
-            }
+            Property::LineHeight(value) => match convert_line_height(value, final_font_size) {
+                Ok(value) => line_height = Some(value),
+                Err(err) => warn!("invalid line height: {err:?}"),
+            },
             _ => {}
         }
     }
 
     let line_height = line_height.unwrap_or_else(|| {
-        root.map(|root| root.line_height)
-            .unwrap_or_else(|| font_size * DEFAULT_LINE_HEIGHT)
+        if let Some(self_font_size) = self_font_size {
+            warn!("line height is not specified in style");
+            self_font_size * DEFAULT_LINE_HEIGHT
+        } else {
+            root.map(|root| root.line_height).unwrap_or_else(|| {
+                warn!("line height is not specified in style");
+                final_font_size * DEFAULT_LINE_HEIGHT
+            })
+        }
     });
 
-    Ok(FontStyle {
-        font_size,
+    FontStyle {
+        font_size: final_font_size,
         line_height,
-    })
+    }
 }
 
 pub fn convert_zoom(properties: &[&Property<'static>]) -> f32 {
@@ -184,17 +198,18 @@ pub fn convert_zoom(properties: &[&Property<'static>]) -> f32 {
     zoom
 }
 
-pub fn convert_main_color(properties: &[&Property<'static>]) -> Result<Option<Color>> {
+pub fn convert_main_color(properties: &[&Property<'static>]) -> Option<Color> {
     let mut color = None;
     for property in properties {
         match property {
-            Property::Color(value) => {
-                color = Some(convert_color(value)?);
-            }
+            Property::Color(value) => match convert_color(value) {
+                Ok(value) => color = Some(value),
+                Err(err) => warn!("invalid color: {err:?}"),
+            },
             _ => {}
         }
     }
-    Ok(color)
+    color
 }
 
 fn convert_single_padding(
@@ -229,28 +244,36 @@ pub fn convert_padding(
     properties: &[&Property<'static>],
     scale: f32,
     font_size: LogicalPixels,
-) -> Result<Point> {
+) -> Point {
     let mut left = None;
     let mut top = None;
     for property in properties {
         match property {
             Property::Padding(value) => {
-                left = Some(convert_single_padding(&value.left, font_size)?);
-                top = Some(convert_single_padding(&value.top, font_size)?);
+                match convert_single_padding(&value.left, font_size) {
+                    Ok(value) => left = Some(value),
+                    Err(err) => warn!("invalid padding: {err:?}"),
+                }
+                match convert_single_padding(&value.top, font_size) {
+                    Ok(value) => top = Some(value),
+                    Err(err) => warn!("invalid padding: {err:?}"),
+                }
             }
-            Property::PaddingLeft(value) => {
-                left = Some(convert_single_padding(value, font_size)?);
-            }
-            Property::PaddingTop(value) => {
-                top = Some(convert_single_padding(value, font_size)?);
-            }
+            Property::PaddingLeft(value) => match convert_single_padding(value, font_size) {
+                Ok(value) => left = Some(value),
+                Err(err) => warn!("invalid padding: {err:?}"),
+            },
+            Property::PaddingTop(value) => match convert_single_padding(value, font_size) {
+                Ok(value) => top = Some(value),
+                Err(err) => warn!("invalid padding: {err:?}"),
+            },
             _ => {}
         }
     }
-    Ok(Point::new(
+    Point::new(
         left.unwrap_or_default().to_physical(scale).get(),
         top.unwrap_or_default().to_physical(scale).get(),
-    ))
+    )
 }
 
 pub fn convert_spacing(
@@ -317,7 +340,7 @@ pub fn convert_border(
     properties: &[&Property<'static>],
     scale: f32,
     text_color: Color,
-) -> Result<ComputedBorderStyle> {
+) -> ComputedBorderStyle {
     let mut width = None;
     let mut color = None;
     let mut radius = None;
@@ -325,35 +348,51 @@ pub fn convert_border(
     for property in properties {
         match property {
             Property::Border(value) => {
-                width = Some(convert_border_width(&value.width)?);
-                color = Some(convert_color(&value.color)?);
+                match convert_border_width(&value.width) {
+                    Ok(value) => width = Some(value),
+                    Err(err) => warn!("invalid border: {err:?}"),
+                }
+                match convert_color(&value.color) {
+                    Ok(value) => color = Some(value),
+                    Err(err) => warn!("invalid border: {err:?}"),
+                }
                 style = value.style;
             }
             Property::BorderWidth(value) => {
                 // TODO: support different sides
-                width = Some(convert_border_width(&value.top)?);
+                match convert_border_width(&value.top) {
+                    Ok(value) => width = Some(value),
+                    Err(err) => warn!("invalid border: {err:?}"),
+                }
             }
-            Property::BorderColor(value) => {
-                color = Some(convert_color(&value.top)?);
-            }
+            Property::BorderColor(value) => match convert_color(&value.top) {
+                Ok(value) => color = Some(value),
+                Err(err) => warn!("invalid border: {err:?}"),
+            },
             Property::BorderStyle(value) => {
                 style = value.top;
             }
             Property::BorderRadius(value, _prefix) => {
-                radius = Some(convert_dimension_percentage(&value.top_left.0, None, None)?);
+                match convert_dimension_percentage(&value.top_left.0, None, None) {
+                    Ok(value) => radius = Some(value),
+                    Err(err) => warn!("invalid border radius: {err:?}"),
+                }
             }
             _ => {}
         }
     }
 
     match style {
-        LineStyle::None => Ok(ComputedBorderStyle::default()),
-        LineStyle::Solid => Ok(ComputedBorderStyle {
+        LineStyle::None => ComputedBorderStyle::default(),
+        LineStyle::Solid => ComputedBorderStyle {
             width: width.unwrap_or_default().to_physical(scale),
             color: color.unwrap_or(text_color),
             radius: radius.unwrap_or_default().to_physical(scale),
-        }),
-        _ => bail!("unsupported border line style: {style:?}"),
+        },
+        _ => {
+            warn!("unsupported border line style: {style:?}");
+            ComputedBorderStyle::default()
+        }
     }
 }
 
@@ -423,7 +462,7 @@ fn convert_linear_gradient(value: &LinearGradient) -> Result<ComputedLinearGradi
 }
 
 pub fn convert_background_color(properties: &[&Property<'static>]) -> Result<Option<Color>> {
-    let bg = convert_background(properties)?;
+    let bg = convert_background(properties);
     if let Some(bg) = bg {
         match bg {
             ComputedBackground::Solid { color } => Ok(Some(color)),
@@ -436,7 +475,7 @@ pub fn convert_background_color(properties: &[&Property<'static>]) -> Result<Opt
     }
 }
 
-pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<ComputedBackground>> {
+pub fn convert_background(properties: &[&Property<'static>]) -> Option<ComputedBackground> {
     let mut final_background = None;
     for property in properties {
         match property {
@@ -449,32 +488,35 @@ pub fn convert_background(properties: &[&Property<'static>]) -> Result<Option<Co
                     warn!("multiple backgrounds are not supported");
                 }
                 let background = &backgrounds[0];
-                final_background = Some(ComputedBackground::Solid {
-                    color: convert_color(&background.color)?,
-                });
+                match convert_color(&background.color) {
+                    Ok(value) => {
+                        final_background = Some(ComputedBackground::Solid { color: value })
+                    }
+                    Err(err) => warn!("invalid background: {err:?}"),
+                };
                 match &background.image {
                     Image::None => {}
-                    Image::Url(_) => bail!("url() is not supported in background"),
+                    Image::Url(_) => warn!("url() is not supported in background"),
                     Image::Gradient(value) => match &**value {
-                        Gradient::Linear(value) => {
-                            final_background = Some(ComputedBackground::LinearGradient(
-                                convert_linear_gradient(value)?,
-                            ));
-                        }
-                        _ => bail!("unsupported gradient"),
+                        Gradient::Linear(value) => match convert_linear_gradient(value) {
+                            Ok(value) => {
+                                final_background = Some(ComputedBackground::LinearGradient(value));
+                            }
+                            Err(err) => warn!("invalid background: {err:?}"),
+                        },
+                        _ => warn!("unsupported gradient"),
                     },
-                    Image::ImageSet(_) => bail!("ImageSet is not supported in background"),
+                    Image::ImageSet(_) => warn!("ImageSet is not supported in background"),
                 }
             }
-            Property::BackgroundColor(value) => {
-                final_background = Some(ComputedBackground::Solid {
-                    color: convert_color(value)?,
-                });
-            }
+            Property::BackgroundColor(value) => match convert_color(value) {
+                Ok(value) => final_background = Some(ComputedBackground::Solid { color: value }),
+                Err(err) => warn!("invalid background: {err:?}"),
+            },
             _ => {}
         }
     }
-    Ok(final_background)
+    final_background
 }
 
 pub fn get_border_collapse(properties: &[&Property<'static>]) -> bool {

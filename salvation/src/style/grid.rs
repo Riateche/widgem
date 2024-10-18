@@ -21,11 +21,11 @@ impl ComputedStyle {
         let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
 
         let properties = style.find_rules(|s| element.matches(s));
-        let preferred_padding = convert_padding(&properties, scale, root_font.font_size)?;
+        let preferred_padding = convert_padding(&properties, scale, root_font.font_size);
         let preferred_spacing = convert_spacing(&properties, scale, root_font.font_size)?;
 
         let min_properties = style.find_rules(|s| element_min.matches(s));
-        let min_padding = convert_padding(&min_properties, scale, root_font.font_size)?;
+        let min_padding = convert_padding(&min_properties, scale, root_font.font_size);
         let min_spacing = convert_spacing(&min_properties, scale, root_font.font_size)?;
         Ok(Self {
             preferred_padding,

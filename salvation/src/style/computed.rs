@@ -68,48 +68,26 @@ pub struct CommonComputedStyle {
 
 impl CommonComputedStyle {
     pub fn new(style: &ComputedStyle, element: &Element) -> Self {
-        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
         let properties = style.0.style.find_rules(|s| element.matches(s));
-
-        let scale = style.0.scale * convert_zoom(&properties);
-        let font = convert_font(&properties, Some(&style.0.font_style)).unwrap_or_else(|err| {
-            warn!("invalid font: {err:?}");
-            style.0.font_style.clone()
-        });
-        let preferred_padding =
-            convert_padding(&properties, scale, font.font_size).unwrap_or_else(|err| {
-                warn!("invalid padding: {err:?}");
-                Point::default()
-            });
-
+        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
         let min_properties = style.0.style.find_rules(|s| element_min.matches(s));
-        let min_padding =
-            convert_padding(&min_properties, scale, font.font_size).unwrap_or_else(|err| {
-                warn!("invalid min padding: {err:?}");
-                Point::default()
-            });
-
-        let rules_with_root = style
+        let properties_with_root = style
             .0
             .style
             .find_rules(|selector| is_root(selector) || element.matches(selector));
-        let text_color = convert_main_color(&rules_with_root)
-            .unwrap_or_else(|err| {
-                warn!("invalid text color: {err:?}");
-                None
-            })
-            .unwrap_or_else(|| {
-                warn!("main text color is unspecified");
-                defaults::text_color()
-            });
-        let border = convert_border(&properties, scale, text_color).unwrap_or_else(|err| {
-            warn!("invalid border: {err:?}");
-            Default::default()
+
+        let scale = style.0.scale * convert_zoom(&properties);
+        let font = convert_font(&properties, Some(&style.0.font_style));
+        let preferred_padding = convert_padding(&properties, scale, font.font_size);
+
+        let min_padding = convert_padding(&min_properties, scale, font.font_size);
+
+        let text_color = convert_main_color(&properties_with_root).unwrap_or_else(|| {
+            warn!("text color is not specified");
+            defaults::text_color()
         });
-        let background = convert_background(&properties).unwrap_or_else(|err| {
-            warn!("invalid background: {err:?}");
-            None
-        });
+        let border = convert_border(&properties, scale, text_color);
+        let background = convert_background(&properties);
 
         Self {
             min_padding_with_border: min_padding
@@ -128,7 +106,7 @@ impl ComputedStyle {
     pub fn new(style: Rc<Style>, scale: f32) -> Result<Self> {
         let root_properties = style.find_rules(is_root);
         let background = convert_background_color(&root_properties)?;
-        let font_style = convert_font(&root_properties, None)?;
+        let font_style = convert_font(&root_properties, None);
 
         Ok(Self(Rc::new(ComputedStyleInner {
             scale,

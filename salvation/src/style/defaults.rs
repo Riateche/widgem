@@ -1,5 +1,7 @@
 use tiny_skia::Color;
 
+use crate::types::{LogicalPixels, LpxSuffix};
+
 use super::Style;
 
 macro_rules! file {
@@ -30,6 +32,10 @@ pub fn default_style() -> Style {
         ],
     )
     .unwrap()
+}
+
+pub fn font_size() -> LogicalPixels {
+    13.0.lpx()
 }
 
 pub fn text_color() -> Color {

@@ -123,11 +123,11 @@ impl ComputedStyle {
         let properties = style.find_rules(|s| element.matches(s));
 
         scale *= convert_zoom(&properties);
-        let font = convert_font(&properties, Some(root_font))?;
-        let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
+        let font = convert_font(&properties, Some(root_font));
+        let preferred_padding = convert_padding(&properties, scale, font.font_size);
 
         let min_properties = style.find_rules(|s| element_min.matches(s));
-        let min_padding = convert_padding(&min_properties, scale, font.font_size)?;
+        let min_padding = convert_padding(&min_properties, scale, font.font_size);
 
         let variants = ButtonState::all()
             .into_iter()
@@ -140,12 +140,12 @@ impl ComputedStyle {
                 let rules = style.find_rules(|selector| element_variant.matches(selector));
                 let rules_with_root = style
                     .find_rules(|selector| is_root(selector) || element_variant.matches(selector));
-                let text_color = convert_main_color(&rules_with_root)?.unwrap_or_else(|| {
-                    warn!("main text color is unspecified");
+                let text_color = convert_main_color(&rules_with_root).unwrap_or_else(|| {
+                    warn!("text color is not specified");
                     defaults::text_color()
                 });
-                let border = convert_border(&rules, scale, text_color)?;
-                let background = convert_background(&rules)?;
+                let border = convert_border(&rules, scale, text_color);
+                let background = convert_background(&rules);
 
                 let icon = if let Some(url) = convert_content_url(&rules)? {
                     //println!("icon url: {url:?}");

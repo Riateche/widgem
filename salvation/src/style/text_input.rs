@@ -92,19 +92,19 @@ impl ComputedStyle {
 
         let properties = style.find_rules(|s| element.matches(s));
         scale *= convert_zoom(&properties);
-        let font = convert_font(&properties, Some(root_font))?;
-        let preferred_padding = convert_padding(&properties, scale, font.font_size)?;
+        let font = convert_font(&properties, Some(root_font));
+        let preferred_padding = convert_padding(&properties, scale, font.font_size);
         let preferred_width = convert_width(&properties, scale, font.font_size)?
             .unwrap_or_else(|| (font.font_size * DEFAULT_PREFERRED_WIDTH_EM).to_physical(scale));
 
         let min_properties = style.find_rules(|s| element_min.matches(s));
-        let min_padding = convert_padding(&min_properties, scale, font.font_size)?;
+        let min_padding = convert_padding(&min_properties, scale, font.font_size);
         let min_width = convert_width(&min_properties, scale, font.font_size)?
             .unwrap_or_else(|| (font.font_size * DEFAULT_MIN_WIDTH_EM).to_physical(scale));
 
         // TODO: variant-specific selection css rules?
         let selection_properties = style.find_rules(is_selection);
-        let selected_text_color = convert_main_color(&selection_properties)?.unwrap_or_else(|| {
+        let selected_text_color = convert_main_color(&selection_properties).unwrap_or_else(|| {
             warn!("selected text color is unspecified");
             defaults::selected_text_color()
         });
@@ -121,12 +121,12 @@ impl ComputedStyle {
                 let rules = style.find_rules(|selector| element.matches(selector));
                 let rules_with_root =
                     style.find_rules(|selector| is_root(selector) || element.matches(selector));
-                let text_color = convert_main_color(&rules_with_root)?.unwrap_or_else(|| {
+                let text_color = convert_main_color(&rules_with_root).unwrap_or_else(|| {
                     warn!("main text color is unspecified");
                     defaults::text_color()
                 });
-                let border = convert_border(&rules, scale, text_color)?;
-                let background = convert_background(&rules)?;
+                let border = convert_border(&rules, scale, text_color);
+                let background = convert_background(&rules);
 
                 let style = ComputedVariantStyle {
                     border,
