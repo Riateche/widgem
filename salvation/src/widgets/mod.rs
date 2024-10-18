@@ -28,7 +28,11 @@ use crate::{
         LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT,
     },
     shortcut::{Shortcut, ShortcutId, ShortcutScope},
-    style::{computed::ComputedStyle, Style},
+    style::{
+        computed::{CommonComputedStyle, ComputedStyle},
+        css::{Element, MyPseudoClass},
+        Style,
+    },
     system::{address, register_address, unregister_address, with_system, ReportError},
     types::{Point, Rect, Size},
     window::Window,
@@ -164,6 +168,8 @@ pub struct WidgetCommon {
     pub no_padding: bool,
 
     pub shortcuts: Vec<Shortcut>,
+    pub style_element: Element,
+    pub common_style: Rc<CommonComputedStyle>,
 }
 
 impl Drop for WidgetCommon {
@@ -211,6 +217,9 @@ impl WidgetCommon {
             grid_options: None,
             no_padding: false,
             shortcuts: Vec::new(),
+            style_element: Element::new("widget"),
+            // TODO: avoid allocation
+            common_style: Rc::new(CommonComputedStyle::default()),
         }
     }
 
@@ -481,6 +490,7 @@ impl WidgetCommon {
     pub fn set_enabled(&mut self, enabled: bool) {
         self.is_explicitly_enabled = enabled;
         self.register_focusable();
+        self.refresh_common_style();
     }
 
     pub fn set_focusable(&mut self, focusable: bool) {
@@ -567,6 +577,7 @@ impl WidgetCommon {
         }
         self.update();
         self.register_focusable();
+        self.refresh_common_style();
         // TODO: set is_window_focused
     }
 
@@ -599,6 +610,36 @@ impl WidgetCommon {
     }
 
     // TODO: remove_shortcut
+
+    fn refresh_common_style(&mut self) {
+        self.common_style = self.style().get_common(&self.style_element());
+        self.size_hint_changed();
+        self.update();
+    }
+
+    pub fn style_element(&self) -> Element {
+        let mut element = self.style_element.clone();
+        if self.is_enabled() {
+            element.add_pseudo_class(MyPseudoClass::Enabled);
+            if self.is_focused() {
+                element.add_pseudo_class(MyPseudoClass::Focus);
+            }
+            if self.is_mouse_over {
+                element.add_pseudo_class(MyPseudoClass::Hover);
+            }
+        } else {
+            element.add_pseudo_class(MyPseudoClass::Disabled);
+        };
+        element
+    }
+
+    pub fn set_style_element(&mut self, element: Element) {
+        if element == self.style_element {
+            return;
+        }
+        self.style_element = element;
+        self.refresh_common_style();
+    }
 }
 
 impl Default for WidgetCommon {
@@ -845,12 +886,15 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         match &event {
             Event::FocusIn(_) => {
                 self.common_mut().is_focused = true;
+                self.common_mut().refresh_common_style();
             }
             Event::FocusOut(_) => {
                 self.common_mut().is_focused = false;
+                self.common_mut().refresh_common_style();
             }
             Event::WindowFocusChange(e) => {
                 self.common_mut().is_window_focused = e.is_focused();
+                self.common_mut().refresh_common_style();
             }
             Event::MouseInput(event) => {
                 should_dispatch = self.common().is_enabled();
@@ -900,6 +944,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::MouseLeave(_) => {
                 self.common_mut().is_mouse_over = false;
+                self.common_mut().refresh_common_style();
                 should_dispatch = self.common().is_enabled();
             }
             Event::Layout(event) => {
@@ -1127,7 +1172,7 @@ fn accept_mouse_event(
         if is_enter {
             window.add_mouse_entered(rect_in_window, id);
             widget.common_mut().is_mouse_over = true;
-            widget.common_mut().update();
+            widget.common_mut().refresh_common_style();
         }
     }
 }

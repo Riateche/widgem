@@ -162,7 +162,9 @@ impl RootWidget {
 
         let mut content = Column::new();
         for i in 1..=80 {
-            content.add_child(Button::new(format!("btn{i}")).boxed());
+            content.add_child(
+                Button::new(format!("btn btn btn btn btn btn btn btn btn btn{i}")).boxed(),
+            );
         }
 
         root.add_child(ScrollArea::new(content.boxed()).boxed());

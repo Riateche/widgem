@@ -1,26 +1,15 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
-use anyhow::Result;
 use itertools::Itertools;
 use log::warn;
 use tiny_skia::Pixmap;
 
-use crate::{
-    style::{
-        css::{convert_content_url, convert_zoom},
-        defaults,
-    },
-    types::Point,
-};
+use crate::style::css::{convert_content_url, convert_zoom};
 
 use super::{
-    computed::{ComputedBackground, ComputedBorderStyle},
-    css::is_root,
-    css::{
-        convert_background, convert_border, convert_font, convert_main_color, convert_padding,
-        Element, MyPseudoClass,
-    },
-    ElementState, FontStyle, Style,
+    computed::{ComputedElementStyle, ComputedStyle},
+    css::{Element, MyPseudoClass},
+    ElementState,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -89,102 +78,24 @@ impl ElementState for ButtonState {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ComputedVariantStyle {
-    pub border: ComputedBorderStyle,
-    #[allow(dead_code)] // TODO: implement
-    pub background: Option<ComputedBackground>,
-    pub text_color: tiny_skia::Color,
+#[derive(Debug, Clone, Default)]
+pub struct ComputedButtonStyle {
     pub icon: Option<Rc<Pixmap>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ComputedStyle {
-    pub min_padding_with_border: Point,
-    pub preferred_padding_with_border: Point,
-    pub font_metrics: salvation_cosmic_text::Metrics,
-    pub variants: HashMap<ButtonState, ComputedVariantStyle>,
-}
+impl ComputedElementStyle for ComputedButtonStyle {
+    fn new(style: &ComputedStyle, element: &Element) -> ComputedButtonStyle {
+        let properties = style.0.style.find_rules(|s| element.matches(s));
 
-impl ComputedStyle {
-    pub fn new(
-        style: &Style,
-        mut scale: f32,
-        root_font: &FontStyle,
-        class: Option<&'static str>,
-    ) -> Result<ComputedStyle> {
-        let mut element = Element::new("button");
-        if let Some(class) = class {
-            element.add_class(class);
+        let scale = style.0.scale * convert_zoom(&properties);
+        let mut icon = None;
+        if let Some(url) = convert_content_url(&properties) {
+            //println!("icon url: {url:?}");
+            match style.0.style.load_pixmap(&url, scale) {
+                Ok(pixmap) => icon = Some(pixmap),
+                Err(err) => warn!("failed to load icon: {err:?}"),
+            }
         }
-
-        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
-
-        let properties = style.find_rules(|s| element.matches(s));
-
-        scale *= convert_zoom(&properties);
-        let font = convert_font(&properties, Some(root_font));
-        let preferred_padding = convert_padding(&properties, scale, font.font_size);
-
-        let min_properties = style.find_rules(|s| element_min.matches(s));
-        let min_padding = convert_padding(&min_properties, scale, font.font_size);
-
-        let variants = ButtonState::all()
-            .into_iter()
-            .map(|state| {
-                let mut element_variant = state.element();
-                if let Some(class) = class {
-                    element_variant.add_class(class);
-                }
-                //println!("element_variant: {element_variant:?}");
-                let rules = style.find_rules(|selector| element_variant.matches(selector));
-                let rules_with_root = style
-                    .find_rules(|selector| is_root(selector) || element_variant.matches(selector));
-                let text_color = convert_main_color(&rules_with_root).unwrap_or_else(|| {
-                    warn!("text color is not specified");
-                    defaults::text_color()
-                });
-                let border = convert_border(&rules, scale, text_color);
-                let background = convert_background(&rules);
-
-                let icon = if let Some(url) = convert_content_url(&rules)? {
-                    //println!("icon url: {url:?}");
-                    Some(style.load_pixmap(&url, scale)?)
-                } else {
-                    None
-                };
-
-                let style = ComputedVariantStyle {
-                    border,
-                    background,
-                    icon,
-                    text_color,
-                };
-                anyhow::Ok((state, style))
-            })
-            .collect::<Result<HashMap<_, _>>>()?;
-
-        let border_width = variants
-            .get(&ButtonState::default())
-            .expect("expected item for each state")
-            .border
-            .width;
-
-        // println!(
-        //     "button style: {:?}",
-        //     variants
-        //         .get(&ButtonState::default())
-        //         .expect("expected item for each state")
-        //         .background
-        // );
-
-        Ok(Self {
-            min_padding_with_border: min_padding
-                + Point::new(border_width.get(), border_width.get()),
-            preferred_padding_with_border: preferred_padding
-                + Point::new(border_width.get(), border_width.get()),
-            font_metrics: font.to_metrics(scale),
-            variants,
-        })
+        Self { icon }
     }
 }

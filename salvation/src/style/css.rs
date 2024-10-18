@@ -555,7 +555,7 @@ pub fn get_border_collapse(properties: &[&Property<'static>]) -> bool {
     value
 }
 
-pub fn convert_content_url(properties: &[&Property<'static>]) -> Result<Option<String>> {
+pub fn convert_content_url(properties: &[&Property<'static>]) -> Option<String> {
     let mut final_url = None;
     for property in properties {
         match property {
@@ -578,7 +578,7 @@ pub fn convert_content_url(properties: &[&Property<'static>]) -> Result<Option<S
             _ => {}
         }
     }
-    Ok(final_url)
+    final_url
 }
 
 pub fn replace_vars(style_sheet: &mut StyleSheet) {

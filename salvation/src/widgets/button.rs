@@ -20,7 +20,10 @@ use crate::{
     },
     impl_widget_common,
     layout::SizeHintMode,
-    style::button::{ButtonState, ComputedStyle, ComputedVariantStyle},
+    style::{
+        button::ComputedButtonStyle,
+        css::{Element, MyPseudoClass},
+    },
     system::{add_interval, add_timer, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
@@ -57,6 +60,7 @@ pub struct Button {
     auto_repeat_interval: Option<TimerId>,
     common: WidgetCommon,
     role: Role1,
+    button_style: Rc<ComputedButtonStyle>,
 }
 
 #[impl_with]
@@ -80,6 +84,7 @@ impl Button {
             role: Role1::Default,
             auto_repeat_delay_timer: None,
             auto_repeat_interval: None,
+            button_style: Rc::new(ComputedButtonStyle::default()),
         }
     }
 
@@ -122,39 +127,35 @@ impl Button {
         self.on_triggered.invoke(self.editor.text());
     }
 
-    fn current_style(&self) -> &ComputedStyle {
+    fn refresh_style(&mut self) {
+        let mut element = Element::new("button");
         match self.role {
-            Role1::Default => &self.common.style().0.button,
-            Role1::ScrollLeft => &self.common.style().0.scroll_bar.scroll_left,
-            Role1::ScrollRight => &self.common.style().0.scroll_bar.scroll_right,
-            Role1::ScrollUp => &self.common.style().0.scroll_bar.scroll_up,
-            Role1::ScrollDown => &self.common.style().0.scroll_bar.scroll_down,
-            Role1::ScrollGripX => &self.common.style().0.scroll_bar.scroll_grip_x,
-            Role1::ScrollGripY => &self.common.style().0.scroll_bar.scroll_grip_y,
-            Role1::ScrollPager => &self.common.style().0.scroll_bar.scroll_pager,
+            Role1::Default => {}
+            Role1::ScrollLeft => element.add_class("scroll_left"),
+            Role1::ScrollRight => element.add_class("scroll_right"),
+            Role1::ScrollUp => element.add_class("scroll_up"),
+            Role1::ScrollDown => element.add_class("scroll_down"),
+            Role1::ScrollGripX => element.add_class("scroll_grip_x"),
+            Role1::ScrollGripY => element.add_class("scroll_grip_y"),
+            Role1::ScrollPager => element.add_class("scroll_pager"),
         }
-    }
 
-    fn current_variant_style(&self) -> &ComputedVariantStyle {
-        let state = if self.common.is_enabled() {
-            ButtonState::Enabled {
-                focused: self.common.is_focused(),
-                mouse_over: self.common.is_mouse_over,
-                pressed: self.is_pressed,
-            }
-        } else {
-            ButtonState::Disabled
-        };
-        self.current_style().variants.get(&state).unwrap()
+        if self.common.is_enabled() && self.is_pressed {
+            element.add_pseudo_class(MyPseudoClass::Active);
+        }
+
+        self.common.set_style_element(element);
+        self.button_style = self.common.style().get(&self.common.style_element());
     }
 
     // TODO: pub(crate)
     pub fn set_role(&mut self, role: Role1) {
+        if self.role == role {
+            return;
+        }
         self.role = role;
-        self.icon = self.current_variant_style().icon.clone();
+        self.refresh_style();
         self.common.set_focusable(role == Role1::Default);
-        self.common.size_hint_changed();
-        self.common.update();
     }
 
     fn set_pressed(&mut self, value: bool, suppress_trigger: bool) {
@@ -162,7 +163,7 @@ impl Button {
             return;
         }
         self.is_pressed = value;
-        self.common.update();
+        self.refresh_style();
         if value {
             if self.trigger_on_press && !suppress_trigger {
                 self.trigger();
@@ -215,7 +216,7 @@ impl Widget for Button {
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let size = self.common.size_or_err()?;
-        let style = self.current_variant_style().clone();
+        let style = &self.common.common_style;
 
         event.stroke_and_fill_rounded_rect(
             Rect {
@@ -237,7 +238,7 @@ impl Widget for Button {
         }
 
         // TODO: display icon and text side by side if both are present
-        if let Some(icon) = &self.icon {
+        if let Some(icon) = self.icon.as_ref().or(self.button_style.icon.as_ref()) {
             let pos = Point {
                 x: max(0, size.x - icon.width() as i32) / 2,
                 y: max(0, size.y - icon.height() as i32) / 2,
@@ -347,7 +348,7 @@ impl Widget for Button {
     }
 
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let style = &self.common.style().0.button;
+        let style = &self.common.common_style;
         let padding = match mode {
             SizeHintMode::Min => style.min_padding_with_border,
             SizeHintMode::Preferred => style.preferred_padding_with_border,
@@ -356,7 +357,7 @@ impl Widget for Button {
         // TODO: support text with icon
         let content_size = if self.text_visible {
             self.editor.size().x
-        } else if let Some(icon) = &self.icon {
+        } else if let Some(icon) = self.icon.as_ref().or(self.button_style.icon.as_ref()) {
             icon.width() as i32
         } else {
             0
@@ -367,7 +368,7 @@ impl Widget for Button {
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
         // TODO: use size_x, handle multiple lines
-        let style = &self.common.style().0.button;
+        let style = &self.common.common_style;
         let padding = match mode {
             SizeHintMode::Min => style.min_padding_with_border,
             SizeHintMode::Preferred => style.preferred_padding_with_border,
@@ -376,19 +377,19 @@ impl Widget for Button {
         // TODO: support text with icon
         let content_size = if self.text_visible {
             self.editor.size().y
-        } else if let Some(icon) = &self.icon {
+        } else if let Some(icon) = self.icon.as_ref().or(self.button_style.icon.as_ref()) {
             icon.height() as i32
         } else {
             0
         };
 
-        Ok(content_size + 2 * padding.x)
+        Ok(content_size + 2 * padding.y)
     }
 
     fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
+        self.refresh_style();
         self.editor
-            .set_font_metrics(self.current_style().font_metrics);
-        self.icon = self.current_variant_style().icon.clone();
+            .set_font_metrics(self.common.common_style.font_metrics);
         if !self.common.is_enabled() {
             if let Some(id) = self.auto_repeat_delay_timer.take() {
                 id.cancel();

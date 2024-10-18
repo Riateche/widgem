@@ -22,7 +22,7 @@ use crate::{
 
 pub mod button;
 pub mod computed;
-mod css;
+pub mod css;
 pub mod defaults;
 pub mod grid;
 pub mod image;

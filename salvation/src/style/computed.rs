@@ -10,7 +10,6 @@ use crate::{
 };
 
 use super::{
-    button,
     css::{
         convert_background, convert_background_color, convert_border, convert_font,
         convert_main_color, convert_padding, convert_zoom, is_root, Element, MyPseudoClass,
@@ -45,7 +44,6 @@ pub struct ComputedStyleInner {
     pub font_style: FontStyle,
     pub font_metrics: salvation_cosmic_text::Metrics,
     pub text_input: text_input::ComputedStyle,
-    pub button: button::ComputedStyle,
     pub scroll_bar: scroll_bar::ComputedStyle,
     pub image: image::ComputedStyle,
 
@@ -64,6 +62,19 @@ pub struct CommonComputedStyle {
     pub background: Option<ComputedBackground>,
     pub text_color: tiny_skia::Color,
     pub font_metrics: salvation_cosmic_text::Metrics,
+}
+
+impl Default for CommonComputedStyle {
+    fn default() -> Self {
+        Self {
+            min_padding_with_border: Default::default(),
+            preferred_padding_with_border: Default::default(),
+            border: Default::default(),
+            background: Default::default(),
+            text_color: defaults::text_color(),
+            font_metrics: Default::default(),
+        }
+    }
 }
 
 impl CommonComputedStyle {
@@ -117,8 +128,7 @@ impl ComputedStyle {
             font_metrics: font_style.to_metrics(scale),
             grid: grid::ComputedStyle::new(&style, scale, &font_style)?,
             text_input: text_input::ComputedStyle::new(&style, scale, &font_style)?,
-            button: button::ComputedStyle::new(&style, scale, &font_style, None)?,
-            scroll_bar: scroll_bar::ComputedStyle::new(&style, scale, &font_style)?,
+            scroll_bar: scroll_bar::ComputedStyle::new(&style, scale)?,
             image: image::ComputedStyle::new(&style, scale)?,
             style,
             common_cache: RefCell::new(HashMap::new()),
