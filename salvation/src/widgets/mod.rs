@@ -31,7 +31,7 @@ use crate::{
     },
     shortcut::{Shortcut, ShortcutId, ShortcutScope},
     style::{
-        computed::{CommonComputedStyle, ComputedStyle},
+        computed::{CommonComputedStyle, ComputedElementStyle, ComputedStyle},
         css::{Element, MyPseudoClass},
         Style,
     },
@@ -223,7 +223,7 @@ impl WidgetCommon {
             grid_options: None,
             no_padding: false,
             shortcuts: Vec::new(),
-            style_element: Element::new("widget"),
+            style_element: Element::new(T::type_name()),
             // TODO: avoid allocation
             common_style: Rc::new(CommonComputedStyle::default()),
         };
@@ -294,7 +294,7 @@ impl WidgetCommon {
     }
 
     pub fn is_focused(&self) -> bool {
-        self.is_focused && self.is_window_focused
+        self.is_focused && self.is_window_focused && self.is_enabled()
     }
 
     pub fn style(&self) -> &ComputedStyle {
@@ -497,10 +497,43 @@ impl WidgetCommon {
         }
     }
 
+    fn enabled_changed(&mut self) {
+        self.register_focusable();
+        self.focused_changed();
+        self.mouse_over_changed();
+        if self.is_enabled() {
+            self.style_element
+                .remove_pseudo_class(MyPseudoClass::Disabled);
+            self.style_element.add_pseudo_class(MyPseudoClass::Enabled);
+        } else {
+            self.style_element
+                .remove_pseudo_class(MyPseudoClass::Enabled);
+            self.style_element.add_pseudo_class(MyPseudoClass::Disabled);
+        }
+        self.refresh_common_style();
+    }
+
+    fn focused_changed(&mut self) {
+        if self.is_focused() {
+            self.style_element.add_pseudo_class(MyPseudoClass::Focus);
+        } else {
+            self.style_element.remove_pseudo_class(MyPseudoClass::Focus);
+        }
+        self.refresh_common_style();
+    }
+
+    fn mouse_over_changed(&mut self) {
+        if self.is_mouse_over {
+            self.style_element.add_pseudo_class(MyPseudoClass::Hover);
+        } else {
+            self.style_element.remove_pseudo_class(MyPseudoClass::Hover);
+        }
+        self.refresh_common_style();
+    }
+
     pub fn set_enabled(&mut self, enabled: bool) {
         self.is_explicitly_enabled = enabled;
-        self.register_focusable();
-        self.refresh_common_style();
+        self.enabled_changed();
     }
 
     pub fn set_focusable(&mut self, focusable: bool) {
@@ -585,10 +618,15 @@ impl WidgetCommon {
                 self.accessible_mounted = true;
             }
         }
+        if let Some(window) = &self.scope.window {
+            self.is_window_focused = window.is_focused();
+        }
         self.update();
+        self.enabled_changed();
+        self.focused_changed();
+        self.mouse_over_changed();
         self.register_focusable();
         self.refresh_common_style();
-        // TODO: set is_window_focused
     }
 
     pub fn widget<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
@@ -622,32 +660,36 @@ impl WidgetCommon {
     // TODO: remove_shortcut
 
     fn refresh_common_style(&mut self) {
-        self.common_style = self.style().get_common(&self.style_element());
+        self.common_style = self.style().get_common(&self.style_element);
         self.size_hint_changed();
         self.update();
     }
 
-    pub fn style_element(&self) -> Element {
-        let mut element = self.style_element.clone();
-        if self.is_enabled() {
-            element.add_pseudo_class(MyPseudoClass::Enabled);
-            if self.is_focused() {
-                element.add_pseudo_class(MyPseudoClass::Focus);
-            }
-            if self.is_mouse_over {
-                element.add_pseudo_class(MyPseudoClass::Hover);
-            }
-        } else {
-            element.add_pseudo_class(MyPseudoClass::Disabled);
-        };
-        element
+    pub fn style_element(&self) -> &Element {
+        &self.style_element
     }
 
-    pub fn set_style_element(&mut self, element: Element) {
-        if element == self.style_element {
-            return;
-        }
-        self.style_element = element;
+    pub fn specific_style<T: ComputedElementStyle>(&self) -> Rc<T> {
+        self.scope.style.get(&self.style_element)
+    }
+
+    pub fn add_class(&mut self, class: &'static str) {
+        self.style_element.add_class(class);
+        self.refresh_common_style();
+    }
+
+    pub fn remove_class(&mut self, class: &'static str) {
+        self.style_element.remove_class(class);
+        self.refresh_common_style();
+    }
+
+    pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
+        self.style_element.add_pseudo_class(class);
+        self.refresh_common_style();
+    }
+
+    pub fn remove_pseudo_class(&mut self, class: MyPseudoClass) {
+        self.style_element.remove_pseudo_class(class);
         self.refresh_common_style();
     }
 }
@@ -937,15 +979,15 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         match &event {
             Event::FocusIn(_) => {
                 self.common_mut().is_focused = true;
-                self.common_mut().refresh_common_style();
+                self.common_mut().focused_changed();
             }
             Event::FocusOut(_) => {
                 self.common_mut().is_focused = false;
-                self.common_mut().refresh_common_style();
+                self.common_mut().focused_changed();
             }
             Event::WindowFocusChange(e) => {
                 self.common_mut().is_window_focused = e.is_focused();
-                self.common_mut().refresh_common_style();
+                self.common_mut().focused_changed();
             }
             Event::MouseInput(event) => {
                 should_dispatch = self.common().is_enabled();
@@ -995,7 +1037,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::MouseLeave(_) => {
                 self.common_mut().is_mouse_over = false;
-                self.common_mut().refresh_common_style();
+                self.common_mut().mouse_over_changed();
                 should_dispatch = self.common().is_enabled();
             }
             Event::Layout(event) => {
@@ -1223,7 +1265,7 @@ fn accept_mouse_event(
         if is_enter {
             window.add_mouse_entered(rect_in_window, id);
             widget.common_mut().is_mouse_over = true;
-            widget.common_mut().refresh_common_style();
+            widget.common_mut().mouse_over_changed();
         }
     }
 }

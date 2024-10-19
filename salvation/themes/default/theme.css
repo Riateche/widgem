@@ -33,101 +33,101 @@ text-input:focus {
     border-color: #6464ff;
 }
 
-button {
+Button {
     border: 1px solid #c4c4c4;
     border-radius: 2px;
     padding: 4px;
     background: linear-gradient(#fefefe 0%, #eeeeee 100%);
 }
-button:min {
+Button:min {
     padding: 0px 1px;
 }
-button:disabled {
+Button:disabled {
     color: #bfbfbf;
 }
-button:hover {
+Button:hover {
     background: linear-gradient(#ffffff 0%, #f9f9f9 100%);
 }
-button:active {
+Button:active {
     background: #dbdbdb;
 }
-button:focus {
+Button:focus {
     border-color: #26709e;
 }
-button.scroll_left,
-button.scroll_right,
-button.scroll_up,
-button.scroll_down,
-button.scroll_grip_x,
-button.scroll_grip_y {
+Button.scroll_left,
+Button.scroll_right,
+Button.scroll_up,
+Button.scroll_down,
+Button.scroll_grip_x,
+Button.scroll_grip_y {
     border-radius: 0;
 }
-button.scroll_left,
-button.scroll_right {
+Button.scroll_left,
+Button.scroll_right {
     padding: 2px 4px;
 }
-button.scroll_up,
-button.scroll_down {
+Button.scroll_up,
+Button.scroll_down {
     padding: 4px 2px;
 }
-button.scroll_grip_x,
-button.scroll_grip_y {
+Button.scroll_grip_x,
+Button.scroll_grip_y {
     padding: 2px 2px;
 }
 scroll-bar {
     border-collapse: collapse;
 }
 
-button.scroll_left {
+Button.scroll_left {
     content: url('scroll_left.svg');
 }
-button.scroll_right {
+Button.scroll_right {
     content: url('scroll_right.svg');
 }
-button.scroll_up {
+Button.scroll_up {
     content: url('scroll_up.svg');
 }
-button.scroll_down {
+Button.scroll_down {
     content: url('scroll_down.svg');
 }
-button.scroll_grip_x {
+Button.scroll_grip_x {
     content: url('scroll_grip_x.svg');
 }
-button.scroll_grip_y {
+Button.scroll_grip_y {
     content: url('scroll_grip_y.svg');
 }
-button.scroll_pager {
+Button.scroll_pager {
     border: 1px solid #c4c4c4;
     border-radius: 0;
     background: #e6e6e6;
 }
-button.scroll_pager:hover {
+Button.scroll_pager:hover {
     background: #f0f0f0;
 }
-button.scroll_pager:active {
+Button.scroll_pager:active {
     background: #c2c2c2;
 }
 
-button.scroll_left:disabled {
+Button.scroll_left:disabled {
     content: url('scroll_left_disabled.svg');
 }
-button.scroll_right:disabled {
+Button.scroll_right:disabled {
     content: url('scroll_right_disabled.svg');
 }
-button.scroll_up:disabled {
+Button.scroll_up:disabled {
     content: url('scroll_up_disabled.svg');
 }
-button.scroll_down:disabled {
+Button.scroll_down:disabled {
     content: url('scroll_down_disabled.svg');
 }
-button.scroll_grip_x:disabled {
+Button.scroll_grip_x:disabled {
     content: url('scroll_grip_x_disabled.svg');
 }
-button.scroll_grip_y:disabled {
+Button.scroll_grip_y:disabled {
     content: url('scroll_grip_y_disabled.svg');
 }
 
-button.scroll_grip_x:active,
-button.scroll_grip_y:active {
+Button.scroll_grip_x:active,
+Button.scroll_grip_y:active {
     background: #c8c8c8;
 }

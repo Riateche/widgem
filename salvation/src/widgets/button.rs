@@ -20,10 +20,7 @@ use crate::{
     },
     impl_widget_common,
     layout::SizeHintMode,
-    style::{
-        button::ComputedButtonStyle,
-        css::{Element, MyPseudoClass},
-    },
+    style::{button::ComputedButtonStyle, css::MyPseudoClass},
     system::{add_interval, add_timer, send_window_request, with_system},
     text_editor::TextEditor,
     timer::TimerId,
@@ -60,7 +57,6 @@ pub struct Button {
     auto_repeat_interval: Option<TimerId>,
     common: WidgetCommon,
     role: Role1,
-    button_style: Rc<ComputedButtonStyle>,
 }
 
 #[impl_with]
@@ -84,7 +80,6 @@ impl Button {
             role: Role1::Default,
             auto_repeat_delay_timer: None,
             auto_repeat_interval: None,
-            button_style: Rc::new(ComputedButtonStyle::default()),
         }
     }
 
@@ -127,34 +122,23 @@ impl Button {
         self.on_triggered.invoke(self.editor.text());
     }
 
-    fn refresh_style(&mut self) {
-        let mut element = Element::new("button");
-        match self.role {
-            Role1::Default => {}
-            Role1::ScrollLeft => element.add_class("scroll_left"),
-            Role1::ScrollRight => element.add_class("scroll_right"),
-            Role1::ScrollUp => element.add_class("scroll_up"),
-            Role1::ScrollDown => element.add_class("scroll_down"),
-            Role1::ScrollGripX => element.add_class("scroll_grip_x"),
-            Role1::ScrollGripY => element.add_class("scroll_grip_y"),
-            Role1::ScrollPager => element.add_class("scroll_pager"),
-        }
-
-        if self.common.is_enabled() && self.is_pressed {
-            element.add_pseudo_class(MyPseudoClass::Active);
-        }
-
-        self.common.set_style_element(element);
-        self.button_style = self.common.style().get(&self.common.style_element());
-    }
-
     // TODO: pub(crate)
     pub fn set_role(&mut self, role: Role1) {
         if self.role == role {
             return;
         }
         self.role = role;
-        self.refresh_style();
+        // TODO: remove role
+        match self.role {
+            Role1::Default => {}
+            Role1::ScrollLeft => self.common.add_class("scroll_left"),
+            Role1::ScrollRight => self.common.add_class("scroll_right"),
+            Role1::ScrollUp => self.common.add_class("scroll_up"),
+            Role1::ScrollDown => self.common.add_class("scroll_down"),
+            Role1::ScrollGripX => self.common.add_class("scroll_grip_x"),
+            Role1::ScrollGripY => self.common.add_class("scroll_grip_y"),
+            Role1::ScrollPager => self.common.add_class("scroll_pager"),
+        }
         self.common.set_focusable(role == Role1::Default);
     }
 
@@ -163,7 +147,11 @@ impl Button {
             return;
         }
         self.is_pressed = value;
-        self.refresh_style();
+        if self.is_pressed {
+            self.common.add_pseudo_class(MyPseudoClass::Active);
+        } else {
+            self.common.remove_pseudo_class(MyPseudoClass::Active);
+        }
         if value {
             if self.trigger_on_press && !suppress_trigger {
                 self.trigger();
@@ -209,6 +197,15 @@ impl Button {
         );
         self.auto_repeat_interval = Some(id);
     }
+
+    fn actual_icon(&self) -> Option<Rc<Pixmap>> {
+        self.icon.clone().or_else(|| {
+            self.common
+                .specific_style::<ComputedButtonStyle>()
+                .icon
+                .clone()
+        })
+    }
 }
 
 impl Widget for Button {
@@ -238,12 +235,12 @@ impl Widget for Button {
         }
 
         // TODO: display icon and text side by side if both are present
-        if let Some(icon) = self.icon.as_ref().or(self.button_style.icon.as_ref()) {
+        if let Some(icon) = self.actual_icon() {
             let pos = Point {
                 x: max(0, size.x - icon.width() as i32) / 2,
                 y: max(0, size.y - icon.height() as i32) / 2,
             };
-            event.draw_pixmap(pos, (**icon).as_ref(), Default::default());
+            event.draw_pixmap(pos, (*icon).as_ref(), Default::default());
         }
         Ok(())
     }
@@ -357,7 +354,7 @@ impl Widget for Button {
         // TODO: support text with icon
         let content_size = if self.text_visible {
             self.editor.size().x
-        } else if let Some(icon) = self.icon.as_ref().or(self.button_style.icon.as_ref()) {
+        } else if let Some(icon) = self.actual_icon() {
             icon.width() as i32
         } else {
             0
@@ -377,7 +374,7 @@ impl Widget for Button {
         // TODO: support text with icon
         let content_size = if self.text_visible {
             self.editor.size().y
-        } else if let Some(icon) = self.icon.as_ref().or(self.button_style.icon.as_ref()) {
+        } else if let Some(icon) = self.actual_icon() {
             icon.height() as i32
         } else {
             0
@@ -387,7 +384,6 @@ impl Widget for Button {
     }
 
     fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
-        self.refresh_style();
         self.editor
             .set_font_metrics(self.common.common_style.font_metrics);
         if !self.common.is_enabled() {
@@ -397,7 +393,7 @@ impl Widget for Button {
             if let Some(id) = self.auto_repeat_interval.take() {
                 id.cancel();
             }
-            self.is_pressed = false;
+            self.set_pressed(false, true);
             self.was_pressed_but_moved_out = false;
         }
         self.common.size_hint_changed();

@@ -783,9 +783,17 @@ impl Element {
         self.classes.sort_unstable();
     }
 
+    pub fn remove_class(&mut self, class: &'static str) {
+        self.classes.retain(|c| *c != class);
+    }
+
     pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
         self.pseudo_classes.push(class);
         self.pseudo_classes.sort_unstable();
+    }
+
+    pub fn remove_pseudo_class(&mut self, class: MyPseudoClass) {
+        self.pseudo_classes.retain(|c| *c != class);
     }
 
     pub fn with_class(mut self, class: &'static str) -> Self {

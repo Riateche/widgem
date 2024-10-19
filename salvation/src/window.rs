@@ -259,6 +259,10 @@ impl Window {
         self.0.borrow_mut().pending_redraw = false;
     }
 
+    pub fn is_focused(&self) -> bool {
+        self.0.borrow().is_window_focused
+    }
+
     pub(crate) fn pass_event_to_accesskit(&self, event: &WindowEvent) {
         let this = &mut *self.0.borrow_mut();
         this.accesskit_adapter
