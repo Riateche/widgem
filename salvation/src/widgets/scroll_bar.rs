@@ -57,7 +57,7 @@ const INDEX_GRIP_IN_PAGER: usize = 1;
 #[impl_with]
 impl ScrollBar {
     pub fn new() -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
         let border_collapse = common.style().0.scroll_bar.border_collapse.get();
         let mut grid_options = GridOptions::ZERO;
         grid_options.x.border_collapse = border_collapse;
@@ -124,7 +124,7 @@ impl ScrollBar {
             LayoutItemOptions::from_pos_in_grid(2, 0),
         );
         let mut this = Self {
-            common,
+            common: common.into(),
             axis,
             current_grip_pos: 0,
             max_slider_pos: 0,
@@ -545,13 +545,7 @@ impl Default for ScrollBar {
 }
 
 impl Widget for ScrollBar {
-    fn common(&self) -> &super::WidgetCommon {
-        &self.common
-    }
-
-    fn common_mut(&mut self) -> &mut super::WidgetCommon {
-        &mut self.common
-    }
+    impl_widget_common!();
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let options = self.common.grid_options();
@@ -617,7 +611,7 @@ struct Pager {
 impl Pager {
     pub fn new(axis: Axis) -> Self {
         Self {
-            common: WidgetCommon::new(),
+            common: WidgetCommon::new::<Self>().into(),
             axis,
         }
     }

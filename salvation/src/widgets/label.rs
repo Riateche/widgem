@@ -21,7 +21,7 @@ impl Label {
         editor.set_cursor_hidden(true);
         Self {
             editor,
-            common: WidgetCommon::new(),
+            common: WidgetCommon::new::<Self>().into(),
         }
     }
 

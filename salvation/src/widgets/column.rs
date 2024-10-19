@@ -24,7 +24,7 @@ impl Column {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
-            common: WidgetCommon::new(),
+            common: WidgetCommon::new::<Self>().into(),
         }
     }
 

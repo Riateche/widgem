@@ -26,7 +26,7 @@ impl Image {
     pub fn new(pixmap: Option<Pixmap>) -> Self {
         Self {
             pixmap,
-            common: WidgetCommon::new(),
+            common: WidgetCommon::new::<Self>().into(),
             scale: None,
         }
     }

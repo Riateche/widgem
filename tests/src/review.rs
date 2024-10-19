@@ -56,7 +56,7 @@ impl Mode {
 impl ReviewWidget {
     #[allow(clippy::collapsible_if)]
     pub fn new(reviewer: Reviewer) -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
         common.add_child(
             Label::new("Test:").boxed(),
             LayoutItemOptions::from_pos_in_grid(1, 1),
@@ -72,7 +72,7 @@ impl ReviewWidget {
                 .with_no_padding(true)
                 .with_child(
                     Button::new("First test")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.reviewer.go_to_test_case(0);
                             w.update_ui()
                         }))
@@ -80,7 +80,7 @@ impl ReviewWidget {
                 )
                 .with_child(
                     Button::new("Previous test")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.reviewer.go_to_previous_test_case();
                             w.update_ui()
                         }))
@@ -88,7 +88,7 @@ impl ReviewWidget {
                 )
                 .with_child(
                     Button::new("Next test")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.reviewer.go_to_next_test_case();
                             w.update_ui()
                         }))
@@ -96,7 +96,7 @@ impl ReviewWidget {
                 )
                 .with_child(
                     Button::new("Last test")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             let index = w.reviewer.test_cases().len().saturating_sub(1);
                             w.reviewer.go_to_test_case(index);
                             w.update_ui()
@@ -122,7 +122,7 @@ impl ReviewWidget {
                 .with_no_padding(true)
                 .with_child(
                     Button::new("Previous snapshot")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.reviewer.go_to_previous_snapshot();
                             w.update_ui()
                         }))
@@ -130,7 +130,7 @@ impl ReviewWidget {
                 )
                 .with_child(
                     Button::new("Next snapshot")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.reviewer.go_to_next_snapshot();
                             w.update_ui()
                         }))
@@ -150,7 +150,7 @@ impl ReviewWidget {
         for mode in Mode::iter() {
             // TODO: radio buttons
             let button = Button::new(mode.ui_name())
-                .with_on_triggered(common.id.callback(move |w: &mut Self, _e| w.set_mode(mode)))
+                .with_on_triggered(common.callback(move |w, _e| w.set_mode(mode)))
                 .with_id();
             modes_row.add_child(button.widget.boxed());
             mode_button_ids.insert(mode, button.id);
@@ -169,7 +169,7 @@ impl ReviewWidget {
                 .with_no_padding(true)
                 .with_child(
                     Button::new("100%")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.common.widget(w.image_id)?.set_scale(Some(1.0));
                             Ok(())
                         }))
@@ -177,7 +177,7 @@ impl ReviewWidget {
                 )
                 .with_child(
                     Button::new("200%")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.common.widget(w.image_id)?.set_scale(Some(2.0));
                             Ok(())
                         }))
@@ -188,7 +188,7 @@ impl ReviewWidget {
             LayoutItemOptions::from_pos_in_grid(2, 6),
         );
         let mut image = Image::new(None).with_id();
-        let image_mouse_move = common.id.callback(Self::image_mouse_move);
+        let image_mouse_move = common.callback(Self::image_mouse_move);
         image.widget.common_mut().event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseMove(event) => {
@@ -215,7 +215,7 @@ impl ReviewWidget {
                 .with_no_padding(true)
                 .with_child(
                     Button::new("Approve")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.reviewer.approve()?;
                             w.update_ui()
                         }))
@@ -223,7 +223,7 @@ impl ReviewWidget {
                 )
                 .with_child(
                     Button::new("Skip snapshot")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             if !w.reviewer.go_to_next_unconfirmed_file() {
                                 salvation::exit();
                             }
@@ -233,7 +233,7 @@ impl ReviewWidget {
                 )
                 .with_child(
                     Button::new("Skip test")
-                        .with_on_triggered(common.id.callback(move |w: &mut Self, _e| {
+                        .with_on_triggered(common.callback(move |w, _e| {
                             w.reviewer.go_to_next_test_case();
                             if !w.reviewer.has_unconfirmed() {
                                 if !w.reviewer.go_to_next_unconfirmed_file() {
@@ -249,7 +249,7 @@ impl ReviewWidget {
         );
 
         let mut this = Self {
-            common,
+            common: common.into(),
             test_name_id: test_name.id,
             snapshot_name_id: snapshot_name.id,
             image_id: image.id,

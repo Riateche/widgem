@@ -11,7 +11,7 @@ pub struct RootWidget {
 
 impl RootWidget {
     pub fn new() -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
         let input = TextInput::new("Hello world");
         common.add_child(
             PaddingBox::new(input.boxed())
@@ -19,7 +19,9 @@ impl RootWidget {
                 .boxed(),
             Default::default(),
         );
-        Self { common }
+        Self {
+            common: common.into(),
+        }
     }
 }
 

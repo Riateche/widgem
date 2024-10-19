@@ -144,7 +144,7 @@ impl ScrollArea {
 
 impl Default for ScrollArea {
     fn default() -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
 
         let relayout = widget_callback(WidgetId::<Self>::new(common.id), |this, _: i32| {
             this.relayout()
@@ -167,19 +167,14 @@ impl Default for ScrollArea {
             Viewport::new().boxed(),
             LayoutItemOptions::from_pos_in_grid(0, 0),
         );
-        Self { common }
+        Self {
+            common: common.into(),
+        }
     }
 }
 
 impl Widget for ScrollArea {
-    fn common(&self) -> &super::WidgetCommon {
-        &self.common
-    }
-
-    fn common_mut(&mut self) -> &mut super::WidgetCommon {
-        &mut self.common
-    }
-
+    impl_widget_common!();
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         self.relayout()
     }
@@ -193,7 +188,7 @@ struct Viewport {
 impl Viewport {
     pub fn new() -> Self {
         Self {
-            common: WidgetCommon::new(),
+            common: WidgetCommon::new::<Self>().into(),
         }
     }
 }

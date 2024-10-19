@@ -19,12 +19,12 @@ pub struct RootWidget {
 
 impl RootWidget {
     pub fn new() -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
 
         let value = 0;
         let label = Label::new(value.to_string()).with_id();
         let scroll_bar = ScrollBar::new()
-            .with_on_value_changed(common.id.callback(Self::on_scroll_bar_value_changed))
+            .with_on_value_changed(common.callback(Self::on_scroll_bar_value_changed))
             .with_value(value)
             .with_id();
         let mut column = Column::new();
@@ -39,7 +39,7 @@ impl RootWidget {
         );
 
         let mut this = Self {
-            common,
+            common: common.into(),
             label_id: label.id,
             scroll_bar_id: scroll_bar.id,
         };

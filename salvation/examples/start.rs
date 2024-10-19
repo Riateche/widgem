@@ -27,7 +27,7 @@ impl AnotherWidget {
     fn new() -> Self {
         let mut this = Self {
             counter: 0,
-            common: WidgetCommon::new(),
+            common: WidgetCommon::new::<Self>().into(),
         };
         let mut button = Button::new("another button");
         button.on_triggered(this.callback(|this, _event| {
@@ -86,7 +86,7 @@ struct RootWidget {
 
 impl RootWidget {
     fn new() -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
         let mut root = Column::new();
 
         root.add_child(TextInput::new("Hello, Rust! 🦀😂\n").boxed());
@@ -110,27 +110,19 @@ impl RootWidget {
 
         let btn1 = Button::new("btn1")
             .with_auto_repeat(true)
-            .with_on_triggered(
-                common
-                    .id
-                    .callback(|this: &mut Self, event| this.button_clicked(event, 1)),
-            )
+            .with_on_triggered(common.callback(|this, event| this.button_clicked(event, 1)))
             .with_id();
 
         root.add_child(btn1.widget.boxed());
 
         root.add_child(
             Button::new("btn2")
-                .with_on_triggered(
-                    common
-                        .id
-                        .callback(|this: &mut Self, event| this.button_clicked(event, 2)),
-                )
+                .with_on_triggered(common.callback(|this, event| this.button_clicked(event, 2)))
                 .boxed(),
         );
 
         let button21 = Button::new("btn21")
-            .with_on_triggered(common.id.callback(|_: &mut Self, _| {
+            .with_on_triggered(common.callback(|_, _| {
                 println!("click!");
                 Ok(())
             }))
@@ -177,11 +169,11 @@ impl RootWidget {
         );
         add_interval(
             Duration::from_secs(2),
-            common.id.callback(|this: &mut Self, _| this.inc()),
+            common.callback(|this, _| this.inc()),
         );
 
         RootWidget {
-            common,
+            common: common.into(),
             button_id: btn1.id,
             column2_id: column2.id,
             button21_id: button21.id,

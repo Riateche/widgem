@@ -66,7 +66,7 @@ pub struct Button {
 #[impl_with]
 impl Button {
     pub fn new(text: impl Display) -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
         common.set_focusable(true);
         let mut editor = TextEditor::new(&text.to_string());
         editor.set_cursor_hidden(true);
@@ -80,7 +80,7 @@ impl Button {
             on_triggered: CallbackVec::new(),
             is_pressed: false,
             was_pressed_but_moved_out: false,
-            common,
+            common: common.into(),
             role: Role1::Default,
             auto_repeat_delay_timer: None,
             auto_repeat_interval: None,

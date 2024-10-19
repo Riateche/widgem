@@ -54,7 +54,7 @@ fn sanitize(text: &str) -> String {
 
 impl TextInput {
     pub fn new(text: impl Display) -> Self {
-        let mut common = WidgetCommon::new();
+        let mut common = WidgetCommon::new::<Self>();
         common.is_focusable = true;
         common.enable_ime = true;
         common.cursor_icon = CursorIcon::Text;
@@ -62,7 +62,7 @@ impl TextInput {
         editor.set_wrap(Wrap::None);
         Self {
             editor,
-            common,
+            common: common.into(),
             editor_viewport_rect: Rect::default(),
             scroll_x: 0,
             blink_timer: None,

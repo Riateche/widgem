@@ -3,12 +3,14 @@ use std::{
     collections::{BTreeMap, HashMap},
     fmt::{self, Debug},
     marker::PhantomData,
+    ops::{Deref, DerefMut},
     rc::Rc,
     sync::atomic::{AtomicU64, Ordering},
 };
 
 use accesskit::NodeId;
 use anyhow::{bail, Context, Result};
+use derivative::Derivative;
 use downcast_rs::{impl_downcast, Downcast};
 use log::warn;
 use thiserror::Error;
@@ -128,6 +130,8 @@ impl WidgetScope {
 
 pub type EventFilterFn = dyn Fn(Event) -> Result<bool>;
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct WidgetCommon {
     pub id: RawWidgetId,
     pub is_focusable: bool,
@@ -162,6 +166,7 @@ pub struct WidgetCommon {
     pub is_registered_as_focusable: bool,
     // TODO: multiple filters?
     // TODO: accept/reject event from filter; option to run filter after on_event
+    #[derivative(Debug = "ignore")]
     pub event_filter: Option<Box<EventFilterFn>>,
     pub accessible_mounted: bool,
     pub grid_options: Option<GridOptions>,
@@ -185,12 +190,13 @@ impl Drop for WidgetCommon {
 }
 
 impl WidgetCommon {
-    pub fn new() -> Self {
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new<T: Widget>() -> WidgetCommonTyped<T> {
         let id = RawWidgetId::new();
         let scope = WidgetScope::new(id);
         register_address(id, scope.address.clone());
 
-        Self {
+        let common = Self {
             id,
             is_explicitly_enabled: true,
             is_explicitly_visible: true,
@@ -220,6 +226,10 @@ impl WidgetCommon {
             style_element: Element::new("widget"),
             // TODO: avoid allocation
             common_style: Rc::new(CommonComputedStyle::default()),
+        };
+        WidgetCommonTyped {
+            common,
+            _marker: PhantomData,
         }
     }
 
@@ -642,9 +652,44 @@ impl WidgetCommon {
     }
 }
 
-impl Default for WidgetCommon {
-    fn default() -> Self {
-        Self::new()
+#[derive(Debug)]
+pub struct WidgetCommonTyped<T> {
+    common: WidgetCommon,
+    _marker: PhantomData<T>,
+}
+
+impl<W> WidgetCommonTyped<W> {
+    pub fn callback<E, F>(&self, func: F) -> Callback<E>
+    where
+        W: Widget,
+        F: Fn(&mut W, E) -> Result<()> + 'static,
+        E: 'static,
+    {
+        widget_callback(WidgetId::<W>::new(self.common.id), func)
+    }
+
+    pub fn add_child(&mut self, widget: Box<dyn Widget>, options: LayoutItemOptions) -> usize {
+        self.common.add_child(widget, options)
+    }
+}
+
+impl<T> Deref for WidgetCommonTyped<T> {
+    type Target = WidgetCommon;
+
+    fn deref(&self) -> &Self::Target {
+        &self.common
+    }
+}
+
+impl<T> DerefMut for WidgetCommonTyped<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.common
+    }
+}
+
+impl<T> From<WidgetCommonTyped<T>> for WidgetCommon {
+    fn from(value: WidgetCommonTyped<T>) -> Self {
+        value.common
     }
 }
 
@@ -684,7 +729,10 @@ pub fn get_widget_by_id_mut(
     get_widget_by_address_mut(root_widget, &address)
 }
 
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Child {
+    #[derivative(Debug = "ignore")]
     pub widget: Box<dyn Widget>,
     pub options: LayoutItemOptions,
     pub rect_in_parent: Option<Rect>,
@@ -692,6 +740,9 @@ pub struct Child {
 }
 
 pub trait Widget: Downcast {
+    fn type_name() -> &'static str
+    where
+        Self: Sized;
     fn common(&self) -> &WidgetCommon;
     fn common_mut(&mut self) -> &mut WidgetCommon;
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
@@ -1227,6 +1278,10 @@ impl WidgetAddress {
 #[macro_export]
 macro_rules! impl_widget_common {
     () => {
+        fn type_name() -> &'static str {
+            std::any::type_name::<Self>().rsplit("::").next().unwrap()
+        }
+
         fn common(&self) -> &WidgetCommon {
             &self.common
         }
