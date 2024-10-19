@@ -280,9 +280,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     swash_cache: SwashCache::new(),
                     event_loop_proxy: self.event_loop_proxy.take().expect("only happens once"),
                     // TODO: how to detect monitor scale change?
-                    default_style: Rc::new(
-                        ComputedStyle::new(Rc::new(default_style()), scale).unwrap(),
-                    ),
+                    default_style: ComputedStyle::new(Rc::new(default_style()), scale).unwrap(),
                     timers: Timers::new(),
                     clipboard: Clipboard::new().expect("failed to initialize clipboard"),
                     windows: HashMap::new(),

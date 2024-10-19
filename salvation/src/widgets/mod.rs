@@ -104,7 +104,7 @@ pub struct WidgetScope {
 
     pub is_visible: bool,
     pub is_enabled: bool,
-    pub style: Rc<ComputedStyle>,
+    pub style: ComputedStyle,
 }
 
 impl WidgetScope {
@@ -157,7 +157,7 @@ pub struct WidgetCommon {
 
     pub is_explicitly_enabled: bool,
     pub is_explicitly_visible: bool,
-    pub explicit_style: Option<Rc<ComputedStyle>>,
+    pub explicit_style: Option<ComputedStyle>,
 
     pub is_registered_as_focusable: bool,
     // TODO: multiple filters?
@@ -287,7 +287,7 @@ impl WidgetCommon {
         self.is_focused && self.is_window_focused
     }
 
-    pub fn style(&self) -> &Rc<ComputedStyle> {
+    pub fn style(&self) -> &ComputedStyle {
         self.explicit_style.as_ref().unwrap_or(&self.scope.style)
     }
 
@@ -1136,7 +1136,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let previous_scope = self.common().scope.clone();
         let scale = self.common().scope.style.0.scale;
         let style = if let Some(style) = style {
-            Some(Rc::new(ComputedStyle::new(style, scale)?))
+            Some(ComputedStyle::new(style, scale)?)
         } else {
             None
         };

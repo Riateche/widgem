@@ -1,7 +1,6 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
-    rc::Rc,
     time::{Duration, Instant},
 };
 
@@ -38,7 +37,7 @@ pub struct SharedSystemDataInner {
     pub font_system: FontSystem,
     pub swash_cache: SwashCache,
 
-    pub default_style: Rc<ComputedStyle>,
+    pub default_style: ComputedStyle,
     pub(crate) event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
