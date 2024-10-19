@@ -157,6 +157,7 @@ pub struct WidgetCommon {
     pub size_x_fixed_cache: Option<bool>,
     pub size_y_fixed_cache: Option<bool>,
 
+    pub is_accessible: bool,
     pub pending_accessible_update: bool,
 
     pub is_explicitly_enabled: bool,
@@ -213,6 +214,7 @@ impl WidgetCommon {
             size_hint_y_cache: HashMap::new(),
             size_x_fixed_cache: None,
             size_y_fixed_cache: None,
+            is_accessible: true,
             pending_accessible_update: false,
             scope,
             is_registered_as_focusable: false,
@@ -692,6 +694,14 @@ impl WidgetCommon {
         self.style_element.remove_pseudo_class(class);
         self.refresh_common_style();
     }
+
+    pub fn set_accessible(&mut self, value: bool) {
+        if self.is_accessible == value {
+            return;
+        }
+        self.is_accessible = value;
+        self.update();
+    }
 }
 
 #[derive(Debug)]
@@ -918,6 +928,19 @@ pub trait WidgetExt {
     where
         Self: Sized;
 
+    fn with_focusable(self, value: bool) -> Self
+    where
+        Self: Sized;
+    fn with_accessible(self, value: bool) -> Self
+    where
+        Self: Sized;
+    fn with_class(self, class: &'static str) -> Self
+    where
+        Self: Sized;
+    fn with_pseudo_class(self, class: MyPseudoClass) -> Self
+    where
+        Self: Sized;
+
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
     fn size_hint_x(&mut self, mode: SizeHintMode) -> i32;
@@ -961,6 +984,36 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         Self: Sized,
     {
         create_window(attrs, &mut self);
+        self
+    }
+
+    fn with_focusable(mut self, value: bool) -> Self
+    where
+        Self: Sized,
+    {
+        self.common_mut().set_focusable(value);
+        self
+    }
+    fn with_accessible(mut self, value: bool) -> Self
+    where
+        Self: Sized,
+    {
+        self.common_mut().set_accessible(value);
+        self
+    }
+
+    fn with_class(mut self, class: &'static str) -> Self
+    where
+        Self: Sized,
+    {
+        self.common_mut().add_class(class);
+        self
+    }
+    fn with_pseudo_class(mut self, class: MyPseudoClass) -> Self
+    where
+        Self: Sized,
+    {
+        self.common_mut().add_pseudo_class(class);
         self
     }
 
@@ -1118,7 +1171,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         if !self.common().pending_accessible_update {
             return;
         }
-        let node = self.accessible_node();
+        let node = if self.common().is_accessible {
+            self.accessible_node()
+        } else {
+            None
+        };
+
         let Some(window) = self.common().scope.window.as_ref() else {
             return;
         };

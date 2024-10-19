@@ -18,10 +18,7 @@ use log::warn;
 use salvation_macros::impl_with;
 use winit::event::{ElementState, MouseButton};
 
-use super::{
-    button::{self, Button},
-    Widget, WidgetCommon, WidgetExt,
-};
+use super::{button::Button, Widget, WidgetCommon, WidgetExt};
 
 pub struct ScrollBar {
     common: WidgetCommon,
@@ -67,7 +64,9 @@ impl ScrollBar {
         // TODO: localized name
         common.add_child(
             Button::new(names::SCROLL_LEFT)
-                .with_role(button::Role1::ScrollLeft)
+                .with_accessible(false)
+                .with_focusable(false)
+                .with_class("scroll_left")
                 .with_text_visible(false)
                 .with_auto_repeat(true)
                 .with_trigger_on_press(true)
@@ -98,7 +97,9 @@ impl ScrollBar {
         pager_options.y.is_fixed = Some(false);
         pager.common.add_child(
             Button::new(names::SCROLL_PAGER)
-                .with_role(button::Role1::ScrollPager)
+                .with_accessible(false)
+                .with_focusable(false)
+                .with_class("scroll_pager")
                 .with_text_visible(false)
                 .with_auto_repeat(true)
                 .with_trigger_on_press(true)
@@ -107,7 +108,9 @@ impl ScrollBar {
         );
         pager.common.add_child(
             Button::new(names::SCROLL_GRIP)
-                .with_role(button::Role1::ScrollGripX)
+                .with_accessible(false)
+                .with_focusable(false)
+                .with_class("scroll_grip_x")
                 .with_text_visible(false)
                 .with_mouse_leave_sensitive(false)
                 .boxed(),
@@ -116,7 +119,9 @@ impl ScrollBar {
         common.add_child(pager.boxed(), LayoutItemOptions::from_pos_in_grid(1, 0));
         common.add_child(
             Button::new(names::SCROLL_RIGHT)
-                .with_role(button::Role1::ScrollRight)
+                .with_accessible(false)
+                .with_focusable(false)
+                .with_class("scroll_right")
                 .with_text_visible(false)
                 .with_auto_repeat(true)
                 .with_trigger_on_press(true)
@@ -214,6 +219,9 @@ impl ScrollBar {
     }
 
     pub fn set_axis(&mut self, axis: Axis) {
+        if self.axis == axis {
+            return;
+        }
         self.axis = axis;
         match axis {
             Axis::X => {
@@ -222,23 +230,26 @@ impl ScrollBar {
                     .downcast_mut::<Button>()
                     .unwrap();
                 decrease.set_text(names::SCROLL_LEFT);
-                decrease.set_role(button::Role1::ScrollLeft);
+                decrease.common_mut().add_class("scroll_left");
+                decrease.common_mut().remove_class("scroll_up");
 
                 let increase = self.common.children[INDEX_INCREASE]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap();
                 increase.set_text(names::SCROLL_RIGHT);
-                increase.set_role(button::Role1::ScrollRight);
+                increase.common_mut().add_class("scroll_right");
+                increase.common_mut().remove_class("scroll_down");
 
-                self.common.children[INDEX_PAGER]
+                let grip = self.common.children[INDEX_PAGER]
                     .widget
                     .common_mut()
                     .children[INDEX_GRIP_IN_PAGER]
                     .widget
                     .downcast_mut::<Button>()
-                    .unwrap()
-                    .set_role(button::Role1::ScrollGripX);
+                    .unwrap();
+                grip.common_mut().add_class("scroll_grip_x");
+                grip.common_mut().remove_class("scroll_grip_y");
 
                 self.common
                     .set_child_options(INDEX_PAGER, LayoutItemOptions::from_pos_in_grid(1, 0))
@@ -253,23 +264,27 @@ impl ScrollBar {
                     .downcast_mut::<Button>()
                     .unwrap();
                 decrease.set_text(names::SCROLL_UP);
-                decrease.set_role(button::Role1::ScrollUp);
+                decrease.common_mut().remove_class("scroll_left");
+                decrease.common_mut().add_class("scroll_up");
 
                 let increase = self.common.children[INDEX_INCREASE]
                     .widget
                     .downcast_mut::<Button>()
                     .unwrap();
                 increase.set_text(names::SCROLL_DOWN);
-                increase.set_role(button::Role1::ScrollDown);
+                increase.common_mut().remove_class("scroll_right");
+                increase.common_mut().add_class("scroll_down");
 
-                self.common.children[INDEX_PAGER]
+                let grip = self.common.children[INDEX_PAGER]
                     .widget
                     .common_mut()
                     .children[INDEX_GRIP_IN_PAGER]
                     .widget
                     .downcast_mut::<Button>()
-                    .unwrap()
-                    .set_role(button::Role1::ScrollGripY);
+                    .unwrap();
+
+                grip.common_mut().remove_class("scroll_grip_x");
+                grip.common_mut().add_class("scroll_grip_y");
 
                 self.common
                     .set_child_options(INDEX_PAGER, LayoutItemOptions::from_pos_in_grid(0, 1))

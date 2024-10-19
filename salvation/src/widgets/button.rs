@@ -2,7 +2,6 @@ use std::{cmp::max, fmt::Display, rc::Rc};
 
 use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
 use anyhow::Result;
-use log::warn;
 use salvation_cosmic_text::Attrs;
 use salvation_macros::impl_with;
 use tiny_skia::Pixmap;
@@ -30,19 +29,6 @@ use crate::{
 
 use super::{Widget, WidgetCommon, WidgetExt};
 
-// TODO: pub(crate)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Role1 {
-    Default,
-    ScrollLeft,
-    ScrollRight,
-    ScrollUp,
-    ScrollDown,
-    ScrollGripX,
-    ScrollGripY,
-    ScrollPager,
-}
-
 pub struct Button {
     editor: TextEditor,
     icon: Option<Rc<Pixmap>>,
@@ -56,7 +42,6 @@ pub struct Button {
     auto_repeat_delay_timer: Option<TimerId>,
     auto_repeat_interval: Option<TimerId>,
     common: WidgetCommon,
-    role: Role1,
 }
 
 #[impl_with]
@@ -77,7 +62,6 @@ impl Button {
             is_pressed: false,
             was_pressed_but_moved_out: false,
             common: common.into(),
-            role: Role1::Default,
             auto_repeat_delay_timer: None,
             auto_repeat_interval: None,
         }
@@ -120,26 +104,6 @@ impl Button {
 
     pub fn trigger(&mut self) {
         self.on_triggered.invoke(self.editor.text());
-    }
-
-    // TODO: pub(crate)
-    pub fn set_role(&mut self, role: Role1) {
-        if self.role == role {
-            return;
-        }
-        self.role = role;
-        // TODO: remove role
-        match self.role {
-            Role1::Default => {}
-            Role1::ScrollLeft => self.common.add_class("scroll_left"),
-            Role1::ScrollRight => self.common.add_class("scroll_right"),
-            Role1::ScrollUp => self.common.add_class("scroll_up"),
-            Role1::ScrollDown => self.common.add_class("scroll_down"),
-            Role1::ScrollGripX => self.common.add_class("scroll_grip_x"),
-            Role1::ScrollGripY => self.common.add_class("scroll_grip_y"),
-            Role1::ScrollPager => self.common.add_class("scroll_pager"),
-        }
-        self.common.set_focusable(role == Role1::Default);
     }
 
     fn set_pressed(&mut self, value: bool, suppress_trigger: bool) {
@@ -272,7 +236,7 @@ impl Widget for Button {
                 self.set_pressed(true, false);
                 if !self.common.is_focused() {
                     let window = self.common.window_or_err()?;
-                    if self.role == Role1::Default {
+                    if self.common.is_focusable() {
                         send_window_request(
                             window.id(),
                             SetFocusRequest {
@@ -309,11 +273,6 @@ impl Widget for Button {
     }
 
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
-        if self.role != Role1::Default {
-            warn!("unexpected accessible action for role: {:?}", self.role);
-            return Ok(());
-        }
-
         match event.action() {
             Action::Default => self.trigger(),
             Action::Focus => {
@@ -332,10 +291,6 @@ impl Widget for Button {
     }
 
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
-        if self.role != Role1::Default {
-            return None;
-        }
-
         let mut node = NodeBuilder::new(Role::Button);
         node.set_name(self.editor.text().as_str());
         node.add_action(Action::Focus);
