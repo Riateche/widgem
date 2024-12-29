@@ -5,11 +5,10 @@ pub use crate::draw::DrawEvent;
 use {
     crate::{
         types::{Point, Rect},
-        widgets::{RawWidgetId, WidgetAddress, WidgetScope},
+        widgets::{WidgetAddress, WidgetScope},
     },
     accesskit::{Action, ActionData},
     derive_more::From,
-    std::{cell::Cell, rc::Rc},
     typed_builder::TypedBuilder,
     winit::{
         event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton},
@@ -43,7 +42,6 @@ pub struct MouseInputEvent {
     // pos in current widget coordinates
     pos: Point,
     pos_in_window: Point,
-    pub(crate) accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
 impl MouseInputEvent {
@@ -87,8 +85,6 @@ pub struct MouseMoveEvent {
     device_id: DeviceId,
     pos: Point,
     pos_in_window: Point,
-    // TODO: avoid?
-    pub(crate) accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
 impl MouseMoveEvent {
@@ -118,7 +114,6 @@ impl MouseMoveEvent {
         MouseEnterEvent {
             device_id: self.device_id,
             pos: self.pos,
-            accepted_by: self.accepted_by.clone(),
         }
     }
 }
@@ -127,7 +122,6 @@ impl MouseMoveEvent {
 pub struct MouseEnterEvent {
     device_id: DeviceId,
     pos: Point,
-    pub(crate) accepted_by: Rc<Cell<Option<RawWidgetId>>>,
 }
 
 impl MouseEnterEvent {

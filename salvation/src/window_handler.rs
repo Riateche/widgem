@@ -6,17 +6,17 @@ use {
             WindowFocusChangeEvent,
         },
         event_loop::UserEvent,
-        system::{address, with_system},
+        system::{address, with_system, ReportError},
         types::{Point, Rect, Size},
         widgets::{
             get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget, WidgetAddress,
             WidgetExt,
         },
-        window::{Window, WindowRequest},
+        window::{MouseEventState, Window, WindowRequest},
     },
     accesskit::ActionRequest,
     log::{trace, warn},
-    std::{cell::Cell, cmp::max, rc::Rc},
+    std::cmp::max,
     winit::{
         event::{ElementState, Ime, WindowEvent},
         keyboard::{Key, NamedKey},
@@ -144,7 +144,7 @@ impl<'a> WindowWithWidget<'a> {
                 }
                 self.dispatch_cursor_leave();
 
-                let accepted_by = Rc::new(Cell::new(None));
+                self.window.init_mouse_event_state().or_report_err();
                 if let Some(mouse_grabber_widget_id) = self.window.mouse_grabber_widget() {
                     if let Ok(mouse_grabber_widget) =
                         get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
@@ -156,7 +156,6 @@ impl<'a> WindowWithWidget<'a> {
                                     .device_id(device_id)
                                     .pos(pos_in_widget)
                                     .pos_in_window(pos_in_window)
-                                    .accepted_by(accepted_by.clone())
                                     .build()
                                     .into(),
                             );
@@ -168,12 +167,12 @@ impl<'a> WindowWithWidget<'a> {
                             .device_id(device_id)
                             .pos(pos_in_window)
                             .pos_in_window(pos_in_window)
-                            .accepted_by(accepted_by.clone())
                             .build()
                             .into(),
                     );
                 }
-                if accepted_by.get().is_none() {
+                let state = self.window.take_mouse_event_state().or_report_err();
+                if state.map_or(false, |state| !state.is_accepted()) {
                     self.window.set_cursor(CursorIcon::Default);
                 }
             }
@@ -188,7 +187,7 @@ impl<'a> WindowWithWidget<'a> {
             } => {
                 self.window.mouse_input(state, button);
                 if let Some(pos_in_window) = self.window.cursor_position() {
-                    let accepted_by = Rc::new(Cell::new(None));
+                    self.window.init_mouse_event_state().or_report_err();
                     if let Some(mouse_grabber_widget_id) = self.window.mouse_grabber_widget() {
                         if let Ok(mouse_grabber_widget) =
                             get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
@@ -204,7 +203,6 @@ impl<'a> WindowWithWidget<'a> {
                                     .num_clicks(self.window.num_clicks())
                                     .pos(pos_in_widget)
                                     .pos_in_window(pos_in_window)
-                                    .accepted_by(Rc::clone(&accepted_by))
                                     .build();
                                 mouse_grabber_widget.dispatch(event.into());
                             }
@@ -221,14 +219,22 @@ impl<'a> WindowWithWidget<'a> {
                             .num_clicks(self.window.num_clicks())
                             .pos(pos_in_window)
                             .pos_in_window(pos_in_window)
-                            .accepted_by(Rc::clone(&accepted_by))
                             .build();
                         self.root_widget.dispatch(event.into());
-
-                        if state == ElementState::Pressed {
-                            if let Some(accepted_by_widget_id) = accepted_by.get() {
-                                self.window
-                                    .set_mouse_grabber_widget(Some(accepted_by_widget_id));
+                    }
+                    {
+                        if let Some(event_state) =
+                            self.window.take_mouse_event_state().or_report_err()
+                        {
+                            if state == ElementState::Pressed
+                                && self.window.mouse_grabber_widget().is_none()
+                            {
+                                if let MouseEventState::AcceptedBy(accepted_by_widget_id) =
+                                    event_state
+                                {
+                                    self.window
+                                        .set_mouse_grabber_widget(Some(accepted_by_widget_id));
+                                }
                             }
                         }
                     }

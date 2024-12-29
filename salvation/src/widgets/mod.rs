@@ -28,7 +28,6 @@ use {
     downcast_rs::{impl_downcast, Downcast},
     log::warn,
     std::{
-        cell::Cell,
         collections::{BTreeMap, HashMap},
         fmt::{self, Debug},
         marker::PhantomData,
@@ -1114,16 +1113,25 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
         }
         match event {
-            Event::MouseInput(event) => {
-                if event.accepted_by.get().is_none() && accepted {
-                    event.accepted_by.set(Some(self.common().id));
+            Event::MouseInput(_) => {
+                if accepted {
+                    let common = self.common_mut();
+                    if let Some(window) = common.window_or_err().or_report_err() {
+                        if window
+                            .current_mouse_event_state()
+                            .or_report_err()
+                            .map_or(false, |e| !e.is_accepted())
+                        {
+                            window.accept_current_mouse_event(common.id).or_report_err();
+                        }
+                    }
                 }
             }
-            Event::MouseEnter(event) => {
-                accept_mouse_event(self, true, &event.accepted_by);
+            Event::MouseEnter(_) => {
+                accept_mouse_event(self, true);
             }
-            Event::MouseMove(event) => {
-                accept_mouse_event(self, false, &event.accepted_by);
+            Event::MouseMove(_) => {
+                accept_mouse_event(self, false);
             }
             Event::Draw(event) => {
                 for child in &mut self.common_mut().children {
@@ -1304,12 +1312,15 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 }
 
-fn accept_mouse_event(
-    widget: &mut (impl Widget + ?Sized),
-    is_enter: bool,
-    accepted_by: &Rc<Cell<Option<RawWidgetId>>>,
-) {
-    if accepted_by.get().is_none() {
+fn accept_mouse_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
+    let Some(window) = widget.common_mut().window_or_err().or_report_err() else {
+        return;
+    };
+    if window
+        .current_mouse_event_state()
+        .or_report_err()
+        .map_or(false, |e| !e.is_accepted())
+    {
         let Some(rect_in_window) = widget.common().rect_in_window_or_err().or_report_err() else {
             return;
         };
@@ -1317,7 +1328,7 @@ fn accept_mouse_event(
             return;
         };
         let id = widget.common().id;
-        accepted_by.set(Some(id));
+        window.accept_current_mouse_event(id).or_report_err();
 
         window.set_cursor(widget.common().cursor_icon);
         if is_enter {

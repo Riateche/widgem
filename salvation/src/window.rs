@@ -10,6 +10,7 @@ use {
         widgets::{RawWidgetId, WidgetAddress},
     },
     accesskit::{NodeBuilder, NodeId},
+    anyhow::{bail, Context},
     derivative::Derivative,
     derive_more::From,
     log::warn,
@@ -36,6 +37,18 @@ const EXTRA_SURFACE_SIZE: u32 = 50;
 // TODO: get system setting
 const DOUBLE_CLICK_TIMEOUT: Duration = Duration::from_millis(300);
 
+#[derive(Debug, Clone, Copy)]
+pub enum MouseEventState {
+    NotAccepted,
+    AcceptedBy(RawWidgetId),
+}
+
+impl MouseEventState {
+    pub fn is_accepted(self) -> bool {
+        matches!(self, Self::AcceptedBy(_))
+    }
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WindowInner {
@@ -49,6 +62,7 @@ pub struct WindowInner {
     pub accessible_nodes: AccessibleNodes,
     pub mouse_entered_widgets: Vec<(Rect, RawWidgetId)>,
     pub pending_size_hint_invalidations: Vec<WidgetAddress>,
+    pub current_mouse_event_state: Option<MouseEventState>,
     pub pixmap: Rc<RefCell<Pixmap>>,
     // Drop order must be maintained as
     // `surface` -> `softbuffer_context` -> `winit_window`.
@@ -116,6 +130,7 @@ impl Window {
             accessible_nodes: AccessibleNodes::new(),
             mouse_entered_widgets: Vec::new(),
             pending_size_hint_invalidations: Vec::new(),
+            current_mouse_event_state: None,
             pixmap: Rc::new(RefCell::new(
                 Pixmap::new(
                     inner_size.width + EXTRA_SURFACE_SIZE,
@@ -564,6 +579,43 @@ impl Window {
         } else {
             false
         }
+    }
+
+    pub(crate) fn current_mouse_event_state(&self) -> anyhow::Result<MouseEventState> {
+        let this = &*self.0.borrow();
+        this.current_mouse_event_state
+            .context("no current mouse event")
+    }
+
+    pub(crate) fn accept_current_mouse_event(&self, widget_id: RawWidgetId) -> anyhow::Result<()> {
+        let this = &mut *self.0.borrow_mut();
+        if let Some(state) = &mut this.current_mouse_event_state {
+            if let MouseEventState::NotAccepted = state {
+                *state = MouseEventState::AcceptedBy(widget_id);
+                Ok(())
+            } else {
+                bail!("event already accepted");
+            }
+        } else {
+            bail!("no current mouse event");
+        }
+    }
+
+    pub(crate) fn init_mouse_event_state(&self) -> anyhow::Result<()> {
+        let this = &mut *self.0.borrow_mut();
+        if this.current_mouse_event_state.is_none() {
+            this.current_mouse_event_state = Some(MouseEventState::NotAccepted);
+            Ok(())
+        } else {
+            bail!("window already has another current mouse event");
+        }
+    }
+
+    pub(crate) fn take_mouse_event_state(&self) -> anyhow::Result<MouseEventState> {
+        let this = &mut *self.0.borrow_mut();
+        this.current_mouse_event_state
+            .take()
+            .context("no current mouse event")
     }
 }
 
