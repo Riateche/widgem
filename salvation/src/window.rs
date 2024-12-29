@@ -1,33 +1,33 @@
-use std::{
-    cell::RefCell,
-    collections::HashSet,
-    mem,
-    num::NonZeroU32,
-    rc::Rc,
-    time::{Duration, Instant},
-};
-
-use accesskit::{NodeBuilder, NodeId};
-use derivative::Derivative;
-use derive_more::From;
-use log::warn;
-use tiny_skia::Pixmap;
-use winit::{
-    dpi::{PhysicalPosition, PhysicalSize},
-    event::{ElementState, MouseButton, WindowEvent},
-    keyboard::ModifiersState,
-    window::{CursorIcon, WindowAttributes, WindowId},
-};
-
-use crate::{
-    accessible::AccessibleNodes,
-    draw::DrawEvent,
-    event::FocusReason,
-    event_loop::with_active_event_loop,
-    layout::SizeHints,
-    system::with_system,
-    types::{Point, Rect, Size},
-    widgets::{RawWidgetId, WidgetAddress},
+use {
+    crate::{
+        accessible::AccessibleNodes,
+        draw::DrawEvent,
+        event::FocusReason,
+        event_loop::with_active_event_loop,
+        layout::SizeHints,
+        system::with_system,
+        types::{Point, Rect, Size},
+        widgets::{RawWidgetId, WidgetAddress},
+    },
+    accesskit::{NodeBuilder, NodeId},
+    derivative::Derivative,
+    derive_more::From,
+    log::warn,
+    std::{
+        cell::RefCell,
+        collections::HashSet,
+        mem,
+        num::NonZeroU32,
+        rc::Rc,
+        time::{Duration, Instant},
+    },
+    tiny_skia::Pixmap,
+    winit::{
+        dpi::{PhysicalPosition, PhysicalSize},
+        event::{ElementState, MouseButton, WindowEvent},
+        keyboard::ModifiersState,
+        window::{CursorIcon, WindowAttributes, WindowId},
+    },
 };
 
 // Extra size to avoid visual artifacts when resizing the window.

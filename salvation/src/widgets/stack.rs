@@ -1,11 +1,12 @@
-use anyhow::Result;
-use std::collections::HashMap;
-
-use crate::{
-    event::LayoutEvent, impl_widget_common, layout::SizeHintMode, system::ReportError, types::Rect,
+use {
+    super::{RawWidgetId, Widget, WidgetCommon},
+    crate::{
+        event::LayoutEvent, impl_widget_common, layout::SizeHintMode, system::ReportError,
+        types::Rect,
+    },
+    anyhow::Result,
+    std::collections::HashMap,
 };
-
-use super::{RawWidgetId, Widget, WidgetCommon};
 
 pub struct Stack {
     common: WidgetCommon,

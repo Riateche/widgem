@@ -1,26 +1,26 @@
-use std::{
-    cmp::max,
-    collections::{BTreeMap, HashMap},
-    path::{Path, PathBuf},
-};
-
-use anyhow::Context;
-use log::warn;
-use salvation::{
-    event::Event,
-    impl_widget_common,
-    layout::LayoutItemOptions,
-    tiny_skia::{Pixmap, PremultipliedColorU8},
-    types::Point,
-    widgets::{
-        button::Button, image::Image, label::Label, row::Row, Widget, WidgetCommon, WidgetExt,
-        WidgetId,
+use {
+    crate::{discover_snapshots, test_cases::TestCase, SingleSnapshotFile, SingleSnapshotFiles},
+    anyhow::Context,
+    log::warn,
+    salvation::{
+        event::Event,
+        impl_widget_common,
+        layout::LayoutItemOptions,
+        tiny_skia::{Pixmap, PremultipliedColorU8},
+        types::Point,
+        widgets::{
+            button::Button, image::Image, label::Label, row::Row, Widget, WidgetCommon, WidgetExt,
+            WidgetId,
+        },
+        WindowAttributes,
     },
-    WindowAttributes,
+    std::{
+        cmp::max,
+        collections::{BTreeMap, HashMap},
+        path::{Path, PathBuf},
+    },
+    strum::{EnumIter, IntoEnumIterator},
 };
-use strum::{EnumIter, IntoEnumIterator};
-
-use crate::{discover_snapshots, test_cases::TestCase, SingleSnapshotFile, SingleSnapshotFiles};
 
 pub struct ReviewWidget {
     common: WidgetCommon,

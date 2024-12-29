@@ -1,24 +1,24 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    time::{Duration, Instant},
-};
-
-use anyhow::Result;
-use arboard::Clipboard;
-use log::warn;
-use salvation_cosmic_text::{FontSystem, SwashCache};
-use winit::{event_loop::EventLoopProxy, window::WindowId};
-
-use crate::{
-    callback::{Callback, CallbackId, WidgetCallbackData},
-    event_loop::UserEvent,
-    shortcut::Shortcut,
-    style::computed::ComputedStyle,
-    timer::{Timer, TimerId, Timers},
-    widgets::{RawWidgetId, WidgetAddress},
-    window::WindowRequest,
-    window_handler::WindowInfo,
+use {
+    crate::{
+        callback::{Callback, CallbackId, WidgetCallbackData},
+        event_loop::UserEvent,
+        shortcut::Shortcut,
+        style::computed::ComputedStyle,
+        timer::{Timer, TimerId, Timers},
+        widgets::{RawWidgetId, WidgetAddress},
+        window::WindowRequest,
+        window_handler::WindowInfo,
+    },
+    anyhow::Result,
+    arboard::Clipboard,
+    log::warn,
+    salvation_cosmic_text::{FontSystem, SwashCache},
+    std::{
+        cell::RefCell,
+        collections::HashMap,
+        time::{Duration, Instant},
+    },
+    winit::{event_loop::EventLoopProxy, window::WindowId},
 };
 
 thread_local! {

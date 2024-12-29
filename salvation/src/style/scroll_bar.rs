@@ -1,12 +1,12 @@
-use anyhow::Result;
-use tiny_skia::Color;
-
-use crate::types::{LpxSuffix, PhysicalPixels};
-
-use super::{
-    computed::{ComputedBackground, ComputedBorderStyle},
-    css::{convert_background, convert_border, get_border_collapse, Element},
-    Style,
+use {
+    super::{
+        computed::{ComputedBackground, ComputedBorderStyle},
+        css::{convert_background, convert_border, get_border_collapse, Element},
+        Style,
+    },
+    crate::types::{LpxSuffix, PhysicalPixels},
+    anyhow::Result,
+    tiny_skia::Color,
 };
 
 #[derive(Debug, Clone)]

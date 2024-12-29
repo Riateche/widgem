@@ -1,27 +1,27 @@
-use std::{cell::Cell, cmp::max, rc::Rc};
-
-use accesskit::ActionRequest;
-use log::{trace, warn};
-use winit::{
-    event::{ElementState, Ime, WindowEvent},
-    keyboard::{Key, NamedKey},
-    window::{CursorIcon, WindowAttributes, WindowId},
-};
-
-use crate::{
-    event::{
-        AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
-        KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
-        WindowFocusChangeEvent,
+use {
+    crate::{
+        event::{
+            AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
+            KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
+            WindowFocusChangeEvent,
+        },
+        event_loop::UserEvent,
+        system::{address, with_system},
+        types::{Point, Rect, Size},
+        widgets::{
+            get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget, WidgetAddress,
+            WidgetExt,
+        },
+        window::{Window, WindowRequest},
     },
-    event_loop::UserEvent,
-    system::{address, with_system},
-    types::{Point, Rect, Size},
-    widgets::{
-        get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget, WidgetAddress,
-        WidgetExt,
+    accesskit::ActionRequest,
+    log::{trace, warn},
+    std::{cell::Cell, cmp::max, rc::Rc},
+    winit::{
+        event::{ElementState, Ime, WindowEvent},
+        keyboard::{Key, NamedKey},
+        window::{CursorIcon, WindowAttributes, WindowId},
     },
-    window::{Window, WindowRequest},
 };
 
 pub fn create_window(attrs: WindowAttributes, widget: &mut dyn Widget) -> Window {

@@ -1,16 +1,17 @@
-use anyhow::{anyhow, bail};
-use bitflags::bitflags;
-use derive_more::From;
-use once_cell::sync::OnceCell;
-use winit::keyboard::{KeyCode, ModifiersState, NamedKey};
-
 mod parse;
 
-use crate::{
-    callback::Callback,
-    event::KeyboardInputEvent,
-    shortcut::parse::{parse_key, parse_keycode},
-    widgets::RawWidgetId,
+use {
+    crate::{
+        callback::Callback,
+        event::KeyboardInputEvent,
+        shortcut::parse::{parse_key, parse_keycode},
+        widgets::RawWidgetId,
+    },
+    anyhow::{anyhow, bail},
+    bitflags::bitflags,
+    derive_more::From,
+    once_cell::sync::OnceCell,
+    winit::keyboard::{KeyCode, ModifiersState, NamedKey},
 };
 
 #[derive(PartialEq, Debug, Clone)]

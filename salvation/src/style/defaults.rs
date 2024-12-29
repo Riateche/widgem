@@ -1,8 +1,8 @@
-use tiny_skia::Color;
-
-use crate::types::{LogicalPixels, LpxSuffix};
-
-use super::Style;
+use {
+    super::Style,
+    crate::types::{LogicalPixels, LpxSuffix},
+    tiny_skia::Color,
+};
 
 macro_rules! file {
     ($path: literal) => {

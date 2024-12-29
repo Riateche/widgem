@@ -1,18 +1,18 @@
-use std::{
-    any::Any,
-    fmt,
-    marker::PhantomData,
-    rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
-};
-
-use anyhow::{anyhow, Context, Result};
-use winit::event_loop::EventLoopProxy;
-
-use crate::{
-    event_loop::UserEvent,
-    system::with_system,
-    widgets::{RawWidgetId, Widget, WidgetId},
+use {
+    crate::{
+        event_loop::UserEvent,
+        system::with_system,
+        widgets::{RawWidgetId, Widget, WidgetId},
+    },
+    anyhow::{anyhow, Context, Result},
+    std::{
+        any::Any,
+        fmt,
+        marker::PhantomData,
+        rc::Rc,
+        sync::atomic::{AtomicU64, Ordering},
+    },
+    winit::event_loop::EventLoopProxy,
 };
 
 pub struct Callback<Event> {

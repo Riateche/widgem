@@ -1,9 +1,10 @@
-use std::{
-    cmp::{max, min},
-    ops::RangeInclusive,
+use {
+    self::grid::GridAxisOptions,
+    std::{
+        cmp::{max, min},
+        ops::RangeInclusive,
+    },
 };
-
-use self::grid::GridAxisOptions;
 
 pub mod grid;
 

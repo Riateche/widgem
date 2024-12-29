@@ -1,6 +1,7 @@
-use crate::{impl_widget_common, layout::LayoutItemOptions};
-
-use super::{Widget, WidgetCommon};
+use {
+    super::{Widget, WidgetCommon},
+    crate::{impl_widget_common, layout::LayoutItemOptions},
+};
 
 pub struct PaddingBox {
     common: WidgetCommon,

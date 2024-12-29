@@ -1,14 +1,13 @@
-use std::fmt::Display;
-
-use anyhow::Result;
-use salvation_cosmic_text::Attrs;
-
-use crate::{
-    draw::DrawEvent, impl_widget_common, layout::SizeHintMode, text_editor::TextEditor,
-    types::Point,
+use {
+    super::{Widget, WidgetCommon},
+    crate::{
+        draw::DrawEvent, impl_widget_common, layout::SizeHintMode, text_editor::TextEditor,
+        types::Point,
+    },
+    anyhow::Result,
+    salvation_cosmic_text::Attrs,
+    std::fmt::Display,
 };
-
-use super::{Widget, WidgetCommon};
 
 pub struct Label {
     editor: TextEditor,

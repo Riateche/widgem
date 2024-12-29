@@ -1,8 +1,10 @@
-use proc_macro::TokenStream;
-use quote::quote;
-use syn::{
-    parse_macro_input, parse_quote, spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Pat,
-    ReturnType, Visibility,
+use {
+    proc_macro::TokenStream,
+    quote::quote,
+    syn::{
+        parse_macro_input, parse_quote, spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Pat,
+        ReturnType, Visibility,
+    },
 };
 
 #[proc_macro_attribute]

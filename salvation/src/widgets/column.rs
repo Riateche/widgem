@@ -1,12 +1,12 @@
-use anyhow::{Context, Result};
-use salvation_macros::impl_with;
-
-use crate::{
-    impl_widget_common,
-    layout::{Alignment, LayoutItemOptions},
+use {
+    super::{Widget, WidgetCommon},
+    crate::{
+        impl_widget_common,
+        layout::{Alignment, LayoutItemOptions},
+    },
+    anyhow::{Context, Result},
+    salvation_macros::impl_with,
 };
-
-use super::{Widget, WidgetCommon};
 
 pub struct Column {
     // TODO: add layout options

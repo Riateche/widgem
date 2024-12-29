@@ -1,18 +1,18 @@
-use std::{
-    collections::BTreeMap,
-    fmt::Display,
-    path::{Path, PathBuf},
-    thread::sleep,
-    time::{Duration, Instant},
+use {
+    crate::{discover_snapshots, repo_dir, SingleSnapshotFiles},
+    anyhow::{bail, Context as _},
+    fs_err::create_dir,
+    image::{ImageReader, RgbaImage},
+    itertools::Itertools,
+    std::{
+        collections::BTreeMap,
+        fmt::Display,
+        path::{Path, PathBuf},
+        thread::sleep,
+        time::{Duration, Instant},
+    },
+    uitest::{Connection, Window},
 };
-
-use anyhow::{bail, Context as _};
-use fs_err::create_dir;
-use image::{ImageReader, RgbaImage};
-use itertools::Itertools;
-use uitest::{Connection, Window};
-
-use crate::{discover_snapshots, repo_dir, SingleSnapshotFiles};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SnapshotMode {

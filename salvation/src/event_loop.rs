@@ -1,31 +1,33 @@
-use std::{
-    any::Any,
-    collections::HashMap,
-    fmt::Debug,
-    path::PathBuf,
-    rc::Rc,
-    time::{Duration, Instant},
-};
-
-use arboard::Clipboard;
-use derive_more::From;
-use log::warn;
-use salvation_cosmic_text::{fontdb, FontSystem, SwashCache};
-use scoped_tls::scoped_thread_local;
-use winit::{
-    application::ApplicationHandler,
-    event::{StartCause, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
-    window::WindowId,
-};
-
-use crate::{
-    callback::{CallbackId, InvokeCallbackEvent},
-    style::{computed::ComputedStyle, defaults::default_style},
-    system::{address, with_system, ReportError, SharedSystemDataInner, SystemConfig, SYSTEM},
-    timer::Timers,
-    widgets::{get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetExt},
-    window::WindowRequest,
+use {
+    crate::{
+        callback::{CallbackId, InvokeCallbackEvent},
+        style::{computed::ComputedStyle, defaults::default_style},
+        system::{address, with_system, ReportError, SharedSystemDataInner, SystemConfig, SYSTEM},
+        timer::Timers,
+        widgets::{
+            get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetExt,
+        },
+        window::WindowRequest,
+    },
+    arboard::Clipboard,
+    derive_more::From,
+    log::warn,
+    salvation_cosmic_text::{fontdb, FontSystem, SwashCache},
+    scoped_tls::scoped_thread_local,
+    std::{
+        any::Any,
+        collections::HashMap,
+        fmt::Debug,
+        path::PathBuf,
+        rc::Rc,
+        time::{Duration, Instant},
+    },
+    winit::{
+        application::ApplicationHandler,
+        event::{StartCause, WindowEvent},
+        event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
+        window::WindowId,
+    },
 };
 
 #[derive(Debug, From)]

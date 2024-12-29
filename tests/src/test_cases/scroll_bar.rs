@@ -1,15 +1,16 @@
-use salvation::{
-    impl_widget_common,
-    shortcut::{KeyCombinations, Shortcut, ShortcutScope},
-    types::Axis,
-    widgets::{
-        column::Column, label::Label, scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt,
-        WidgetId,
+use {
+    crate::context::Context,
+    salvation::{
+        impl_widget_common,
+        shortcut::{KeyCombinations, Shortcut, ShortcutScope},
+        types::Axis,
+        widgets::{
+            column::Column, label::Label, scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt,
+            WidgetId,
+        },
+        WindowAttributes,
     },
-    WindowAttributes,
 };
-
-use crate::context::Context;
 
 pub struct RootWidget {
     common: WidgetCommon,

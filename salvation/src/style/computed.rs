@@ -1,20 +1,19 @@
-use std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc};
-
-use anyhow::Result;
-use log::warn;
-use tiny_skia::{Color, GradientStop, SpreadMode};
-
-use crate::{
-    style::defaults,
-    types::{PhysicalPixels, Point},
-};
-
-use super::{
-    css::{
-        convert_background, convert_background_color, convert_border, convert_font,
-        convert_main_color, convert_padding, convert_zoom, is_root, Element, MyPseudoClass,
+use {
+    super::{
+        css::{
+            convert_background, convert_background_color, convert_border, convert_font,
+            convert_main_color, convert_padding, convert_zoom, is_root, Element, MyPseudoClass,
+        },
+        grid, image, scroll_bar, text_input, FontStyle, RelativeOffset, Style,
     },
-    grid, image, scroll_bar, text_input, FontStyle, RelativeOffset, Style,
+    crate::{
+        style::defaults,
+        types::{PhysicalPixels, Point},
+    },
+    anyhow::Result,
+    log::warn,
+    std::{any::Any, cell::RefCell, collections::HashMap, rc::Rc},
+    tiny_skia::{Color, GradientStop, SpreadMode},
 };
 
 #[derive(Debug, Clone)]

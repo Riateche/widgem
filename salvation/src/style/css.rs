@@ -1,46 +1,45 @@
 #![allow(clippy::single_match)]
 
-use std::collections::HashMap;
-
-use anyhow::{bail, Context, Result};
-use itertools::Itertools;
-use lightningcss::{
-    properties::{
-        align::GapValue,
-        custom::{CustomPropertyName, Token, TokenOrValue},
+use {
+    super::{
+        computed::{ComputedBackground, ComputedBorderStyle, ComputedLinearGradient},
+        defaults::DEFAULT_LINE_HEIGHT,
+        FontStyle, RelativeOffset,
     },
-    rules::CssRule,
-    selector::{Component, PseudoClass, PseudoElement, Selector},
-    stylesheet::StyleSheet,
-};
-use lightningcss::{
-    properties::{
-        border::{BorderSideWidth, LineStyle},
-        font::{FontSize, LineHeight},
-        size::Size,
-        Property,
+    crate::{
+        style::defaults,
+        types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point},
     },
-    values::{
-        color::CssColor,
-        gradient::{Gradient, GradientItem, LineDirection, LinearGradient},
-        image::Image,
-        length::{Length, LengthPercentage, LengthPercentageOrAuto, LengthValue},
-        percentage::DimensionPercentage,
-        position::{HorizontalPositionKeyword, VerticalPositionKeyword},
+    anyhow::{bail, Context, Result},
+    itertools::Itertools,
+    lightningcss::{
+        properties::{
+            align::GapValue,
+            custom::{CustomPropertyName, Token, TokenOrValue},
+        },
+        rules::CssRule,
+        selector::{Component, PseudoClass, PseudoElement, Selector},
+        stylesheet::StyleSheet,
     },
-};
-use log::warn;
-use tiny_skia::{Color, GradientStop, SpreadMode};
-
-use crate::{
-    style::defaults,
-    types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point},
-};
-
-use super::{
-    computed::{ComputedBackground, ComputedBorderStyle, ComputedLinearGradient},
-    defaults::DEFAULT_LINE_HEIGHT,
-    FontStyle, RelativeOffset,
+    lightningcss::{
+        properties::{
+            border::{BorderSideWidth, LineStyle},
+            font::{FontSize, LineHeight},
+            size::Size,
+            Property,
+        },
+        values::{
+            color::CssColor,
+            gradient::{Gradient, GradientItem, LineDirection, LinearGradient},
+            image::Image,
+            length::{Length, LengthPercentage, LengthPercentageOrAuto, LengthValue},
+            percentage::DimensionPercentage,
+            position::{HorizontalPositionKeyword, VerticalPositionKeyword},
+        },
+    },
+    log::warn,
+    std::collections::HashMap,
+    tiny_skia::{Color, GradientStop, SpreadMode},
 };
 
 fn convert_color(color: &CssColor) -> Result<Color> {

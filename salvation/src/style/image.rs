@@ -1,9 +1,10 @@
-use anyhow::Result;
-
-use super::{
-    computed::ComputedBorderStyle,
-    css::{convert_border, convert_zoom, Element},
-    defaults, Style,
+use {
+    super::{
+        computed::ComputedBorderStyle,
+        css::{convert_border, convert_zoom, Element},
+        defaults, Style,
+    },
+    anyhow::Result,
 };
 
 #[derive(Debug, Clone)]

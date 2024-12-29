@@ -1,22 +1,23 @@
 #![allow(dead_code)]
 
-use std::time::Duration;
-
-use anyhow::Result;
-
-use salvation::{
-    event::LayoutEvent,
-    impl_widget_common,
-    layout::SizeHintMode,
-    system::add_interval,
-    types::Rect,
-    widgets::{
-        button::Button, column::Column, label::Label, padding_box::PaddingBox,
-        scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetCommon, WidgetExt, WidgetId,
+use {
+    anyhow::Result,
+    salvation::{
+        event::LayoutEvent,
+        impl_widget_common,
+        layout::SizeHintMode,
+        system::add_interval,
+        types::Rect,
+        widgets::{
+            button::Button, column::Column, label::Label, padding_box::PaddingBox,
+            scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetCommon, WidgetExt,
+            WidgetId,
+        },
+        App,
     },
-    App,
+    std::time::Duration,
+    winit::window::Window,
 };
-use winit::window::Window;
 
 struct AnotherWidget {
     common: WidgetCommon,

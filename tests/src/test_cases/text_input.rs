@@ -1,8 +1,12 @@
-use crate::context::Context;
-use salvation::{
-    impl_widget_common,
-    widgets::{padding_box::PaddingBox, text_input::TextInput, Widget, WidgetCommon, WidgetExt},
-    WindowAttributes,
+use {
+    crate::context::Context,
+    salvation::{
+        impl_widget_common,
+        widgets::{
+            padding_box::PaddingBox, text_input::TextInput, Widget, WidgetCommon, WidgetExt,
+        },
+        WindowAttributes,
+    },
 };
 
 pub struct RootWidget {

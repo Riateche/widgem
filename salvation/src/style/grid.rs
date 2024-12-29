@@ -1,10 +1,10 @@
-use anyhow::Result;
-
-use crate::types::Point;
-
-use super::{
-    css::{convert_padding, convert_spacing, Element, MyPseudoClass},
-    FontStyle, Style,
+use {
+    super::{
+        css::{convert_padding, convert_spacing, Element, MyPseudoClass},
+        FontStyle, Style,
+    },
+    crate::types::Point,
+    anyhow::Result,
 };
 
 #[derive(Debug, Clone)]

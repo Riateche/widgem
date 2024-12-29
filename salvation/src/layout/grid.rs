@@ -1,19 +1,19 @@
-use std::{
-    cmp::{max, min},
-    collections::{BTreeMap, HashMap},
-    ops::RangeInclusive,
+use {
+    super::SizeHintMode,
+    crate::{
+        layout::{fair_split, solve_layout},
+        types::{Rect, Size},
+        widgets::{Child, WidgetExt},
+    },
+    anyhow::Result,
+    itertools::Itertools,
+    log::warn,
+    std::{
+        cmp::{max, min},
+        collections::{BTreeMap, HashMap},
+        ops::RangeInclusive,
+    },
 };
-
-use crate::{
-    layout::{fair_split, solve_layout},
-    types::{Rect, Size},
-    widgets::{Child, WidgetExt},
-};
-
-use super::SizeHintMode;
-use anyhow::Result;
-use itertools::Itertools;
-use log::warn;
 
 #[derive(Debug, Clone)]
 pub struct GridOptions {

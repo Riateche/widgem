@@ -1,13 +1,13 @@
-use std::{
-    cmp::Reverse,
-    collections::HashMap,
-    sync::atomic::{AtomicU64, Ordering},
-    time::{Duration, Instant},
+use {
+    crate::{callback::Callback, system::with_system},
+    priority_queue::PriorityQueue,
+    std::{
+        cmp::Reverse,
+        collections::HashMap,
+        sync::atomic::{AtomicU64, Ordering},
+        time::{Duration, Instant},
+    },
 };
-
-use priority_queue::PriorityQueue;
-
-use crate::{callback::Callback, system::with_system};
 
 #[derive(Default)]
 pub struct Timers {

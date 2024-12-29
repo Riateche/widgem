@@ -1,13 +1,13 @@
-use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    convert::identity,
+use {
+    crate::widgets::RawWidgetId,
+    accesskit::{NodeBuilder, NodeId, Role, Tree, TreeUpdate},
+    derivative::Derivative,
+    log::warn,
+    std::{
+        collections::{hash_map::Entry, HashMap, HashSet},
+        convert::identity,
+    },
 };
-
-use accesskit::{NodeBuilder, NodeId, Role, Tree, TreeUpdate};
-use derivative::Derivative;
-use log::warn;
-
-use crate::widgets::RawWidgetId;
 
 #[derive(Derivative)]
 #[derivative(Debug)]

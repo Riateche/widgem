@@ -1,7 +1,8 @@
-use strum::{EnumIter, EnumString, IntoStaticStr};
-
-use crate::context::Context;
-use salvation::{widgets::WidgetExt, App};
+use {
+    crate::context::Context,
+    salvation::{widgets::WidgetExt, App},
+    strum::{EnumIter, EnumString, IntoStaticStr},
+};
 
 pub mod scroll_bar;
 pub mod scroll_bar_pager;

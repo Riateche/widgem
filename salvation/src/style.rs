@@ -1,23 +1,23 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    fmt::Debug,
-    path::{Path, PathBuf},
-    rc::Rc,
-};
-
-use anyhow::{anyhow, bail, Context, Result};
-use lightningcss::{
-    properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
-};
-use serde::{Deserialize, Serialize};
-use std::hash::Hash;
-use tiny_skia::Pixmap;
-use usvg::TreeParsing;
-
-use crate::{
-    style::css::replace_vars,
-    types::{LogicalPixels, Point},
+use {
+    crate::{
+        style::css::replace_vars,
+        types::{LogicalPixels, Point},
+    },
+    anyhow::{anyhow, bail, Context, Result},
+    lightningcss::{
+        properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
+    },
+    serde::{Deserialize, Serialize},
+    std::hash::Hash,
+    std::{
+        borrow::Cow,
+        collections::HashMap,
+        fmt::Debug,
+        path::{Path, PathBuf},
+        rc::Rc,
+    },
+    tiny_skia::Pixmap,
+    usvg::TreeParsing,
 };
 
 pub mod button;

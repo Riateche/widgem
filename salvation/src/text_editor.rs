@@ -1,25 +1,25 @@
-use std::{
-    cmp::{max, min},
-    ops::Range,
-};
-
-use accesskit::{NodeId, TextDirection, TextPosition, TextSelection};
-use line_straddler::{GlyphStyle, LineGenerator, LineType};
-use log::warn;
-use range_ext::intersect::Intersect;
-use salvation_cosmic_text::{
-    Action, Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Edit,
-    Editor, Shaping, Wrap,
-};
-use strict_num::FiniteF32;
-use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform};
-use unicode_segmentation::UnicodeSegmentation;
-
-use crate::{
-    event::FocusReason,
-    system::with_system,
-    types::{Point, Size},
-    window::Window,
+use {
+    crate::{
+        event::FocusReason,
+        system::with_system,
+        types::{Point, Size},
+        window::Window,
+    },
+    accesskit::{NodeId, TextDirection, TextPosition, TextSelection},
+    line_straddler::{GlyphStyle, LineGenerator, LineType},
+    log::warn,
+    range_ext::intersect::Intersect,
+    salvation_cosmic_text::{
+        Action, Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor,
+        Edit, Editor, Shaping, Wrap,
+    },
+    std::{
+        cmp::{max, min},
+        ops::Range,
+    },
+    strict_num::FiniteF32,
+    tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform},
+    unicode_segmentation::UnicodeSegmentation,
 };
 
 pub struct TextEditor {

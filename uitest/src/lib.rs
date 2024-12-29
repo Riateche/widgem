@@ -1,14 +1,15 @@
-use anyhow::{bail, Context};
-use std::{
-    process::Command,
-    thread::sleep,
-    time::{Duration, Instant},
-};
-use xcap::image::RgbaImage;
-
-use x11rb::{
-    protocol::xproto::{Atom, ConnectionExt},
-    rust_connection::RustConnection,
+use {
+    anyhow::{bail, Context},
+    std::{
+        process::Command,
+        thread::sleep,
+        time::{Duration, Instant},
+    },
+    x11rb::{
+        protocol::xproto::{Atom, ConnectionExt},
+        rust_connection::RustConnection,
+    },
+    xcap::image::RgbaImage,
 };
 
 const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);

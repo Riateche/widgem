@@ -1,14 +1,14 @@
-use std::{cell::RefCell, rc::Rc};
-
-use log::warn;
-use tiny_skia::{
-    BlendMode, Color, FillRule, FilterQuality, LinearGradient, Mask, Paint, Path, PathBuilder,
-    Pattern, Pixmap, PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
-};
-
-use crate::{
-    style::computed::{ComputedBackground, ComputedBorderStyle},
-    types::{Point, Rect},
+use {
+    crate::{
+        style::computed::{ComputedBackground, ComputedBorderStyle},
+        types::{Point, Rect},
+    },
+    log::warn,
+    std::{cell::RefCell, rc::Rc},
+    tiny_skia::{
+        BlendMode, Color, FillRule, FilterQuality, LinearGradient, Mask, Paint, Path, PathBuilder,
+        Pattern, Pixmap, PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
+    },
 };
 
 fn rounded_line_in_square_corner(

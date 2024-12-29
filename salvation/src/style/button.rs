@@ -1,15 +1,14 @@
-use std::rc::Rc;
-
-use itertools::Itertools;
-use log::warn;
-use tiny_skia::Pixmap;
-
-use crate::style::css::{convert_content_url, convert_zoom};
-
-use super::{
-    computed::{ComputedElementStyle, ComputedStyle},
-    css::{Element, MyPseudoClass},
-    ElementState,
+use {
+    super::{
+        computed::{ComputedElementStyle, ComputedStyle},
+        css::{Element, MyPseudoClass},
+        ElementState,
+    },
+    crate::style::css::{convert_content_url, convert_zoom},
+    itertools::Itertools,
+    log::warn,
+    std::rc::Rc,
+    tiny_skia::Pixmap,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

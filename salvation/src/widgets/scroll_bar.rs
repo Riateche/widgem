@@ -1,24 +1,24 @@
-use std::{
-    cmp::{max, min},
-    ops::RangeInclusive,
-};
-
-use crate::{
-    callback::Callback,
-    event::{Event, LayoutEvent},
-    impl_widget_common,
-    layout::{
-        grid::{self, GridAxisOptions, GridOptions},
-        LayoutItemOptions, SizeHintMode,
+use {
+    super::{button::Button, Widget, WidgetCommon, WidgetExt},
+    crate::{
+        callback::Callback,
+        event::{Event, LayoutEvent},
+        impl_widget_common,
+        layout::{
+            grid::{self, GridAxisOptions, GridOptions},
+            LayoutItemOptions, SizeHintMode,
+        },
+        types::{Axis, Point, Rect, Size},
     },
-    types::{Axis, Point, Rect, Size},
+    anyhow::Result,
+    log::warn,
+    salvation_macros::impl_with,
+    std::{
+        cmp::{max, min},
+        ops::RangeInclusive,
+    },
+    winit::event::{ElementState, MouseButton},
 };
-use anyhow::Result;
-use log::warn;
-use salvation_macros::impl_with;
-use winit::event::{ElementState, MouseButton};
-
-use super::{button::Button, Widget, WidgetCommon, WidgetExt};
 
 pub struct ScrollBar {
     common: WidgetCommon,

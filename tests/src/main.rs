@@ -1,21 +1,22 @@
-use std::{
-    collections::BTreeMap,
-    env,
-    path::{Path, PathBuf},
-    process::{Child, Command},
-    thread::sleep,
-    time::{Duration, Instant},
+use {
+    anyhow::{bail, Context as _},
+    clap::Parser,
+    context::{Context, SnapshotMode},
+    fs_err::read_dir,
+    review::{ReviewWidget, Reviewer},
+    salvation::{widgets::WidgetExt, App},
+    std::{
+        collections::BTreeMap,
+        env,
+        path::{Path, PathBuf},
+        process::{Child, Command},
+        thread::sleep,
+        time::{Duration, Instant},
+    },
+    strum::IntoEnumIterator,
+    test_cases::{run_test_case, run_test_check, TestCase},
+    uitest::Connection,
 };
-
-use anyhow::{bail, Context as _};
-use clap::Parser;
-use context::{Context, SnapshotMode};
-use fs_err::read_dir;
-use review::{ReviewWidget, Reviewer};
-use salvation::{widgets::WidgetExt, App};
-use strum::IntoEnumIterator;
-use test_cases::{run_test_case, run_test_check, TestCase};
-use uitest::Connection;
 
 pub mod context;
 mod review;

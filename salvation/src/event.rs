@@ -2,21 +2,20 @@
 
 pub use crate::draw::DrawEvent;
 
-use std::{cell::Cell, rc::Rc};
-
-use accesskit::{Action, ActionData};
-use typed_builder::TypedBuilder;
-use winit::{
-    event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton},
-    keyboard::ModifiersState,
+use {
+    crate::{
+        types::{Point, Rect},
+        widgets::{RawWidgetId, WidgetAddress, WidgetScope},
+    },
+    accesskit::{Action, ActionData},
+    derive_more::From,
+    std::{cell::Cell, rc::Rc},
+    typed_builder::TypedBuilder,
+    winit::{
+        event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton},
+        keyboard::ModifiersState,
+    },
 };
-
-use crate::{
-    types::{Point, Rect},
-    widgets::{RawWidgetId, WidgetAddress, WidgetScope},
-};
-
-use derive_more::From;
 
 #[derive(Debug, Clone, From)]
 pub enum Event {

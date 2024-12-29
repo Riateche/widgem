@@ -1,39 +1,38 @@
-use std::{
-    cmp::{max, min},
-    fmt::Display,
-    time::Duration,
-};
-
-use accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role};
-use anyhow::Result;
-use log::warn;
-use salvation_cosmic_text::{Action, Attrs, Motion, Wrap};
-use winit::{
-    event::{ElementState, Ime, MouseButton},
-    keyboard::{Key, NamedKey},
-    window::CursorIcon,
-};
-
-use crate::{
-    accessible,
-    draw::DrawEvent,
-    event::{
-        AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
-        KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseMoveEvent, WidgetScopeChangeEvent,
-        WindowFocusChangeEvent,
+use {
+    super::{Widget, WidgetCommon, WidgetExt},
+    crate::{
+        accessible,
+        draw::DrawEvent,
+        event::{
+            AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
+            KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseMoveEvent,
+            WidgetScopeChangeEvent, WindowFocusChangeEvent,
+        },
+        impl_widget_common,
+        layout::SizeHintMode,
+        shortcut::standard_shortcuts,
+        style::text_input::{ComputedVariantStyle, TextInputState},
+        system::{add_interval, report_error, send_window_request, with_system, ReportError},
+        text_editor::TextEditor,
+        timer::TimerId,
+        types::{Point, Rect, Size},
+        window::SetFocusRequest,
     },
-    impl_widget_common,
-    layout::SizeHintMode,
-    shortcut::standard_shortcuts,
-    style::text_input::{ComputedVariantStyle, TextInputState},
-    system::{add_interval, report_error, send_window_request, with_system, ReportError},
-    text_editor::TextEditor,
-    timer::TimerId,
-    types::{Point, Rect, Size},
-    window::SetFocusRequest,
+    accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role},
+    anyhow::Result,
+    log::warn,
+    salvation_cosmic_text::{Action, Attrs, Motion, Wrap},
+    std::{
+        cmp::{max, min},
+        fmt::Display,
+        time::Duration,
+    },
+    winit::{
+        event::{ElementState, Ime, MouseButton},
+        keyboard::{Key, NamedKey},
+        window::CursorIcon,
+    },
 };
-
-use super::{Widget, WidgetCommon, WidgetExt};
 
 pub struct TextInput {
     editor: TextEditor,

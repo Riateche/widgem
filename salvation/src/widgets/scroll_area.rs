@@ -1,20 +1,19 @@
-use std::cmp::max;
-
-use anyhow::Result;
-use salvation_macros::impl_with;
-
-use crate::{
-    callback::widget_callback,
-    event::LayoutEvent,
-    impl_widget_common,
-    layout::{
-        grid::{self, GridOptions},
-        LayoutItemOptions, SizeHintMode,
+use {
+    super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt, WidgetId},
+    crate::{
+        callback::widget_callback,
+        event::LayoutEvent,
+        impl_widget_common,
+        layout::{
+            grid::{self, GridOptions},
+            LayoutItemOptions, SizeHintMode,
+        },
+        types::{Axis, Rect},
     },
-    types::{Axis, Rect},
+    anyhow::Result,
+    salvation_macros::impl_with,
+    std::cmp::max,
 };
-
-use super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt, WidgetId};
 
 pub struct ScrollArea {
     common: WidgetCommon,

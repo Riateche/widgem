@@ -1,23 +1,24 @@
-use std::collections::HashMap;
-
-use anyhow::Result;
-use itertools::Itertools;
-use log::warn;
-
-use crate::{
-    style::{
-        css::{convert_background, convert_background_color, convert_border, convert_main_color},
-        css::{is_root, is_selection},
-        defaults,
+use {
+    super::{
+        computed::{ComputedBackground, ComputedBorderStyle},
+        css::{convert_font, convert_padding, convert_width, convert_zoom, Element, MyPseudoClass},
+        defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
+        ElementState, FontStyle, Style,
     },
-    types::{PhysicalPixels, Point},
-};
-
-use super::{
-    computed::{ComputedBackground, ComputedBorderStyle},
-    css::{convert_font, convert_padding, convert_width, convert_zoom, Element, MyPseudoClass},
-    defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
-    ElementState, FontStyle, Style,
+    crate::{
+        style::{
+            css::{
+                convert_background, convert_background_color, convert_border, convert_main_color,
+            },
+            css::{is_root, is_selection},
+            defaults,
+        },
+        types::{PhysicalPixels, Point},
+    },
+    anyhow::Result,
+    itertools::Itertools,
+    log::warn,
+    std::collections::HashMap,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

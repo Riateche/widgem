@@ -1,14 +1,13 @@
-use std::path::Path;
-
-use anyhow::Result;
-use png::DecodingError;
-use salvation_macros::impl_with;
-use tiny_skia::Pixmap;
-use usvg::Transform;
-
-use crate::{draw::DrawEvent, impl_widget_common, layout::SizeHintMode, types::Point};
-
-use super::{Widget, WidgetCommon};
+use {
+    super::{Widget, WidgetCommon},
+    crate::{draw::DrawEvent, impl_widget_common, layout::SizeHintMode, types::Point},
+    anyhow::Result,
+    png::DecodingError,
+    salvation_macros::impl_with,
+    std::path::Path,
+    tiny_skia::Pixmap,
+    usvg::Transform,
+};
 
 pub struct Image {
     pixmap: Option<Pixmap>,

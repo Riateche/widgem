@@ -18,13 +18,15 @@ pub mod widgets;
 pub mod window;
 mod window_handler;
 
-pub use crate::accessible::new_accessible_node_id;
-pub use crate::event_loop::{run, App};
-pub use crate::window_handler::create_window;
+pub use {
+    crate::accessible::new_accessible_node_id,
+    crate::event_loop::{run, App},
+    crate::window_handler::create_window,
+    tiny_skia, winit,
+    winit::window::WindowAttributes,
+};
+
 use event_loop::with_active_event_loop;
-pub use tiny_skia;
-pub use winit;
-pub use winit::window::WindowAttributes;
 
 pub fn exit() {
     with_active_event_loop(|event_loop| event_loop.exit());

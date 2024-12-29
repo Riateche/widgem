@@ -1,33 +1,32 @@
-use std::{cmp::max, fmt::Display, rc::Rc};
-
-use accesskit::{Action, DefaultActionVerb, NodeBuilder, Role};
-use anyhow::Result;
-use salvation_cosmic_text::Attrs;
-use salvation_macros::impl_with;
-use tiny_skia::Pixmap;
-use winit::{
-    event::MouseButton,
-    keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
-};
-
-use crate::{
-    callback::{Callback, CallbackVec},
-    draw::DrawEvent,
-    event::{
-        AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent, MouseMoveEvent,
-        WidgetScopeChangeEvent,
+use {
+    super::{Widget, WidgetCommon, WidgetExt},
+    crate::{
+        callback::{Callback, CallbackVec},
+        draw::DrawEvent,
+        event::{
+            AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent,
+            MouseMoveEvent, WidgetScopeChangeEvent,
+        },
+        impl_widget_common,
+        layout::SizeHintMode,
+        style::{button::ComputedButtonStyle, css::MyPseudoClass},
+        system::{add_interval, add_timer, send_window_request, with_system},
+        text_editor::TextEditor,
+        timer::TimerId,
+        types::{Point, Rect},
+        window::SetFocusRequest,
     },
-    impl_widget_common,
-    layout::SizeHintMode,
-    style::{button::ComputedButtonStyle, css::MyPseudoClass},
-    system::{add_interval, add_timer, send_window_request, with_system},
-    text_editor::TextEditor,
-    timer::TimerId,
-    types::{Point, Rect},
-    window::SetFocusRequest,
+    accesskit::{Action, DefaultActionVerb, NodeBuilder, Role},
+    anyhow::Result,
+    salvation_cosmic_text::Attrs,
+    salvation_macros::impl_with,
+    std::{cmp::max, fmt::Display, rc::Rc},
+    tiny_skia::Pixmap,
+    winit::{
+        event::MouseButton,
+        keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
+    },
 };
-
-use super::{Widget, WidgetCommon, WidgetExt};
 
 pub struct Button {
     editor: TextEditor,
