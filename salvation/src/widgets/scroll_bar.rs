@@ -154,11 +154,11 @@ impl ScrollBar {
             .event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseInput(e) => {
-                    if e.button() == MouseButton::Left {
-                        slider_pressed.invoke((e.pos_in_window(), e.state()));
+                    if e.button == MouseButton::Left {
+                        slider_pressed.invoke((e.pos_in_window, e.state));
                     }
                 }
-                Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window()),
+                Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window),
                 _ => {}
             }
             Ok(false)
@@ -200,11 +200,11 @@ impl ScrollBar {
         pager_button.common_mut().event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseInput(e) => {
-                    if e.button() == MouseButton::Left && e.state() == ElementState::Pressed {
-                        pager_pressed.invoke(e.pos_in_window());
+                    if e.button == MouseButton::Left && e.state == ElementState::Pressed {
+                        pager_pressed.invoke(e.pos_in_window);
                     }
                 }
-                Event::MouseMove(e) => pager_mouse_moved.invoke(e.pos_in_window()),
+                Event::MouseMove(e) => pager_mouse_moved.invoke(e.pos_in_window),
                 _ => {}
             }
             Ok(false)

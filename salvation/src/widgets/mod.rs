@@ -422,15 +422,23 @@ impl WidgetCommon {
         if let Some(event) = &self.current_layout_event {
             if rect_changed || event.size_hints_changed_within(child.widget.common().address()) {
                 child.widget.dispatch(
-                    LayoutEvent::new(rect_in_window, event.changed_size_hints.clone()).into(),
+                    LayoutEvent {
+                        new_rect_in_window: rect_in_window,
+                        changed_size_hints: event.changed_size_hints.clone(),
+                    }
+                    .into(),
                 );
             }
             child.rect_set_during_layout = true;
         } else {
             if rect_changed {
-                child
-                    .widget
-                    .dispatch(LayoutEvent::new(rect_in_window, Vec::new()).into());
+                child.widget.dispatch(
+                    LayoutEvent {
+                        new_rect_in_window: rect_in_window,
+                        changed_size_hints: Vec::new(),
+                    }
+                    .into(),
+                );
             }
         }
         Ok(())
@@ -1038,7 +1046,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().focused_changed();
             }
             Event::WindowFocusChange(e) => {
-                self.common_mut().is_window_focused = e.is_focused();
+                self.common_mut().is_window_focused = e.is_focused;
                 self.common_mut().focused_changed();
             }
             Event::MouseInput(event) => {
@@ -1276,19 +1284,19 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     fn set_scope(&mut self, scope: WidgetScope) {
         let previous_scope = self.common().scope.clone();
         self.common_mut().set_scope(scope);
-        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
+        self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
     }
 
     fn set_enabled(&mut self, enabled: bool) {
         let previous_scope = self.common().scope.clone();
         self.common_mut().set_enabled(enabled);
-        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
+        self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
     }
 
     fn set_visible(&mut self, visible: bool) {
         let previous_scope = self.common().scope.clone();
         self.common_mut().is_explicitly_visible = visible;
-        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
+        self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
     }
 
     fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()> {
@@ -1300,7 +1308,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             None
         };
         self.common_mut().explicit_style = style;
-        self.dispatch(WidgetScopeChangeEvent::new(previous_scope).into());
+        self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
         Ok(())
     }
 

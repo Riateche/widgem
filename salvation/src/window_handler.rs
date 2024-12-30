@@ -94,7 +94,7 @@ impl<'a> WindowWithWidget<'a> {
     pub(crate) fn dispatch_cursor_leave(&mut self) {
         while let Some(id) = self.window.pop_mouse_entered_widget() {
             if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {
-                widget.dispatch(MouseLeaveEvent::new().into());
+                widget.dispatch(MouseLeaveEvent {}.into());
             }
         }
     }
@@ -152,23 +152,23 @@ impl<'a> WindowWithWidget<'a> {
                         if let Some(rect_in_window) = mouse_grabber_widget.common().rect_in_window {
                             let pos_in_widget = pos_in_window - rect_in_window.top_left;
                             mouse_grabber_widget.dispatch(
-                                MouseMoveEvent::builder()
-                                    .device_id(device_id)
-                                    .pos(pos_in_widget)
-                                    .pos_in_window(pos_in_window)
-                                    .build()
-                                    .into(),
+                                MouseMoveEvent {
+                                    device_id,
+                                    pos: pos_in_widget,
+                                    pos_in_window,
+                                }
+                                .into(),
                             );
                         }
                     }
                 } else {
                     self.root_widget.dispatch(
-                        MouseMoveEvent::builder()
-                            .device_id(device_id)
-                            .pos(pos_in_window)
-                            .pos_in_window(pos_in_window)
-                            .build()
-                            .into(),
+                        MouseMoveEvent {
+                            device_id,
+                            pos: pos_in_window,
+                            pos_in_window,
+                        }
+                        .into(),
                     );
                 }
                 let state = self.window.take_mouse_event_state().or_report_err();
@@ -196,14 +196,14 @@ impl<'a> WindowWithWidget<'a> {
                                 mouse_grabber_widget.common().rect_in_window
                             {
                                 let pos_in_widget = pos_in_window - rect_in_window.top_left;
-                                let event = MouseInputEvent::builder()
-                                    .device_id(device_id)
-                                    .state(state)
-                                    .button(button)
-                                    .num_clicks(self.window.num_clicks())
-                                    .pos(pos_in_widget)
-                                    .pos_in_window(pos_in_window)
-                                    .build();
+                                let event = MouseInputEvent {
+                                    device_id,
+                                    state,
+                                    button,
+                                    num_clicks: self.window.num_clicks(),
+                                    pos: pos_in_widget,
+                                    pos_in_window,
+                                };
                                 mouse_grabber_widget.dispatch(event.into());
                             }
                         }
@@ -212,14 +212,14 @@ impl<'a> WindowWithWidget<'a> {
                             self.dispatch_cursor_leave();
                         }
                     } else {
-                        let event = MouseInputEvent::builder()
-                            .device_id(device_id)
-                            .state(state)
-                            .button(button)
-                            .num_clicks(self.window.num_clicks())
-                            .pos(pos_in_window)
-                            .pos_in_window(pos_in_window)
-                            .build();
+                        let event = MouseInputEvent {
+                            device_id,
+                            state,
+                            button,
+                            num_clicks: self.window.num_clicks(),
+                            pos: pos_in_window,
+                            pos_in_window,
+                        };
                         self.root_widget.dispatch(event.into());
                     }
                     {
@@ -247,12 +247,12 @@ impl<'a> WindowWithWidget<'a> {
                 is_synthetic,
                 event,
             } => {
-                let event = KeyboardInputEvent::builder()
-                    .device_id(device_id)
-                    .info(event.clone())
-                    .is_synthetic(is_synthetic)
-                    .modifiers(self.window.modifiers())
-                    .build();
+                let event = KeyboardInputEvent {
+                    device_id,
+                    info: event.clone(),
+                    is_synthetic,
+                    modifiers: self.window.modifiers(),
+                };
                 if let Some(focused_widget) = self.window.focused_widget() {
                     if let Ok(widget) = get_widget_by_id_mut(self.root_widget, focused_widget) {
                         widget.dispatch(event.clone().into());
@@ -260,8 +260,8 @@ impl<'a> WindowWithWidget<'a> {
                 }
 
                 // TODO: only if event is not accepted by a widget
-                if event.info().state == ElementState::Pressed {
-                    let logical_key = &event.info().logical_key;
+                if event.info.state == ElementState::Pressed {
+                    let logical_key = &event.info.logical_key;
                     if logical_key == &Key::Named(NamedKey::Tab) {
                         if self.window.modifiers().shift_key() {
                             self.move_keyboard_focus(-1);
@@ -292,17 +292,17 @@ impl<'a> WindowWithWidget<'a> {
                 // TODO: deduplicate with ReceivedCharacter
                 if let Some(focused_widget) = self.window.focused_widget() {
                     if let Ok(widget) = get_widget_by_id_mut(self.root_widget, focused_widget) {
-                        widget.dispatch(ImeEvent::new(ime).into());
+                        widget.dispatch(ImeEvent { info: ime }.into());
                     }
                 }
                 //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
             }
-            WindowEvent::Focused(focused) => {
-                if self.window.focus_changed(focused) {
+            WindowEvent::Focused(is_focused) => {
+                if self.window.focus_changed(is_focused) {
                     self.dispatch_cursor_leave();
                 }
                 self.root_widget
-                    .dispatch(WindowFocusChangeEvent::new(focused).into());
+                    .dispatch(WindowFocusChangeEvent { is_focused }.into());
             }
             _ => {}
         }
@@ -364,12 +364,12 @@ impl<'a> WindowWithWidget<'a> {
 
         if let Some(old_widget_id) = self.window.unset_focus() {
             if let Ok(old_widget) = get_widget_by_id_mut(self.root_widget, old_widget_id.1) {
-                old_widget.dispatch(FocusOutEvent::new().into());
+                old_widget.dispatch(FocusOutEvent {}.into());
             }
         }
 
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
-            widget.dispatch(FocusInEvent::new(reason).into());
+            widget.dispatch(FocusInEvent { reason }.into());
             self.window
                 .set_focus(widget_addr_id, widget.common().enable_ime);
         } else {
@@ -440,7 +440,13 @@ impl<'a> WindowWithWidget<'a> {
         }
         let widget_id = RawWidgetId(request.target.0);
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_id) {
-            widget.dispatch(AccessibleActionEvent::new(request.action, request.data).into());
+            widget.dispatch(
+                AccessibleActionEvent {
+                    action: request.action,
+                    data: request.data,
+                }
+                .into(),
+            );
         } else {
             warn!("cannot dispatch accessible event (no such widget): {request:?}");
         }

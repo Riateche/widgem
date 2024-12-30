@@ -210,7 +210,7 @@ impl Widget for Button {
 
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let rect = self.common.rect_or_err()?;
-        if rect.contains(event.pos()) {
+        if rect.contains(event.pos) {
             if self.was_pressed_but_moved_out {
                 self.was_pressed_but_moved_out = true;
                 self.set_pressed(true, true);
@@ -230,8 +230,8 @@ impl Widget for Button {
         if !self.common.is_enabled() {
             return Ok(true);
         }
-        if event.button() == MouseButton::Left {
-            if event.state().is_pressed() {
+        if event.button == MouseButton::Left {
+            if event.state.is_pressed() {
                 self.set_pressed(true, false);
                 if !self.common.is_focused() {
                     let window = self.common.window_or_err()?;
@@ -255,15 +255,15 @@ impl Widget for Button {
     }
 
     fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
-        if event.info().physical_key == PhysicalKey::Code(KeyCode::Space)
-            || event.info().logical_key == Key::Named(NamedKey::Space)
+        if event.info.physical_key == PhysicalKey::Code(KeyCode::Space)
+            || event.info.logical_key == Key::Named(NamedKey::Space)
         {
-            self.set_pressed(event.info().state.is_pressed(), false);
+            self.set_pressed(event.info.state.is_pressed(), false);
             return Ok(true);
         }
-        if event.info().physical_key == PhysicalKey::Code(KeyCode::Enter)
-            || event.info().physical_key == PhysicalKey::Code(KeyCode::NumpadEnter)
-            || event.info().logical_key == Key::Named(NamedKey::Enter)
+        if event.info.physical_key == PhysicalKey::Code(KeyCode::Enter)
+            || event.info.physical_key == PhysicalKey::Code(KeyCode::NumpadEnter)
+            || event.info.logical_key == Key::Named(NamedKey::Enter)
         {
             self.trigger();
             return Ok(true);
@@ -272,7 +272,7 @@ impl Widget for Button {
     }
 
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
-        match event.action() {
+        match event.action {
             Action::Default => self.trigger(),
             Action::Focus => {
                 send_window_request(

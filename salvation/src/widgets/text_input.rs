@@ -196,8 +196,8 @@ impl TextInput {
             );
         }
         self.editor.on_mouse_input(
-            event.pos() - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
-            event.num_clicks(),
+            event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0),
+            event.num_clicks,
             window.modifiers().shift_key(),
         );
         self.common.update();
@@ -268,13 +268,13 @@ impl Widget for TextInput {
     }
 
     fn handle_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) -> Result<()> {
-        let addr_changed = self.common.scope.address != event.previous_scope().address;
-        let parent_id_changed = self.common.scope.parent_id != event.previous_scope().parent_id;
-        let window_changed = self.common.scope.window_id() != event.previous_scope().window_id();
+        let addr_changed = self.common.scope.address != event.previous_scope.address;
+        let parent_id_changed = self.common.scope.parent_id != event.previous_scope.parent_id;
+        let window_changed = self.common.scope.window_id() != event.previous_scope.window_id();
         let update_accessible = addr_changed || parent_id_changed || window_changed;
 
         if update_accessible {
-            if let Some(previous_window) = &event.previous_scope().window {
+            if let Some(previous_window) = &event.previous_scope.window {
                 previous_window.accessible_update(self.accessible_line_id, None);
                 previous_window
                     .accessible_unmount(Some(self.common.id.into()), self.accessible_line_id);
@@ -335,8 +335,8 @@ impl Widget for TextInput {
     }
 
     fn handle_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
-        if event.state() == ElementState::Pressed {
-            match event.button() {
+        if event.state == ElementState::Pressed {
+            match event.button {
                 MouseButton::Left => {
                     self.handle_main_click(event)?;
                 }
@@ -377,8 +377,7 @@ impl Widget for TextInput {
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let window = self.common.window_or_err()?;
         if window.is_mouse_button_pressed(MouseButton::Left) {
-            let pos =
-                event.pos() - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
+            let pos = event.pos - self.editor_viewport_rect.top_left + Point::new(self.scroll_x, 0);
             let old_selection = (self.editor.select_opt(), self.editor.cursor());
             self.editor.action(Action::Drag { x: pos.x, y: pos.y });
             let new_selection = (self.editor.select_opt(), self.editor.cursor());
@@ -392,7 +391,7 @@ impl Widget for TextInput {
 
     #[allow(clippy::if_same_then_else)]
     fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
-        if event.info().state == ElementState::Released {
+        if event.info.state == ElementState::Released {
             return Ok(true);
         }
 
@@ -485,8 +484,8 @@ impl Widget for TextInput {
             self.editor.action(Action::DeleteStartOfWord);
         } else if shortcuts.delete_end_of_word.matches(&event) {
             self.editor.action(Action::DeleteEndOfWord);
-        } else if let Some(text) = &event.info().text {
-            if let Key::Named(key) = &event.info().logical_key {
+        } else if let Some(text) = &event.info.text {
+            if let Key::Named(key) = &event.info.logical_key {
                 if [NamedKey::Tab, NamedKey::Enter, NamedKey::Escape].contains(key) {
                     return Ok(false);
                 }
@@ -502,7 +501,7 @@ impl Widget for TextInput {
     }
 
     fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
-        match event.info().clone() {
+        match event.info.clone() {
             Ime::Enabled => {}
             Ime::Preedit(preedit, cursor) => {
                 // TODO: can pretext have line breaks?
@@ -524,7 +523,7 @@ impl Widget for TextInput {
     }
 
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
-        self.editor.on_focus_in(event.reason());
+        self.editor.on_focus_in(event.reason);
         self.common.update();
         self.reset_blink_timer();
         Ok(())
@@ -536,7 +535,7 @@ impl Widget for TextInput {
         Ok(())
     }
     fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
-        self.editor.on_window_focus_changed(event.is_focused());
+        self.editor.on_window_focus_changed(event.is_focused);
         self.common.update();
         self.reset_blink_timer();
         Ok(())
@@ -544,7 +543,7 @@ impl Widget for TextInput {
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
         let window = self.common.window_or_err()?;
 
-        match event.action() {
+        match event.action {
             accesskit::Action::Default | accesskit::Action::Focus => {
                 send_window_request(
                     window.id(),
@@ -556,11 +555,11 @@ impl Widget for TextInput {
                 );
             }
             accesskit::Action::SetTextSelection => {
-                let Some(ActionData::SetTextSelection(data)) = event.data() else {
-                    warn!("expected SetTextSelection in data, got {:?}", event.data());
+                let Some(ActionData::SetTextSelection(data)) = event.data else {
+                    warn!("expected SetTextSelection in data, got {:?}", event.data);
                     return Ok(());
                 };
-                self.editor.set_accessible_selection(*data);
+                self.editor.set_accessible_selection(data);
                 self.after_change();
                 self.common.update();
                 self.reset_blink_timer();

@@ -9,7 +9,6 @@ use {
     },
     accesskit::{Action, ActionData},
     derive_more::From,
-    typed_builder::TypedBuilder,
     winit::{
         event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton},
         keyboard::ModifiersState,
@@ -33,42 +32,18 @@ pub enum Event {
     WidgetScopeChange(WidgetScopeChangeEvent),
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone)]
 pub struct MouseInputEvent {
-    device_id: DeviceId,
-    state: ElementState,
-    button: MouseButton,
-    num_clicks: u32,
-    // pos in current widget coordinates
-    pos: Point,
-    pos_in_window: Point,
+    pub device_id: DeviceId,
+    pub state: ElementState,
+    pub button: MouseButton,
+    pub num_clicks: u32,
+    /// Position in widget coordinates
+    pub pos: Point,
+    pub pos_in_window: Point,
 }
 
 impl MouseInputEvent {
-    pub fn device_id(&self) -> DeviceId {
-        self.device_id
-    }
-
-    pub fn state(&self) -> ElementState {
-        self.state
-    }
-
-    pub fn button(&self) -> MouseButton {
-        self.button
-    }
-
-    pub fn num_clicks(&self) -> u32 {
-        self.num_clicks
-    }
-
-    pub fn pos(&self) -> Point {
-        self.pos
-    }
-
-    pub fn pos_in_window(&self) -> Point {
-        self.pos_in_window
-    }
-
     pub fn map_to_child(&self, rect_in_parent: Rect) -> Option<Self> {
         if rect_in_parent.contains(self.pos) {
             let mut event = self.clone();
@@ -80,26 +55,15 @@ impl MouseInputEvent {
     }
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone)]
 pub struct MouseMoveEvent {
-    device_id: DeviceId,
-    pos: Point,
-    pos_in_window: Point,
+    pub device_id: DeviceId,
+    /// Position in widget coordinates
+    pub pos: Point,
+    pub pos_in_window: Point,
 }
 
 impl MouseMoveEvent {
-    pub fn device_id(&self) -> DeviceId {
-        self.device_id
-    }
-
-    pub fn pos(&self) -> Point {
-        self.pos
-    }
-
-    pub fn pos_in_window(&self) -> Point {
-        self.pos_in_window
-    }
-
     pub fn map_to_child(&self, rect_in_parent: Rect) -> Option<Self> {
         if rect_in_parent.contains(self.pos) {
             let mut event = self.clone();
@@ -118,98 +82,40 @@ impl MouseMoveEvent {
     }
 }
 
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone)]
 pub struct MouseEnterEvent {
-    device_id: DeviceId,
-    pos: Point,
-}
-
-impl MouseEnterEvent {
-    pub fn device_id(&self) -> DeviceId {
-        self.device_id
-    }
-
-    pub fn pos(&self) -> Point {
-        self.pos
-    }
+    pub device_id: DeviceId,
+    pub pos: Point,
 }
 
 #[derive(Debug, Clone)]
-pub struct MouseLeaveEvent(());
+pub struct MouseLeaveEvent {}
 
-impl MouseLeaveEvent {
-    pub fn new() -> Self {
-        Self(())
-    }
-}
-
-#[derive(Debug, Clone, TypedBuilder)]
+#[derive(Debug, Clone)]
 pub struct KeyboardInputEvent {
-    device_id: DeviceId,
-    info: KeyEvent,
-    is_synthetic: bool,
-    modifiers: ModifiersState,
-}
-
-impl KeyboardInputEvent {
-    pub fn device_id(&self) -> DeviceId {
-        self.device_id
-    }
-
-    pub fn info(&self) -> &KeyEvent {
-        &self.info
-    }
-
-    pub fn is_synthetic(&self) -> bool {
-        self.is_synthetic
-    }
-
-    pub fn modifiers(&self) -> ModifiersState {
-        self.modifiers
-    }
+    pub device_id: DeviceId,
+    pub info: KeyEvent,
+    pub is_synthetic: bool,
+    pub modifiers: ModifiersState,
 }
 
 #[derive(Debug, Clone)]
 pub struct ImeEvent {
-    info: Ime,
-}
-
-impl ImeEvent {
-    pub fn new(info: Ime) -> Self {
-        Self { info }
-    }
-
-    pub fn info(&self) -> &Ime {
-        &self.info
-    }
+    pub info: Ime,
 }
 
 #[derive(Debug, Clone)]
 pub struct LayoutEvent {
     // None means widget is hidden
-    pub(crate) new_rect_in_window: Option<Rect>,
-    pub(crate) changed_size_hints: Vec<WidgetAddress>,
+    pub new_rect_in_window: Option<Rect>,
+    pub changed_size_hints: Vec<WidgetAddress>,
 }
 
 impl LayoutEvent {
-    pub(crate) fn new(
-        new_rect_in_window: Option<Rect>,
-        changed_size_hints: Vec<WidgetAddress>,
-    ) -> Self {
-        Self {
-            new_rect_in_window,
-            changed_size_hints,
-        }
-    }
-
-    pub(crate) fn size_hints_changed_within(&self, addr: &WidgetAddress) -> bool {
+    pub fn size_hints_changed_within(&self, addr: &WidgetAddress) -> bool {
         self.changed_size_hints
             .iter()
             .any(|changed| changed.starts_with(addr))
-    }
-
-    pub fn new_rect_in_window(&self) -> Option<Rect> {
-        self.new_rect_in_window
     }
 }
 
@@ -223,76 +129,24 @@ pub enum FocusReason {
 
 #[derive(Debug, Clone)]
 pub struct FocusInEvent {
-    reason: FocusReason,
-}
-
-impl FocusInEvent {
-    pub fn new(reason: FocusReason) -> Self {
-        Self { reason }
-    }
-
-    pub fn reason(&self) -> FocusReason {
-        self.reason
-    }
+    pub reason: FocusReason,
 }
 
 #[derive(Debug, Clone)]
-pub struct FocusOutEvent(());
-
-impl FocusOutEvent {
-    pub fn new() -> Self {
-        Self(())
-    }
-}
+pub struct FocusOutEvent {}
 
 #[derive(Debug, Clone)]
 pub struct WindowFocusChangeEvent {
-    is_focused: bool,
-}
-
-impl WindowFocusChangeEvent {
-    pub fn new(focused: bool) -> Self {
-        Self {
-            is_focused: focused,
-        }
-    }
-
-    pub fn is_focused(&self) -> bool {
-        self.is_focused
-    }
+    pub is_focused: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct AccessibleActionEvent {
-    action: Action,
-    data: Option<ActionData>,
-}
-
-impl AccessibleActionEvent {
-    pub fn new(action: Action, data: Option<ActionData>) -> Self {
-        Self { action, data }
-    }
-
-    pub fn action(&self) -> Action {
-        self.action
-    }
-
-    pub fn data(&self) -> Option<&ActionData> {
-        self.data.as_ref()
-    }
+    pub action: Action,
+    pub data: Option<ActionData>,
 }
 
 #[derive(Debug, Clone)]
 pub struct WidgetScopeChangeEvent {
-    previous_scope: WidgetScope,
-}
-
-impl WidgetScopeChangeEvent {
-    pub fn new(previous_scope: WidgetScope) -> Self {
-        Self { previous_scope }
-    }
-
-    pub fn previous_scope(&self) -> &WidgetScope {
-        &self.previous_scope
-    }
+    pub previous_scope: WidgetScope,
 }

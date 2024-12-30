@@ -67,7 +67,7 @@ impl Widget for AnotherWidget {
         self.common.set_child_rect(
             0,
             event
-                .new_rect_in_window()
+                .new_rect_in_window
                 .map(|r| Rect::from_pos_size(Default::default(), r.size)),
         )
     }

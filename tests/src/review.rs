@@ -192,7 +192,7 @@ impl ReviewWidget {
         image.widget.common_mut().event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseMove(event) => {
-                    image_mouse_move.invoke(Some(event.pos()));
+                    image_mouse_move.invoke(Some(event.pos));
                 }
                 Event::MouseLeave(_) => {
                     image_mouse_move.invoke(None);
