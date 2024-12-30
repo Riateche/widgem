@@ -2,7 +2,7 @@ use {
     super::{button::Button, Widget, WidgetCommon, WidgetExt},
     crate::{
         callback::Callback,
-        event::{Event, LayoutEvent},
+        event::{Event, LayoutEvent, MouseScrollEvent},
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
@@ -12,6 +12,7 @@ use {
     },
     anyhow::Result,
     log::warn,
+    ordered_float::NotNan,
     salvation_macros::impl_with,
     std::{
         cmp::{max, min},
@@ -388,7 +389,7 @@ impl ScrollBar {
         Ok(())
     }
 
-    fn pager_triggered(&mut self /* ...*/) -> Result<()> {
+    fn pager_triggered(&mut self) -> Result<()> {
         let Some(grip_rect_in_window) = self.common.children[INDEX_PAGER]
             .widget
             .common_mut()
@@ -615,6 +616,18 @@ impl Widget for ScrollBar {
         }
         self.update_grip_pos();
         Ok(())
+    }
+
+    fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
+        let delta = event.unified_delta(&self.common);
+        let max_delta = if NotNan::new(delta.x.abs())? > NotNan::new(delta.y.abs())? {
+            delta.x
+        } else {
+            delta.y
+        };
+        let new_value = self.value() - max_delta.round() as i32;
+        self.set_value(new_value.clamp(*self.value_range.start(), *self.value_range.end()));
+        Ok(true)
     }
 }
 

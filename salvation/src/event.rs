@@ -1,6 +1,12 @@
 #![allow(clippy::new_without_default)]
 
+use winit::{
+    dpi::PhysicalPosition,
+    event::{MouseScrollDelta, TouchPhase},
+};
+
 pub use crate::draw::DrawEvent;
+use crate::widgets::WidgetCommon;
 
 use {
     crate::{
@@ -18,6 +24,7 @@ use {
 #[derive(Debug, Clone, From)]
 pub enum Event {
     MouseInput(MouseInputEvent),
+    MouseScroll(MouseScrollEvent),
     MouseEnter(MouseEnterEvent),
     MouseMove(MouseMoveEvent),
     MouseLeave(MouseLeaveEvent),
@@ -51,6 +58,38 @@ impl MouseInputEvent {
             Some(event)
         } else {
             None
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MouseScrollEvent {
+    pub device_id: DeviceId,
+    pub delta: MouseScrollDelta,
+    pub touch_phase: TouchPhase,
+    /// Position in widget coordinates
+    pub pos: Point,
+    pub pos_in_window: Point,
+}
+
+impl MouseScrollEvent {
+    pub fn map_to_child(&self, rect_in_parent: Rect) -> Option<Self> {
+        if rect_in_parent.contains(self.pos) {
+            let mut event = self.clone();
+            event.pos -= rect_in_parent.top_left;
+            Some(event)
+        } else {
+            None
+        }
+    }
+
+    pub fn unified_delta(&self, widget_common: &WidgetCommon) -> PhysicalPosition<f64> {
+        match self.delta {
+            MouseScrollDelta::LineDelta(dx, dy) => {
+                let line_height = widget_common.style().0.font_metrics.line_height;
+                PhysicalPosition::new((line_height * dx).into(), (line_height * dy).into())
+            }
+            MouseScrollDelta::PixelDelta(delta) => delta,
         }
     }
 }

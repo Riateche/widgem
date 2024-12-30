@@ -3,7 +3,7 @@ use {
         event::{
             AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
             KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
-            WindowFocusChangeEvent,
+            MouseScrollEvent, WindowFocusChangeEvent,
         },
         event_loop::UserEvent,
         system::{address, with_system, ReportError},
@@ -240,6 +240,52 @@ impl WindowWithWidget<'_> {
                     }
                 } else {
                     warn!("no cursor position in mouse input handler");
+                }
+            }
+            WindowEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+            } => {
+                if let Some(pos_in_window) = self.window.cursor_position() {
+                    self.window.init_mouse_event_state().or_report_err();
+                    if let Some(mouse_grabber_widget_id) = self.window.mouse_grabber_widget() {
+                        if let Ok(mouse_grabber_widget) =
+                            get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
+                        {
+                            if let Some(rect_in_window) =
+                                mouse_grabber_widget.common().rect_in_window
+                            {
+                                let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                                let event = MouseScrollEvent {
+                                    device_id,
+                                    delta,
+                                    touch_phase: phase,
+                                    pos: pos_in_widget,
+                                    pos_in_window,
+                                };
+                                mouse_grabber_widget.dispatch(event.into());
+                            }
+                        }
+                        if !self.window.any_mouse_buttons_pressed() {
+                            self.window.set_mouse_grabber_widget(None);
+                            self.dispatch_cursor_leave();
+                        }
+                    } else {
+                        let event = MouseScrollEvent {
+                            device_id,
+                            delta,
+                            touch_phase: phase,
+                            pos: pos_in_window,
+                            pos_in_window,
+                        };
+                        self.root_widget.dispatch(event.into());
+                    }
+                    self.window.take_mouse_event_state().or_report_err();
+                    // TODO: should we dispatch to focused widget on Windows by default?
+                    // Qt dispatches the event to focused widget if moused-over widget did not accept it.
+                } else {
+                    warn!("no cursor position in mouse wheel handler");
                 }
             }
             WindowEvent::KeyboardInput {

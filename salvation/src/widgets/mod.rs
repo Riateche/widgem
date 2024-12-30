@@ -6,7 +6,7 @@ use {
         event::{
             AccessibleActionEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent,
             KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-            MouseMoveEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+            MouseMoveEvent, MouseScrollEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
         },
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
@@ -812,6 +812,10 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(false)
     }
+    fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
+        let _ = event;
+        Ok(false)
+    }
     fn handle_mouse_enter(&mut self, event: MouseEnterEvent) -> Result<bool> {
         let _ = event;
         Ok(false)
@@ -863,6 +867,7 @@ pub trait Widget: Downcast {
     fn handle_event(&mut self, event: Event) -> Result<bool> {
         match event {
             Event::MouseInput(e) => self.handle_mouse_input(e),
+            Event::MouseScroll(e) => self.handle_mouse_scroll(e),
             Event::MouseEnter(e) => self.handle_mouse_enter(e),
             Event::MouseMove(e) => self.handle_mouse_move(e),
             Event::MouseLeave(e) => self.handle_mouse_leave(e).map(|()| true),
@@ -1064,6 +1069,21 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
                 }
             }
+            Event::MouseScroll(event) => {
+                should_dispatch = self.common().is_enabled();
+                if should_dispatch {
+                    for child in self.common_mut().children.iter_mut().rev() {
+                        if let Some(rect_in_parent) = child.rect_in_parent {
+                            if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                                if child.widget.dispatch(child_event.into()) {
+                                    accepted = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             Event::MouseEnter(_) | Event::KeyboardInput(_) | Event::Ime(_) => {
                 should_dispatch = self.common().is_enabled();
             }
@@ -1121,7 +1141,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
         }
         match event {
-            Event::MouseInput(_) => {
+            Event::MouseInput(_) | Event::MouseScroll(_) => {
                 if accepted {
                     let common = self.common_mut();
                     if let Some(window) = common.window_or_err().or_report_err() {
@@ -1136,10 +1156,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::MouseEnter(_) => {
-                accept_mouse_event(self, true);
+                accept_mouse_move_or_enter_event(self, true);
             }
             Event::MouseMove(_) => {
-                accept_mouse_event(self, false);
+                accept_mouse_move_or_enter_event(self, false);
             }
             Event::Draw(event) => {
                 for child in &mut self.common_mut().children {
@@ -1320,7 +1340,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 }
 
-fn accept_mouse_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
+fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
     let Some(window) = widget.common_mut().window_or_err().or_report_err() else {
         return;
     };

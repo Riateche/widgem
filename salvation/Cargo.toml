@@ -43,3 +43,4 @@ strum = "0.25.0"
 lightningcss = { version = "1.0.0-alpha.49", features = ["serde"] }
 serde-value = "0.7.0"
 fs-err = "2.9.0"
+ordered-float = "4.6.0"

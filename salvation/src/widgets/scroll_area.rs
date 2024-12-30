@@ -2,7 +2,7 @@ use {
     super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt, WidgetId},
     crate::{
         callback::widget_callback,
-        event::LayoutEvent,
+        event::{LayoutEvent, MouseScrollEvent},
         impl_widget_common,
         layout::{
             grid::{self, GridOptions},
@@ -176,6 +176,31 @@ impl Widget for ScrollArea {
     impl_widget_common!();
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         self.relayout()
+    }
+
+    fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
+        let delta = event.unified_delta(&self.common);
+
+        let scroll_x = self.common.children[INDEX_SCROLL_BAR_X]
+            .widget
+            .downcast_mut::<ScrollBar>()
+            .unwrap();
+        let new_value_x = scroll_x.value() - delta.x.round() as i32;
+        scroll_x.set_value(new_value_x.clamp(
+            *scroll_x.value_range().start(),
+            *scroll_x.value_range().end(),
+        ));
+
+        let scroll_y = self.common.children[INDEX_SCROLL_BAR_Y]
+            .widget
+            .downcast_mut::<ScrollBar>()
+            .unwrap();
+        let new_value_y = scroll_y.value() - delta.y.round() as i32;
+        scroll_y.set_value(new_value_y.clamp(
+            *scroll_y.value_range().start(),
+            *scroll_y.value_range().end(),
+        ));
+        Ok(true)
     }
 }
 
