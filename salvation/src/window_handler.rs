@@ -90,7 +90,7 @@ impl WindowInfo {
     }
 }
 
-impl<'a> WindowWithWidget<'a> {
+impl WindowWithWidget<'_> {
     pub(crate) fn dispatch_cursor_leave(&mut self) {
         while let Some(id) = self.window.pop_mouse_entered_widget() {
             if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {

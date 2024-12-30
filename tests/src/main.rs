@@ -162,7 +162,12 @@ fn main() -> anyhow::Result<()> {
                 all_fails.extend(fails);
             }
             println!("-----------");
-            println!("total tests: {}, failed tests: {}", num_total, num_failed);
+            println!("total tests: {}", num_total);
+            if num_failed > 0 {
+                println!("failed tests: {}", num_failed);
+            } else {
+                println!("all tests succeeded");
+            }
             if !all_fails.is_empty() {
                 println!("found issues:\n");
                 for fail in all_fails {

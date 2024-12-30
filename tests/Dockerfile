@@ -1,4 +1,6 @@
 FROM docker.io/lukemathwalker/cargo-chef:0.1.67-rust-slim-bullseye AS chef
+COPY rust-toolchain ./
+RUN rustc --version
 WORKDIR /app
 
 FROM chef AS planner
@@ -22,7 +24,7 @@ COPY uitest uitest
 COPY uitest uitest
 COPY tests/src tests/src
 COPY tests/Cargo.toml tests/
-RUN cargo build --package salvation_tests --release
+RUN cargo build --package salvation_tests --locked --release
 
 FROM docker.io/neuroidss/ubuntu-xfce-vnc:20.04 AS runtime
 USER root

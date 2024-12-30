@@ -13,7 +13,6 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
           override: true
       - uses: actions-rs/cargo@v1
         with:
@@ -23,15 +22,15 @@ jobs:
     name: UI tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Run UI tests
-      run: TEST_ARG=--check tests/run.sh
-    - name: Upload test snapshots
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test_snapshots
-        path: tests/snapshots
+      - uses: actions/checkout@v2
+      - name: Run UI tests
+        run: TEST_ARG=--check tests/run.sh
+      - name: Upload test snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_snapshots
+          path: tests/snapshots
 
   fmt:
     name: Rustfmt
@@ -41,7 +40,6 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
           override: true
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
@@ -57,10 +55,9 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
           override: true
       - run: rustup component add clippy
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: -- --deny warnings

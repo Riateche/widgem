@@ -37,7 +37,7 @@ impl<'a> Context<'a> {
         test_case_dir: PathBuf,
         snapshot_mode: SnapshotMode,
         pid: u32,
-    ) -> anyhow::Result<Context> {
+    ) -> anyhow::Result<Context<'a>> {
         Ok(Self {
             unverified_files: discover_snapshots(&test_case_dir)?,
             connection,
