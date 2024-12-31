@@ -7,6 +7,7 @@ use {
 pub mod scroll_bar;
 pub mod scroll_bar_mouse_scroll;
 pub mod scroll_bar_pager;
+pub mod scroll_bar_resize;
 pub mod scroll_bar_right_arrow;
 pub mod scroll_bar_slider;
 pub mod scroll_bar_slider_extremes;
@@ -45,5 +46,6 @@ tests! {
     scroll_bar_slider_extremes,
     scroll_bar_pager,
     scroll_bar_mouse_scroll,
+    scroll_bar_resize,
     text_input,
 }
