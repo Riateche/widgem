@@ -9,6 +9,7 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     window.minimize()?;
     window.activate()?;
     window.resize(160, 66)?;
+    ctx.snapshot(&mut window, "scroll bar")?;
 
     window.mouse_move(60, 20)?;
     ctx.snapshot(&mut window, "highlighted slider")?;
@@ -25,7 +26,9 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     window.mouse_move(0, 20)?;
     ctx.snapshot(&mut window, "dragged all the way left")?;
     window.mouse_move(20, 20)?;
+    ctx.changing_expected = false;
     ctx.snapshot(&mut window, "still all the way left")?;
+    ctx.changing_expected = true;
     window.mouse_move(58, 20)?;
     ctx.snapshot(&mut window, "no longer all the way left")?;
     ctx.connection.mouse_up(1)?;

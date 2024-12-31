@@ -146,6 +146,7 @@ fn main() -> anyhow::Result<()> {
                 if !matches_filter {
                     continue;
                 }
+                conn.mouse_move_global(1, 1)?;
                 println!("running test: {}", test_name);
                 let child = Command::new(&exe).args(["run", test_name]).spawn()?;
                 let pid = child.id();

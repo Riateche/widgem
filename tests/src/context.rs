@@ -14,6 +14,10 @@ use {
     uitest::{Connection, Window},
 };
 
+const CAPTURE_INTERVAL: Duration = Duration::from_millis(30);
+const MAX_DURATION: Duration = Duration::from_secs(2);
+const STATIONARY_INTERVAL: Duration = Duration::from_millis(200);
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SnapshotMode {
     Update,
@@ -29,6 +33,8 @@ pub struct Context<'a> {
     unverified_files: BTreeMap<u32, SingleSnapshotFiles>,
     fails: Vec<String>,
     pub blinking_expected: bool,
+    pub changing_expected: bool,
+    pub last_snapshots: BTreeMap<u32, RgbaImage>,
 }
 
 impl<'a> Context<'a> {
@@ -44,9 +50,11 @@ impl<'a> Context<'a> {
             test_case_dir,
             pid,
             last_snapshot_index: 0,
+            last_snapshots: BTreeMap::new(),
             snapshot_mode,
             fails: Vec::new(),
             blinking_expected: false,
+            changing_expected: true,
         })
     }
 
@@ -54,18 +62,52 @@ impl<'a> Context<'a> {
         self.blinking_expected = value;
     }
 
+    pub fn set_changing_expected(&mut self, value: bool) {
+        self.changing_expected = value;
+    }
+
+    fn capture_maybe_changed(&mut self, window: &mut Window) -> anyhow::Result<RgbaImage> {
+        if self.changing_expected {
+            let mut started = Instant::now();
+            let mut image = None;
+            while started.elapsed() < MAX_DURATION {
+                let new_image = window.capture_image()?;
+                if self.last_snapshots.get(&window.pid()) != Some(&new_image) {
+                    image = Some(new_image);
+                    break;
+                }
+                sleep(CAPTURE_INTERVAL);
+            }
+            let mut image = image
+                .context("expected a new snapshot, but no changes were detected in the window")?;
+            started = Instant::now();
+            while started.elapsed() < STATIONARY_INTERVAL {
+                let new_image = window.capture_image()?;
+                if new_image != image {
+                    image = new_image;
+                    started = Instant::now();
+                }
+                sleep(CAPTURE_INTERVAL);
+            }
+            self.last_snapshots.insert(window.pid(), image.clone());
+            Ok(image)
+        } else {
+            sleep(Duration::from_millis(500));
+            let new_image = window.capture_image()?;
+            self.last_snapshots.insert(window.pid(), new_image.clone());
+            Ok(new_image)
+        }
+    }
+
     fn capture_blinking(
         &mut self,
         window: &mut Window,
         file_name: &str,
     ) -> anyhow::Result<RgbaImage> {
-        const CAPTURE_INTERVAL: Duration = Duration::from_millis(100);
-        const MAX_DURATION: Duration = Duration::from_secs(2);
-
         let started = Instant::now();
         let mut images = Vec::new();
         while started.elapsed() < MAX_DURATION || images.is_empty() {
-            let new_image = window.capture_image()?;
+            let new_image = self.capture_maybe_changed(window)?;
             if !images.contains(&new_image) {
                 images.push(new_image);
                 if images.len() == 2 {
@@ -107,7 +149,6 @@ impl<'a> Context<'a> {
         if !self.test_case_dir.try_exists()? {
             create_dir(&self.test_case_dir)?;
         }
-        sleep(Duration::from_millis(500));
         self.last_snapshot_index += 1;
         let index = self.last_snapshot_index;
         let confirmed_snapshot_name = format!("{:02} - {}.png", index, text);
@@ -116,7 +157,7 @@ impl<'a> Context<'a> {
         let new_image = if self.blinking_expected {
             self.capture_blinking(window, &unconfirmed_snapshot_name)?
         } else {
-            window.capture_image()?
+            self.capture_maybe_changed(window)?
         };
         let text = text.to_string();
         if !text

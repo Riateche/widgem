@@ -133,12 +133,24 @@ impl Connection {
     pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
         self.run_xdotool(&["type", text])
     }
+
+    pub fn mouse_move_global(&self, x: u32, y: u32) -> anyhow::Result<()> {
+        let status = Command::new("xdotool")
+            .arg("mousemove")
+            .arg("--sync")
+            .arg(x.to_string())
+            .arg(y.to_string())
+            .status()?;
+        if !status.success() {
+            bail!("xdotool failed: {:?}", status);
+        }
+        Ok(())
+    }
 }
 
 pub struct Window {
     pid: u32,
     inner: xcap::Window,
-    //...
 }
 
 impl Window {

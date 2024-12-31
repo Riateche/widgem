@@ -1,9 +1,6 @@
 pub use super::scroll_bar::RootWidget;
 
-use {
-    crate::context::Context,
-    std::{thread::sleep, time::Duration},
-};
+use crate::context::Context;
 
 pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -12,6 +9,7 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     window.minimize()?;
     window.activate()?;
     window.resize(160, 66)?;
+    ctx.snapshot(&mut window, "scroll bar")?;
 
     window.mouse_move(100, 20)?;
     ctx.snapshot(&mut window, "highlighted pager")?;
@@ -34,18 +32,19 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
 
     ctx.connection.mouse_down(1)?;
     ctx.snapshot(&mut window, "page right")?;
-    sleep(Duration::from_millis(700)); // auto repeat delay is 2 s; snapshot delay is 0.5 s
     ctx.connection.mouse_up(1)?;
+    ctx.changing_expected = false;
     ctx.snapshot(&mut window, "released pager - no auto repeat")?;
+    ctx.changing_expected = true;
 
     ctx.connection.mouse_down(1)?;
     ctx.snapshot(&mut window, "page right")?;
-    sleep(Duration::from_millis(1300));
     ctx.snapshot(&mut window, "page right - first auto repeat")?;
-    sleep(Duration::from_millis(500));
     ctx.snapshot(&mut window, "page right - second auto repeat")?;
     ctx.connection.mouse_up(1)?;
+    ctx.changing_expected = false;
     ctx.snapshot(&mut window, "released pager - no more auto repeats")?;
+    ctx.changing_expected = true;
 
     window.close()?;
     Ok(())

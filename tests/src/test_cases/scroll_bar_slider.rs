@@ -9,6 +9,7 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     window.minimize()?;
     window.activate()?;
     window.resize(160, 66)?;
+    ctx.snapshot(&mut window, "scroll bar")?;
 
     window.mouse_move(40, 20)?;
     ctx.snapshot(&mut window, "highlighted slider")?;

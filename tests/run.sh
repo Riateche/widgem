@@ -4,7 +4,7 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-docker build --tag salvation_tests --file tests/Dockerfile --progress=plain .
+docker build --tag salvation_tests --file tests/Dockerfile --build-arg BUILD_MODE --progress=plain .
 docker rm --force salvation_tests || true
 docker run --detach --name salvation_tests \
     --mount "type=bind,source=$PWD,target=/salvation" \
