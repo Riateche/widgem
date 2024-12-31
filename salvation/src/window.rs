@@ -92,6 +92,16 @@ pub struct WindowInner {
     pub is_delete_widget_on_close_enabled: bool,
 }
 
+impl WindowInner {
+    fn unset_focus(&mut self) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
+        let old = self.focused_widget.take();
+        self.winit_window.set_ime_allowed(false);
+        self.ime_allowed = false;
+        self.accessible_nodes.set_focus(None);
+        old
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Window(Rc<RefCell<WindowInner>>);
 
@@ -490,7 +500,7 @@ impl Window {
         &self,
         direction: i32,
     ) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
-        let this = self.0.borrow();
+        let mut this = self.0.borrow_mut();
         let focused_widget = this.focused_widget.as_ref()?;
         let output = if this.focusable_widgets.is_empty() {
             None
@@ -503,7 +513,7 @@ impl Window {
             this.focusable_widgets.first().cloned()
         };
         if output.is_none() {
-            self.unset_focus();
+            this.unset_focus();
         }
         output
     }
@@ -534,11 +544,7 @@ impl Window {
 
     pub(crate) fn unset_focus(&self) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
         let mut this = self.0.borrow_mut();
-        let old = this.focused_widget.take();
-        this.winit_window.set_ime_allowed(false);
-        this.ime_allowed = false;
-        this.accessible_nodes.set_focus(None);
-        old
+        this.unset_focus()
     }
 
     pub(crate) fn set_focus(
@@ -572,7 +578,7 @@ impl Window {
                     .binary_search(focused_widget)
                     .is_err()
                 {
-                    self.unset_focus();
+                    this.unset_focus();
                 }
             }
             true
