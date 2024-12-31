@@ -100,6 +100,22 @@ impl Connection {
         self.run_xdotool(&["click", &button.to_string()])
     }
 
+    pub fn mouse_scroll_up(&self) -> anyhow::Result<()> {
+        self.mouse_click(4)
+    }
+
+    pub fn mouse_scroll_down(&self) -> anyhow::Result<()> {
+        self.mouse_click(5)
+    }
+
+    pub fn mouse_scroll_left(&self) -> anyhow::Result<()> {
+        self.mouse_click(6)
+    }
+
+    pub fn mouse_scroll_right(&self) -> anyhow::Result<()> {
+        self.mouse_click(7)
+    }
+
     pub fn mouse_down(&self, button: u32) -> anyhow::Result<()> {
         self.run_xdotool(&["mousedown", &button.to_string()])
     }
