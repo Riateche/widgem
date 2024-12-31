@@ -28,6 +28,7 @@ pub struct ReviewWidget {
     snapshot_name_id: WidgetId<Label>,
     coords_id: WidgetId<Label>,
     image_id: WidgetId<Image>,
+    approve_and_skip_id: WidgetId<Row>,
     reviewer: Reviewer,
     mode_button_ids: HashMap<Mode, WidgetId<Button>>,
 }
@@ -210,41 +211,42 @@ impl ReviewWidget {
             Label::new("Actions:").boxed(),
             LayoutItemOptions::from_pos_in_grid(1, 8),
         );
-        common.add_child(
-            Row::new()
-                .with_no_padding(true)
-                .with_child(
-                    Button::new("Approve")
-                        .with_on_triggered(common.callback(move |w, _e| {
-                            w.reviewer.approve()?;
-                            w.update_ui()
-                        }))
-                        .boxed(),
-                )
-                .with_child(
-                    Button::new("Skip snapshot")
-                        .with_on_triggered(common.callback(move |w, _e| {
+        let approve_and_skip = Row::new()
+            .with_no_padding(true)
+            .with_child(
+                Button::new("Approve")
+                    .with_on_triggered(common.callback(move |w, _e| {
+                        w.reviewer.approve()?;
+                        w.update_ui()
+                    }))
+                    .boxed(),
+            )
+            .with_child(
+                Button::new("Skip snapshot")
+                    .with_on_triggered(common.callback(move |w, _e| {
+                        if !w.reviewer.go_to_next_unconfirmed_file() {
+                            salvation::exit();
+                        }
+                        w.update_ui()
+                    }))
+                    .boxed(),
+            )
+            .with_child(
+                Button::new("Skip test")
+                    .with_on_triggered(common.callback(move |w, _e| {
+                        w.reviewer.go_to_next_test_case();
+                        if !w.reviewer.has_unconfirmed() {
                             if !w.reviewer.go_to_next_unconfirmed_file() {
                                 salvation::exit();
                             }
-                            w.update_ui()
-                        }))
-                        .boxed(),
-                )
-                .with_child(
-                    Button::new("Skip test")
-                        .with_on_triggered(common.callback(move |w, _e| {
-                            w.reviewer.go_to_next_test_case();
-                            if !w.reviewer.has_unconfirmed() {
-                                if !w.reviewer.go_to_next_unconfirmed_file() {
-                                    salvation::exit();
-                                }
-                            }
-                            w.update_ui()
-                        }))
-                        .boxed(),
-                )
-                .boxed(),
+                        }
+                        w.update_ui()
+                    }))
+                    .boxed(),
+            )
+            .with_id();
+        common.add_child(
+            approve_and_skip.widget.boxed(),
             LayoutItemOptions::from_pos_in_grid(2, 8),
         );
 
@@ -254,6 +256,7 @@ impl ReviewWidget {
             snapshot_name_id: snapshot_name.id,
             image_id: image.id,
             coords_id: coords.id,
+            approve_and_skip_id: approve_and_skip.id,
             mode_button_ids,
             reviewer,
         };
@@ -277,6 +280,9 @@ impl ReviewWidget {
                 .widget(*id)?
                 .set_enabled(self.reviewer.is_mode_allowed(*mode));
         }
+        self.common
+            .widget(self.approve_and_skip_id)?
+            .set_enabled(self.reviewer.has_unconfirmed());
         Ok(())
     }
 
