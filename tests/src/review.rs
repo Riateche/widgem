@@ -29,6 +29,7 @@ pub struct ReviewWidget {
     coords_id: WidgetId<Label>,
     image_id: WidgetId<Image>,
     approve_and_skip_id: WidgetId<Row>,
+    unconfirmed_count_id: WidgetId<Label>,
     reviewer: Reviewer,
     mode_button_ids: HashMap<Mode, WidgetId<Button>>,
 }
@@ -37,7 +38,6 @@ pub struct ReviewWidget {
 pub enum Mode {
     New,
     Confirmed,
-    PreviousConfirmed,
     DiffWithConfirmed,
     DiffWithPreviousConfirmed,
 }
@@ -47,7 +47,6 @@ impl Mode {
         match self {
             Mode::New => "New",
             Mode::Confirmed => "Confirmed",
-            Mode::PreviousConfirmed => "Previous confirmed",
             Mode::DiffWithConfirmed => "Diff with confirmed",
             Mode::DiffWithPreviousConfirmed => "Diff with previous confirmed",
         }
@@ -250,6 +249,12 @@ impl ReviewWidget {
             LayoutItemOptions::from_pos_in_grid(2, 8),
         );
 
+        let unconfirmed_count = Label::new("").with_id();
+        common.add_child(
+            unconfirmed_count.widget.boxed(),
+            LayoutItemOptions::from_pos_in_grid(2, 9),
+        );
+
         let mut this = Self {
             common: common.into(),
             test_name_id: test_name.id,
@@ -257,6 +262,7 @@ impl ReviewWidget {
             image_id: image.id,
             coords_id: coords.id,
             approve_and_skip_id: approve_and_skip.id,
+            unconfirmed_count_id: unconfirmed_count.id,
             mode_button_ids,
             reviewer,
         };
@@ -283,6 +289,16 @@ impl ReviewWidget {
         self.common
             .widget(self.approve_and_skip_id)?
             .set_enabled(self.reviewer.has_unconfirmed());
+        self.common
+            .widget(self.unconfirmed_count_id)?
+            .set_text(if state.unconfirmed_count > 0 {
+                format!(
+                    "Unconfirmed snapshots remaining: {}",
+                    state.unconfirmed_count
+                )
+            } else {
+                "No unconfirmed snapshots.".into()
+            });
         Ok(())
     }
 
@@ -316,18 +332,30 @@ pub struct Reviewer {
     mode: Mode,
     test_cases: Vec<TestCase>,
     current_test_case_index: Option<usize>,
-    all_current_snapshots: BTreeMap<u32, SingleSnapshotFiles>,
+    all_snapshots: Vec<BTreeMap<u32, SingleSnapshotFiles>>,
     current_snapshot_index: Option<u32>,
 }
 
 impl Reviewer {
     pub fn new(test_cases_dir: &Path) -> Self {
+        let test_cases: Vec<_> = TestCase::iter().collect();
+        let mut all_snapshots = Vec::new();
+        for &test_case in &test_cases {
+            all_snapshots.push(
+                discover_snapshots(&test_cases_dir.join(format!("{:?}", test_case)))
+                    .unwrap_or_else(|err| {
+                        // TODO: ui message
+                        warn!("failed to fetch snapshots: {:?}", err);
+                        Default::default()
+                    }),
+            );
+        }
         let mut this = Self {
             test_cases_dir: test_cases_dir.into(),
             mode: Mode::New,
-            test_cases: TestCase::iter().collect(),
+            test_cases,
             current_test_case_index: None,
-            all_current_snapshots: BTreeMap::new(),
+            all_snapshots,
             current_snapshot_index: None,
         };
         this.go_to_next_test_case();
@@ -369,19 +397,11 @@ impl Reviewer {
     }
 
     pub fn go_to_test_case(&mut self, index: usize) -> bool {
-        let Some(test_case) = self.test_cases.get(index) else {
-            return false;
-        };
         self.current_snapshot_index = None;
-        self.all_current_snapshots.clear();
+        if index >= self.test_cases.len() {
+            return false;
+        }
         self.current_test_case_index = Some(index);
-        self.all_current_snapshots =
-            discover_snapshots(&self.test_cases_dir.join(format!("{:?}", test_case)))
-                .unwrap_or_else(|err| {
-                    // TODO: ui message
-                    warn!("failed to fetch snapshots: {:?}", err);
-                    Default::default()
-                });
         self.go_to_next_snapshot();
         true
     }
@@ -400,7 +420,17 @@ impl Reviewer {
     }
 
     pub fn go_to_snapshot(&mut self, index: u32) -> bool {
-        let Some(files) = self.all_current_snapshots.get(&index) else {
+        let Some(snapshots) = self
+            .current_test_case_index
+            .and_then(|index| self.all_snapshots.get(index))
+        else {
+            warn!(
+                "invalid current_test_case_index {:?}",
+                self.current_test_case_index
+            );
+            return false;
+        };
+        let Some(files) = snapshots.get(&index) else {
             self.mode = Mode::Confirmed;
             return false;
         };
@@ -429,19 +459,34 @@ impl Reviewer {
             .context("no current files")?
             .checked_sub(1)
             .context("no previous files")?;
-        self.all_current_snapshots
+        self.all_snapshots
+            .get(
+                self.current_test_case_index
+                    .context("no current_test_case_index")?,
+            )
+            .context("invalid current_test_case_index")?
             .get(&index)
             .context("previous files not found")
     }
 
     fn current_snapshot(&self) -> anyhow::Result<&SingleSnapshotFiles> {
-        self.all_current_snapshots
+        self.all_snapshots
+            .get(
+                self.current_test_case_index
+                    .context("no current_test_case_index")?,
+            )
+            .context("invalid current_test_case_index")?
             .get(&self.current_snapshot_index.context("no current files")?)
             .context("current files not found")
     }
 
     fn current_snapshot_mut(&mut self) -> anyhow::Result<&mut SingleSnapshotFiles> {
-        self.all_current_snapshots
+        self.all_snapshots
+            .get_mut(
+                self.current_test_case_index
+                    .context("no current_test_case_index")?,
+            )
+            .context("invalid current_test_case_index")?
             .get_mut(&self.current_snapshot_index.context("no current files")?)
             .context("current files not found")
     }
@@ -489,7 +534,6 @@ impl Reviewer {
         match self.mode {
             Mode::New => self.load_new(),
             Mode::Confirmed => self.load_confirmed(),
-            Mode::PreviousConfirmed => self.load_previous_confirmed(),
             Mode::DiffWithConfirmed => Ok(pixmap_diff(&self.load_new()?, &self.load_confirmed()?)),
             Mode::DiffWithPreviousConfirmed => Ok(pixmap_diff(
                 &self.load_new()?,
@@ -499,12 +543,19 @@ impl Reviewer {
     }
 
     fn current_state(&self) -> ReviewerState {
+        let unconfirmed_count = self
+            .all_snapshots
+            .iter()
+            .flat_map(|s| s.values())
+            .filter(|s| s.unconfirmed.is_some())
+            .count();
         let Ok(test_case) = self.current_test_case() else {
             return ReviewerState {
                 test_case_name: "none".into(),
                 snapshot_name: "none".into(),
                 mode: Mode::Confirmed,
                 snapshot: None,
+                unconfirmed_count,
             };
         };
         let test_case_name = format!(
@@ -519,6 +570,7 @@ impl Reviewer {
                 snapshot_name: "none".into(),
                 mode: Mode::Confirmed,
                 snapshot: None,
+                unconfirmed_count,
             };
         };
         let snapshot_name = match self.mode {
@@ -530,17 +582,24 @@ impl Reviewer {
                 .confirmed
                 .as_ref()
                 .map_or_else(|| "none".into(), |f| f.description.clone()),
-            Mode::PreviousConfirmed => self
-                .previous_snapshot()
-                .unwrap()
-                .confirmed
-                .as_ref()
-                .map_or_else(|| "none".into(), |f| f.description.clone()),
+        };
+        let Some(snapshots) = self
+            .current_test_case_index
+            .and_then(|index| self.all_snapshots.get(index))
+        else {
+            warn!("invalid current_test_case_index2");
+            return ReviewerState {
+                test_case_name,
+                snapshot_name: "none".into(),
+                mode: Mode::Confirmed,
+                snapshot: None,
+                unconfirmed_count,
+            };
         };
         let snapshot_name = format!(
             "({}/{}) {}",
             self.current_snapshot_index.unwrap(),
-            self.all_current_snapshots.len(),
+            snapshots.len(),
             snapshot_name
         );
 
@@ -554,6 +613,7 @@ impl Reviewer {
                     warn!("failed to make pixmap: {:?}", err);
                 })
                 .ok(),
+            unconfirmed_count,
         }
     }
 
@@ -579,7 +639,6 @@ impl Reviewer {
             Mode::Confirmed => has_confirmed,
             Mode::DiffWithConfirmed => has_new && has_confirmed,
             Mode::DiffWithPreviousConfirmed => has_new && has_previous_confirmed,
-            Mode::PreviousConfirmed => has_previous_confirmed,
         }
     }
 
@@ -630,6 +689,7 @@ struct ReviewerState {
     #[allow(dead_code)]
     mode: Mode,
     snapshot: Option<Pixmap>,
+    unconfirmed_count: usize,
 }
 
 fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {

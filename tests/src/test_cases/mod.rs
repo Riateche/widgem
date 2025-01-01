@@ -16,7 +16,7 @@ pub mod text_input;
 
 macro_rules! tests {
     ($($name:ident,)*) => {
-        #[derive(Debug, Clone, Copy, EnumString, EnumIter, IntoStaticStr)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumString, EnumIter, IntoStaticStr)]
         #[allow(non_camel_case_types)]
         pub enum TestCase {
             $($name,)*
