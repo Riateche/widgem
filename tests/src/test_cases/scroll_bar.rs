@@ -96,10 +96,6 @@ impl Widget for RootWidget {
 
 pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     let mut window = ctx.wait_for_window_by_pid()?;
-    // Workaround for winit issue:
-    // https://github.com/rust-windowing/winit/issues/2841
-    window.minimize()?;
-    window.activate()?;
     window.mouse_move(0, 0)?;
     ctx.snapshot(&mut window, "scroll bar and label")?;
     window.resize(160, 66)?;

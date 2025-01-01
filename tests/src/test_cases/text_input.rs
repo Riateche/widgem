@@ -36,10 +36,6 @@ impl Widget for RootWidget {
 pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
-    // Workaround for winit issue:
-    // https://github.com/rust-windowing/winit/issues/2841
-    window.minimize()?;
-    window.activate()?;
     ctx.snapshot(&mut window, "window with text input - text Hello world")?;
     ctx.connection.key("Right")?;
     ctx.snapshot(&mut window, "cursor moved to the right of H")?;

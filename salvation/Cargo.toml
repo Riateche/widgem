@@ -12,7 +12,7 @@ salvation_macros = { path = "../macros", version = "0.0.1" }
 tiny-skia = "0.11.1"
 png = "0.17.10"
 salvation-cosmic-text = "0.12.0"
-winit = "0.30.5"
+winit = "0.30.7"
 softbuffer = "0.4.1"
 bytemuck = "1.13.1"
 downcast-rs = "1.2.0"
