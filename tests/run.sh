@@ -1,10 +1,20 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 cd "$(dirname "$0")/.."
 
-docker build --tag salvation_tests --file tests/Dockerfile --build-arg BUILD_MODE --progress=plain .
+if [[ -z "${GITHUB_ACTIONS}" ]]; then
+    docker build \
+        --tag salvation_tests \
+        --file tests/Dockerfile \
+        --build-arg BUILD_MODE \
+        --progress plain \
+        .
+else
+    echo "Skipping docker build in Github Actions"
+fi
+
 docker rm --force salvation_tests || true
 docker run --detach --name salvation_tests \
     --mount "type=bind,source=$PWD,target=/salvation" \
