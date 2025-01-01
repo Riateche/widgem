@@ -4,11 +4,14 @@ use {
     fs_err::create_dir,
     image::{ImageReader, RgbaImage},
     itertools::Itertools,
+    salvation::{widgets::Widget, App},
     std::{
         collections::BTreeMap,
+        ffi::OsString,
         fmt::Display,
         mem,
         path::{Path, PathBuf},
+        process::{self, Child, Command},
         thread::sleep,
         time::{Duration, Instant},
     },
@@ -27,10 +30,13 @@ pub enum SnapshotMode {
 
 pub struct CheckContext {
     pub connection: Connection,
+    pub test_name: String,
     pub test_case_dir: PathBuf,
     pub last_snapshot_index: u32,
     pub snapshot_mode: SnapshotMode,
-    pub pid: u32,
+    pub exe_path: OsString,
+    pub pid: Option<u32>,
+    pub child: Option<Child>,
     unverified_files: BTreeMap<u32, SingleSnapshotFiles>,
     fails: Vec<String>,
     pub blinking_expected: bool,
@@ -41,15 +47,19 @@ pub struct CheckContext {
 impl CheckContext {
     pub fn new(
         connection: Connection,
+        test_name: String,
         test_case_dir: PathBuf,
         snapshot_mode: SnapshotMode,
-        pid: u32,
+        exe_path: OsString,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             unverified_files: discover_snapshots(&test_case_dir)?,
             connection,
+            test_name,
             test_case_dir,
-            pid,
+            exe_path,
+            pid: None,
+            child: None,
             last_snapshot_index: 0,
             last_snapshots: BTreeMap::new(),
             snapshot_mode,
@@ -278,11 +288,13 @@ impl CheckContext {
     }
 
     pub fn wait_for_windows_by_pid(&self) -> anyhow::Result<Vec<Window>> {
-        self.connection.wait_for_windows_by_pid(self.pid)
+        let pid = self.pid.context("app has not been run yet")?;
+        self.connection.wait_for_windows_by_pid(pid)
     }
 
     pub fn wait_for_window_by_pid(&self) -> anyhow::Result<Window> {
-        let mut windows = self.connection.wait_for_windows_by_pid(self.pid)?;
+        let pid = self.pid.context("app has not been run yet")?;
+        let mut windows = self.connection.wait_for_windows_by_pid(pid)?;
         if windows.len() != 1 {
             bail!("expected 1 window, got {}", windows.len());
         }
@@ -307,14 +319,35 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
 
 pub enum Context {
     Check(CheckContext),
-    Run,
+    Run(Option<App>),
 }
 
 impl Context {
-    fn as_check(&mut self) -> &mut CheckContext {
+    pub(crate) fn as_check(&mut self) -> &mut CheckContext {
         match self {
             Context::Check(ctx) => ctx,
-            Context::Run => panic!("called a check function in a run context"),
+            Context::Run(_) => panic!("called a check function in a run context"),
+        }
+    }
+
+    pub fn run(
+        &mut self,
+        make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static,
+    ) -> anyhow::Result<()> {
+        match self {
+            Context::Check(ctx) => {
+                let child = Command::new(&ctx.exe_path)
+                    .args(["run", &ctx.test_name])
+                    .spawn()?;
+                ctx.pid = Some(child.id());
+                ctx.child = Some(child);
+                Ok(())
+            }
+            Context::Run(app) => {
+                let app = app.take().context("cannot run multiple apps in one test")?;
+                app.run(make_root_widget)?;
+                process::exit(0);
+            }
         }
     }
 

@@ -9,12 +9,12 @@ use {
         collections::BTreeMap,
         env,
         path::{Path, PathBuf},
-        process::{Child, Command},
+        process::Child,
         thread::sleep,
         time::{Duration, Instant},
     },
     strum::IntoEnumIterator,
-    test_cases::{run_test_case, run_test_check, TestCase},
+    test_cases::{run_test_check, TestCase},
     uitest::Connection,
 };
 
@@ -60,10 +60,11 @@ fn test_app(default_scale: bool) -> App {
 fn run_test_check_and_verify(
     test_case: TestCase,
     ctx: &mut Context,
-    child: Child,
 ) -> anyhow::Result<Vec<String>> {
     run_test_check(ctx, test_case)?;
-    verify_test_exit(child)?;
+    if let Some(child) = ctx.as_check().child.take() {
+        verify_test_exit(child)?;
+    }
     Ok(ctx.finish())
 }
 
@@ -118,7 +119,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     match args {
         Args::Test { check, filter } => {
-            let exe = env::args()
+            let exe_path = env::args_os()
                 .next()
                 .context("failed to get current executable path")?;
             let mut conn = Connection::new()?;
@@ -140,23 +141,21 @@ fn main() -> anyhow::Result<()> {
                 }
                 conn.mouse_move_global(1, 1)?;
                 println!("running test: {}", test_name);
-                let child = Command::new(&exe).args(["run", test_name]).spawn()?;
-                let pid = child.id();
                 let mut ctx = Context::Check(CheckContext::new(
                     conn,
+                    test_name.into(),
                     snapshots_dir().join(format!("{:?}", test_case)),
                     mode,
-                    pid,
+                    exe_path.clone(),
                 )?);
-                let fails =
-                    run_test_check_and_verify(test_case, &mut ctx, child).unwrap_or_else(|err| {
-                        let fail = format!("test {:?} failed: {:?}", test_case, err);
-                        println!("{fail}");
-                        vec![fail]
-                    });
+                let fails = run_test_check_and_verify(test_case, &mut ctx).unwrap_or_else(|err| {
+                    let fail = format!("test {:?} failed: {:?}", test_case, err);
+                    println!("{fail}");
+                    vec![fail]
+                });
                 conn = match ctx {
                     Context::Check(ctx) => ctx.connection,
-                    Context::Run => unreachable!(),
+                    Context::Run(_) => unreachable!(),
                 };
                 num_total += 1;
                 if !fails.is_empty() {
@@ -184,7 +183,8 @@ fn main() -> anyhow::Result<()> {
             default_scale,
         } => {
             let app = test_app(default_scale);
-            run_test_case(app, test_case)?;
+            let mut ctx = Context::Run(Some(app));
+            run_test_check(&mut ctx, test_case)?;
         }
         Args::Review => {
             let mut reviewer = Reviewer::new(&snapshots_dir());

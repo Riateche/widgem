@@ -34,6 +34,7 @@ impl Widget for RootWidget {
 }
 
 pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
+    ctx.run(|| RootWidget::new().boxed())?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "window with text input - text Hello world")?;

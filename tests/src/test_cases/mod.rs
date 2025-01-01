@@ -1,6 +1,5 @@
 use {
     crate::context::Context,
-    salvation::{widgets::WidgetExt, App},
     strum::{EnumIter, EnumString, IntoStaticStr},
 };
 
@@ -20,14 +19,6 @@ macro_rules! tests {
         #[allow(non_camel_case_types)]
         pub enum TestCase {
             $($name,)*
-        }
-
-        pub fn run_test_case(app: App, test_case: TestCase) -> anyhow::Result<()> {
-            match test_case {
-                $(
-                    TestCase::$name => app.run(|| $name::RootWidget::new().boxed()),
-                )*
-            }
         }
 
         pub fn run_test_check(ctx: &mut Context, test_case: TestCase) -> anyhow::Result<()> {
