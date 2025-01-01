@@ -92,16 +92,6 @@ pub struct WindowInner {
     pub is_delete_widget_on_close_enabled: bool,
 }
 
-impl WindowInner {
-    fn unset_focus(&mut self) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
-        let old = self.focused_widget.take();
-        self.winit_window.set_ime_allowed(false);
-        self.ime_allowed = false;
-        self.accessible_nodes.set_focus(None);
-        old
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Window(Rc<RefCell<WindowInner>>);
 
@@ -500,9 +490,9 @@ impl Window {
         &self,
         direction: i32,
     ) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
-        let mut this = self.0.borrow_mut();
+        let this = self.0.borrow();
         let focused_widget = this.focused_widget.as_ref()?;
-        let output = if this.focusable_widgets.is_empty() {
+        if this.focusable_widgets.is_empty() {
             None
         } else if let Ok(index) = this.focusable_widgets.binary_search(focused_widget) {
             let new_index =
@@ -511,11 +501,7 @@ impl Window {
         } else {
             warn!("focused widget is unknown");
             this.focusable_widgets.first().cloned()
-        };
-        if output.is_none() {
-            this.unset_focus();
         }
-        output
     }
 
     pub(crate) fn pending_auto_focus(&self) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
@@ -544,7 +530,11 @@ impl Window {
 
     pub(crate) fn unset_focus(&self) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
         let mut this = self.0.borrow_mut();
-        this.unset_focus()
+        let old = this.focused_widget.take();
+        this.winit_window.set_ime_allowed(false);
+        this.ime_allowed = false;
+        this.accessible_nodes.set_focus(None);
+        old
     }
 
     pub(crate) fn set_focus(
@@ -567,24 +557,23 @@ impl Window {
         this.focusable_widgets.binary_search(addr_id).is_ok()
     }
 
-    pub(crate) fn check_focus_after_widget_activity(&self) -> bool {
-        let this = &mut *self.0.borrow_mut();
-        if this.focusable_widgets_changed {
-            this.focusable_widgets_changed = false;
-
-            if let Some(focused_widget) = &this.focused_widget {
-                if this
-                    .focusable_widgets
-                    .binary_search(focused_widget)
-                    .is_err()
-                {
-                    this.unset_focus();
-                }
-            }
-            true
+    pub(crate) fn focused_widget_is_focusable(&self) -> bool {
+        let this = &*self.0.borrow();
+        if let Some(focused_widget) = &this.focused_widget {
+            this.focusable_widgets.binary_search(focused_widget).is_ok()
         } else {
-            false
+            true
         }
+    }
+
+    pub(crate) fn focusable_widgets_changed(&self) -> bool {
+        let this = &*self.0.borrow();
+        this.focusable_widgets_changed
+    }
+
+    pub(crate) fn clear_focusable_widgets_changed(&self) {
+        let this = &mut *self.0.borrow_mut();
+        this.focusable_widgets_changed = false;
     }
 
     pub(crate) fn current_mouse_event_state(&self) -> anyhow::Result<MouseEventState> {

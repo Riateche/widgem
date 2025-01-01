@@ -58,6 +58,12 @@ impl RootWidget {
             scroll_bar.set_value_range(0..=10000);
             Ok(())
         });
+        let on_f = this.callback(|this, _| {
+            let scroll_bar = this.common.widget(this.scroll_bar_id)?;
+            let focusable = scroll_bar.common().is_focusable();
+            scroll_bar.common_mut().set_focusable(!focusable);
+            Ok(())
+        });
         this.common.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("R").unwrap(),
             ShortcutScope::Application,
@@ -67,6 +73,11 @@ impl RootWidget {
             KeyCombinations::from_str_portable("1").unwrap(),
             ShortcutScope::Application,
             on_1,
+        ));
+        this.common.add_shortcut(Shortcut::new(
+            KeyCombinations::from_str_portable("f").unwrap(),
+            ShortcutScope::Application,
+            on_f,
         ));
         this
     }

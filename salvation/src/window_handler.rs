@@ -375,15 +375,29 @@ impl WindowWithWidget<'_> {
             invalidate_size_hint_cache(self.root_widget, &pending_size_hint_invalidations);
             self.layout(pending_size_hint_invalidations);
         }
-        if self.window.check_focus_after_widget_activity() {
+        if self.window.focusable_widgets_changed() {
+            self.window.clear_focusable_widgets_changed();
+            if !self.window.focused_widget_is_focusable() {
+                self.unset_focus();
+            }
             self.check_auto_focus();
         }
         // TODO: may need another turn of `after_widget_activity()`
     }
 
+    fn unset_focus(&mut self) {
+        if let Some(old_widget_id) = self.window.unset_focus() {
+            if let Ok(old_widget) = get_widget_by_id_mut(self.root_widget, old_widget_id.1) {
+                old_widget.dispatch(FocusOutEvent {}.into());
+            }
+        }
+    }
+
     pub fn move_keyboard_focus(&mut self, direction: i32) {
         if let Some(new_addr_id) = self.window.move_keyboard_focus(direction) {
             self.set_focus(new_addr_id, FocusReason::Tab);
+        } else {
+            self.unset_focus();
         }
         self.check_auto_focus();
     }

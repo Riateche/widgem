@@ -131,3 +131,6 @@ Button.scroll_grip_x:active,
 Button.scroll_grip_y:active {
     background: #c8c8c8;
 }
+Button.scroll_grip_x.scroll_bar_focused, Button.scroll_grip_y.scroll_bar_focused {
+    border-color: #26709e;
+}

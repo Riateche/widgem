@@ -5,6 +5,7 @@ use {
 };
 
 pub mod scroll_bar;
+pub mod scroll_bar_keyboard;
 pub mod scroll_bar_mouse_scroll;
 pub mod scroll_bar_pager;
 pub mod scroll_bar_resize;
@@ -47,5 +48,6 @@ tests! {
     scroll_bar_pager,
     scroll_bar_mouse_scroll,
     scroll_bar_resize,
+    scroll_bar_keyboard,
     text_input,
 }

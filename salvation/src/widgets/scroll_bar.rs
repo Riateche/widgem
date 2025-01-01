@@ -2,7 +2,9 @@ use {
     super::{button::Button, Widget, WidgetCommon, WidgetExt},
     crate::{
         callback::Callback,
-        event::{Event, LayoutEvent, MouseScrollEvent},
+        event::{
+            Event, FocusInEvent, FocusOutEvent, KeyboardInputEvent, LayoutEvent, MouseScrollEvent,
+        },
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
@@ -18,7 +20,10 @@ use {
         cmp::{max, min},
         ops::RangeInclusive,
     },
-    winit::event::{ElementState, MouseButton},
+    winit::{
+        event::{ElementState, MouseButton},
+        keyboard::{Key, NamedKey},
+    },
 };
 
 pub struct ScrollBar {
@@ -166,7 +171,7 @@ impl ScrollBar {
         }));
 
         let decrease_callback = this.callback(|this, _| {
-            this.set_value(max(*this.value_range().start(), this.value() - this.step));
+            this.decrease();
             Ok(())
         });
         this.common.children[INDEX_DECREASE]
@@ -176,7 +181,7 @@ impl ScrollBar {
             .on_triggered(decrease_callback);
 
         let increase_callback = this.callback(|this, _| {
-            this.set_value(min(*this.value_range().end(), this.value() + this.step));
+            this.increase();
             Ok(())
         });
         this.common.children[INDEX_INCREASE]
@@ -213,6 +218,14 @@ impl ScrollBar {
 
         this.update_decrease_increase();
         this
+    }
+
+    pub fn increase(&mut self) {
+        self.set_value(min(*self.value_range().end(), self.value() + self.step));
+    }
+
+    pub fn decrease(&mut self) {
+        self.set_value(max(*self.value_range().start(), self.value() - self.step));
     }
 
     pub fn axis(&mut self) -> Axis {
@@ -628,6 +641,73 @@ impl Widget for ScrollBar {
         let new_value = self.value() - max_delta.round() as i32;
         self.set_value(new_value.clamp(*self.value_range.start(), *self.value_range.end()));
         Ok(true)
+    }
+
+    fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
+        if !event.info.state.is_pressed() {
+            return Ok(false);
+        }
+        if let Key::Named(key) = event.info.logical_key {
+            match key {
+                NamedKey::ArrowDown => {
+                    self.increase();
+                    Ok(true)
+                }
+                NamedKey::ArrowLeft => {
+                    self.decrease();
+                    Ok(true)
+                }
+                NamedKey::ArrowRight => {
+                    self.increase();
+                    Ok(true)
+                }
+                NamedKey::ArrowUp => {
+                    self.decrease();
+                    Ok(true)
+                }
+                NamedKey::End => {
+                    self.set_value(*self.value_range().end());
+                    Ok(true)
+                }
+                NamedKey::Home => {
+                    self.set_value(*self.value_range().start());
+                    Ok(true)
+                }
+                NamedKey::PageDown => {
+                    self.page_forward();
+                    Ok(true)
+                }
+                NamedKey::PageUp => {
+                    self.page_back();
+                    Ok(true)
+                }
+                _ => Ok(false),
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn handle_focus_in(&mut self, _event: FocusInEvent) -> Result<()> {
+        self.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .children[INDEX_GRIP_IN_PAGER]
+            .widget
+            .common_mut()
+            .add_class("scroll_bar_focused");
+        Ok(())
+    }
+
+    fn handle_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
+        self.common.children[INDEX_PAGER]
+            .widget
+            .common_mut()
+            .children[INDEX_GRIP_IN_PAGER]
+            .widget
+            .common_mut()
+            .remove_class("scroll_bar_focused");
+        Ok(())
     }
 }
 
