@@ -22,7 +22,7 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     window.resize(300, 5)?;
     ctx.snapshot(&mut window, "min y size")?;
 
-    ctx.connection.key("r")?;
+    ctx.connection().key("r")?;
     ctx.snapshot(&mut window, "changed to vertical scroll bar")?;
 
     window.resize(1, 1)?;

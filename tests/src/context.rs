@@ -7,6 +7,7 @@ use {
     std::{
         collections::BTreeMap,
         fmt::Display,
+        mem,
         path::{Path, PathBuf},
         thread::sleep,
         time::{Duration, Instant},
@@ -24,8 +25,8 @@ pub enum SnapshotMode {
     Check,
 }
 
-pub struct Context<'a> {
-    pub connection: &'a mut Connection,
+pub struct CheckContext {
+    pub connection: Connection,
     pub test_case_dir: PathBuf,
     pub last_snapshot_index: u32,
     pub snapshot_mode: SnapshotMode,
@@ -37,13 +38,13 @@ pub struct Context<'a> {
     pub last_snapshots: BTreeMap<u32, RgbaImage>,
 }
 
-impl<'a> Context<'a> {
+impl CheckContext {
     pub fn new(
-        connection: &'a mut Connection,
+        connection: Connection,
         test_case_dir: PathBuf,
         snapshot_mode: SnapshotMode,
         pid: u32,
-    ) -> anyhow::Result<Context<'a>> {
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             unverified_files: discover_snapshots(&test_case_dir)?,
             connection,
@@ -246,7 +247,7 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    pub fn finish(mut self) -> Vec<String> {
+    pub fn finish(&mut self) -> Vec<String> {
         let extra_snapshots = self
             .unverified_files
             .values()
@@ -273,7 +274,7 @@ impl<'a> Context<'a> {
                 format!("extraneous snapshot files found: {}", extra_snapshots),
             );
         }
-        self.fails
+        mem::take(&mut self.fails)
     }
 
     pub fn wait_for_windows_by_pid(&self) -> anyhow::Result<Vec<Window>> {
@@ -302,4 +303,46 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
         .decode()
         .with_context(|| format!("failed to decode image {:?}", path))?;
     Ok(image.into_rgba8())
+}
+
+pub enum Context {
+    Check(CheckContext),
+    Run,
+}
+
+impl Context {
+    fn as_check(&mut self) -> &mut CheckContext {
+        match self {
+            Context::Check(ctx) => ctx,
+            Context::Run => panic!("called a check function in a run context"),
+        }
+    }
+
+    pub fn set_blinking_expected(&mut self, value: bool) {
+        self.as_check().set_blinking_expected(value);
+    }
+
+    pub fn set_changing_expected(&mut self, value: bool) {
+        self.as_check().set_changing_expected(value);
+    }
+
+    pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
+        self.as_check().snapshot(window, text)
+    }
+
+    pub fn finish(&mut self) -> Vec<String> {
+        self.as_check().finish()
+    }
+
+    pub fn wait_for_windows_by_pid(&mut self) -> anyhow::Result<Vec<Window>> {
+        self.as_check().wait_for_windows_by_pid()
+    }
+
+    pub fn wait_for_window_by_pid(&mut self) -> anyhow::Result<Window> {
+        self.as_check().wait_for_window_by_pid()
+    }
+
+    pub fn connection(&mut self) -> &mut Connection {
+        &mut self.as_check().connection
+    }
 }

@@ -1,7 +1,7 @@
 use {
     anyhow::{bail, Context as _},
     clap::Parser,
-    context::{Context, SnapshotMode},
+    context::{CheckContext, Context, SnapshotMode},
     fs_err::read_dir,
     review::{ReviewWidget, Reviewer},
     salvation::{widgets::WidgetExt, App},
@@ -59,18 +59,10 @@ fn test_app(default_scale: bool) -> App {
 
 fn run_test_check_and_verify(
     test_case: TestCase,
-    connection: &mut Connection,
-    mode: SnapshotMode,
-    pid: u32,
+    ctx: &mut Context,
     child: Child,
 ) -> anyhow::Result<Vec<String>> {
-    let mut ctx = Context::new(
-        connection,
-        snapshots_dir().join(format!("{:?}", test_case)),
-        mode,
-        pid,
-    )?;
-    run_test_check(&mut ctx, test_case)?;
+    run_test_check(ctx, test_case)?;
     verify_test_exit(child)?;
     Ok(ctx.finish())
 }
@@ -150,12 +142,22 @@ fn main() -> anyhow::Result<()> {
                 println!("running test: {}", test_name);
                 let child = Command::new(&exe).args(["run", test_name]).spawn()?;
                 let pid = child.id();
-                let fails = run_test_check_and_verify(test_case, &mut conn, mode, pid, child)
-                    .unwrap_or_else(|err| {
+                let mut ctx = Context::Check(CheckContext::new(
+                    conn,
+                    snapshots_dir().join(format!("{:?}", test_case)),
+                    mode,
+                    pid,
+                )?);
+                let fails =
+                    run_test_check_and_verify(test_case, &mut ctx, child).unwrap_or_else(|err| {
                         let fail = format!("test {:?} failed: {:?}", test_case, err);
                         println!("{fail}");
                         vec![fail]
                     });
+                conn = match ctx {
+                    Context::Check(ctx) => ctx.connection,
+                    Context::Run => unreachable!(),
+                };
                 num_total += 1;
                 if !fails.is_empty() {
                     num_failed += 1;

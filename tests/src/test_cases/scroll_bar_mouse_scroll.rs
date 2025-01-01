@@ -10,28 +10,28 @@ pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
     window.mouse_move(100, 20)?;
     ctx.snapshot(&mut window, "highlighted pager")?;
 
-    ctx.connection.mouse_scroll_down()?;
+    ctx.connection().mouse_scroll_down()?;
     ctx.snapshot(&mut window, "scrolled down")?;
 
-    ctx.connection.mouse_scroll_down()?;
+    ctx.connection().mouse_scroll_down()?;
     ctx.snapshot(&mut window, "scrolled down")?;
 
-    ctx.connection.mouse_scroll_up()?;
+    ctx.connection().mouse_scroll_up()?;
     ctx.snapshot(&mut window, "scrolled up")?;
 
-    ctx.connection.mouse_scroll_up()?;
+    ctx.connection().mouse_scroll_up()?;
     ctx.snapshot(&mut window, "scrolled up")?;
 
-    ctx.connection.mouse_scroll_right()?;
+    ctx.connection().mouse_scroll_right()?;
     ctx.snapshot(&mut window, "scrolled down")?;
 
-    ctx.connection.mouse_scroll_right()?;
+    ctx.connection().mouse_scroll_right()?;
     ctx.snapshot(&mut window, "scrolled down")?;
 
-    ctx.connection.mouse_scroll_left()?;
+    ctx.connection().mouse_scroll_left()?;
     ctx.snapshot(&mut window, "scrolled up")?;
 
-    ctx.connection.mouse_scroll_left()?;
+    ctx.connection().mouse_scroll_left()?;
     ctx.snapshot(&mut window, "scrolled up")?;
 
     window.close()?;
