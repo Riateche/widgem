@@ -1,11 +1,12 @@
 [package]
-name = "salvation_tests"
+name = "salvation_test_kit"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 salvation = { path = "../salvation" }
-salvation_test_kit = { path = "../test_kit" }
+salvation_macros = { path = "../macros" }
+uitest = { path = "../uitest" }
 
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 clap = { version = "4.5.16", features = ["derive"] }
@@ -14,3 +15,5 @@ image = "0.25.2"
 itertools = "0.13.0"
 env_logger = "0.10.0"
 log = "0.4.20"
+strum = { version = "0.26.3", features = ["derive"] }
+ctor = "0.2.9"

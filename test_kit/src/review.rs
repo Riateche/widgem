@@ -1,5 +1,7 @@
 use {
-    crate::{discover_snapshots, test_cases::TestCase, SingleSnapshotFile, SingleSnapshotFiles},
+    crate::{
+        discover_snapshots, test_snapshots_dir, Registry, SingleSnapshotFile, SingleSnapshotFiles,
+    },
     anyhow::Context,
     log::warn,
     salvation::{
@@ -330,24 +332,25 @@ impl Widget for ReviewWidget {
 pub struct Reviewer {
     test_cases_dir: PathBuf,
     mode: Mode,
-    test_cases: Vec<TestCase>,
+    test_cases: Vec<String>,
     current_test_case_index: Option<usize>,
     all_snapshots: Vec<BTreeMap<u32, SingleSnapshotFiles>>,
     current_snapshot_index: Option<u32>,
 }
 
 impl Reviewer {
-    pub fn new(test_cases_dir: &Path) -> Self {
-        let test_cases: Vec<_> = TestCase::iter().collect();
+    pub fn new(registry: &Registry, test_cases_dir: &Path) -> Self {
+        let test_cases: Vec<_> = registry.tests().map(|s| s.to_owned()).collect();
         let mut all_snapshots = Vec::new();
-        for &test_case in &test_cases {
+        for test_case in &test_cases {
             all_snapshots.push(
-                discover_snapshots(&test_cases_dir.join(format!("{:?}", test_case)))
-                    .unwrap_or_else(|err| {
+                discover_snapshots(&test_snapshots_dir(test_cases_dir, test_case)).unwrap_or_else(
+                    |err| {
                         // TODO: ui message
                         warn!("failed to fetch snapshots: {:?}", err);
                         Default::default()
-                    }),
+                    },
+                ),
             );
         }
         let mut this = Self {
@@ -362,7 +365,7 @@ impl Reviewer {
         this
     }
 
-    pub fn test_cases(&self) -> &[TestCase] {
+    pub fn test_cases(&self) -> &[String] {
         &self.test_cases
     }
 
@@ -443,14 +446,14 @@ impl Reviewer {
         true
     }
 
-    fn current_test_case(&self) -> anyhow::Result<TestCase> {
+    fn current_test_case(&self) -> anyhow::Result<&str> {
         self.test_cases
             .get(
                 self.current_test_case_index
                     .context("no current test case")?,
             )
             .context("test case not found")
-            .copied()
+            .map(|s| s.as_str())
     }
 
     fn previous_snapshot(&self) -> anyhow::Result<&SingleSnapshotFiles> {
@@ -492,41 +495,38 @@ impl Reviewer {
     }
 
     fn load_new(&self) -> anyhow::Result<Pixmap> {
-        let path = self.test_cases_dir.join(format!(
-            "{:?}/{}",
-            self.current_test_case()?,
-            self.current_snapshot()?
+        let path = test_snapshots_dir(&self.test_cases_dir, self.current_test_case()?).join(
+            &self
+                .current_snapshot()?
                 .unconfirmed
                 .as_ref()
                 .context("no unconfirmed file")?
-                .full_name
-        ));
+                .full_name,
+        );
         Ok(Pixmap::load_png(path)?)
     }
 
     fn load_confirmed(&self) -> anyhow::Result<Pixmap> {
-        let path = self.test_cases_dir.join(format!(
-            "{:?}/{}",
-            self.current_test_case()?,
-            self.current_snapshot()?
+        let path = test_snapshots_dir(&self.test_cases_dir, self.current_test_case()?).join(
+            &self
+                .current_snapshot()?
                 .confirmed
                 .as_ref()
                 .context("no unconfirmed file")?
-                .full_name
-        ));
+                .full_name,
+        );
         Ok(Pixmap::load_png(path)?)
     }
 
     fn load_previous_confirmed(&self) -> anyhow::Result<Pixmap> {
-        let path = self.test_cases_dir.join(format!(
-            "{:?}/{}",
-            self.current_test_case()?,
-            self.previous_snapshot()?
+        let path = test_snapshots_dir(&self.test_cases_dir, self.current_test_case()?).join(
+            &self
+                .previous_snapshot()?
                 .confirmed
                 .as_ref()
                 .context("no unconfirmed file")?
-                .full_name
-        ));
+                .full_name,
+        );
         Ok(Pixmap::load_png(path)?)
     }
 
@@ -652,7 +652,7 @@ impl Reviewer {
 
     pub fn approve(&mut self) -> anyhow::Result<()> {
         let test_case = self.current_test_case()?;
-        let test_case_dir = self.test_cases_dir.join(format!("{:?}", test_case));
+        let test_case_dir = test_snapshots_dir(&self.test_cases_dir, test_case);
         let current_files = self.current_snapshot_mut()?;
         let unconfirmed = current_files
             .unconfirmed

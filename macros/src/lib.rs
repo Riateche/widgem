@@ -2,8 +2,8 @@ use {
     proc_macro::TokenStream,
     quote::quote,
     syn::{
-        parse_macro_input, parse_quote, spanned::Spanned, FnArg, Ident, ImplItem, ItemImpl, Pat,
-        ReturnType, Visibility,
+        parse_macro_input, parse_quote, spanned::Spanned, FnArg, Ident, ImplItem, ItemFn, ItemImpl,
+        Pat, ReturnType, Visibility,
     },
 };
 
@@ -74,4 +74,29 @@ fn is_ref_mut_self(arg: &FnArg) -> bool {
         return false;
     };
     arg.reference.is_some() && arg.mutability.is_some()
+}
+
+#[proc_macro_attribute]
+pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let func = parse_macro_input!(item as ItemFn);
+    let ident = &func.sig.ident;
+    let ident_str = ident.to_string();
+    let register_ident = Ident::new(&format!("__register_{}", ident), ident.span());
+
+    let q = quote! {
+        #[::salvation_test_kit::ctor]
+        fn #register_ident() {
+            ::salvation_test_kit::add_test(
+                &format!(
+                    "{}::{}",
+                    module_path!().splitn(2, "::").nth(1).unwrap(),
+                    #ident_str,
+                ),
+                #ident,
+            );
+        }
+
+        #func
+    };
+    q.into()
 }

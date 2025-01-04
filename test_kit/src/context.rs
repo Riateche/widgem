@@ -1,5 +1,5 @@
 use {
-    crate::{discover_snapshots, repo_dir, SingleSnapshotFiles},
+    crate::{discover_snapshots, SingleSnapshotFiles},
     anyhow::{bail, Context as _},
     fs_err::create_dir,
     image::{ImageReader, RgbaImage},
@@ -143,13 +143,7 @@ impl CheckContext {
         } else {
             record_fail(
                 &mut self.fails,
-                format!(
-                    "expected blinking at {:?}",
-                    self.test_case_dir
-                        .join(file_name)
-                        .strip_prefix(repo_dir())
-                        .expect("failed to strip path prefix")
-                ),
+                format!("expected blinking at {:?}", file_name),
             );
             assert_eq!(images.len(), 1);
             Ok(images.pop().unwrap())
@@ -186,10 +180,7 @@ impl CheckContext {
                     &mut self.fails,
                     format!(
                         "unexpected unconfirmed snapshot: {:?}",
-                        self.test_case_dir
-                            .join(&unconfirmed.full_name)
-                            .strip_prefix(repo_dir())
-                            .expect("failed to strip path prefix"),
+                        &unconfirmed.full_name,
                     ),
                 );
             }
@@ -203,12 +194,7 @@ impl CheckContext {
                     .with_context(|| format!("failed to save image {:?}", &new_path))?;
                 record_fail(
                     &mut self.fails,
-                    format!(
-                        "snapshot mismatch at {:?}",
-                        new_path
-                            .strip_prefix(repo_dir())
-                            .expect("failed to strip path prefix")
-                    ),
+                    format!("snapshot mismatch at {:?}", unconfirmed_snapshot_name),
                 );
             } else if confirmed.full_name != confirmed_snapshot_name {
                 fs_err::rename(
@@ -220,14 +206,7 @@ impl CheckContext {
                         &mut self.fails,
                         format!(
                             "confirmed snapshot name mismatch: expected {:?}, got {:?}",
-                            self.test_case_dir
-                                .join(confirmed_snapshot_name)
-                                .strip_prefix(repo_dir())
-                                .expect("failed to strip path prefix"),
-                            self.test_case_dir
-                                .join(&confirmed.full_name)
-                                .strip_prefix(repo_dir())
-                                .expect("failed to strip path prefix"),
+                            confirmed_snapshot_name, &confirmed.full_name,
                         ),
                     );
                 }
@@ -238,19 +217,8 @@ impl CheckContext {
                 .save(&new_path)
                 .with_context(|| format!("failed to save image {:?}", &new_path))?;
             let fail = match self.snapshot_mode {
-                SnapshotMode::Update => format!(
-                    "new snapshot at {:?}",
-                    new_path
-                        .strip_prefix(repo_dir())
-                        .expect("failed to strip path prefix")
-                ),
-                SnapshotMode::Check => format!(
-                    "missing snapshot at {:?}",
-                    self.test_case_dir
-                        .join(confirmed_snapshot_name)
-                        .strip_prefix(repo_dir())
-                        .expect("failed to strip path prefix")
-                ),
+                SnapshotMode::Update => format!("new snapshot at {:?}", unconfirmed_snapshot_name),
+                SnapshotMode::Check => format!("missing snapshot at {:?}", confirmed_snapshot_name),
             };
             record_fail(&mut self.fails, fail);
         }
@@ -268,15 +236,7 @@ impl CheckContext {
                     .into_iter()
                     .chain(&files.unconfirmed)
             })
-            .map(|file| {
-                format!(
-                    "{:?}",
-                    self.test_case_dir
-                        .join(&file.full_name)
-                        .strip_prefix(repo_dir())
-                        .expect("failed to strip path prefix")
-                )
-            })
+            .map(|file| format!("{:?}", &file.full_name))
             .join(", ");
         if !extra_snapshots.is_empty() {
             record_fail(

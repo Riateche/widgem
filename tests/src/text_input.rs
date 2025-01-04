@@ -1,5 +1,4 @@
 use {
-    crate::context::Context,
     salvation::{
         impl_widget_common,
         widgets::{
@@ -7,6 +6,7 @@ use {
         },
         WindowAttributes,
     },
+    salvation_test_kit::context::Context,
 };
 
 pub struct RootWidget {
@@ -33,7 +33,8 @@ impl Widget for RootWidget {
     impl_widget_common!();
 }
 
-pub fn check(ctx: &mut Context) -> anyhow::Result<()> {
+#[salvation_test_kit::test]
+pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|| RootWidget::new().boxed())?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;

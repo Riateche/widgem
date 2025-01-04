@@ -10,8 +10,9 @@ COPY salvation/Cargo.toml salvation/Cargo.toml
 COPY macros/Cargo.toml macros/Cargo.toml
 COPY tests/Cargo.toml tests/Cargo.toml
 COPY uitest/Cargo.toml uitest/Cargo.toml
-RUN mkdir macros/src uitest/src salvation/src tests/src && \
-    touch macros/src/lib.rs uitest/src/lib.rs salvation/src/lib.rs tests/src/main.rs
+COPY test_kit/Cargo.toml test_kit/Cargo.toml
+RUN mkdir macros/src uitest/src test_kit/src salvation/src tests/src && \
+    touch macros/src/lib.rs uitest/src/lib.rs test_kit/src/lib.rs salvation/src/lib.rs tests/src/main.rs
 RUN cargo chef prepare
 
 FROM chef AS builder
@@ -32,7 +33,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY salvation salvation
 COPY macros macros
 COPY uitest uitest
-COPY uitest uitest
+COPY test_kit test_kit
 COPY tests/src tests/src
 COPY tests/Cargo.toml tests/
 RUN cargo build --package salvation_tests --locked $(cat cargo_args)
