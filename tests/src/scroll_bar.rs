@@ -272,7 +272,6 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-
 #[salvation_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|| RootWidget::new().boxed())?;
