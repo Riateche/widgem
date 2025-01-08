@@ -17,7 +17,7 @@ use {
         collections::BTreeMap,
         env,
         path::{Path, PathBuf},
-        process::Child,
+        process::{self, Child},
         sync::{Mutex, OnceLock},
         thread::sleep,
         time::{Duration, Instant},
@@ -41,6 +41,10 @@ impl Registry {
 
     pub fn tests(&self) -> impl Iterator<Item = &str> {
         self.tests.keys().map(|s| s.as_str())
+    }
+
+    pub fn has_test(&self, name: &str) -> bool {
+        self.tests.contains_key(name)
     }
 
     pub fn add_test(
@@ -222,6 +226,13 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             test_case,
             default_scale,
         } => {
+            if !registry.has_test(&test_case) {
+                println!("Test not found! Available tests:");
+                for name in registry.tests() {
+                    println!("    {name}");
+                }
+                process::exit(1);
+            }
             let app = test_app(default_scale);
             let mut ctx = Context::Run(Some(app));
             registry.run_test(&test_case, &mut ctx)?;

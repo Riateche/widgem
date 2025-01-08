@@ -2,3 +2,6 @@
 
 members = ["salvation", "macros", "tests", "uitest", "test_kit"]
 resolver = "2"
+
+[patch.crates-io]
+winit = { path = "/Users/ri/p/winit" }

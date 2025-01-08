@@ -1,3 +1,4 @@
+mod menu;
 mod scroll_bar;
 mod text_input;
 

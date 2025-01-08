@@ -43,6 +43,7 @@ pub mod button;
 pub mod column;
 pub mod image;
 pub mod label;
+pub mod menu;
 pub mod padding_box;
 pub mod row;
 pub mod scroll_area;
