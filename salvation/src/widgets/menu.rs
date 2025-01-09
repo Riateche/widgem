@@ -21,6 +21,12 @@ impl Menu {
 
             attrs = attrs.with_x11_window_type(vec![WindowType::Menu]);
         }
+        #[cfg(windows)]
+        {
+            use winit::platform::windows::WindowAttributesExtWindows;
+
+            attrs = attrs.with_skip_taskbar(true);
+        }
         let content =
             Label::new("menu content 1\nmenu content 2\nmenu content 3").with_window(attrs);
         common.add_child(content.boxed(), LayoutItemOptions::default());
