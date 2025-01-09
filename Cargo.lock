@@ -1169,6 +1169,7 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dpi"
 version = "0.1.1"
+source = "git+https://github.com/Riateche/winit.git?branch=windowlevels#8213865c8d53b343c29851e278d964ef7b167d7e"
 
 [[package]]
 name = "drm"
@@ -4611,6 +4612,7 @@ checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
 [[package]]
 name = "winit"
 version = "0.30.7"
+source = "git+https://github.com/Riateche/winit.git?branch=windowlevels#8213865c8d53b343c29851e278d964ef7b167d7e"
 dependencies = [
  "ahash 0.8.11",
  "android-activity",
