@@ -77,7 +77,7 @@ impl AccessibleNodes {
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.remove(&child);
         if let Entry::Occupied(mut entry) = self.direct_children.entry(parent) {
-            entry.get_mut().retain(|(_, id)| *id == child);
+            entry.get_mut().retain(|(_, id)| *id != child);
             if entry.get_mut().is_empty() {
                 entry.remove();
             }
