@@ -11,9 +11,16 @@ pub struct Menu {
 impl Menu {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new::<Self>();
-        let attrs = WindowAttributes::default()
+        #[allow(unused_mut)]
+        let mut attrs = WindowAttributes::default()
             .with_decorations(false)
             .with_window_level(WindowLevel::Floating);
+        #[cfg(all(unix, not(target_vendor = "apple")))]
+        {
+            use winit::platform::x11::{WindowAttributesExtX11, WindowType};
+
+            attrs = attrs.with_x11_window_type(vec![WindowType::Menu]);
+        }
         let content =
             Label::new("menu content 1\nmenu content 2\nmenu content 3").with_window(attrs);
         common.add_child(content.boxed(), LayoutItemOptions::default());
