@@ -953,6 +953,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmic-text"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c578f2b9abb4d5f3fbb12aba4008084d435dc6a8425c195cfe0b3594bfea0c25"
+dependencies = [
+ "bitflags 2.6.0",
+ "fontdb",
+ "libm",
+ "log",
+ "rangemap",
+ "rustc-hash 1.1.0",
+ "rustybuzz",
+ "self_cell",
+ "swash",
+ "sys-locale",
+ "ttf-parser 0.20.0",
+ "unicode-bidi",
+ "unicode-linebreak",
+ "unicode-script",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3108,6 +3131,7 @@ dependencies = [
  "arboard",
  "bitflags 2.6.0",
  "bytemuck",
+ "cosmic-text",
  "derivative",
  "derive_more",
  "downcast-rs",
@@ -3123,7 +3147,6 @@ dependencies = [
  "priority-queue",
  "range-ext",
  "resvg",
- "salvation-cosmic-text",
  "salvation_macros",
  "scoped-tls",
  "serde",
@@ -3138,30 +3161,6 @@ dependencies = [
  "unicode-segmentation",
  "usvg",
  "winit",
-]
-
-[[package]]
-name = "salvation-cosmic-text"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a635055c551e31af542f64412302d926f09833e0522bb150ee09558e83cc265"
-dependencies = [
- "bitflags 2.6.0",
- "fontdb",
- "itertools 0.11.0",
- "libm",
- "log",
- "rangemap",
- "rustc-hash 1.1.0",
- "rustybuzz",
- "self_cell",
- "swash",
- "sys-locale",
- "ttf-parser 0.20.0",
- "unicode-bidi",
- "unicode-linebreak",
- "unicode-script",
- "unicode-segmentation",
 ]
 
 [[package]]

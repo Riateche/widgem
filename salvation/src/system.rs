@@ -11,8 +11,8 @@ use {
     },
     anyhow::Result,
     arboard::Clipboard,
+    cosmic_text::{FontSystem, SwashCache},
     log::warn,
-    salvation_cosmic_text::{FontSystem, SwashCache},
     std::{
         cell::RefCell,
         collections::HashMap,

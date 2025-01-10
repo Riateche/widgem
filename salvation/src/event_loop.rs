@@ -10,9 +10,9 @@ use {
         window::WindowRequest,
     },
     arboard::Clipboard,
+    cosmic_text::{fontdb, FontSystem, SwashCache},
     derive_more::From,
     log::warn,
-    salvation_cosmic_text::{fontdb, FontSystem, SwashCache},
     scoped_tls::scoped_thread_local,
     std::{
         any::Any,

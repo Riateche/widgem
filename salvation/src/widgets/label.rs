@@ -5,7 +5,7 @@ use {
         types::Point,
     },
     anyhow::Result,
-    salvation_cosmic_text::Attrs,
+    cosmic_text::Attrs,
     std::fmt::Display,
 };
 

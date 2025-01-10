@@ -2,17 +2,23 @@ use {
     crate::{
         event::FocusReason,
         system::with_system,
+        text::{
+            action::Action,
+            edit::Edit,
+            editor::{Editor, EditorDrawStyle},
+            text_without_preedit, Metadata,
+        },
         types::{Point, Size},
         window::Window,
     },
     accesskit::{NodeId, TextDirection, TextPosition, TextSelection},
+    cosmic_text::{
+        Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Shaping,
+        Wrap,
+    },
     line_straddler::{GlyphStyle, LineGenerator, LineType},
     log::warn,
     range_ext::intersect::Intersect,
-    salvation_cosmic_text::{
-        Action, Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor,
-        Edit, Editor, Shaping, Wrap,
-    },
     std::{
         cmp::{max, min},
         ops::Range,
@@ -67,7 +73,7 @@ impl TextEditor {
         e
     }
 
-    pub fn set_font_metrics(&mut self, metrics: salvation_cosmic_text::Metrics) {
+    pub fn set_font_metrics(&mut self, metrics: cosmic_text::Metrics) {
         with_system(|system| {
             self.editor
                 .with_buffer_mut(|buffer| buffer.set_metrics(&mut system.font_system, metrics));
@@ -96,8 +102,7 @@ impl TextEditor {
     }
 
     pub fn text(&self) -> String {
-        self.editor
-            .with_buffer(|buffer| buffer.text_without_preedit())
+        self.editor.with_buffer(text_without_preedit)
     }
 
     pub fn acccessible_line(&mut self) -> AccessibleLine {
@@ -319,10 +324,10 @@ impl TextEditor {
 
     pub fn pixmap(&mut self) -> &Pixmap {
         if self.pixmap.is_none() || self.needs_redraw() {
-            let buffer_size = self.editor.with_buffer(|buffer| buffer.size());
+            let (buffer_width, buffer_height) = self.editor.with_buffer(|buffer| buffer.size());
             let size = Size {
-                x: max(1, buffer_size.0.ceil() as i32),
-                y: max(1, buffer_size.1.ceil() as i32),
+                x: max(1, buffer_width.ceil() as i32),
+                y: max(1, buffer_height.ceil() as i32),
             };
             let mut pixmap =
                 Pixmap::new(size.x as u32, size.y as u32).expect("failed to create pixmap");
@@ -330,10 +335,12 @@ impl TextEditor {
                 self.editor.draw(
                     &mut system.font_system,
                     &mut system.swash_cache,
-                    convert_color(self.text_color),
-                    convert_color(self.text_color), // TODO: cursor color
-                    convert_color(self.selected_text_background),
-                    convert_color(self.selected_text_color),
+                    &EditorDrawStyle {
+                        text_color: convert_color(self.text_color),
+                        cursor_color: convert_color(self.text_color), // TODO: cursor color,
+                        selection_color: convert_color(self.selected_text_background),
+                        selected_text_color: convert_color(self.selected_text_color),
+                    },
                     |x, y, w, h, c| {
                         let color = Color::from_rgba8(c.r(), c.g(), c.b(), c.a());
                         let paint = Paint {
@@ -363,7 +370,7 @@ impl TextEditor {
                     let line_y = run.line_top + underline_space / 2.0;
                     let line_y = (line_y + stroke_width / 2.0).round() - stroke_width / 2.0;
                     for glyph in run.glyphs {
-                        if glyph.metadata & 0x1 != 0 {
+                        if Metadata(glyph.metadata).is_preedit() {
                             let color = glyph.color_opt.unwrap_or(convert_color(self.text_color));
                             let glyph = line_straddler::Glyph {
                                 line_y,
@@ -426,20 +433,10 @@ impl TextEditor {
 
     // TODO: remove
     pub fn action(&mut self, mut action: Action) {
-        match &mut action {
-            Action::SetPreedit { attrs, .. } => {
-                if attrs.is_none() {
-                    let mut new_attrs = self.attrs_at_cursor();
-                    new_attrs.metadata = 1;
-                    *attrs = Some(new_attrs);
-                }
+        if let Action::Drag { .. } = &mut action {
+            if self.forbid_mouse_interaction {
+                return;
             }
-            Action::Drag { .. } => {
-                if self.forbid_mouse_interaction {
-                    return;
-                }
-            }
-            _ => (),
         }
         with_system(|system| self.editor.action(&mut system.font_system, action));
         self.adjust_size();
@@ -456,7 +453,7 @@ impl TextEditor {
     }
     // TODO: update API
     pub fn select_opt(&self) -> Option<Cursor> {
-        if let salvation_cosmic_text::Selection::Normal(value) = self.editor.selection() {
+        if let cosmic_text::Selection::Normal(value) = self.editor.selection() {
             Some(value)
         } else {
             None
@@ -464,9 +461,9 @@ impl TextEditor {
     }
     pub fn set_select_opt(&mut self, select_opt: Option<Cursor>) {
         self.editor.set_selection(if let Some(cursor) = select_opt {
-            salvation_cosmic_text::Selection::Normal(cursor)
+            cosmic_text::Selection::Normal(cursor)
         } else {
-            salvation_cosmic_text::Selection::None
+            cosmic_text::Selection::None
         })
     }
 
@@ -539,7 +536,7 @@ impl TextEditor {
         self.forbid_mouse_interaction = false;
     }
 
-    fn attrs_at_cursor(&self) -> AttrsOwned {
+    pub fn attrs_at_cursor(&self) -> AttrsOwned {
         // TODO: use lines.get() everywhere to be safe
         self.editor.with_buffer(|buffer| {
             let line = &buffer.lines[self.editor.cursor().line];
@@ -608,7 +605,7 @@ fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Si
     }
 }
 
-fn convert_color(color: Color) -> salvation_cosmic_text::Color {
+fn convert_color(color: Color) -> cosmic_text::Color {
     let c = color.to_color_u8();
-    salvation_cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
+    cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
 }

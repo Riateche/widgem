@@ -82,7 +82,7 @@ pub struct ComputedStyle {
     pub preferred_padding_with_border: Point,
     pub min_width: PhysicalPixels,
     pub preferred_width: PhysicalPixels,
-    pub font_metrics: salvation_cosmic_text::Metrics,
+    pub font_metrics: cosmic_text::Metrics,
     pub variants: HashMap<TextInputState, ComputedVariantStyle>,
 }
 

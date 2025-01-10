@@ -18,7 +18,7 @@ use {
     },
     accesskit::{Action, DefaultActionVerb, NodeBuilder, Role},
     anyhow::Result,
-    salvation_cosmic_text::Attrs,
+    cosmic_text::Attrs,
     salvation_macros::impl_with,
     std::{cmp::max, fmt::Display, rc::Rc},
     tiny_skia::Pixmap,

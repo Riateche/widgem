@@ -13,6 +13,7 @@ use {
         shortcut::standard_shortcuts,
         style::text_input::{ComputedVariantStyle, TextInputState},
         system::{add_interval, report_error, send_window_request, with_system, ReportError},
+        text::action::Action,
         text_editor::TextEditor,
         timer::TimerId,
         types::{Point, Rect, Size},
@@ -20,8 +21,8 @@ use {
     },
     accesskit::{ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role},
     anyhow::Result,
+    cosmic_text::{Attrs, Motion, Wrap},
     log::warn,
-    salvation_cosmic_text::{Action, Attrs, Motion, Wrap},
     std::{
         cmp::{max, min},
         fmt::Display,
@@ -398,12 +399,12 @@ impl Widget for TextInput {
         let shortcuts = standard_shortcuts();
         if shortcuts.move_to_next_char.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::Next,
+                motion: Motion::Next.into(),
                 select: false,
             });
         } else if shortcuts.move_to_previous_char.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::Previous,
+                motion: Motion::Previous.into(),
                 select: false,
             });
         } else if shortcuts.delete.matches(&event) {
@@ -432,52 +433,52 @@ impl Widget for TextInput {
             self.editor.action(Action::Escape);
         } else if shortcuts.move_to_next_word.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::NextWord,
+                motion: Motion::NextWord.into(),
                 select: false,
             });
         } else if shortcuts.move_to_previous_word.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::PreviousWord,
+                motion: Motion::PreviousWord.into(),
                 select: false,
             });
         } else if shortcuts.move_to_start_of_line.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::Home,
+                motion: Motion::Home.into(),
                 select: false,
             });
         } else if shortcuts.move_to_end_of_line.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::End,
+                motion: Motion::End.into(),
                 select: false,
             });
         } else if shortcuts.select_next_char.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::Next,
+                motion: Motion::Next.into(),
                 select: true,
             });
         } else if shortcuts.select_previous_char.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::Previous,
+                motion: Motion::Previous.into(),
                 select: true,
             });
         } else if shortcuts.select_next_word.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::NextWord,
+                motion: Motion::NextWord.into(),
                 select: true,
             });
         } else if shortcuts.select_previous_word.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::PreviousWord,
+                motion: Motion::PreviousWord.into(),
                 select: true,
             });
         } else if shortcuts.select_start_of_line.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::Home,
+                motion: Motion::Home.into(),
                 select: true,
             });
         } else if shortcuts.select_end_of_line.matches(&event) {
             self.editor.action(Action::Motion {
-                motion: Motion::End,
+                motion: Motion::End.into(),
                 select: true,
             });
         } else if shortcuts.delete_start_of_word.matches(&event) {

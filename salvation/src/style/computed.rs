@@ -41,7 +41,7 @@ pub struct ComputedStyleInner {
     pub background: Color,
     pub grid: grid::ComputedStyle,
     pub font_style: FontStyle,
-    pub font_metrics: salvation_cosmic_text::Metrics,
+    pub font_metrics: cosmic_text::Metrics,
     pub text_input: text_input::ComputedStyle,
     pub scroll_bar: scroll_bar::ComputedStyle,
     pub image: image::ComputedStyle,
@@ -60,7 +60,7 @@ pub struct CommonComputedStyle {
     pub border: ComputedBorderStyle,
     pub background: Option<ComputedBackground>,
     pub text_color: tiny_skia::Color,
-    pub font_metrics: salvation_cosmic_text::Metrics,
+    pub font_metrics: cosmic_text::Metrics,
 }
 
 impl Default for CommonComputedStyle {
