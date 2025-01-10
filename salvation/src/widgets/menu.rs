@@ -14,7 +14,8 @@ impl Menu {
         #[allow(unused_mut)]
         let mut attrs = WindowAttributes::default()
             .with_decorations(false)
-            .with_window_level(WindowLevel::Floating);
+            .with_window_level(WindowLevel::AlwaysOnTop);
+
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
             use winit::platform::x11::{WindowAttributesExtX11, WindowType};
