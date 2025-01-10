@@ -40,5 +40,7 @@ impl Widget for RootWidget {
 #[salvation_test_kit::test]
 fn menu(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|| RootWidget::new().boxed())?;
+    let window = ctx.wait_for_window_by_pid()?;
+    window.close()?;
     Ok(())
 }

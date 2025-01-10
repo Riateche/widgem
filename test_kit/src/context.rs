@@ -1,7 +1,7 @@
 use {
     crate::{discover_snapshots, SingleSnapshotFiles},
     anyhow::{bail, Context as _},
-    fs_err::create_dir,
+    fs_err::create_dir_all,
     image::{ImageReader, RgbaImage},
     itertools::Itertools,
     salvation::{widgets::Widget, App},
@@ -152,7 +152,7 @@ impl CheckContext {
 
     pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
         if !self.test_case_dir.try_exists()? {
-            create_dir(&self.test_case_dir)?;
+            create_dir_all(&self.test_case_dir)?;
         }
         self.last_snapshot_index += 1;
         let index = self.last_snapshot_index;
