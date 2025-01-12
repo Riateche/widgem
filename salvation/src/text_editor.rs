@@ -3,9 +3,8 @@ use {
         accessible,
         draw::DrawEvent,
         event::{
-            AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
-            KeyboardInputEvent, MouseInputEvent, MouseMoveEvent, WidgetScopeChangeEvent,
-            WindowFocusChangeEvent,
+            AccessibleActionEvent, FocusReason, ImeEvent, KeyboardInputEvent, MouseInputEvent,
+            MouseMoveEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
         },
         impl_widget_common,
         shortcut::standard_shortcuts,
@@ -18,7 +17,7 @@ use {
         },
         timer::TimerId,
         types::{Point, Rect, Size},
-        widgets::{Widget, WidgetCommon, WidgetExt},
+        widgets::{RawWidgetId, Widget, WidgetCommon, WidgetExt},
         window::SetFocusRequest,
     },
     accesskit::{
@@ -61,6 +60,8 @@ pub struct Text {
     is_multiline: bool,
     is_editable: bool,
     is_cursor_hidden: bool,
+    is_host_focused: bool,
+    host_id: Option<RawWidgetId>,
     forbid_mouse_interaction: bool,
     blink_timer: Option<TimerId>,
     selected_text: String,
@@ -98,6 +99,8 @@ impl Default for Text {
             is_multiline: true,
             is_editable: false,
             is_cursor_hidden: false,
+            is_host_focused: false,
+            host_id: None,
             forbid_mouse_interaction: false,
             blink_timer: None,
             selected_text: String::new(),
@@ -115,13 +118,16 @@ impl Text {
 
     pub fn set_editable(&mut self, editable: bool) {
         self.is_editable = editable;
-        self.common.is_focusable = editable;
         self.common.enable_ime = editable;
         self.common.cursor_icon = if editable {
             CursorIcon::Text
         } else {
             CursorIcon::Default
         };
+        if !editable {
+            self.set_cursor_hidden(true);
+        }
+        self.reset_blink_timer();
     }
 
     pub fn set_multiline(&mut self, multiline: bool) {
@@ -134,6 +140,10 @@ impl Text {
         if text != sanitized {
             self.set_text(sanitized, Attrs::new());
         }
+    }
+
+    pub fn set_host_id(&mut self, id: RawWidgetId) {
+        self.host_id = Some(id);
     }
 
     fn sanitize(&self, text: &str) -> String {
@@ -157,6 +167,169 @@ impl Text {
             self.editor
                 .with_buffer_mut(|buffer| buffer.set_wrap(&mut system.font_system, wrap));
         });
+        self.adjust_size();
+    }
+
+    pub fn handle_host_focus_in(&mut self, reason: FocusReason) -> Result<()> {
+        self.is_host_focused = true;
+        if reason == FocusReason::Tab {
+            self.action(Action::SelectAll);
+        }
+        self.reset_blink_timer();
+        Ok(())
+    }
+
+    pub fn handle_host_focus_out(&mut self) -> Result<()> {
+        self.is_host_focused = false;
+        self.interrupt_preedit();
+        self.action(Action::ClearSelection);
+        self.reset_blink_timer();
+        Ok(())
+    }
+
+    #[allow(clippy::if_same_then_else)]
+    pub fn handle_host_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
+        if !self.is_editable {
+            return Ok(false);
+        }
+        if event.info.state == ElementState::Released {
+            return Ok(true);
+        }
+
+        let shortcuts = standard_shortcuts();
+        if shortcuts.move_to_next_char.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Next.into(),
+                select: false,
+            });
+        } else if shortcuts.move_to_previous_char.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Previous.into(),
+                select: false,
+            });
+        } else if shortcuts.delete.matches(&event) {
+            self.action(Action::Delete);
+        } else if shortcuts.backspace.matches(&event) {
+            self.action(Action::Backspace);
+        } else if shortcuts.cut.matches(&event) {
+            self.copy_to_clipboard();
+            self.action(Action::Delete);
+        } else if shortcuts.copy.matches(&event) {
+            self.copy_to_clipboard();
+        } else if shortcuts.paste.matches(&event) {
+            let r = with_system(|system| system.clipboard.get_text());
+            match r {
+                Ok(text) => {
+                    let text = self.sanitize(&text);
+                    self.insert_string(&text, None);
+                }
+                Err(err) => report_error(err),
+            }
+        } else if shortcuts.undo.matches(&event) {
+            // TODO
+        } else if shortcuts.redo.matches(&event) {
+            // TODO
+        } else if shortcuts.select_all.matches(&event) {
+            self.action(Action::SelectAll);
+        } else if shortcuts.deselect.matches(&event) {
+            // TODO: why Escape?
+            self.action(Action::ClearSelection);
+        } else if shortcuts.move_to_next_word.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::NextWord.into(),
+                select: false,
+            });
+        } else if shortcuts.move_to_previous_word.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::PreviousWord.into(),
+                select: false,
+            });
+        } else if shortcuts.move_to_start_of_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Home.into(),
+                select: false,
+            });
+        } else if shortcuts.move_to_end_of_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::End.into(),
+                select: false,
+            });
+        } else if shortcuts.select_next_char.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Next.into(),
+                select: true,
+            });
+        } else if shortcuts.select_previous_char.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Previous.into(),
+                select: true,
+            });
+        } else if shortcuts.select_next_word.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::NextWord.into(),
+                select: true,
+            });
+        } else if shortcuts.select_previous_word.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::PreviousWord.into(),
+                select: true,
+            });
+        } else if shortcuts.select_start_of_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Home.into(),
+                select: true,
+            });
+        } else if shortcuts.select_end_of_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::End.into(),
+                select: true,
+            });
+        } else if shortcuts.delete_start_of_word.matches(&event) {
+            self.action(Action::DeleteStartOfWord);
+        } else if shortcuts.delete_end_of_word.matches(&event) {
+            self.action(Action::DeleteEndOfWord);
+        } else if let Some(text) = &event.info.text {
+            if let Key::Named(key) = &event.info.logical_key {
+                if [NamedKey::Tab, NamedKey::Enter, NamedKey::Escape].contains(key) {
+                    return Ok(false);
+                }
+            }
+            let text = self.sanitize(text);
+            self.insert_string(&text, None);
+        } else {
+            return Ok(false);
+        }
+        // TODO: notify parent?
+        //self.adjust_scroll();
+        self.common.update();
+        self.reset_blink_timer();
+        Ok(true)
+    }
+
+    pub fn handle_host_ime(&mut self, event: ImeEvent) -> Result<bool> {
+        if !self.is_editable {
+            return Ok(false);
+        }
+        match event.info {
+            Ime::Enabled => {}
+            Ime::Preedit(preedit, cursor) => {
+                // TODO: can pretext have line breaks?
+                self.action(Action::SetPreedit {
+                    preedit: self.sanitize(&preedit),
+                    cursor,
+                    attrs: None,
+                });
+            }
+            Ime::Commit(string) => {
+                self.editor.insert_string(&self.sanitize(&string), None);
+            }
+            Ime::Disabled => {}
+        }
+        // TODO: notify parent?
+        //self.adjust_scroll();
+        self.common.update();
+        self.reset_blink_timer();
+        Ok(true)
     }
 
     pub fn set_text(&mut self, text: impl Display, attrs: Attrs) {
@@ -232,7 +405,6 @@ impl Text {
         if let Some(text) = text {
             let text = self.sanitize(&text);
             self.insert_string(&text, None);
-            self.common.update();
         }
     }
 
@@ -246,9 +418,9 @@ impl Text {
         if let Some(id) = self.blink_timer.take() {
             id.cancel();
         }
-        let focused = self.common.is_focused();
-        self.editor.set_cursor_hidden(!focused);
-        if focused {
+        self.editor
+            .set_cursor_hidden(!self.is_host_focused || !self.is_editable);
+        if self.is_host_focused && self.is_editable {
             let id = add_interval(
                 CURSOR_BLINK_INTERVAL,
                 self.callback(|this, _| this.toggle_cursor_hidden()),
@@ -434,16 +606,7 @@ impl Text {
     pub fn insert_string(&mut self, text: &str, attrs_list: Option<AttrsList>) {
         self.editor.insert_string(text, attrs_list);
         self.adjust_size();
-    }
-
-    fn set_size(&mut self, size: Size) {
-        with_system(|system| {
-            self.editor.with_buffer_mut(|buffer| {
-                buffer.set_size(&mut system.font_system, size.x as f32, size.y as f32)
-            });
-        });
-        self.size = size;
-        self.common.size_hint_changed();
+        self.common.update();
     }
 
     pub fn size(&self) -> Size {
@@ -613,6 +776,7 @@ impl Text {
     }
     pub fn set_cursor(&mut self, cursor: Cursor) {
         self.editor.set_cursor(cursor);
+        self.common.update();
     }
 
     pub fn has_selection(&self) -> bool {
@@ -661,23 +825,29 @@ impl Text {
         })
     }
 
-    pub fn unrestricted_text_size(&mut self) -> Size {
-        with_system(|system| {
-            self.editor.with_buffer_mut(|buffer| {
-                unrestricted_text_size(&mut buffer.borrow_with(&mut system.font_system))
-            })
-        })
-    }
-
-    // TODO: adapt for multiline text
     fn adjust_size(&mut self) {
-        let unrestricted_size = self.unrestricted_text_size();
-        self.set_size(unrestricted_size);
+        let size = with_system(|system| {
+            self.editor.with_buffer_mut(|buffer| {
+                let new_size =
+                    unrestricted_text_size(&mut buffer.borrow_with(&mut system.font_system));
+                buffer.set_size(
+                    &mut system.font_system,
+                    new_size.x as f32,
+                    new_size.y as f32,
+                );
+                new_size
+            })
+        });
+        if size != self.size {
+            self.size = size;
+            self.common.size_hint_changed();
+        }
     }
 
     pub fn set_cursor_hidden(&mut self, hidden: bool) {
         self.editor.set_cursor_hidden(hidden);
         self.is_cursor_hidden = hidden;
+        self.common.update();
     }
 
     pub fn is_cursor_hidden(&self) -> bool {
@@ -697,16 +867,21 @@ impl Text {
     }
 
     fn handle_main_click(&mut self, event: MouseInputEvent) -> Result<()> {
+        if !self.is_editable {
+            return Ok(());
+        }
         let window = self.common.window_or_err()?;
 
         if !self.common.is_focused {
-            send_window_request(
-                window.id(),
-                SetFocusRequest {
-                    widget_id: self.common.id,
-                    reason: FocusReason::Mouse,
-                },
-            );
+            if let Some(host_id) = self.host_id {
+                send_window_request(
+                    window.id(),
+                    SetFocusRequest {
+                        widget_id: host_id,
+                        reason: FocusReason::Mouse,
+                    },
+                );
+            }
         }
 
         let old_cursor = self.editor.cursor();
@@ -749,21 +924,6 @@ impl Text {
 
 impl Widget for Text {
     impl_widget_common!();
-
-    fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
-        if event.reason == FocusReason::Tab {
-            self.action(Action::SelectAll);
-        }
-        self.reset_blink_timer();
-        Ok(())
-    }
-
-    fn handle_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
-        self.interrupt_preedit();
-        self.action(Action::ClearSelection);
-        self.reset_blink_timer();
-        Ok(())
-    }
 
     fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
         if !event.is_focused {
@@ -819,6 +979,9 @@ impl Widget for Text {
     }
 
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
+        if !self.is_editable {
+            return Ok(false);
+        }
         let window = self.common.window_or_err()?;
         if window.is_mouse_button_pressed(MouseButton::Left) {
             let old_selection = (self.select_opt(), self.editor.cursor());
@@ -836,148 +999,9 @@ impl Widget for Text {
         Ok(true)
     }
 
-    #[allow(clippy::if_same_then_else)]
-    fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
-        if event.info.state == ElementState::Released {
-            return Ok(true);
-        }
-
-        let shortcuts = standard_shortcuts();
-        if shortcuts.move_to_next_char.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::Next.into(),
-                select: false,
-            });
-        } else if shortcuts.move_to_previous_char.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::Previous.into(),
-                select: false,
-            });
-        } else if shortcuts.delete.matches(&event) {
-            self.action(Action::Delete);
-        } else if shortcuts.backspace.matches(&event) {
-            self.action(Action::Backspace);
-        } else if shortcuts.cut.matches(&event) {
-            self.copy_to_clipboard();
-            self.action(Action::Delete);
-        } else if shortcuts.copy.matches(&event) {
-            self.copy_to_clipboard();
-        } else if shortcuts.paste.matches(&event) {
-            let r = with_system(|system| system.clipboard.get_text());
-            match r {
-                Ok(text) => {
-                    let text = self.sanitize(&text);
-                    self.insert_string(&text, None);
-                }
-                Err(err) => report_error(err),
-            }
-        } else if shortcuts.undo.matches(&event) {
-            // TODO
-        } else if shortcuts.redo.matches(&event) {
-            // TODO
-        } else if shortcuts.select_all.matches(&event) {
-            self.action(Action::SelectAll);
-        } else if shortcuts.deselect.matches(&event) {
-            // TODO: why Escape?
-            self.action(Action::ClearSelection);
-        } else if shortcuts.move_to_next_word.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::NextWord.into(),
-                select: false,
-            });
-        } else if shortcuts.move_to_previous_word.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::PreviousWord.into(),
-                select: false,
-            });
-        } else if shortcuts.move_to_start_of_line.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::Home.into(),
-                select: false,
-            });
-        } else if shortcuts.move_to_end_of_line.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::End.into(),
-                select: false,
-            });
-        } else if shortcuts.select_next_char.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::Next.into(),
-                select: true,
-            });
-        } else if shortcuts.select_previous_char.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::Previous.into(),
-                select: true,
-            });
-        } else if shortcuts.select_next_word.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::NextWord.into(),
-                select: true,
-            });
-        } else if shortcuts.select_previous_word.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::PreviousWord.into(),
-                select: true,
-            });
-        } else if shortcuts.select_start_of_line.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::Home.into(),
-                select: true,
-            });
-        } else if shortcuts.select_end_of_line.matches(&event) {
-            self.action(Action::Motion {
-                motion: Motion::End.into(),
-                select: true,
-            });
-        } else if shortcuts.delete_start_of_word.matches(&event) {
-            self.action(Action::DeleteStartOfWord);
-        } else if shortcuts.delete_end_of_word.matches(&event) {
-            self.action(Action::DeleteEndOfWord);
-        } else if let Some(text) = &event.info.text {
-            if let Key::Named(key) = &event.info.logical_key {
-                if [NamedKey::Tab, NamedKey::Enter, NamedKey::Escape].contains(key) {
-                    return Ok(false);
-                }
-            }
-            let text = self.sanitize(text);
-            self.insert_string(&text, None);
-        } else {
-            return Ok(false);
-        }
-        // TODO: notify parent?
-        //self.adjust_scroll();
-        self.common.update();
-        self.reset_blink_timer();
-        Ok(true)
-    }
-
-    fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
-        match event.info {
-            Ime::Enabled => {}
-            Ime::Preedit(preedit, cursor) => {
-                // TODO: can pretext have line breaks?
-                self.action(Action::SetPreedit {
-                    preedit: self.sanitize(&preedit),
-                    cursor,
-                    attrs: None,
-                });
-            }
-            Ime::Commit(string) => {
-                self.editor.insert_string(&self.sanitize(&string), None);
-            }
-            Ime::Disabled => {}
-        }
-        // TODO: notify parent?
-        //self.adjust_scroll();
-        self.common.update();
-        self.reset_blink_timer();
-        Ok(true)
-    }
-
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         event.draw_pixmap(Point::default(), self.pixmap().as_ref(), Default::default());
-        if self.is_editable && self.common.is_focused() {
+        if self.is_editable && self.is_host_focused {
             if let Some(editor_cursor) = self.cursor_position() {
                 // We specify an area below the input because on Windows
                 // the IME window obscures the specified area.

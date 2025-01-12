@@ -77,31 +77,35 @@ impl CheckContext {
         self.changing_expected = value;
     }
 
+    fn capture_changed(&mut self, window: &mut Window) -> anyhow::Result<RgbaImage> {
+        let mut started = Instant::now();
+        let mut image = None;
+        while started.elapsed() < MAX_DURATION {
+            let new_image = window.capture_image()?;
+            if self.last_snapshots.get(&window.pid()) != Some(&new_image) {
+                image = Some(new_image);
+                break;
+            }
+            sleep(CAPTURE_INTERVAL);
+        }
+        let mut image =
+            image.context("expected a new snapshot, but no changes were detected in the window")?;
+        started = Instant::now();
+        while started.elapsed() < STATIONARY_INTERVAL {
+            let new_image = window.capture_image()?;
+            if new_image != image {
+                image = new_image;
+                started = Instant::now();
+            }
+            sleep(CAPTURE_INTERVAL);
+        }
+        self.last_snapshots.insert(window.pid(), image.clone());
+        Ok(image)
+    }
+
     fn capture_maybe_changed(&mut self, window: &mut Window) -> anyhow::Result<RgbaImage> {
         if self.changing_expected {
-            let mut started = Instant::now();
-            let mut image = None;
-            while started.elapsed() < MAX_DURATION {
-                let new_image = window.capture_image()?;
-                if self.last_snapshots.get(&window.pid()) != Some(&new_image) {
-                    image = Some(new_image);
-                    break;
-                }
-                sleep(CAPTURE_INTERVAL);
-            }
-            let mut image = image
-                .context("expected a new snapshot, but no changes were detected in the window")?;
-            started = Instant::now();
-            while started.elapsed() < STATIONARY_INTERVAL {
-                let new_image = window.capture_image()?;
-                if new_image != image {
-                    image = new_image;
-                    started = Instant::now();
-                }
-                sleep(CAPTURE_INTERVAL);
-            }
-            self.last_snapshots.insert(window.pid(), image.clone());
-            Ok(image)
+            self.capture_changed(window)
         } else {
             sleep(Duration::from_millis(500));
             let new_image = window.capture_image()?;
@@ -118,7 +122,13 @@ impl CheckContext {
         let started = Instant::now();
         let mut images = Vec::new();
         while started.elapsed() < MAX_DURATION || images.is_empty() {
-            let new_image = self.capture_maybe_changed(window)?;
+            let new_image = self.capture_changed(window).with_context(|| {
+                if images.is_empty() {
+                    "failed to capture the first changed image while blinking was expected"
+                } else {
+                    "failed to capture the second changed image while blinking was expected"
+                }
+            })?;
             if !images.contains(&new_image) {
                 images.push(new_image);
                 if images.len() == 2 {
@@ -160,9 +170,14 @@ impl CheckContext {
         let unconfirmed_snapshot_name = format!("{:02} - {}.new.png", index, text);
 
         let new_image = if self.blinking_expected {
-            self.capture_blinking(window, &unconfirmed_snapshot_name)?
+            self.capture_blinking(window, &unconfirmed_snapshot_name)
+                .with_context(|| {
+                    format!("failed to capture snapshot {confirmed_snapshot_name:?}")
+                })?
         } else {
-            self.capture_maybe_changed(window)?
+            self.capture_maybe_changed(window).with_context(|| {
+                format!("failed to capture snapshot {confirmed_snapshot_name:?}")
+            })?
         };
         let text = text.to_string();
         if !text

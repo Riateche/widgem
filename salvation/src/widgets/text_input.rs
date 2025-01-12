@@ -2,7 +2,10 @@ use {
     super::{viewport::Viewport, Widget, WidgetCommon, WidgetExt},
     crate::{
         draw::DrawEvent,
-        event::{LayoutEvent, WidgetScopeChangeEvent},
+        event::{
+            FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent, LayoutEvent,
+            WidgetScopeChangeEvent,
+        },
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
@@ -25,7 +28,11 @@ pub struct TextInput {
 impl TextInput {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new::<Self>();
-        let editor = Text::new(text).with_multiline(false).with_editable(true);
+        common.is_focusable = true;
+        let editor = Text::new(text)
+            .with_multiline(false)
+            .with_editable(true)
+            .with_host_id(common.id);
         let mut viewport = Viewport::new();
         viewport
             .common_mut()
@@ -105,6 +112,14 @@ impl TextInput {
 
 impl Widget for TextInput {
     impl_widget_common!();
+
+    fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
+        self.text_widget_mut().handle_host_focus_in(event.reason)
+    }
+
+    fn handle_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
+        self.text_widget_mut().handle_host_focus_out()
+    }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         let options = self.common().grid_options();
@@ -186,5 +201,13 @@ impl Widget for TextInput {
 
     fn recalculate_size_x_fixed(&mut self) -> bool {
         false
+    }
+
+    fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
+        self.text_widget_mut().handle_host_keyboard_input(event)
+    }
+
+    fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
+        self.text_widget_mut().handle_host_ime(event)
     }
 }
