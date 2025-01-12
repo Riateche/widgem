@@ -11,7 +11,7 @@ use {
         layout::SizeHintMode,
         style::{button::ComputedButtonStyle, css::MyPseudoClass},
         system::{add_interval, add_timer, send_window_request, with_system},
-        text_editor::TextEditor,
+        text_editor::Text,
         timer::TimerId,
         types::{Point, Rect},
         window::SetFocusRequest,
@@ -29,7 +29,7 @@ use {
 };
 
 pub struct Button {
-    editor: TextEditor,
+    editor: Text,
     icon: Option<Rc<Pixmap>>,
     text_visible: bool,
     auto_repeat: bool,
@@ -48,7 +48,7 @@ impl Button {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new::<Self>();
         common.set_focusable(true);
-        let mut editor = TextEditor::new(&text.to_string());
+        let mut editor = Text::new(text);
         editor.set_cursor_hidden(true);
         Self {
             editor,
@@ -67,7 +67,7 @@ impl Button {
     }
 
     pub fn set_text(&mut self, text: impl Display) {
-        self.editor.set_text(&text.to_string(), Attrs::new());
+        self.editor.set_text(text, Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
     }

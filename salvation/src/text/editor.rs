@@ -653,7 +653,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
                     self.cursor_x_opt = new_cursor_x_opt;
                 }
             }
-            Action::Escape => {
+            Action::ClearSelection => {
                 match self.selection {
                     Selection::None => {}
                     _ => self.with_buffer_mut(|buffer| buffer.set_redraw(true)),

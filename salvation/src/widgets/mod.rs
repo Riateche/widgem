@@ -50,6 +50,7 @@ pub mod scroll_area;
 pub mod scroll_bar;
 pub mod stack;
 pub mod text_input;
+mod viewport;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RawWidgetId(pub u64);

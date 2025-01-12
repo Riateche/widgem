@@ -18,8 +18,8 @@ pub enum Action {
         motion: Motion,
         select: bool,
     },
-    /// Escape, clears selection
-    Escape,
+    /// Clear selection
+    ClearSelection,
     /// Select text from start to end
     SelectAll,
     /// Insert character at cursor

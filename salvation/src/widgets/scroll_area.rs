@@ -1,5 +1,5 @@
 use {
-    super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt, WidgetId},
+    super::{scroll_bar::ScrollBar, viewport::Viewport, Widget, WidgetCommon, WidgetExt, WidgetId},
     crate::{
         callback::widget_callback,
         event::{LayoutEvent, MouseScrollEvent},
@@ -201,35 +201,5 @@ impl Widget for ScrollArea {
             *scroll_y.value_range().end(),
         ));
         Ok(true)
-    }
-}
-
-// TODO: public type for empty widget?
-struct Viewport {
-    common: WidgetCommon,
-}
-
-impl Viewport {
-    pub fn new() -> Self {
-        Self {
-            common: WidgetCommon::new::<Self>().into(),
-        }
-    }
-}
-
-impl Widget for Viewport {
-    impl_widget_common!();
-
-    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
-    }
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
-    }
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        false
-    }
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        false
     }
 }

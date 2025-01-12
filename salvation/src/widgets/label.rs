@@ -1,8 +1,7 @@
 use {
     super::{Widget, WidgetCommon},
     crate::{
-        draw::DrawEvent, impl_widget_common, layout::SizeHintMode, text_editor::TextEditor,
-        types::Point,
+        draw::DrawEvent, impl_widget_common, layout::SizeHintMode, text_editor::Text, types::Point,
     },
     anyhow::Result,
     cosmic_text::Attrs,
@@ -10,13 +9,13 @@ use {
 };
 
 pub struct Label {
-    editor: TextEditor,
+    editor: Text,
     common: WidgetCommon,
 }
 
 impl Label {
     pub fn new(text: impl Display) -> Self {
-        let mut editor = TextEditor::new(&text.to_string());
+        let mut editor = Text::new(text);
         editor.set_cursor_hidden(true);
         Self {
             editor,
@@ -25,7 +24,7 @@ impl Label {
     }
 
     pub fn set_text(&mut self, text: impl Display) {
-        self.editor.set_text(&text.to_string(), Attrs::new());
+        self.editor.set_text(text, Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
     }
