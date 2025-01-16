@@ -465,6 +465,7 @@ impl WindowWithWidget<'_> {
                     top_left: Point::default(),
                     size: inner_size,
                 }),
+                new_visible_rect: Some(Rect::from_pos_size(Point::default(), inner_size)),
                 changed_size_hints,
             }
             .into(),

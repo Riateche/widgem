@@ -148,6 +148,8 @@ pub struct WidgetCommon {
     pub is_mouse_over: bool,
     // Present if the widget is mounted, not hidden, and only after layout.
     pub rect_in_window: Option<Rect>,
+    // In this widget's coordinates.
+    pub visible_rect: Option<Rect>,
 
     pub children: Vec<Child>,
     pub current_layout_event: Option<LayoutEvent>,
@@ -209,6 +211,7 @@ impl WidgetCommon {
             is_window_focused: false,
             enable_ime: false,
             rect_in_window: None,
+            visible_rect: None,
             cursor_icon: CursorIcon::Default,
             children: Vec::new(),
             size_hint_x_cache: HashMap::new(),
@@ -419,13 +422,27 @@ impl WidgetCommon {
         } else {
             None
         };
+        let visible_rect = if let (Some(visible_rect), Some(rect_in_parent)) =
+            (self.visible_rect, rect_in_parent)
+        {
+            Some(
+                visible_rect
+                    .translate(-rect_in_parent.top_left)
+                    .intersect(Rect::from_pos_size(Point::default(), rect_in_parent.size)),
+            )
+            .filter(|r| r != &Rect::default())
+        } else {
+            None
+        };
         child.rect_in_parent = rect_in_parent;
-        let rect_changed = child.widget.common().rect_in_window != rect_in_window;
+        let rects_changed = child.widget.common().rect_in_window != rect_in_window
+            || child.widget.common().visible_rect != visible_rect;
         if let Some(event) = &self.current_layout_event {
-            if rect_changed || event.size_hints_changed_within(child.widget.common().address()) {
+            if rects_changed || event.size_hints_changed_within(child.widget.common().address()) {
                 child.widget.dispatch(
                     LayoutEvent {
                         new_rect_in_window: rect_in_window,
+                        new_visible_rect: visible_rect,
                         changed_size_hints: event.changed_size_hints.clone(),
                     }
                     .into(),
@@ -433,10 +450,11 @@ impl WidgetCommon {
             }
             child.rect_set_during_layout = true;
         } else {
-            if rect_changed {
+            if rects_changed {
                 child.widget.dispatch(
                     LayoutEvent {
                         new_rect_in_window: rect_in_window,
+                        new_visible_rect: visible_rect,
                         changed_size_hints: Vec::new(),
                     }
                     .into(),
@@ -1124,6 +1142,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::Layout(event) => {
                 self.common_mut().rect_in_window = event.new_rect_in_window;
+                self.common_mut().visible_rect = event.new_visible_rect;
                 self.common_mut().current_layout_event = Some(event.clone());
                 for child in &mut self.common_mut().children {
                     child.rect_set_during_layout = false;

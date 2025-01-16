@@ -147,6 +147,8 @@ pub struct ImeEvent {
 pub struct LayoutEvent {
     // None means widget is hidden
     pub new_rect_in_window: Option<Rect>,
+    // In receiver widget's coordinates
+    pub new_visible_rect: Option<Rect>,
     pub changed_size_hints: Vec<WidgetAddress>,
 }
 

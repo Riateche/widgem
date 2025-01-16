@@ -4,7 +4,7 @@ use {
     serde::{Deserialize, Serialize},
     std::{
         cmp::{max, min},
-        ops::{Add, Mul, Sub, SubAssign},
+        ops::{Add, Mul, Neg, Sub, SubAssign},
     },
 };
 
@@ -95,6 +95,14 @@ impl SubAssign for Point {
     fn sub_assign(&mut self, rhs: Self) {
         self.x -= rhs.x;
         self.y -= rhs.y;
+    }
+}
+
+impl Neg for Point {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Point::new(-self.x, -self.y)
     }
 }
 
