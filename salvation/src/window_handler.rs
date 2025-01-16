@@ -490,6 +490,9 @@ impl WindowWithWidget<'_> {
                 }
                 self.set_focus(pair, request.reason);
             }
+            WindowRequest::Scroll(request) => {
+                // ...
+            }
         }
         self.window.push_accessible_updates();
     }

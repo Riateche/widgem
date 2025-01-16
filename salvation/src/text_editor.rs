@@ -18,7 +18,7 @@ use {
         timer::TimerId,
         types::{Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetCommon, WidgetExt},
-        window::SetFocusRequest,
+        window::{ScrollRequest, SetFocusRequest},
     },
     accesskit::{
         ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role, TextDirection, TextPosition,
@@ -128,6 +128,7 @@ impl Text {
             self.set_cursor_hidden(true);
         }
         self.reset_blink_timer();
+        self.request_scroll();
     }
 
     pub fn set_multiline(&mut self, multiline: bool) {
@@ -140,6 +141,7 @@ impl Text {
         if text != sanitized {
             self.set_text(sanitized, Attrs::new());
         }
+        self.request_scroll();
     }
 
     pub fn set_host_id(&mut self, id: RawWidgetId) {
@@ -160,6 +162,7 @@ impl Text {
                 .with_buffer_mut(|buffer| buffer.set_metrics(&mut system.font_system, metrics));
         });
         self.adjust_size();
+        self.request_scroll();
     }
 
     pub fn set_wrap(&mut self, wrap: Wrap) {
@@ -168,6 +171,7 @@ impl Text {
                 .with_buffer_mut(|buffer| buffer.set_wrap(&mut system.font_system, wrap));
         });
         self.adjust_size();
+        self.request_scroll();
     }
 
     pub fn handle_host_focus_in(&mut self, reason: FocusReason) -> Result<()> {
@@ -176,6 +180,7 @@ impl Text {
             self.action(Action::SelectAll);
         }
         self.reset_blink_timer();
+        self.request_scroll();
         Ok(())
     }
 
@@ -185,6 +190,43 @@ impl Text {
         self.action(Action::ClearSelection);
         self.reset_blink_timer();
         Ok(())
+    }
+
+    fn request_scroll(&mut self) {
+        if !self.is_host_focused {
+            return;
+        }
+        let Some(cursor_position) = self.cursor_position() else {
+            return;
+        };
+        if self.common.rect_in_window.is_none() {
+            return;
+        }
+        let Some(window_id) = self.common.scope.window_id() else {
+            return;
+        };
+        // TODO: cursor width?
+        let rect = Rect::from_pos_size(
+            cursor_position,
+            Size::new(1, self.line_height().ceil() as i32),
+        );
+        let needs_scroll = self
+            .common
+            .visible_rect
+            .map_or(true, |visible_rect| visible_rect.intersect(rect).is_empty());
+        if !needs_scroll {
+            return;
+        }
+        println!("text editor: requesting scroll");
+        send_window_request(
+            window_id,
+            ScrollRequest {
+                widget_id: self.common.id,
+                rect,
+            },
+        );
+
+        //...
     }
 
     #[allow(clippy::if_same_then_else)]
@@ -303,6 +345,7 @@ impl Text {
         //self.adjust_scroll();
         self.common.update();
         self.reset_blink_timer();
+        self.request_scroll();
         Ok(true)
     }
 
@@ -329,6 +372,7 @@ impl Text {
         //self.adjust_scroll();
         self.common.update();
         self.reset_blink_timer();
+        self.request_scroll();
         Ok(true)
     }
 
@@ -347,6 +391,7 @@ impl Text {
         self.after_change();
         self.reset_blink_timer();
         self.common.update();
+        self.request_scroll();
     }
 
     pub fn text(&self) -> String {
@@ -363,6 +408,7 @@ impl Text {
             ))]
             self.copy_selection();
         }
+        self.request_scroll();
     }
 
     #[cfg(all(
@@ -607,6 +653,7 @@ impl Text {
         self.editor.insert_string(text, attrs_list);
         self.adjust_size();
         self.common.update();
+        self.request_scroll();
     }
 
     pub fn size(&self) -> Size {
@@ -639,6 +686,7 @@ impl Text {
 
     pub fn shape_as_needed(&mut self) {
         with_system(|system| self.editor.shape_as_needed(&mut system.font_system, false));
+        self.request_scroll();
     }
 
     pub fn needs_redraw(&mut self) -> bool {
@@ -769,6 +817,7 @@ impl Text {
         with_system(|system| self.editor.action(&mut system.font_system, action));
         self.adjust_size();
         self.common.update();
+        self.request_scroll();
     }
 
     pub fn cursor(&self) -> Cursor {
@@ -777,6 +826,7 @@ impl Text {
     pub fn set_cursor(&mut self, cursor: Cursor) {
         self.editor.set_cursor(cursor);
         self.common.update();
+        self.request_scroll();
     }
 
     pub fn has_selection(&self) -> bool {
@@ -797,7 +847,8 @@ impl Text {
             cosmic_text::Selection::Normal(cursor)
         } else {
             cosmic_text::Selection::None
-        })
+        });
+        self.request_scroll();
     }
 
     fn interrupt_preedit(&mut self) {
@@ -841,6 +892,7 @@ impl Text {
         if size != self.size {
             self.size = size;
             self.common.size_hint_changed();
+            self.request_scroll();
         }
     }
 
@@ -918,6 +970,7 @@ impl Text {
             }
         }
         self.common.update();
+        self.request_scroll();
         Ok(())
     }
 }
@@ -974,6 +1027,7 @@ impl Widget for Text {
         // TODO: notify parent?
         //self.adjust_scroll();
         self.reset_blink_timer();
+        self.request_scroll();
 
         Ok(true)
     }
@@ -996,6 +1050,7 @@ impl Widget for Text {
                 self.common.update();
             }
         }
+        self.request_scroll();
         Ok(true)
     }
 
@@ -1040,6 +1095,7 @@ impl Widget for Text {
                 window.accessible_mount(Some(self.common.id.into()), self.accessible_line_id, 0);
             }
         }
+        self.request_scroll();
         Ok(())
     }
 

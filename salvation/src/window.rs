@@ -617,10 +617,18 @@ impl Window {
 #[derive(Debug, From)]
 pub enum WindowRequest {
     SetFocus(SetFocusRequest),
+    Scroll(ScrollRequest),
 }
 
 #[derive(Debug)]
 pub struct SetFocusRequest {
     pub widget_id: RawWidgetId,
     pub reason: FocusReason,
+}
+
+#[derive(Debug)]
+pub struct ScrollRequest {
+    pub widget_id: RawWidgetId,
+    // In widget coordinates.
+    pub rect: Rect,
 }
