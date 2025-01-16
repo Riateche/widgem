@@ -18,7 +18,7 @@ use {
         timer::TimerId,
         types::{Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetCommon, WidgetExt},
-        window::{ScrollRequest, SetFocusRequest},
+        window::{ScrollToRectRequest, SetFocusRequest},
     },
     accesskit::{
         ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role, TextDirection, TextPosition,
@@ -217,16 +217,13 @@ impl Text {
         if !needs_scroll {
             return;
         }
-        println!("text editor: requesting scroll");
         send_window_request(
             window_id,
-            ScrollRequest {
+            ScrollToRectRequest {
                 widget_id: self.common.id,
                 rect,
             },
         );
-
-        //...
     }
 
     #[allow(clippy::if_same_then_else)]

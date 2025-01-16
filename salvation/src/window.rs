@@ -617,7 +617,7 @@ impl Window {
 #[derive(Debug, From)]
 pub enum WindowRequest {
     SetFocus(SetFocusRequest),
-    Scroll(ScrollRequest),
+    ScrollToRect(ScrollToRectRequest),
 }
 
 #[derive(Debug)]
@@ -627,7 +627,7 @@ pub struct SetFocusRequest {
 }
 
 #[derive(Debug)]
-pub struct ScrollRequest {
+pub struct ScrollToRectRequest {
     pub widget_id: RawWidgetId,
     // In widget coordinates.
     pub rect: Rect,

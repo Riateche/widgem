@@ -6,7 +6,8 @@ use {
         event::{
             AccessibleActionEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent,
             KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-            MouseMoveEvent, MouseScrollEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+            MouseMoveEvent, MouseScrollEvent, ScrollToRectEvent, WidgetScopeChangeEvent,
+            WindowFocusChangeEvent,
         },
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
@@ -868,6 +869,10 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(())
     }
+    fn handle_scroll_to_rect(&mut self, event: ScrollToRectEvent) -> Result<bool> {
+        let _ = event;
+        Ok(false)
+    }
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         let _ = event;
         Ok(())
@@ -900,6 +905,7 @@ pub trait Widget: Downcast {
             Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
             Event::Accessible(e) => self.handle_accessible_action(e).map(|()| true),
             Event::WidgetScopeChange(e) => self.handle_widget_scope_change(e).map(|()| true),
+            Event::ScrollToRect(e) => self.handle_scroll_to_rect(e),
         }
     }
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
@@ -1217,6 +1223,29 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().current_layout_event = None;
                 self.common_mut().update();
             }
+            Event::ScrollToRect(event) => {
+                if !accepted && event.address != self.common().scope.address {
+                    if event.address.starts_with(&self.common().scope.address) {
+                        if let Some((index, id)) =
+                            event.address.item_at(self.common().scope.address.len())
+                        {
+                            if let Some(child) = self.common_mut().children.get_mut(index) {
+                                if child.widget.common().id == id {
+                                    child.widget.dispatch(event.clone().into());
+                                } else {
+                                    warn!("child id mismatch while dispatching ScrollToRectEvent");
+                                }
+                            } else {
+                                warn!("invalid child index while dispatching ScrollToRectEvent");
+                            }
+                        } else {
+                            warn!("couldn't get child index while dispatching ScrollToRectEvent");
+                        }
+                    } else {
+                        warn!("ScrollToRectEvent dispatched to unrelated widget");
+                    }
+                }
+            }
             Event::KeyboardInput(_) | Event::Ime(_) | Event::Accessible(_) => {}
         }
 
@@ -1419,6 +1448,9 @@ impl WidgetAddress {
     pub fn starts_with(&self, base: &WidgetAddress) -> bool {
         base.path.len() <= self.path.len() && base.path == self.path[..base.path.len()]
     }
+    pub fn widget_id(&self) -> RawWidgetId {
+        self.path.last().expect("WidgetAddress path is empty").1
+    }
     pub fn parent_widget_id(&self) -> Option<RawWidgetId> {
         if self.path.len() > 1 {
             Some(self.path[self.path.len() - 2].1)
@@ -1432,6 +1464,13 @@ impl WidgetAddress {
         } else {
             None
         }
+    }
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.path.len()
+    }
+    pub fn item_at(&self, pos: usize) -> Option<(usize, RawWidgetId)> {
+        self.path.get(pos).copied()
     }
 }
 

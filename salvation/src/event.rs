@@ -37,6 +37,7 @@ pub enum Event {
     WindowFocusChange(WindowFocusChangeEvent),
     Accessible(AccessibleActionEvent),
     WidgetScopeChange(WidgetScopeChangeEvent),
+    ScrollToRect(ScrollToRectEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -190,4 +191,10 @@ pub struct AccessibleActionEvent {
 #[derive(Debug, Clone)]
 pub struct WidgetScopeChangeEvent {
     pub previous_scope: WidgetScope,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScrollToRectEvent {
+    pub address: WidgetAddress,
+    pub rect: Rect,
 }

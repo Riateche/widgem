@@ -3,7 +3,7 @@ use {
         event::{
             AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
             KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
-            MouseScrollEvent, WindowFocusChangeEvent,
+            MouseScrollEvent, ScrollToRectEvent, WindowFocusChangeEvent,
         },
         event_loop::UserEvent,
         system::{address, with_system, ReportError},
@@ -490,8 +490,18 @@ impl WindowWithWidget<'_> {
                 }
                 self.set_focus(pair, request.reason);
             }
-            WindowRequest::Scroll(request) => {
-                // ...
+            WindowRequest::ScrollToRect(request) => {
+                if let Some(address) = address(request.widget_id) {
+                    self.root_widget.dispatch(
+                        ScrollToRectEvent {
+                            address,
+                            rect: request.rect,
+                        }
+                        .into(),
+                    );
+                } else {
+                    warn!("ScrollToRectRequest: couldn't find widget address");
+                }
             }
         }
         self.window.push_accessible_updates();

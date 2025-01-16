@@ -4,7 +4,7 @@ use {
         draw::DrawEvent,
         event::{
             FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent, LayoutEvent,
-            WidgetScopeChangeEvent,
+            ScrollToRectEvent, WidgetScopeChangeEvent,
         },
         impl_widget_common,
         layout::{
@@ -18,6 +18,7 @@ use {
     },
     anyhow::Result,
     cosmic_text::Attrs,
+    log::warn,
     std::{cmp::max, fmt::Display},
 };
 
@@ -59,7 +60,6 @@ impl TextInput {
 
     pub fn set_text(&mut self, text: impl Display) {
         self.text_widget_mut().set_text(text, Attrs::new());
-        self.adjust_scroll();
     }
 
     fn adjust_scroll(&mut self) {
@@ -128,7 +128,6 @@ impl Widget for TextInput {
         };
         let rects = grid::layout(&mut self.common_mut().children, &options, size)?;
         self.common_mut().set_child_rects(&rects)?;
-
         self.adjust_scroll();
         Ok(())
     }
@@ -209,5 +208,16 @@ impl Widget for TextInput {
 
     fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
         self.text_widget_mut().handle_host_ime(event)
+    }
+
+    fn handle_scroll_to_rect(&mut self, event: ScrollToRectEvent) -> Result<bool> {
+        if self.text_widget().common().id != event.address.widget_id() {
+            warn!("TextInput received unexpected ScrollToRectEvent");
+            return Ok(false);
+        }
+
+        self.adjust_scroll();
+
+        Ok(true)
     }
 }
