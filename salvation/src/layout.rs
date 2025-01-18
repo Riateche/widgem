@@ -143,10 +143,10 @@ pub(crate) fn solve_layout(
         } else {
             (total - total_min) as f32 / (total_preferred - total_min) as f32
         };
-        output.padding =
-            options.min_padding + (options.preferred_padding as f32 * factor).round() as i32;
-        output.spacing =
-            options.min_spacing + (options.preferred_spacing as f32 * factor).round() as i32;
+        output.padding = options.min_padding
+            + ((options.preferred_padding - options.min_padding) as f32 * factor).round() as i32;
+        output.spacing = options.min_spacing
+            + ((options.preferred_spacing - options.min_spacing) as f32 * factor).round() as i32;
         let mut remaining =
             total - output.padding * 2 - output.spacing * items.len().saturating_sub(1) as i32;
         for item in items {

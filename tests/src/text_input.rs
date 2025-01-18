@@ -105,3 +105,29 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     window.close()?;
     Ok(())
 }
+
+#[salvation_test_kit::test]
+pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
+    ctx.run(|| RootWidget::new().boxed())?;
+    ctx.set_blinking_expected(true);
+    let mut window = ctx.wait_for_window_by_pid()?;
+    ctx.snapshot(&mut window, "text input")?;
+    window.mouse_move(48, 27)?;
+    ctx.connection().mouse_click(1)?;
+    ctx.snapshot(&mut window, "cursor moved after hello")?;
+    window.mouse_move(73, 29)?;
+    ctx.connection().mouse_down(1)?;
+    ctx.snapshot(&mut window, "cursor moved after wor")?;
+    window.mouse_move(52, 17)?;
+    ctx.connection().mouse_up(1)?;
+    ctx.set_blinking_expected(false);
+    ctx.snapshot(&mut window, "selected wor")?;
+    // Click on the border/padding.
+    window.mouse_move(48, 14)?;
+    ctx.connection().mouse_click(1)?;
+    ctx.set_blinking_expected(true);
+    ctx.snapshot(&mut window, "cursor moved to beginning")?;
+
+    window.close()?;
+    Ok(())
+}

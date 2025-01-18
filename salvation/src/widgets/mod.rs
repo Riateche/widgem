@@ -51,7 +51,6 @@ pub mod scroll_area;
 pub mod scroll_bar;
 pub mod stack;
 pub mod text_input;
-mod viewport;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RawWidgetId(pub u64);
@@ -139,6 +138,9 @@ pub struct WidgetCommon {
     pub is_focusable: bool,
     pub enable_ime: bool,
     pub cursor_icon: CursorIcon,
+    // If true, all mouse events from the parent propagate to this widget,
+    // regardless of its boundaries.
+    pub receives_all_mouse_events: bool,
 
     pub is_focused: bool,
     // TODO: set initial value in mount event
@@ -205,6 +207,7 @@ impl WidgetCommon {
             id,
             is_explicitly_enabled: true,
             is_explicitly_visible: true,
+            receives_all_mouse_events: false,
             explicit_style: None,
             is_focusable: false,
             is_focused: false,
@@ -1085,7 +1088,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 if should_dispatch {
                     for child in self.common_mut().children.iter_mut().rev() {
                         if let Some(rect_in_parent) = child.rect_in_parent {
-                            if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                            if let Some(child_event) = event.map_to_child(
+                                rect_in_parent,
+                                child.widget.common().receives_all_mouse_events,
+                            ) {
                                 if child.widget.dispatch(child_event.into()) {
                                     accepted = true;
                                     break;
@@ -1100,7 +1106,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 if should_dispatch {
                     for child in self.common_mut().children.iter_mut().rev() {
                         if let Some(rect_in_parent) = child.rect_in_parent {
-                            if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                            if let Some(child_event) = event.map_to_child(
+                                rect_in_parent,
+                                child.widget.common().receives_all_mouse_events,
+                            ) {
                                 if child.widget.dispatch(child_event.into()) {
                                     accepted = true;
                                     break;
@@ -1118,7 +1127,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 if should_dispatch {
                     for child in self.common_mut().children.iter_mut().rev() {
                         if let Some(rect_in_parent) = child.rect_in_parent {
-                            if let Some(child_event) = event.map_to_child(rect_in_parent) {
+                            if let Some(child_event) = event.map_to_child(
+                                rect_in_parent,
+                                child.widget.common().receives_all_mouse_events,
+                            ) {
                                 if child.widget.dispatch(child_event.into()) {
                                     accepted = true;
                                     break;

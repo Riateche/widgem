@@ -4,6 +4,11 @@ set -ex
 
 cd "$(dirname "$0")/.."
 
+if [ "$1" == "--help" ]; then
+    echo "Usage: run.sh [test_name]"
+    exit 0
+fi
+
 if [[ -z "${GITHUB_ACTIONS}" ]]; then
     docker build \
         --tag salvation_tests \
@@ -38,4 +43,4 @@ if [ "$i" == "20" ]; then
     2>&1 echo "Container check failed"
     exit 1
 fi
-docker exec salvation_tests salvation_tests test ${TEST_ARG}
+docker exec salvation_tests salvation_tests test "$1"

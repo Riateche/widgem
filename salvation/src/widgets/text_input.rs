@@ -1,5 +1,5 @@
 use {
-    super::{viewport::Viewport, Widget, WidgetCommon, WidgetExt},
+    super::{Widget, WidgetCommon, WidgetExt},
     crate::{
         draw::DrawEvent,
         event::{
@@ -20,7 +20,44 @@ use {
     cosmic_text::Attrs,
     log::warn,
     std::{cmp::max, fmt::Display},
+    winit::window::CursorIcon,
 };
+
+struct Viewport {
+    common: WidgetCommon,
+}
+
+impl Viewport {
+    pub fn new() -> Self {
+        Self {
+            common: WidgetCommon::new::<Self>().into(),
+        }
+    }
+}
+
+impl Widget for Viewport {
+    impl_widget_common!();
+
+    fn recalculate_size_x_fixed(&mut self) -> bool {
+        false
+    }
+
+    fn recalculate_size_y_fixed(&mut self) -> bool {
+        true
+    }
+
+    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+        Ok(0)
+    }
+
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+        Ok(self.common.children[0]
+            .widget
+            .downcast_ref::<Text>()
+            .unwrap()
+            .line_height() as i32)
+    }
+}
 
 pub struct TextInput {
     common: WidgetCommon,
@@ -30,11 +67,15 @@ impl TextInput {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new::<Self>();
         common.is_focusable = true;
-        let editor = Text::new(text)
+        common.cursor_icon = CursorIcon::Text;
+        let mut editor = Text::new(text)
             .with_multiline(false)
             .with_editable(true)
             .with_host_id(common.id);
+        editor.common_mut().receives_all_mouse_events = true;
         let mut viewport = Viewport::new();
+        viewport.common_mut().receives_all_mouse_events = true;
+        viewport.common_mut().cursor_icon = CursorIcon::Text;
         viewport
             .common_mut()
             .add_child(editor.boxed(), Default::default());
@@ -135,7 +176,7 @@ impl Widget for TextInput {
     fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
         let style = self.common.style().0.text_input.clone();
         let variant_style = self.current_variant_style().clone();
-        self.common.set_grid_options(Some(GridOptions {
+        self.common.set_grid_options(Some(dbg!(GridOptions {
             x: GridAxisOptions {
                 min_padding: style.min_padding_with_border.x,
                 min_spacing: 0,
@@ -150,7 +191,7 @@ impl Widget for TextInput {
                 preferred_spacing: 0,
                 border_collapse: 0,
             },
-        }));
+        })));
         let text_widget = self.text_widget_mut();
         text_widget.set_font_metrics(style.font_metrics);
         // TODO: support color changes based on state
@@ -200,6 +241,10 @@ impl Widget for TextInput {
 
     fn recalculate_size_x_fixed(&mut self) -> bool {
         false
+    }
+
+    fn recalculate_size_y_fixed(&mut self) -> bool {
+        true
     }
 
     fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
