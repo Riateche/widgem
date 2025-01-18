@@ -176,7 +176,7 @@ impl Widget for TextInput {
     fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
         let style = self.common.style().0.text_input.clone();
         let variant_style = self.current_variant_style().clone();
-        self.common.set_grid_options(Some(dbg!(GridOptions {
+        self.common.set_grid_options(Some(GridOptions {
             x: GridAxisOptions {
                 min_padding: style.min_padding_with_border.x,
                 min_spacing: 0,
@@ -191,7 +191,7 @@ impl Widget for TextInput {
                 preferred_spacing: 0,
                 border_collapse: 0,
             },
-        })));
+        }));
         let text_widget = self.text_widget_mut();
         text_widget.set_font_metrics(style.font_metrics);
         // TODO: support color changes based on state

@@ -131,3 +131,29 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     window.close()?;
     Ok(())
 }
+
+#[salvation_test_kit::test]
+pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
+    ctx.run(|| RootWidget::new().boxed())?;
+    ctx.set_blinking_expected(true);
+    let mut window = ctx.wait_for_window_by_pid()?;
+    ctx.snapshot(&mut window, "text input")?;
+
+    window.resize(200, 50)?;
+    ctx.snapshot(&mut window, "expand horizontally")?;
+
+    window.resize(200, 10)?;
+    ctx.snapshot(&mut window, "min vertical size")?;
+
+    window.resize(100, 100)?;
+    ctx.snapshot(&mut window, "normal horizontal and not expanding vertical")?;
+
+    window.resize(10, 100)?;
+    ctx.snapshot(&mut window, "min horizontal size")?;
+
+    window.resize(10, 10)?;
+    ctx.snapshot(&mut window, "min size")?;
+
+    window.close()?;
+    Ok(())
+}
