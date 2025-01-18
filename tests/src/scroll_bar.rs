@@ -1,12 +1,10 @@
 use {
     salvation::{
         impl_widget_common,
+        layout::LayoutItemOptions,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
-        widgets::{
-            column::Column, label::Label, scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt,
-            WidgetId,
-        },
+        widgets::{label::Label, scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt, WidgetId},
         WindowAttributes,
     },
     salvation_test_kit::context::Context,
@@ -28,22 +26,21 @@ impl RootWidget {
             .with_on_value_changed(common.callback(Self::on_scroll_bar_value_changed))
             .with_value(value)
             .with_id();
-        let mut column = Column::new();
-        column.add_child(scroll_bar.widget.boxed());
-        column.add_child(label.widget.boxed());
-
         common.add_child(
-            column
-                .with_window(WindowAttributes::default().with_title(module_path!()))
-                .boxed(),
-            Default::default(),
+            scroll_bar.widget.boxed(),
+            LayoutItemOptions::from_pos_in_grid(0, 0),
+        );
+        common.add_child(
+            label.widget.boxed(),
+            LayoutItemOptions::from_pos_in_grid(0, 1),
         );
 
         let mut this = Self {
             common: common.into(),
             label_id: label.id,
             scroll_bar_id: scroll_bar.id,
-        };
+        }
+        .with_window(WindowAttributes::default().with_title(module_path!()));
 
         let on_r = this.callback(|this, _| {
             let scroll_bar = this.common.widget(this.scroll_bar_id)?;

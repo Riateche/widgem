@@ -1,8 +1,7 @@
 use salvation::{
     impl_widget_common,
-    widgets::{
-        button::Button, menu::Menu, padding_box::PaddingBox, Widget, WidgetCommon, WidgetExt,
-    },
+    layout::LayoutItemOptions,
+    widgets::{button::Button, menu::Menu, Widget, WidgetCommon, WidgetExt},
     WindowAttributes,
 };
 use salvation_test_kit::context::Context;
@@ -15,15 +14,11 @@ impl RootWidget {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new::<Self>();
         let button = Button::new("test").with_on_triggered(common.callback(Self::on_triggered));
-        common.add_child(
-            PaddingBox::new(button.boxed())
-                .with_window(WindowAttributes::default().with_title(module_path!()))
-                .boxed(),
-            Default::default(),
-        );
+        common.add_child(button.boxed(), LayoutItemOptions::from_pos_in_grid(0, 0));
         Self {
             common: common.into(),
         }
+        .with_window(WindowAttributes::default().with_title(module_path!()))
     }
 
     fn on_triggered(&mut self, _event: String) -> anyhow::Result<()> {

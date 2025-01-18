@@ -1,7 +1,8 @@
 use {
     salvation::{
         impl_widget_common,
-        widgets::{label::Label, padding_box::PaddingBox, Widget, WidgetCommon, WidgetExt},
+        layout::LayoutItemOptions,
+        widgets::{label::Label, Widget, WidgetCommon, WidgetExt},
         WindowAttributes,
     },
     salvation_test_kit::context::Context,
@@ -15,15 +16,11 @@ impl RootWidget {
     pub fn new() -> Self {
         let mut common = WidgetCommon::new::<Self>();
         let input = Label::new("Test");
-        common.add_child(
-            PaddingBox::new(input.boxed())
-                .with_window(WindowAttributes::default().with_title(module_path!()))
-                .boxed(),
-            Default::default(),
-        );
+        common.add_child(input.boxed(), LayoutItemOptions::from_pos_in_grid(0, 0));
         Self {
             common: common.into(),
         }
+        .with_window(WindowAttributes::default().with_title(module_path!()))
     }
 }
 
