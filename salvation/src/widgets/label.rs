@@ -1,30 +1,42 @@
 use {
-    super::{Widget, WidgetCommon},
-    crate::{
-        draw::DrawEvent, impl_widget_common, layout::SizeHintMode, text_editor::Text, types::Point,
-    },
-    anyhow::Result,
+    super::{Widget, WidgetCommon, WidgetExt},
+    crate::{impl_widget_common, layout::LayoutItemOptions, text_editor::Text},
     cosmic_text::Attrs,
     std::fmt::Display,
 };
 
 pub struct Label {
-    editor: Text,
     common: WidgetCommon,
 }
 
 impl Label {
     pub fn new(text: impl Display) -> Self {
-        let mut editor = Text::new(text);
-        editor.set_cursor_hidden(true);
+        let mut common = WidgetCommon::new::<Self>();
+        let editor = Text::new(text);
+        common.add_child(editor.boxed(), LayoutItemOptions::from_pos_in_grid(0, 0));
+        common.set_no_padding(true);
         Self {
-            editor,
-            common: WidgetCommon::new::<Self>().into(),
+            common: common.into(),
         }
     }
 
+    #[allow(dead_code)]
+    fn text_widget(&self) -> &Text {
+        self.common.children[0]
+            .widget
+            .downcast_ref::<Text>()
+            .unwrap()
+    }
+
+    fn text_widget_mut(&mut self) -> &mut Text {
+        self.common.children[0]
+            .widget
+            .downcast_mut::<Text>()
+            .unwrap()
+    }
+
     pub fn set_text(&mut self, text: impl Display) {
-        self.editor.set_text(text, Attrs::new());
+        self.text_widget_mut().set_text(text, Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
     }
@@ -32,22 +44,4 @@ impl Label {
 
 impl Widget for Label {
     impl_widget_common!();
-
-    fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
-        event.draw_pixmap(
-            Point::default(),
-            self.editor.pixmap().as_ref(),
-            Default::default(),
-        );
-        Ok(())
-    }
-
-    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(self.editor.size().x)
-    }
-
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        // TODO: use size_x, handle multiple lines
-        Ok(self.editor.size().y)
-    }
 }

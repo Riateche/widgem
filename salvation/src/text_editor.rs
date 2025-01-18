@@ -7,6 +7,7 @@ use {
             MouseMoveEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
         },
         impl_widget_common,
+        layout::SizeHintMode,
         shortcut::standard_shortcuts,
         system::{add_interval, report_error, send_window_request, with_system, ReportError},
         text::{
@@ -86,7 +87,7 @@ pub struct AccessibleLine {
 impl Default for Text {
     fn default() -> Self {
         let common = WidgetCommon::new::<Self>();
-        with_system(|system| Self {
+        let mut t = with_system(|system| Self {
             editor: Editor::new(Buffer::new(
                 &mut system.font_system,
                 system.default_style.0.font_metrics,
@@ -98,7 +99,7 @@ impl Default for Text {
             size: Size::default(),
             is_multiline: true,
             is_editable: false,
-            is_cursor_hidden: false,
+            is_cursor_hidden: true,
             is_host_focused: false,
             host_id: None,
             forbid_mouse_interaction: false,
@@ -106,7 +107,9 @@ impl Default for Text {
             selected_text: String::new(),
             accessible_line_id: accessible::new_accessible_node_id(),
             common: common.into(),
-        })
+        });
+        t.editor.set_cursor_hidden(true);
+        t
     }
 }
 
@@ -1156,6 +1159,15 @@ impl Widget for Text {
         node.set_default_action_verb(DefaultActionVerb::Click);
         node.set_text_selection(self.accessible_selection(self.accessible_line_id));
         Some(node)
+    }
+
+    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+        Ok(self.size().x)
+    }
+
+    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+        // TODO: use size_x, handle multiple lines
+        Ok(self.size().y)
     }
 }
 
