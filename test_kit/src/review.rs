@@ -20,6 +20,7 @@ use {
         cmp::max,
         collections::{BTreeMap, HashMap},
         path::{Path, PathBuf},
+        rc::Rc,
     },
     strum::{EnumIter, IntoEnumIterator},
 };
@@ -612,7 +613,8 @@ impl Reviewer {
                 .map_err(|err| {
                     warn!("failed to make pixmap: {:?}", err);
                 })
-                .ok(),
+                .ok()
+                .map(Rc::new),
             unconfirmed_count,
         }
     }
@@ -688,7 +690,7 @@ struct ReviewerState {
     // TODO: use it to set active radio button
     #[allow(dead_code)]
     mode: Mode,
-    snapshot: Option<Pixmap>,
+    snapshot: Option<Rc<Pixmap>>,
     unconfirmed_count: usize,
 }
 

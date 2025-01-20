@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommon, WidgetExt},
+    super::{image::Image, Widget, WidgetCommon, WidgetExt},
     crate::{
         callback::{Callback, CallbackVec},
         draw::DrawEvent,
@@ -8,7 +8,10 @@ use {
             MouseMoveEvent, WidgetScopeChangeEvent,
         },
         impl_widget_common,
-        layout::SizeHintMode,
+        layout::{
+            grid::{GridAxisOptions, GridOptions},
+            LayoutItemOptions,
+        },
         style::{button::ComputedButtonStyle, css::MyPseudoClass},
         system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
@@ -20,8 +23,7 @@ use {
     anyhow::Result,
     cosmic_text::Attrs,
     salvation_macros::impl_with,
-    std::{cmp::max, fmt::Display, rc::Rc},
-    tiny_skia::Pixmap,
+    std::fmt::Display,
     winit::{
         event::MouseButton,
         keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
@@ -29,13 +31,10 @@ use {
 };
 
 pub struct Button {
-    editor: Text,
-    icon: Option<Rc<Pixmap>>,
-    text_visible: bool,
     auto_repeat: bool,
     is_mouse_leave_sensitive: bool,
     trigger_on_press: bool,
-    on_triggered: CallbackVec<String>,
+    on_triggered: CallbackVec<()>,
     is_pressed: bool,
     was_pressed_but_moved_out: bool,
     auto_repeat_delay_timer: Option<TimerId>,
@@ -48,12 +47,15 @@ impl Button {
     pub fn new(text: impl Display) -> Self {
         let mut common = WidgetCommon::new::<Self>();
         common.set_focusable(true);
-        let mut editor = Text::new(text);
-        editor.set_cursor_hidden(true);
+        common.add_child(
+            Image::new(None).with_visible(false).boxed(),
+            LayoutItemOptions::from_pos_in_grid(0, 0),
+        );
+        common.add_child(
+            Text::new(text).boxed(),
+            LayoutItemOptions::from_pos_in_grid(1, 0),
+        );
         Self {
-            editor,
-            icon: None,
-            text_visible: true,
             auto_repeat: false,
             is_mouse_leave_sensitive: true,
             trigger_on_press: false,
@@ -66,14 +68,43 @@ impl Button {
         }
     }
 
+    #[allow(dead_code)]
+    fn image_widget(&self) -> &Image {
+        self.common.children[0]
+            .widget
+            .downcast_ref::<Image>()
+            .unwrap()
+    }
+
+    fn image_widget_mut(&mut self) -> &mut Image {
+        self.common.children[0]
+            .widget
+            .downcast_mut::<Image>()
+            .unwrap()
+    }
+
+    fn text_widget(&self) -> &Text {
+        self.common.children[1]
+            .widget
+            .downcast_ref::<Text>()
+            .unwrap()
+    }
+
+    fn text_widget_mut(&mut self) -> &mut Text {
+        self.common.children[1]
+            .widget
+            .downcast_mut::<Text>()
+            .unwrap()
+    }
+
     pub fn set_text(&mut self, text: impl Display) {
-        self.editor.set_text(text, Attrs::new());
+        self.text_widget_mut().set_text(text, Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
     }
 
     pub fn set_text_visible(&mut self, value: bool) {
-        self.text_visible = value;
+        self.text_widget_mut().set_visible(value);
         self.common.size_hint_changed();
         self.common.update();
     }
@@ -97,12 +128,12 @@ impl Button {
     //     self.common.update();
     // }
 
-    pub fn on_triggered(&mut self, callback: Callback<String>) {
+    pub fn on_triggered(&mut self, callback: Callback<()>) {
         self.on_triggered.push(callback);
     }
 
     pub fn trigger(&mut self) {
-        self.on_triggered.invoke(self.editor.text());
+        self.on_triggered.invoke(());
     }
 
     fn set_pressed(&mut self, value: bool, suppress_trigger: bool) {
@@ -160,15 +191,6 @@ impl Button {
         );
         self.auto_repeat_interval = Some(id);
     }
-
-    fn actual_icon(&self) -> Option<Rc<Pixmap>> {
-        self.icon.clone().or_else(|| {
-            self.common
-                .specific_style::<ComputedButtonStyle>()
-                .icon
-                .clone()
-        })
-    }
 }
 
 impl Widget for Button {
@@ -187,24 +209,6 @@ impl Widget for Button {
             style.background.as_ref(),
         );
 
-        if self.text_visible {
-            self.editor.set_text_color(style.text_color);
-            let editor_pixmap = self.editor.pixmap();
-            let padding = Point {
-                x: max(0, size.x - editor_pixmap.width() as i32) / 2,
-                y: max(0, size.y - editor_pixmap.height() as i32) / 2,
-            };
-            event.draw_pixmap(padding, editor_pixmap.as_ref(), Default::default());
-        }
-
-        // TODO: display icon and text side by side if both are present
-        if let Some(icon) = self.actual_icon() {
-            let pos = Point {
-                x: max(0, size.x - icon.width() as i32) / 2,
-                y: max(0, size.y - icon.height() as i32) / 2,
-            };
-            event.draw_pixmap(pos, (*icon).as_ref(), Default::default());
-        }
         Ok(())
     }
 
@@ -291,55 +295,43 @@ impl Widget for Button {
 
     fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
         let mut node = NodeBuilder::new(Role::Button);
-        node.set_name(self.editor.text().as_str());
+        node.set_name(self.text_widget().text().as_str());
         node.add_action(Action::Focus);
-        //node.add_action(Action::Default);
         node.set_default_action_verb(DefaultActionVerb::Click);
         Some(node)
     }
 
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let style = &self.common.common_style;
-        let padding = match mode {
-            SizeHintMode::Min => style.min_padding_with_border,
-            SizeHintMode::Preferred => style.preferred_padding_with_border,
-        };
-
-        // TODO: support text with icon
-        let content_size = if self.text_visible {
-            self.editor.size().x
-        } else if let Some(icon) = self.actual_icon() {
-            icon.width() as i32
-        } else {
-            0
-        };
-
-        Ok(content_size + 2 * padding.x)
-    }
-
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
-        // TODO: use size_x, handle multiple lines
-        let style = &self.common.common_style;
-        let padding = match mode {
-            SizeHintMode::Min => style.min_padding_with_border,
-            SizeHintMode::Preferred => style.preferred_padding_with_border,
-        };
-
-        // TODO: support text with icon
-        let content_size = if self.text_visible {
-            self.editor.size().y
-        } else if let Some(icon) = self.actual_icon() {
-            icon.height() as i32
-        } else {
-            0
-        };
-
-        Ok(content_size + 2 * padding.y)
-    }
-
     fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
-        self.editor
-            .set_font_metrics(self.common.common_style.font_metrics);
+        let style = self.common.common_style.clone();
+        self.text_widget_mut().set_font_metrics(style.font_metrics);
+        self.text_widget_mut().set_text_color(style.text_color);
+
+        // TODO: icon changes when class changes, but that doesn't change widget scope
+        let icon = self
+            .common
+            .specific_style::<ComputedButtonStyle>()
+            .icon
+            .clone();
+        self.image_widget_mut().set_visible(icon.is_some());
+        self.image_widget_mut().set_pixmap(icon);
+
+        self.common.set_grid_options(Some(GridOptions {
+            x: GridAxisOptions {
+                min_padding: style.min_padding_with_border.x,
+                min_spacing: 0, // TODO: spacing between icon and image
+                preferred_padding: style.preferred_padding_with_border.x,
+                preferred_spacing: 0,
+                border_collapse: 0,
+            },
+            y: GridAxisOptions {
+                min_padding: style.min_padding_with_border.y,
+                min_spacing: 0,
+                preferred_padding: style.preferred_padding_with_border.y,
+                preferred_spacing: 0,
+                border_collapse: 0,
+            },
+        }));
+
         if !self.common.is_enabled() {
             if let Some(id) = self.auto_repeat_delay_timer.take() {
                 id.cancel();

@@ -21,7 +21,7 @@ impl RootWidget {
         .with_window(WindowAttributes::default().with_title(module_path!()))
     }
 
-    fn on_triggered(&mut self, _event: String) -> anyhow::Result<()> {
+    fn on_triggered(&mut self, _event: ()) -> anyhow::Result<()> {
         let menu = Menu::new();
         self.common.add_child(menu.boxed(), Default::default());
         Ok(())

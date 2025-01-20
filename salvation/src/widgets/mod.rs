@@ -565,6 +565,9 @@ impl WidgetCommon {
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
+        if self.is_explicitly_enabled == enabled {
+            return;
+        }
         self.is_explicitly_enabled = enabled;
         self.enabled_changed();
     }
@@ -969,6 +972,9 @@ pub trait WidgetExt {
     where
         Self: Sized;
 
+    fn with_visible(self, value: bool) -> Self
+    where
+        Self: Sized;
     fn with_focusable(self, value: bool) -> Self
     where
         Self: Sized;
@@ -1028,6 +1034,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         self
     }
 
+    fn with_visible(mut self, value: bool) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_visible(value);
+        self
+    }
     fn with_focusable(mut self, value: bool) -> Self
     where
         Self: Sized,
@@ -1372,7 +1385,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     fn set_enabled(&mut self, enabled: bool) {
         let previous_scope = self.common().scope.clone();
         self.common_mut().set_enabled(enabled);
-        self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
+        if previous_scope.is_enabled != self.common().is_enabled() {
+            self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
+        }
     }
 
     fn set_visible(&mut self, visible: bool) {

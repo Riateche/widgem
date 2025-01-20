@@ -50,8 +50,14 @@ pub struct ComputedStyleInner {
     specific_cache: RefCell<HashMap<Element, Box<dyn Any>>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ComputedStyle(pub Rc<ComputedStyleInner>);
+
+impl std::fmt::Debug for ComputedStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ComputedStyle").finish_non_exhaustive()
+    }
+}
 
 #[derive(Debug)]
 pub struct CommonComputedStyle {

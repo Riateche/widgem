@@ -194,7 +194,7 @@ impl RootWidget {
         Ok(())
     }
 
-    fn button_clicked(&mut self, data: String, k: u32) -> Result<()> {
+    fn button_clicked(&mut self, data: (), k: u32) -> Result<()> {
         println!("callback! {:?}, {}", data, k);
         let button = self.common.widget(self.button_id)?;
         button.set_text(format!("ok {}", if k == 1 { "1" } else { "22222" }));
