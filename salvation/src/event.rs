@@ -39,6 +39,7 @@ pub enum Event {
     WidgetScopeChange(WidgetScopeChangeEvent),
     ScrollToRect(ScrollToRectEvent),
     StyleChange(StyleChangeEvent),
+    EnabledChange(EnabledChangeEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -202,3 +203,8 @@ pub struct ScrollToRectEvent {
 
 #[derive(Debug, Clone)]
 pub struct StyleChangeEvent {}
+
+#[derive(Debug, Clone)]
+pub struct EnabledChangeEvent {
+    pub is_enabled: bool,
+}

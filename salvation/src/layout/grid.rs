@@ -94,7 +94,7 @@ fn size_hint(
 pub fn size_hint_x(items: &mut [Child], options: &GridOptions, mode: SizeHintMode) -> Result<i32> {
     let item_data = items
         .iter_mut()
-        .filter(|item| item.options.is_in_grid() && item.widget.common().is_explicitly_visible)
+        .filter(|item| item.options.is_in_grid() && item.widget.common().is_self_visible)
         .map(|item| {
             (
                 item.options.x.pos_in_grid.clone().unwrap(),
@@ -114,7 +114,7 @@ pub fn size_hint_y(
     let x_layout = x_layout(items, &options.x, size_x)?;
     let mut item_data = Vec::new();
     for (index, item) in items.iter_mut().enumerate() {
-        if !item.options.is_in_grid() || !item.widget.common().is_explicitly_visible {
+        if !item.options.is_in_grid() || !item.widget.common().is_self_visible {
             continue;
         }
         let Some(item_size_x) = x_layout.child_sizes.get(&index) else {
@@ -131,7 +131,7 @@ pub fn size_hint_y(
 pub fn size_x_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
     items.iter_mut().all(|item| {
         !item.options.is_in_grid()
-            || !item.widget.common().is_explicitly_visible
+            || !item.widget.common().is_self_visible
             || item
                 .options
                 .x
@@ -142,7 +142,7 @@ pub fn size_x_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
 pub fn size_y_fixed(items: &mut [Child], _options: &GridOptions) -> bool {
     items.iter_mut().all(|item| {
         !item.options.is_in_grid()
-            || !item.widget.common().is_explicitly_visible
+            || !item.widget.common().is_self_visible
             || item
                 .options
                 .y
@@ -161,7 +161,7 @@ struct XLayout {
 fn x_layout(items: &mut [Child], options: &GridAxisOptions, size_x: i32) -> Result<XLayout> {
     let mut hints_per_column = BTreeMap::new();
     for item in items.iter_mut() {
-        if !item.options.is_in_grid() || !item.widget.common().is_explicitly_visible {
+        if !item.options.is_in_grid() || !item.widget.common().is_self_visible {
             continue;
         }
         let Some(pos) = item.options.x.pos_in_grid.clone() else {
@@ -188,7 +188,7 @@ fn x_layout(items: &mut [Child], options: &GridAxisOptions, size_x: i32) -> Resu
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
     for (index, item) in items.iter_mut().enumerate() {
-        if !item.options.is_in_grid() || !item.widget.common().is_explicitly_visible {
+        if !item.options.is_in_grid() || !item.widget.common().is_self_visible {
             continue;
         }
         let Some(pos) = item.options.x.pos_in_grid.clone() else {
@@ -231,7 +231,7 @@ pub fn layout(
     let mut hints_per_row = BTreeMap::new();
     for (index, item) in items.iter_mut().enumerate() {
         if !item.options.is_in_grid() {
-            //|| !item.widget.common().is_explicitly_visible {
+            //|| !item.widget.common().is_self_visible {
             continue;
         }
         let Some(pos) = item.options.y.pos_in_grid.clone() else {
@@ -276,7 +276,7 @@ pub fn layout(
     );
     let mut result = BTreeMap::new();
     for (index, item) in items.iter_mut().enumerate() {
-        // if !item.widget.common().is_explicitly_visible {
+        // if !item.widget.common().is_self_visible {
         //     continue;
         // }
         let Some(pos_x) = item.options.x.pos_in_grid.clone() else {

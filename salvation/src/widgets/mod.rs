@@ -4,9 +4,9 @@ use {
         create_window,
         draw::DrawEvent,
         event::{
-            AccessibleActionEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent,
-            KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-            MouseMoveEvent, MouseScrollEvent, ScrollToRectEvent, StyleChangeEvent,
+            AccessibleActionEvent, EnabledChangeEvent, Event, FocusInEvent, FocusOutEvent,
+            ImeEvent, KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent,
+            MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent, ScrollToRectEvent, StyleChangeEvent,
             WidgetScopeChangeEvent, WindowFocusChangeEvent,
         },
         layout::{
@@ -105,8 +105,6 @@ pub struct WidgetScope {
     pub address: WidgetAddress,
     pub window: Option<Window>,
 
-    pub is_visible: bool,
-    pub is_enabled: bool,
     pub style: ComputedStyle,
 }
 
@@ -122,8 +120,6 @@ impl WidgetScope {
             parent_id: None,
             address: WidgetAddress::root(id),
             window: None,
-            is_visible: true,
-            is_enabled: true,
             style: s.default_style.clone(),
         })
     }
@@ -146,6 +142,11 @@ pub struct WidgetCommon {
     // TODO: set initial value in mount event
     pub is_window_focused: bool,
     pub scope: WidgetScope,
+
+    pub is_parent_enabled: bool,
+    pub is_self_enabled: bool,
+    pub is_self_visible: bool,
+
     pub is_window_root: bool,
 
     pub is_mouse_over: bool,
@@ -166,8 +167,6 @@ pub struct WidgetCommon {
     pub is_accessible: bool,
     pub pending_accessible_update: bool,
 
-    pub is_explicitly_enabled: bool,
-    pub is_explicitly_visible: bool,
     pub explicit_style: Option<ComputedStyle>,
 
     pub is_registered_as_focusable: bool,
@@ -205,12 +204,13 @@ impl WidgetCommon {
 
         let common = Self {
             id,
-            is_explicitly_enabled: true,
-            is_explicitly_visible: true,
             receives_all_mouse_events: false,
             explicit_style: None,
             is_focusable: false,
             is_focused: false,
+            is_parent_enabled: true,
+            is_self_enabled: true,
+            is_self_visible: true,
             is_mouse_over: false,
             is_window_focused: false,
             enable_ime: false,
@@ -293,12 +293,16 @@ impl WidgetCommon {
         })
     }
 
-    pub fn is_visible(&self) -> bool {
-        self.scope.is_visible && self.is_explicitly_visible
+    pub fn is_self_visible(&self) -> bool {
+        self.is_self_visible
+    }
+
+    pub fn is_self_enabled(&self) -> bool {
+        self.is_self_enabled
     }
 
     pub fn is_enabled(&self) -> bool {
-        self.scope.is_enabled && self.is_explicitly_enabled
+        self.is_parent_enabled && self.is_self_enabled
     }
 
     pub fn is_focusable(&self) -> bool {
@@ -328,8 +332,6 @@ impl WidgetCommon {
                 .clone()
                 .join(child_index, child.widget.common().id),
             window,
-            is_visible: self.is_visible(),
-            is_enabled: self.is_enabled(),
             // TODO: allow overriding scale?
             style: self.style().clone(),
         }
@@ -577,14 +579,6 @@ impl WidgetCommon {
             self.style_element.remove_pseudo_class(MyPseudoClass::Hover);
         }
         self.refresh_common_style();
-    }
-
-    pub fn set_enabled(&mut self, enabled: bool) {
-        if self.is_explicitly_enabled == enabled {
-            return;
-        }
-        self.is_explicitly_enabled = enabled;
-        self.enabled_changed();
     }
 
     pub fn set_focusable(&mut self, focusable: bool) {
@@ -904,6 +898,10 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(())
     }
+    fn handle_enabled_change(&mut self, event: EnabledChangeEvent) -> Result<()> {
+        let _ = event;
+        Ok(())
+    }
     fn handle_event(&mut self, event: Event) -> Result<bool> {
         match event {
             Event::MouseInput(e) => self.handle_mouse_input(e),
@@ -922,6 +920,7 @@ pub trait Widget: Downcast {
             Event::WidgetScopeChange(e) => self.handle_widget_scope_change(e).map(|()| true),
             Event::ScrollToRect(e) => self.handle_scroll_to_rect(e),
             Event::StyleChange(e) => self.handle_style_change(e).map(|()| true),
+            Event::EnabledChange(e) => self.handle_enabled_change(e).map(|()| true),
         }
     }
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
@@ -1194,6 +1193,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::StyleChange(_) => {
                 self.common_mut().refresh_common_style();
             }
+            Event::EnabledChange(_) => {
+                self.common_mut().enabled_changed();
+            }
             _ => {}
         }
         if !accepted && should_dispatch {
@@ -1283,6 +1285,23 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         }
                     } else {
                         warn!("ScrollToRectEvent dispatched to unrelated widget");
+                    }
+                }
+            }
+            Event::EnabledChange(event) => {
+                for child in &mut self.common_mut().children {
+                    let old_enabled = child.widget.common_mut().is_enabled();
+                    child.widget.common_mut().is_parent_enabled = event.is_enabled;
+                    let new_enabled = child.widget.common_mut().is_enabled();
+                    if old_enabled != new_enabled {
+                        child.widget.dispatch(
+                            EnabledChangeEvent {
+                                is_enabled: new_enabled,
+                            }
+                            .into(),
+                        );
+                        // TODO: do it when pseudo class changes instead
+                        child.widget.dispatch(StyleChangeEvent {}.into());
                     }
                 }
             }
@@ -1401,21 +1420,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         self.dispatch(StyleChangeEvent {}.into());
     }
 
-    fn set_enabled(&mut self, enabled: bool) {
-        let previous_scope = self.common().scope.clone();
-        let previous_enabled = self.common().is_enabled();
-        self.common_mut().set_enabled(enabled);
-        if previous_enabled != self.common().is_enabled() {
-            self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
-            // TODO: do it when pseudo class changes instead
-            self.dispatch(StyleChangeEvent {}.into());
-        }
-    }
-
     fn set_visible(&mut self, visible: bool) {
-        let previous_scope = self.common().scope.clone();
-        self.common_mut().is_explicitly_visible = visible;
-        self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
+        if self.common_mut().is_self_visible == visible {
+            return;
+        }
+        self.common_mut().is_self_visible = visible;
+        self.common_mut().size_hint_changed(); // trigger layout
     }
 
     fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()> {
@@ -1440,6 +1450,25 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     fn remove_class(&mut self, class: &'static str) {
         self.common_mut().style_element.remove_class(class);
         self.dispatch(StyleChangeEvent {}.into());
+    }
+
+    fn set_enabled(&mut self, enabled: bool) {
+        let old_enabled = self.common().is_enabled();
+        if self.common().is_self_enabled == enabled {
+            return;
+        }
+        self.common_mut().is_self_enabled = enabled;
+        let new_enabled = self.common().is_enabled();
+        if old_enabled != new_enabled {
+            self.dispatch(
+                EnabledChangeEvent {
+                    is_enabled: new_enabled,
+                }
+                .into(),
+            );
+            // TODO: do it when pseudo class changes instead
+            self.dispatch(StyleChangeEvent {}.into());
+        }
     }
 
     fn boxed(self) -> Box<dyn Widget>
