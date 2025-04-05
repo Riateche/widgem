@@ -5,12 +5,12 @@ use {
         draw::DrawEvent,
         event::{
             AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent,
-            MouseMoveEvent, WidgetScopeChangeEvent,
+            MouseMoveEvent, StyleChangeEvent, WidgetScopeChangeEvent,
         },
         impl_widget_common,
         layout::{
             grid::{GridAxisOptions, GridOptions},
-            LayoutItemOptions,
+            Alignment, LayoutItemOptions,
         },
         style::{button::ComputedButtonStyle, css::MyPseudoClass},
         system::{add_interval, add_timer, send_window_request, with_system},
@@ -301,18 +301,18 @@ impl Widget for Button {
         Some(node)
     }
 
-    fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
+    fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
         let style = self.common.common_style.clone();
         self.text_widget_mut().set_font_metrics(style.font_metrics);
         self.text_widget_mut().set_text_color(style.text_color);
 
-        // TODO: icon changes when class changes, but that doesn't change widget scope
         let icon = self
             .common
             .specific_style::<ComputedButtonStyle>()
             .icon
             .clone();
         self.image_widget_mut().set_visible(icon.is_some());
+        self.image_widget_mut().set_prescaled(true);
         self.image_widget_mut().set_pixmap(icon);
 
         self.common.set_grid_options(Some(GridOptions {
@@ -322,6 +322,8 @@ impl Widget for Button {
                 preferred_padding: style.preferred_padding_with_border.x,
                 preferred_spacing: 0,
                 border_collapse: 0,
+                // TODO: get from style
+                alignment: Alignment::Middle,
             },
             y: GridAxisOptions {
                 min_padding: style.min_padding_with_border.y,
@@ -329,9 +331,16 @@ impl Widget for Button {
                 preferred_padding: style.preferred_padding_with_border.y,
                 preferred_spacing: 0,
                 border_collapse: 0,
+                alignment: Alignment::Middle,
             },
         }));
 
+        self.common.size_hint_changed();
+        self.common.update();
+        Ok(())
+    }
+
+    fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
         if !self.common.is_enabled() {
             if let Some(id) = self.auto_repeat_delay_timer.take() {
                 id.cancel();
@@ -342,8 +351,6 @@ impl Widget for Button {
             self.set_pressed(false, true);
             self.was_pressed_but_moved_out = false;
         }
-        self.common.size_hint_changed();
-        self.common.update();
         Ok(())
     }
 }

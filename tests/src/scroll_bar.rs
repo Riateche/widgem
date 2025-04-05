@@ -272,11 +272,11 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|| RootWidget::new().boxed())?;
+    ctx.connection().mouse_move_global(0, 0)?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "scroll bar")?;
-
-    window.mouse_move(140, 20)?;
+    window.mouse_move(142, 22)?;
     ctx.snapshot(&mut window, "highlighted right arrow")?;
     ctx.connection().mouse_down(1)?;
     ctx.snapshot(&mut window, "pressed right arrow - step right by 5")?;

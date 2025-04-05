@@ -1,5 +1,5 @@
 use {
-    super::SizeHintMode,
+    super::{Alignment, SizeHintMode},
     crate::{
         layout::{fair_split, solve_layout},
         types::{Rect, Size},
@@ -29,6 +29,7 @@ impl GridOptions {
             preferred_padding: 0,
             preferred_spacing: 0,
             border_collapse: 0,
+            alignment: Alignment::Start,
         },
         y: GridAxisOptions {
             min_padding: 0,
@@ -36,6 +37,7 @@ impl GridOptions {
             preferred_padding: 0,
             preferred_spacing: 0,
             border_collapse: 0,
+            alignment: Alignment::Start,
         },
     };
 }
@@ -47,6 +49,7 @@ pub struct GridAxisOptions {
     pub preferred_padding: i32,
     pub preferred_spacing: i32,
     pub border_collapse: i32,
+    pub alignment: Alignment,
 }
 
 fn size_hint(
@@ -158,11 +161,6 @@ struct XLayout {
 fn x_layout(items: &mut [Child], options: &GridAxisOptions, size_x: i32) -> Result<XLayout> {
     let mut hints_per_column = BTreeMap::new();
     for item in items.iter_mut() {
-        println!(
-            "item {:?} {:?}",
-            item.options.x.pos_in_grid,
-            item.widget.common().is_explicitly_visible
-        );
         if !item.options.is_in_grid() || !item.widget.common().is_explicitly_visible {
             continue;
         }
@@ -262,8 +260,20 @@ pub fn layout(
         .collect_vec();
     let output_y = solve_layout(&layout_items, size.y, &options.y);
     let row_sizes: BTreeMap<_, _> = hints_per_row.keys().copied().zip(output_y.sizes).collect();
-    let positions_x = positions(&x_layout.column_sizes, x_layout.padding, x_layout.spacing);
-    let positions_y = positions(&row_sizes, output_y.padding, output_y.spacing);
+    let positions_x = positions(
+        &x_layout.column_sizes,
+        x_layout.padding,
+        x_layout.spacing,
+        size.x,
+        options.x.alignment,
+    );
+    let positions_y = positions(
+        &row_sizes,
+        output_y.padding,
+        output_y.spacing,
+        size.y,
+        options.y.alignment,
+    );
     let mut result = BTreeMap::new();
     for (index, item) in items.iter_mut().enumerate() {
         // if !item.widget.common().is_explicitly_visible {
@@ -276,7 +286,6 @@ pub fn layout(
             continue;
         };
         let Some(cell_pos_x) = positions_x.get(pos_x.start()) else {
-            warn!("missing item in positions_x");
             continue;
         };
         let Some(cell_pos_y) = positions_y.get(pos_y.start()) else {
@@ -312,8 +321,26 @@ pub fn layout(
     Ok(result)
 }
 
-fn positions(sizes: &BTreeMap<i32, i32>, padding: i32, spacing: i32) -> BTreeMap<i32, i32> {
+fn positions(
+    sizes: &BTreeMap<i32, i32>,
+    padding: i32,
+    spacing: i32,
+    total_available: i32,
+    alignment: Alignment,
+) -> BTreeMap<i32, i32> {
     let mut pos = padding;
+    let total_taken: i32 = sizes.values().copied().sum();
+    let available_for_items =
+        total_available - 2 * padding - spacing * sizes.len().saturating_sub(1) as i32;
+    match alignment {
+        Alignment::Start => {}
+        Alignment::Middle => {
+            pos += (available_for_items - total_taken) / 2;
+        }
+        Alignment::End => {
+            pos += available_for_items - total_taken;
+        }
+    }
     let mut result = BTreeMap::new();
     for (num, size) in sizes {
         result.insert(*num, pos);

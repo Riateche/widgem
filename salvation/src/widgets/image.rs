@@ -14,6 +14,7 @@ pub struct Image {
     // TODO: finite f32
     scale: Option<f32>,
     common: WidgetCommon,
+    is_prescaled: bool,
 }
 
 #[impl_with]
@@ -25,9 +26,20 @@ impl Image {
     pub fn new(pixmap: Option<Rc<Pixmap>>) -> Self {
         Self {
             pixmap,
+            is_prescaled: false,
             common: WidgetCommon::new::<Self>().into(),
             scale: None,
         }
+    }
+
+    pub fn set_prescaled(&mut self, value: bool) {
+        self.is_prescaled = value;
+        self.common.size_hint_changed();
+        self.common.update();
+    }
+
+    pub fn is_prescaled(&self) -> bool {
+        self.is_prescaled
     }
 
     pub fn set_pixmap(&mut self, pixmap: Option<Rc<Pixmap>>) {
@@ -49,7 +61,12 @@ impl Image {
     }
 
     fn total_scale(&self) -> f32 {
-        self.scale.unwrap_or(1.0) * self.common.style().0.image.scale
+        let extra_scale = if self.is_prescaled {
+            1.0
+        } else {
+            self.common.style().0.image.scale
+        };
+        self.scale.unwrap_or(1.0) * extra_scale
     }
 
     pub fn map_widget_pos_to_content_pos(&self, pos: Point) -> Point {
@@ -65,7 +82,6 @@ impl Widget for Image {
     impl_widget_common!();
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
-        println!("draw ok {:?}", self.common.rect_in_window);
         let scale = self.total_scale();
         if let Some(pixmap) = &self.pixmap {
             event.draw_pixmap(
@@ -79,20 +95,15 @@ impl Widget for Image {
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         let scale = self.total_scale();
-        dbg!(Ok(
-            (self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * scale).ceil() as i32
-        ))
+        Ok((self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * scale).ceil() as i32)
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
         let scale = self.total_scale();
-        dbg!(Ok(
-            (self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32) * scale).ceil() as i32
-        ))
+        Ok((self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32) * scale).ceil() as i32)
     }
 
     fn handle_layout(&mut self, _event: crate::event::LayoutEvent) -> Result<()> {
-        println!("image layout {:?}", self.common.rect_in_window);
         Ok(())
     }
 }

@@ -23,7 +23,7 @@ fi
 docker rm --force salvation_tests || true
 docker run --detach --name salvation_tests \
     --mount "type=bind,source=$PWD,target=/salvation" \
-    --publish 25901:5901 --publish 26901:6901 \
+    --publish 25901:5901 --publish 26901:6901 --env VNC_PW=1 \
     salvation_tests
 
 for i in {1..20}; do

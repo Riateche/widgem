@@ -38,6 +38,7 @@ pub enum Event {
     Accessible(AccessibleActionEvent),
     WidgetScopeChange(WidgetScopeChangeEvent),
     ScrollToRect(ScrollToRectEvent),
+    StyleChange(StyleChangeEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -198,3 +199,6 @@ pub struct ScrollToRectEvent {
     pub address: WidgetAddress,
     pub rect: Rect,
 }
+
+#[derive(Debug, Clone)]
+pub struct StyleChangeEvent {}

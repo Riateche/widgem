@@ -6,12 +6,12 @@ use {
         event::{
             AccessibleActionEvent, Event, FocusInEvent, FocusOutEvent, ImeEvent,
             KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-            MouseMoveEvent, MouseScrollEvent, ScrollToRectEvent, WidgetScopeChangeEvent,
-            WindowFocusChangeEvent,
+            MouseMoveEvent, MouseScrollEvent, ScrollToRectEvent, StyleChangeEvent,
+            WidgetScopeChangeEvent, WindowFocusChangeEvent,
         },
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT,
+            Alignment, LayoutItemOptions, SizeHintMode, SizeHints, FALLBACK_SIZE_HINT,
         },
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
@@ -271,6 +271,7 @@ impl WidgetCommon {
                     },
                     preferred_spacing: style.0.grid.preferred_spacing.x,
                     border_collapse: 0,
+                    alignment: Alignment::Start,
                 },
                 y: GridAxisOptions {
                     min_padding: if self.no_padding {
@@ -286,6 +287,7 @@ impl WidgetCommon {
                     },
                     preferred_spacing: style.0.grid.preferred_spacing.y,
                     border_collapse: 0,
+                    alignment: Alignment::Start,
                 },
             }
         })
@@ -439,10 +441,21 @@ impl WidgetCommon {
             None
         };
         child.rect_in_parent = rect_in_parent;
+        // println!(
+        //     "rect_in_window {:?} -> {:?}",
+        //     child.widget.common().rect_in_window,
+        //     rect_in_window
+        // );
+        // println!(
+        //     "visible_rect {:?} -> {:?}",
+        //     child.widget.common().visible_rect,
+        //     visible_rect
+        // );
         let rects_changed = child.widget.common().rect_in_window != rect_in_window
             || child.widget.common().visible_rect != visible_rect;
         if let Some(event) = &self.current_layout_event {
             if rects_changed || event.size_hints_changed_within(child.widget.common().address()) {
+                //println!("set_child_rect ok1");
                 child.widget.dispatch(
                     LayoutEvent {
                         new_rect_in_window: rect_in_window,
@@ -455,6 +468,7 @@ impl WidgetCommon {
             child.rect_set_during_layout = true;
         } else {
             if rects_changed {
+                //println!("set_child_rect ok2");
                 child.widget.dispatch(
                     LayoutEvent {
                         new_rect_in_window: rect_in_window,
@@ -465,6 +479,7 @@ impl WidgetCommon {
                 );
             }
         }
+        //println!("set_child_rect end");
         Ok(())
     }
 
@@ -709,16 +724,6 @@ impl WidgetCommon {
         self.scope.style.get(&self.style_element)
     }
 
-    pub fn add_class(&mut self, class: &'static str) {
-        self.style_element.add_class(class);
-        self.refresh_common_style();
-    }
-
-    pub fn remove_class(&mut self, class: &'static str) {
-        self.style_element.remove_class(class);
-        self.refresh_common_style();
-    }
-
     pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
         self.style_element.add_pseudo_class(class);
         self.refresh_common_style();
@@ -895,6 +900,10 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(())
     }
+    fn handle_style_change(&mut self, event: StyleChangeEvent) -> Result<()> {
+        let _ = event;
+        Ok(())
+    }
     fn handle_event(&mut self, event: Event) -> Result<bool> {
         match event {
             Event::MouseInput(e) => self.handle_mouse_input(e),
@@ -912,6 +921,7 @@ pub trait Widget: Downcast {
             Event::Accessible(e) => self.handle_accessible_action(e).map(|()| true),
             Event::WidgetScopeChange(e) => self.handle_widget_scope_change(e).map(|()| true),
             Event::ScrollToRect(e) => self.handle_scroll_to_rect(e),
+            Event::StyleChange(e) => self.handle_style_change(e).map(|()| true),
         }
     }
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
@@ -1003,6 +1013,8 @@ pub trait WidgetExt {
     fn set_enabled(&mut self, enabled: bool);
     fn set_visible(&mut self, visible: bool);
     fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()>;
+    fn add_class(&mut self, class: &'static str);
+    fn remove_class(&mut self, class: &'static str);
 
     fn boxed(self) -> Box<dyn Widget>
     where
@@ -1060,7 +1072,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     where
         Self: Sized,
     {
-        self.common_mut().add_class(class);
+        self.add_class(class);
         self
     }
     fn with_pseudo_class(mut self, class: MyPseudoClass) -> Self
@@ -1179,6 +1191,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     child.rect_set_during_layout = false;
                 }
             }
+            Event::StyleChange(_) => {
+                self.common_mut().refresh_common_style();
+            }
             _ => {}
         }
         if !accepted && should_dispatch {
@@ -1271,7 +1286,10 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
                 }
             }
-            Event::KeyboardInput(_) | Event::Ime(_) | Event::Accessible(_) => {}
+            Event::KeyboardInput(_)
+            | Event::Ime(_)
+            | Event::Accessible(_)
+            | Event::StyleChange(_) => {}
         }
 
         self.update_accessible();
@@ -1380,13 +1398,17 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let previous_scope = self.common().scope.clone();
         self.common_mut().set_scope(scope);
         self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
+        self.dispatch(StyleChangeEvent {}.into());
     }
 
     fn set_enabled(&mut self, enabled: bool) {
         let previous_scope = self.common().scope.clone();
+        let previous_enabled = self.common().is_enabled();
         self.common_mut().set_enabled(enabled);
-        if previous_scope.is_enabled != self.common().is_enabled() {
+        if previous_enabled != self.common().is_enabled() {
             self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
+            // TODO: do it when pseudo class changes instead
+            self.dispatch(StyleChangeEvent {}.into());
         }
     }
 
@@ -1406,7 +1428,18 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         };
         self.common_mut().explicit_style = style;
         self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
+        self.dispatch(StyleChangeEvent {}.into());
         Ok(())
+    }
+
+    fn add_class(&mut self, class: &'static str) {
+        self.common_mut().style_element.add_class(class);
+        self.dispatch(StyleChangeEvent {}.into());
+    }
+
+    fn remove_class(&mut self, class: &'static str) {
+        self.common_mut().style_element.remove_class(class);
+        self.dispatch(StyleChangeEvent {}.into());
     }
 
     fn boxed(self) -> Box<dyn Widget>

@@ -9,7 +9,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            LayoutItemOptions, SizeHintMode,
+            Alignment, LayoutItemOptions, SizeHintMode,
         },
         style::text_input::{ComputedVariantStyle, TextInputState},
         system::ReportError,
@@ -183,6 +183,7 @@ impl Widget for TextInput {
                 preferred_padding: style.preferred_padding_with_border.x,
                 preferred_spacing: 0,
                 border_collapse: 0,
+                alignment: Alignment::Start,
             },
             y: GridAxisOptions {
                 min_padding: style.min_padding_with_border.y,
@@ -190,6 +191,7 @@ impl Widget for TextInput {
                 preferred_padding: style.preferred_padding_with_border.y,
                 preferred_spacing: 0,
                 border_collapse: 0,
+                alignment: Alignment::Start,
             },
         }));
         let text_widget = self.text_widget_mut();
