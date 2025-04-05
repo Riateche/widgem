@@ -104,8 +104,6 @@ pub struct WidgetScope {
     pub parent_id: Option<RawWidgetId>,
     pub address: WidgetAddress,
     pub window: Option<Window>,
-
-    pub style: ComputedStyle,
 }
 
 impl WidgetScope {
@@ -116,12 +114,11 @@ impl WidgetScope {
 
 impl WidgetScope {
     fn new(id: RawWidgetId) -> Self {
-        with_system(|s| Self {
+        Self {
             parent_id: None,
             address: WidgetAddress::root(id),
             window: None,
-            style: s.default_style.clone(),
-        })
+        }
     }
 }
 
@@ -143,6 +140,7 @@ pub struct WidgetCommon {
     pub is_window_focused: bool,
     pub scope: WidgetScope,
 
+    pub parent_style: ComputedStyle,
     pub is_parent_enabled: bool,
     pub is_self_enabled: bool,
     pub is_self_visible: bool,
@@ -167,7 +165,7 @@ pub struct WidgetCommon {
     pub is_accessible: bool,
     pub pending_accessible_update: bool,
 
-    pub explicit_style: Option<ComputedStyle>,
+    pub self_style: Option<ComputedStyle>,
 
     pub is_registered_as_focusable: bool,
     // TODO: multiple filters?
@@ -205,7 +203,8 @@ impl WidgetCommon {
         let common = Self {
             id,
             receives_all_mouse_events: false,
-            explicit_style: None,
+            parent_style: with_system(|s| s.default_style.clone()),
+            self_style: None,
             is_focusable: false,
             is_focused: false,
             is_parent_enabled: true,
@@ -314,7 +313,7 @@ impl WidgetCommon {
     }
 
     pub fn style(&self) -> &ComputedStyle {
-        self.explicit_style.as_ref().unwrap_or(&self.scope.style)
+        self.self_style.as_ref().unwrap_or(&self.parent_style)
     }
 
     pub fn scope_for_child(&mut self, child_index: usize) -> WidgetScope {
@@ -332,8 +331,6 @@ impl WidgetCommon {
                 .clone()
                 .join(child_index, child.widget.common().id),
             window,
-            // TODO: allow overriding scale?
-            style: self.style().clone(),
         }
     }
 
@@ -715,7 +712,7 @@ impl WidgetCommon {
     }
 
     pub fn specific_style<T: ComputedElementStyle>(&self) -> Rc<T> {
-        self.scope.style.get(&self.style_element)
+        self.style().get(&self.style_element)
     }
 
     pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
@@ -1429,15 +1426,13 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()> {
-        let previous_scope = self.common().scope.clone();
-        let scale = self.common().scope.style.0.scale;
+        let scale = self.common().parent_style.0.scale;
         let style = if let Some(style) = style {
             Some(ComputedStyle::new(style, scale)?)
         } else {
             None
         };
-        self.common_mut().explicit_style = style;
-        self.dispatch(WidgetScopeChangeEvent { previous_scope }.into());
+        self.common_mut().self_style = style;
         self.dispatch(StyleChangeEvent {}.into());
         Ok(())
     }
