@@ -12,7 +12,7 @@ use {
     clap::Parser,
     fs_err::read_dir,
     itertools::Itertools,
-    salvation::{widgets::WidgetExt, App},
+    salvation::App,
     std::{
         collections::BTreeMap,
         env,
@@ -242,7 +242,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             if !reviewer.go_to_next_unconfirmed_file() {
                 reviewer.go_to_test_case(0);
             }
-            salvation::run(|| ReviewWidget::new(reviewer).boxed())?;
+            salvation::run::<ReviewWidget>(move |w| w.set_reviewer(reviewer))?;
         }
         Args::Approve { screenshot_path } => {
             let Some(str) = screenshot_path.strip_suffix(".new.png") else {

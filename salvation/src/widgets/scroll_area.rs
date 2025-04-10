@@ -1,7 +1,6 @@
 use {
-    super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetExt, WidgetId},
+    super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
     crate::{
-        callback::widget_callback,
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_common,
         layout::{
@@ -25,13 +24,6 @@ const INDEX_VIEWPORT: usize = 2;
 
 #[impl_with]
 impl ScrollArea {
-    pub fn new(content: Box<dyn Widget>) -> Self {
-        let mut this = Self::default();
-        this.common.set_grid_options(Some(GridOptions::ZERO));
-        this.set_content(content);
-        this
-    }
-
     fn has_content(&self) -> bool {
         !self.common.children[INDEX_VIEWPORT]
             .widget
@@ -40,19 +32,29 @@ impl ScrollArea {
             .is_empty()
     }
 
-    pub fn set_content(&mut self, content: Box<dyn Widget>) {
-        if self.has_content() {
-            self.common.children[INDEX_VIEWPORT]
-                .widget
-                .common_mut()
-                .remove_child(0)
-                .unwrap();
-        }
+    // TODO: naming?
+    // TODO: remove old content
+    pub fn add_content<T: Widget>(&mut self) -> &mut T {
+        assert!(!self.has_content());
         self.common.children[INDEX_VIEWPORT]
             .widget
             .common_mut()
-            .add_child(content, LayoutItemOptions::default());
+            .add_child::<T>(Default::default())
     }
+
+    // pub fn set_content(&mut self, content: Box<dyn Widget>) {
+    //     if self.has_content() {
+    //         self.common.children[INDEX_VIEWPORT]
+    //             .widget
+    //             .common_mut()
+    //             .remove_child(0)
+    //             .unwrap();
+    //     }
+    //     self.common.children[INDEX_VIEWPORT]
+    //         .widget
+    //         .common_mut()
+    //         .add_child(content, LayoutItemOptions::default());
+    // }
     // TODO: take_content; default impl for empty scroll area
 
     // pub fn on_value_changed(&mut self, callback: Callback<i32>) {
@@ -141,39 +143,27 @@ impl ScrollArea {
     }
 }
 
-impl Default for ScrollArea {
-    fn default() -> Self {
-        let mut common = WidgetCommon::new::<Self>();
+impl Widget for ScrollArea {
+    impl_widget_common!();
 
-        let relayout = widget_callback(WidgetId::<Self>::new(common.id), |this, _: i32| {
-            this.relayout()
-        });
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+        let relayout = common.callback(|this, _| this.relayout());
+
         // TODO: icons, localized name
-        common.add_child(
-            ScrollBar::new()
-                .with_on_value_changed(relayout.clone())
-                .boxed(),
-            LayoutItemOptions::from_pos_in_grid(0, 1),
-        );
-        common.add_child(
-            ScrollBar::new()
-                .with_axis(Axis::Y)
-                .with_on_value_changed(relayout)
-                .boxed(),
-            LayoutItemOptions::from_pos_in_grid(1, 0),
-        );
-        common.add_child(
-            Viewport::new().boxed(),
-            LayoutItemOptions::from_pos_in_grid(0, 0),
-        );
+        common
+            .add_child::<ScrollBar>(LayoutItemOptions::from_pos_in_grid(0, 1))
+            .on_value_changed(relayout.clone());
+        common
+            .add_child::<ScrollBar>(LayoutItemOptions::from_pos_in_grid(1, 0))
+            .set_axis(Axis::Y)
+            .on_value_changed(relayout);
+        common.add_child::<Viewport>(LayoutItemOptions::from_pos_in_grid(0, 0));
+        common.set_grid_options(Some(GridOptions::ZERO));
         Self {
             common: common.into(),
         }
     }
-}
 
-impl Widget for ScrollArea {
-    impl_widget_common!();
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         self.relayout()
     }
@@ -208,22 +198,16 @@ pub struct Viewport {
     common: WidgetCommon,
 }
 
-impl Viewport {
-    pub fn new() -> Self {
-        Self {
-            common: WidgetCommon::new::<Self>().into(),
-        }
-    }
-}
-
-impl Default for Viewport {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+impl Viewport {}
 
 impl Widget for Viewport {
     impl_widget_common!();
+
+    fn new(common: WidgetCommonTyped<Self>) -> Self {
+        Self {
+            common: common.into(),
+        }
+    }
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         Ok(0)

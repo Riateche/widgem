@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommon, WidgetExt},
+    super::{Widget, WidgetCommon, WidgetCommonTyped},
     crate::{impl_widget_common, layout::LayoutItemOptions, text_editor::Text},
     cosmic_text::Attrs,
     std::fmt::Display,
@@ -10,16 +10,6 @@ pub struct Label {
 }
 
 impl Label {
-    pub fn new(text: impl Display) -> Self {
-        let mut common = WidgetCommon::new::<Self>();
-        let editor = Text::new(text);
-        common.add_child(editor.boxed(), LayoutItemOptions::from_pos_in_grid(0, 0));
-        common.set_no_padding(true);
-        Self {
-            common: common.into(),
-        }
-    }
-
     #[allow(dead_code)]
     fn text_widget(&self) -> &Text {
         self.common.children[0]
@@ -35,13 +25,22 @@ impl Label {
             .unwrap()
     }
 
-    pub fn set_text(&mut self, text: impl Display) {
+    pub fn set_text(&mut self, text: impl Display) -> &mut Self {
         self.text_widget_mut().set_text(text, Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
+        self
     }
 }
 
 impl Widget for Label {
     impl_widget_common!();
+
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+        common.add_child::<Text>(LayoutItemOptions::from_pos_in_grid(0, 0));
+        common.set_no_padding(true);
+        Self {
+            common: common.into(),
+        }
+    }
 }

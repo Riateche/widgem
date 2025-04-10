@@ -20,20 +20,20 @@ use {
     winit::{
         event::{ElementState, Ime, WindowEvent},
         keyboard::{Key, NamedKey},
-        window::{CursorIcon, WindowAttributes, WindowId},
+        window::{CursorIcon, WindowId},
     },
 };
 
-pub fn create_window(attrs: WindowAttributes, widget: &mut dyn Widget) -> Window {
+pub(crate) fn init_window(window: &Window, widget: &mut dyn Widget) {
     let size_hints_x = widget.size_hints_x();
     // TODO: adjust size_x for screen size
     let size_hints_y = widget.size_hints_y_from_hints_x(size_hints_x);
-    let window = Window::new(attrs, widget.common().id, size_hints_x, size_hints_y);
 
-    widget.common_mut().is_window_root = true;
-    let mut scope = widget.common().scope.clone();
-    scope.window = Some(window.clone());
-    widget.set_scope(scope);
+    let preferred_size = Size::new(size_hints_x.preferred, size_hints_y.preferred);
+    let min_size = Size::new(size_hints_x.min, size_hints_y.min);
+    window.set_preferred_inner_size(preferred_size);
+    window.request_inner_size(preferred_size);
+    window.set_min_inner_size(min_size);
 
     // TODO: only if user requested it to be visible?
     // Window must be hidden until we initialize accesskit
@@ -64,7 +64,6 @@ pub fn create_window(attrs: WindowAttributes, widget: &mut dyn Widget) -> Window
     //                 .unwrap(),
     //         ));
     // }
-    window
 }
 
 #[derive(Debug, Clone)]

@@ -1,6 +1,6 @@
 use {
-    super::{label::Label, Widget, WidgetCommon, WidgetExt},
-    crate::{impl_widget_common, layout::LayoutItemOptions},
+    super::{label::Label, Widget, WidgetCommon, WidgetCommonTyped},
+    crate::impl_widget_common,
     winit::window::{WindowAttributes, WindowLevel},
 };
 
@@ -8,9 +8,12 @@ pub struct Menu {
     common: WidgetCommon,
 }
 
-impl Menu {
-    pub fn new() -> Self {
-        let mut common = WidgetCommon::new::<Self>();
+impl Menu {}
+
+impl Widget for Menu {
+    impl_widget_common!();
+
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         #[allow(unused_mut)]
         let mut attrs = WindowAttributes::default()
             .with_decorations(false)
@@ -28,21 +31,11 @@ impl Menu {
 
             attrs = attrs.with_skip_taskbar(true);
         }
-        let content =
-            Label::new("menu content 1\nmenu content 2\nmenu content 3").with_window(attrs);
-        common.add_child(content.boxed(), LayoutItemOptions::default());
+        common
+            .add_child_window::<Label>(attrs)
+            .set_text("menu content 1\nmenu content 2\nmenu content 3");
         Self {
             common: common.into(),
         }
     }
-}
-
-impl Default for Menu {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Widget for Menu {
-    impl_widget_common!();
 }

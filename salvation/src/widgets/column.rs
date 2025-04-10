@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommon},
+    super::{Widget, WidgetCommon, WidgetCommonTyped},
     crate::{
         impl_widget_common,
         layout::{Alignment, LayoutItemOptions},
@@ -21,18 +21,10 @@ pub struct Options {
 
 #[impl_with]
 impl Column {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self {
-            common: WidgetCommon::new::<Self>().into(),
-        }
-    }
-
-    pub fn add_child(&mut self, widget: Box<dyn Widget>) {
+    pub fn add_child<T: Widget>(&mut self) -> &mut T {
         let row = self.common.children.len();
         self.common
-            .add_child(widget, LayoutItemOptions::from_pos_in_grid(0, row as i32));
-        self.common.update();
+            .add_child::<T>(LayoutItemOptions::from_pos_in_grid(0, row as i32))
     }
 
     pub fn set_options(&mut self, index: usize, options: Options) -> Result<()> {
@@ -57,4 +49,10 @@ impl Column {
 
 impl Widget for Column {
     impl_widget_common!();
+
+    fn new(common: WidgetCommonTyped<Self>) -> Self {
+        Self {
+            common: common.into(),
+        }
+    }
 }

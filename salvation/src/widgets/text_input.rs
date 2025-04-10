@@ -1,10 +1,10 @@
 use {
-    super::{Widget, WidgetCommon, WidgetExt},
+    super::{Widget, WidgetCommon, WidgetCommonTyped},
     crate::{
         draw::DrawEvent,
         event::{
             FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent, LayoutEvent,
-            ScrollToRectEvent, WidgetScopeChangeEvent,
+            ScrollToRectEvent, StyleChangeEvent,
         },
         impl_widget_common,
         layout::{
@@ -27,16 +27,14 @@ struct Viewport {
     common: WidgetCommon,
 }
 
-impl Viewport {
-    pub fn new() -> Self {
-        Self {
-            common: WidgetCommon::new::<Self>().into(),
-        }
-    }
-}
-
 impl Widget for Viewport {
     impl_widget_common!();
+
+    fn new(common: WidgetCommonTyped<Self>) -> Self {
+        Self {
+            common: common.into(),
+        }
+    }
 
     fn recalculate_size_x_fixed(&mut self) -> bool {
         false
@@ -64,27 +62,6 @@ pub struct TextInput {
 }
 
 impl TextInput {
-    pub fn new(text: impl Display) -> Self {
-        let mut common = WidgetCommon::new::<Self>();
-        common.is_focusable = true;
-        common.cursor_icon = CursorIcon::Text;
-        let mut editor = Text::new(text)
-            .with_multiline(false)
-            .with_editable(true)
-            .with_host_id(common.id);
-        editor.common_mut().receives_all_mouse_events = true;
-        let mut viewport = Viewport::new();
-        viewport.common_mut().receives_all_mouse_events = true;
-        viewport.common_mut().cursor_icon = CursorIcon::Text;
-        viewport
-            .common_mut()
-            .add_child(editor.boxed(), Default::default());
-        common.add_child(viewport.boxed(), LayoutItemOptions::from_pos_in_grid(0, 0));
-        Self {
-            common: common.into(),
-        }
-    }
-
     fn text_widget(&self) -> &Text {
         self.common.children[0].widget.common().children[0]
             .widget
@@ -154,6 +131,25 @@ impl TextInput {
 impl Widget for TextInput {
     impl_widget_common!();
 
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+        common.is_focusable = true;
+        common.cursor_icon = CursorIcon::Text;
+        let host_id = common.id;
+        let viewport = common.add_child::<Viewport>(LayoutItemOptions::from_pos_in_grid(0, 0));
+        viewport.common_mut().receives_all_mouse_events = true;
+        viewport.common_mut().cursor_icon = CursorIcon::Text;
+        let editor = viewport
+            .common_mut()
+            .add_child::<Text>(Default::default())
+            .set_multiline(false)
+            .set_editable(true)
+            .set_host_id(host_id);
+        editor.common_mut().receives_all_mouse_events = true;
+        Self {
+            common: common.into(),
+        }
+    }
+
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         self.text_widget_mut().handle_host_focus_in(event.reason)
     }
@@ -173,7 +169,7 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
+    fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
         let style = self.common.style().0.text_input.clone();
         let variant_style = self.current_variant_style().clone();
         self.common.set_grid_options(Some(GridOptions {

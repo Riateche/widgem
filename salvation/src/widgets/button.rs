@@ -1,11 +1,11 @@
 use {
-    super::{image::Image, Widget, WidgetCommon, WidgetExt},
+    super::{image::Image, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
     crate::{
         callback::{Callback, CallbackVec},
         draw::DrawEvent,
         event::{
             AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent,
-            MouseMoveEvent, StyleChangeEvent, WidgetScopeChangeEvent,
+            MouseMoveEvent, StyleChangeEvent,
         },
         impl_widget_common,
         layout::{
@@ -44,30 +44,6 @@ pub struct Button {
 
 #[impl_with]
 impl Button {
-    pub fn new(text: impl Display) -> Self {
-        let mut common = WidgetCommon::new::<Self>();
-        common.set_focusable(true);
-        common.add_child(
-            Image::new(None).with_visible(false).boxed(),
-            LayoutItemOptions::from_pos_in_grid(0, 0),
-        );
-        common.add_child(
-            Text::new(text).boxed(),
-            LayoutItemOptions::from_pos_in_grid(1, 0),
-        );
-        Self {
-            auto_repeat: false,
-            is_mouse_leave_sensitive: true,
-            trigger_on_press: false,
-            on_triggered: CallbackVec::new(),
-            is_pressed: false,
-            was_pressed_but_moved_out: false,
-            common: common.into(),
-            auto_repeat_delay_timer: None,
-            auto_repeat_interval: None,
-        }
-    }
-
     #[allow(dead_code)]
     fn image_widget(&self) -> &Image {
         self.common.children[0]
@@ -97,28 +73,33 @@ impl Button {
             .unwrap()
     }
 
-    pub fn set_text(&mut self, text: impl Display) {
+    pub fn set_text(&mut self, text: impl Display) -> &mut Self {
         self.text_widget_mut().set_text(text, Attrs::new());
         self.common.size_hint_changed();
         self.common.update();
+        self
     }
 
-    pub fn set_text_visible(&mut self, value: bool) {
+    pub fn set_text_visible(&mut self, value: bool) -> &mut Self {
         self.text_widget_mut().set_visible(value);
         self.common.size_hint_changed();
         self.common.update();
+        self
     }
 
-    pub fn set_auto_repeat(&mut self, value: bool) {
+    pub fn set_auto_repeat(&mut self, value: bool) -> &mut Self {
         self.auto_repeat = value;
+        self
     }
 
-    pub fn set_mouse_leave_sensitive(&mut self, value: bool) {
+    pub fn set_mouse_leave_sensitive(&mut self, value: bool) -> &mut Self {
         self.is_mouse_leave_sensitive = value;
+        self
     }
 
-    pub fn set_trigger_on_press(&mut self, value: bool) {
+    pub fn set_trigger_on_press(&mut self, value: bool) -> &mut Self {
         self.trigger_on_press = value;
+        self
     }
 
     // TODO: set_icon should preferably work with SVG icons
@@ -128,8 +109,9 @@ impl Button {
     //     self.common.update();
     // }
 
-    pub fn on_triggered(&mut self, callback: Callback<()>) {
+    pub fn on_triggered(&mut self, callback: Callback<()>) -> &mut Self {
         self.on_triggered.push(callback);
+        self
     }
 
     pub fn trigger(&mut self) {
@@ -195,6 +177,25 @@ impl Button {
 
 impl Widget for Button {
     impl_widget_common!();
+
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+        common.set_focusable(true);
+        common
+            .add_child::<Image>(LayoutItemOptions::from_pos_in_grid(0, 0))
+            .set_visible(false);
+        common.add_child::<Text>(LayoutItemOptions::from_pos_in_grid(1, 0));
+        Self {
+            auto_repeat: false,
+            is_mouse_leave_sensitive: true,
+            trigger_on_press: false,
+            on_triggered: CallbackVec::new(),
+            is_pressed: false,
+            was_pressed_but_moved_out: false,
+            common: common.into(),
+            auto_repeat_delay_timer: None,
+            auto_repeat_interval: None,
+        }
+    }
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let size = self.common.size_or_err()?;
@@ -337,20 +338,6 @@ impl Widget for Button {
 
         self.common.size_hint_changed();
         self.common.update();
-        Ok(())
-    }
-
-    fn handle_widget_scope_change(&mut self, _event: WidgetScopeChangeEvent) -> Result<()> {
-        if !self.common.is_enabled() {
-            if let Some(id) = self.auto_repeat_delay_timer.take() {
-                id.cancel();
-            }
-            if let Some(id) = self.auto_repeat_interval.take() {
-                id.cancel();
-            }
-            self.set_pressed(false, true);
-            self.was_pressed_but_moved_out = false;
-        }
         Ok(())
     }
 }

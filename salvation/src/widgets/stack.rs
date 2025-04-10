@@ -1,5 +1,5 @@
 use {
-    super::{RawWidgetId, Widget, WidgetCommon},
+    super::{RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped},
     crate::{
         event::LayoutEvent, impl_widget_common, layout::SizeHintMode, system::ReportError,
         types::Rect,
@@ -14,28 +14,32 @@ pub struct Stack {
 }
 
 impl Stack {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self {
-            common: WidgetCommon::new::<Self>().into(),
-            rects: HashMap::new(),
-        }
-    }
-
     // TODO: impl explicit rect setting for universal grid layout?
-    pub fn add(&mut self, rect: Rect, widget: Box<dyn Widget>) {
+    pub fn add<T: Widget>(&mut self, rect: Rect) -> &mut T {
+        let index = self.common.children.len();
+        let widget = self.common.add_child::<T>(Default::default());
         let id = widget.common().id;
-        let index = self.common.add_child(widget, Default::default());
         self.common
             .set_child_rect(index, Some(rect))
             .or_report_err();
         self.rects.insert(id, Some(rect));
         self.common.update();
+        self.common.children[index]
+            .widget
+            .downcast_mut::<T>()
+            .unwrap()
     }
 }
 
 impl Widget for Stack {
     impl_widget_common!();
+
+    fn new(common: WidgetCommonTyped<Self>) -> Self {
+        Self {
+            common: common.into(),
+            rects: HashMap::new(),
+        }
+    }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         Ok(())

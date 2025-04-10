@@ -1,8 +1,7 @@
 use {
     salvation::{
         impl_widget_common,
-        layout::LayoutItemOptions,
-        widgets::{text_input::TextInput, Widget, WidgetCommon, WidgetExt},
+        widgets::{row::Row, text_input::TextInput, Widget, WidgetCommon, WidgetCommonTyped},
         WindowAttributes,
     },
     salvation_test_kit::context::Context,
@@ -12,25 +11,24 @@ pub struct RootWidget {
     common: WidgetCommon,
 }
 
-impl RootWidget {
-    pub fn new() -> Self {
-        let mut common = WidgetCommon::new::<Self>();
-        let input = TextInput::new("Hello world");
-        common.add_child(input.boxed(), LayoutItemOptions::from_pos_in_grid(0, 0));
+impl Widget for RootWidget {
+    impl_widget_common!();
+
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+        let content =
+            common.add_child_window::<Row>(WindowAttributes::default().with_title(module_path!()));
+
+        content.add_child::<TextInput>().set_text("Hello world");
+
         Self {
             common: common.into(),
         }
-        .with_window(WindowAttributes::default().with_title(module_path!()))
     }
-}
-
-impl Widget for RootWidget {
-    impl_widget_common!();
 }
 
 #[salvation_test_kit::test]
 pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run(|| RootWidget::new().boxed())?;
+    ctx.run::<RootWidget>(|_| Ok(()))?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "window with text input - text Hello world")?;
@@ -103,7 +101,7 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run(|| RootWidget::new().boxed())?;
+    ctx.run::<RootWidget>(|_| Ok(()))?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "text input")?;
@@ -129,7 +127,7 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run(|| RootWidget::new().boxed())?;
+    ctx.run::<RootWidget>(|_| Ok(()))?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "text input")?;

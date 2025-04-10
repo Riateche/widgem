@@ -11,7 +11,7 @@ use crate::widgets::WidgetCommon;
 use {
     crate::{
         types::{Point, Rect},
-        widgets::{WidgetAddress, WidgetScope},
+        widgets::WidgetAddress,
     },
     accesskit::{Action, ActionData},
     derive_more::From,
@@ -36,7 +36,6 @@ pub enum Event {
     FocusOut(FocusOutEvent),
     WindowFocusChange(WindowFocusChangeEvent),
     Accessible(AccessibleActionEvent),
-    WidgetScopeChange(WidgetScopeChangeEvent),
     ScrollToRect(ScrollToRectEvent),
     StyleChange(StyleChangeEvent),
     EnabledChange(EnabledChangeEvent),
@@ -188,11 +187,6 @@ pub struct WindowFocusChangeEvent {
 pub struct AccessibleActionEvent {
     pub action: Action,
     pub data: Option<ActionData>,
-}
-
-#[derive(Debug, Clone)]
-pub struct WidgetScopeChangeEvent {
-    pub previous_scope: WidgetScope,
 }
 
 #[derive(Debug, Clone)]

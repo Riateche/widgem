@@ -780,6 +780,7 @@ impl Element {
     pub fn add_class(&mut self, class: &'static str) {
         self.classes.push(class);
         self.classes.sort_unstable();
+        self.classes.dedup();
     }
 
     pub fn remove_class(&mut self, class: &'static str) {

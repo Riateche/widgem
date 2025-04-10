@@ -22,7 +22,6 @@ mod window_handler;
 pub use {
     crate::accessible::new_accessible_node_id,
     crate::event_loop::{run, App},
-    crate::window_handler::create_window,
     tiny_skia, winit,
     winit::window::WindowAttributes,
 };

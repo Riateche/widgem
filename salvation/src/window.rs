@@ -4,7 +4,6 @@ use {
         draw::DrawEvent,
         event::FocusReason,
         event_loop::with_active_event_loop,
-        layout::SizeHints,
         system::with_system,
         types::{Point, Rect, Size},
         widgets::{RawWidgetId, WidgetAddress},
@@ -96,17 +95,7 @@ pub struct WindowInner {
 pub struct Window(Rc<RefCell<WindowInner>>);
 
 impl Window {
-    pub(crate) fn new(
-        mut attrs: WindowAttributes,
-        root_widget_id: RawWidgetId,
-        size_hints_x: SizeHints,
-        size_hints_y: SizeHints,
-    ) -> Self {
-        let preferred_size = Size::new(size_hints_x.preferred, size_hints_y.preferred);
-        let min_size = Size::new(size_hints_x.min, size_hints_y.min);
-        attrs = attrs
-            .with_inner_size(PhysicalSize::new(preferred_size.x, preferred_size.y))
-            .with_min_inner_size(PhysicalSize::new(min_size.x, min_size.y));
+    pub(crate) fn new(root_widget_id: RawWidgetId, attrs: WindowAttributes) -> Self {
         let winit_window = Rc::new(with_active_event_loop(|event_loop| {
             event_loop.create_window(attrs).unwrap()
         }));
@@ -153,8 +142,10 @@ impl Window {
             last_click_button: None,
             last_click_instant: None,
             is_delete_widget_on_close_enabled: true,
-            min_inner_size: min_size,
-            preferred_inner_size: preferred_size,
+            // This is updated in `init_window`
+            min_inner_size: Size::default(),
+            // This is updated in `init_window`
+            preferred_inner_size: Size::default(),
         })))
     }
 

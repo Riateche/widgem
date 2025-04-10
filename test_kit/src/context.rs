@@ -305,9 +305,10 @@ impl Context {
         }
     }
 
-    pub fn run(
+    // TODO: standard provided empty widget as root, actual init only in init fn
+    pub fn run<T: Widget>(
         &mut self,
-        make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static,
+        init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
     ) -> anyhow::Result<()> {
         match self {
             Context::Check(ctx) => {
@@ -320,7 +321,7 @@ impl Context {
             }
             Context::Run(app) => {
                 let app = app.take().context("cannot run multiple apps in one test")?;
-                app.run(make_root_widget)?;
+                app.run::<T>(init)?;
                 process::exit(0);
             }
         }

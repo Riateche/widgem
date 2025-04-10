@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommon},
+    super::{Widget, WidgetCommon, WidgetCommonTyped},
     crate::{draw::DrawEvent, impl_widget_common, layout::SizeHintMode, types::Point},
     anyhow::Result,
     png::DecodingError,
@@ -19,19 +19,6 @@ pub struct Image {
 
 #[impl_with]
 impl Image {
-    pub fn load_png<P: AsRef<Path>>(path: P) -> Result<Self, DecodingError> {
-        Ok(Self::new(Some(Rc::new(Pixmap::load_png(path)?))))
-    }
-
-    pub fn new(pixmap: Option<Rc<Pixmap>>) -> Self {
-        Self {
-            pixmap,
-            is_prescaled: false,
-            common: WidgetCommon::new::<Self>().into(),
-            scale: None,
-        }
-    }
-
     pub fn set_prescaled(&mut self, value: bool) {
         self.is_prescaled = value;
         self.common.size_hint_changed();
@@ -49,6 +36,11 @@ impl Image {
         self.pixmap = pixmap;
         self.common.size_hint_changed();
         self.common.update();
+    }
+
+    pub fn load_png<P: AsRef<Path>>(&mut self, path: P) -> Result<(), DecodingError> {
+        self.set_pixmap(Some(Rc::new(Pixmap::load_png(path)?)));
+        Ok(())
     }
 
     pub fn set_scale(&mut self, scale: Option<f32>) {
@@ -80,6 +72,15 @@ impl Image {
 
 impl Widget for Image {
     impl_widget_common!();
+
+    fn new(common: WidgetCommonTyped<Self>) -> Self {
+        Self {
+            common: common.into(),
+            pixmap: None,
+            is_prescaled: false,
+            scale: None,
+        }
+    }
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let scale = self.total_scale();

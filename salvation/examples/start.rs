@@ -9,9 +9,8 @@ use {
         system::add_interval,
         types::Rect,
         widgets::{
-            button::Button, column::Column, label::Label, padding_box::PaddingBox,
-            scroll_area::ScrollArea, text_input::TextInput, Widget, WidgetCommon, WidgetExt,
-            WidgetId,
+            button::Button, column::Column, label::Label, scroll_area::ScrollArea,
+            text_input::TextInput, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt, WidgetId,
         },
         App,
     },
@@ -24,30 +23,27 @@ struct AnotherWidget {
     counter: i32,
 }
 
-impl AnotherWidget {
-    fn new() -> Self {
-        let mut this = Self {
-            counter: 0,
-            common: WidgetCommon::new::<Self>().into(),
-        };
-        let mut button = Button::new("another button");
-        button.on_triggered(this.callback(|this, _event| {
-            this.counter += 1;
-            println!("counter: {}", this.counter);
-            let label = Label::new(format!("counter: {}", this.counter))
-                .with_window(Window::default_attributes().with_title("example"))
-                .boxed();
-            this.common_mut().add_child(label, Default::default());
-            Ok(())
-        }));
-        this.common_mut()
-            .add_child(button.boxed(), Default::default());
-        this
-    }
-}
-
 impl Widget for AnotherWidget {
     impl_widget_common!();
+
+    fn new(common: WidgetCommonTyped<Self>) -> Self {
+        let mut this = Self {
+            counter: 0,
+            common: common.into(),
+        };
+        let callback = this.callback(|this, _event| {
+            this.counter += 1;
+            println!("counter: {}", this.counter);
+            this.common
+                .add_child_window::<Label>(Window::default_attributes().with_title("example"))
+                .set_text(format!("counter: {}", this.counter));
+            Ok(())
+        });
+        let button = this.common_mut().add_child::<Button>(Default::default());
+        button.set_text("another button");
+        button.on_triggered(callback);
+        this
+    }
 
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         Ok(self.common_mut().children[0].widget.size_hint_x(mode))
@@ -86,106 +82,6 @@ struct RootWidget {
 }
 
 impl RootWidget {
-    fn new() -> Self {
-        let mut common = WidgetCommon::new::<Self>();
-        let mut root = Column::new();
-
-        root.add_child(TextInput::new("Hello, Rust! 🦀😂\n").boxed());
-        root.add_child(TextInput::new("Hebrew name Sarah: שרה.").boxed());
-
-        /*
-        let btn = Button::new("btn1")
-            .with_icon(icon)
-            .with_alignment(Al::Right)
-            .with_on_clicked(slot)
-            .split_id()
-            .boxed();
-        root.add(btn.widget);
-
-        Self {
-            btn_id: btn.id,
-        }
-
-
-        */
-
-        let btn1 = Button::new("btn1")
-            .with_auto_repeat(true)
-            .with_on_triggered(common.callback(|this, event| this.button_clicked(event, 1)))
-            .with_id();
-
-        root.add_child(btn1.widget.boxed());
-
-        root.add_child(
-            Button::new("btn2")
-                .with_on_triggered(common.callback(|this, event| this.button_clicked(event, 2)))
-                .boxed(),
-        );
-
-        let button21 = Button::new("btn21")
-            .with_on_triggered(common.callback(|_, _| {
-                println!("click!");
-                Ok(())
-            }))
-            .with_id();
-
-        let button22 = Button::new("btn22").with_id();
-
-        let column2 = Column::new()
-            .with_child(button21.widget.boxed())
-            .with_child(button22.widget.boxed())
-            .with_id();
-        root.add_child(column2.widget.boxed());
-
-        let btn3 = AnotherWidget::new().boxed();
-        root.add_child(btn3);
-
-        // root.add_child(
-        //     ScrollBar::new()
-        //         .with_axis(Axis::Y)
-        //         .with_on_value_changed(ctx.callback(|this, ctx, value| {
-        //             ctx.widget(this.label2_id)?
-        //                 .set_text(format!("value={value}"));
-        //             Ok(())
-        //         }))
-        //         .boxed(),
-        // );
-        let label2 = Label::new("ok").with_id();
-        root.add_child(label2.widget.boxed());
-
-        let mut content = Column::new();
-        for i in 1..=80 {
-            content.add_child(
-                Button::new(format!("btn btn btn btn btn btn btn btn btn btn{i}")).boxed(),
-            );
-        }
-
-        root.add_child(ScrollArea::new(content.boxed()).boxed());
-
-        common.add_child(
-            PaddingBox::new(root.boxed())
-                .with_window(Window::default_attributes().with_title("example"))
-                .boxed(),
-            Default::default(),
-        );
-        add_interval(
-            Duration::from_secs(2),
-            common.callback(|this, _| this.inc()),
-        );
-
-        RootWidget {
-            common: common.into(),
-            button_id: btn1.id,
-            column2_id: column2.id,
-            button21_id: button21.id,
-            button22_id: button22.id,
-            flag_column: true,
-            flag_button21: true,
-            i: 0,
-            label2_id: label2.id,
-        }
-    }
-
     fn inc(&mut self) -> Result<()> {
         self.i += 1;
         if let Ok(widget) = self.common.widget(self.button21_id) {
@@ -222,6 +118,94 @@ impl RootWidget {
 impl Widget for RootWidget {
     impl_widget_common!();
 
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+        let id = common.id();
+
+        let root =
+            common.add_child_window::<Column>(Window::default_attributes().with_title("example"));
+
+        root.add_child::<TextInput>()
+            .set_text("Hello, Rust! 🦀😂\n");
+        root.add_child::<TextInput>()
+            .set_text("Hebrew name Sarah: שרה.");
+
+        /*
+        let btn = Button::new("btn1")
+            .with_icon(icon)
+            .with_alignment(Al::Right)
+            .with_on_clicked(slot)
+            .split_id()
+            .boxed();
+        root.add(btn.widget);
+
+        Self {
+            btn_id: btn.id,
+        }
+
+
+        */
+
+        let button_id = root
+            .add_child::<Button>()
+            .set_text("btn1")
+            .set_auto_repeat(true)
+            .on_triggered(id.callback(|this, event| this.button_clicked(event, 1)))
+            .id();
+
+        root.add_child::<Button>()
+            .set_text("btn2")
+            .on_triggered(id.callback(|this, event| this.button_clicked(event, 2)));
+
+        let column2 = root.add_child::<Column>();
+        let button21_id = column2
+            .add_child::<Button>()
+            .set_text("btn21")
+            .on_triggered(id.callback(|_, _| {
+                println!("click!");
+                Ok(())
+            }))
+            .id();
+
+        let button22_id = column2.add_child::<Button>().set_text("btn22").id();
+        let column2_id = column2.id();
+
+        root.add_child::<AnotherWidget>();
+
+        // root.add_child(
+        //     ScrollBar::new()
+        //         .with_axis(Axis::Y)
+        //         .with_on_value_changed(ctx.callback(|this, ctx, value| {
+        //             ctx.widget(this.label2_id)?
+        //                 .set_text(format!("value={value}"));
+        //             Ok(())
+        //         }))
+        //         .boxed(),
+        // );
+        let label2_id = root.add_child::<Label>().set_text("ok").id();
+
+        let scroll_area = root.add_child::<ScrollArea>();
+        let content = scroll_area.add_content::<Column>();
+        for i in 1..=80 {
+            content
+                .add_child::<Button>()
+                .set_text(format!("btn btn btn btn btn btn btn btn btn btn{i}"));
+        }
+
+        add_interval(Duration::from_secs(2), id.callback(|this, _| this.inc()));
+
+        RootWidget {
+            common: common.into(),
+            button_id,
+            column2_id,
+            button21_id,
+            button22_id,
+            flag_column: true,
+            flag_button21: true,
+            i: 0,
+            label2_id,
+        }
+    }
+
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
         Ok(0)
     }
@@ -236,40 +220,5 @@ fn main() {
         std::env::set_var("RUST_LOG", "info")
     }
     env_logger::init();
-
-    //salvation::style::Style::load("themes/default/theme.css").unwrap();
-
-    // let data = std::fs::read_to_string("themes/default/theme.css").unwrap();
-    // let mut style = StyleSheet::parse(&data, Default::default()).unwrap();
-    // replace_vars(&mut style);
-    // let code = style.to_css(Default::default()).unwrap().code;
-    // let mut style = StyleSheet::parse(&code, Default::default()).unwrap();
-    // println!("{style:#?}");
-
-    // for rule in &mut style.rules.0 {
-    //     if let CssRule::Style(rule) = rule {
-    //         for property in rule.declarations.iter_mut() {
-    //             if let Property::Custom(property) = property {
-    //                 //println!("{}", property.name);
-    //                 if property.name.as_ref() == "min-padding" {
-    //                     println!("found min-padding: {:?}", property.value);
-    //                     property.to_css();
-    //                 }
-    //                 // let mut new_tokens = Vec::new();
-    //                 // for token in &property.value.0 {
-    //                 //     if let TokenOrValue::Var(variable) = token {
-    //                 //         if let Some(value) = vars.get(variable.name.ident.as_ref()) {
-    //                 //             println!("substitute!");
-    //                 //             new_tokens.extend(value.0.clone());
-    //                 //             continue;
-    //                 //         }
-    //                 //     }
-    //                 //     new_tokens.push(token.clone());
-    //                 // }
-    //                 // property.value.0 = new_tokens;
-    //             }
-    //         }
-    //     }
-    // }
-    App::new().run(|| RootWidget::new().boxed()).unwrap();
+    App::new().run::<RootWidget>(|_| Ok(())).unwrap();
 }

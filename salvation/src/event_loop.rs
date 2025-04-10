@@ -5,7 +5,8 @@ use {
         system::{address, with_system, ReportError, SharedSystemDataInner, SystemConfig, SYSTEM},
         timer::Timers,
         widgets::{
-            get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetExt,
+            get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetAddress,
+            WidgetCommon, WidgetCreationContext, WidgetExt,
         },
         window::WindowRequest,
     },
@@ -65,7 +66,7 @@ fn dispatch_widget_callback(
     (callback.func)(widget, event).or_report_err();
     widget.update_accessible();
 
-    let window_id = widget.common().scope.window.as_ref().map(|w| w.id());
+    let window_id = widget.common().window.as_ref().map(|w| w.id());
     if let Some(window_id) = window_id {
         let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
             warn!("missing window object");
@@ -141,12 +142,12 @@ impl App {
         self
     }
 
-    pub fn run(
+    pub fn run<T: Widget>(
         self,
-        make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static,
+        init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
     ) -> anyhow::Result<()> {
         let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
-        let mut handler = Handler::new(self, make_root_widget, &event_loop);
+        let mut handler = Handler::<T>::new(self, &event_loop, init);
         event_loop.run_app(&mut handler)?;
         // Delete widgets before de-initializing the system.
         handler.root_widget = None;
@@ -157,30 +158,34 @@ impl App {
     }
 }
 
-pub fn run(make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static) -> anyhow::Result<()> {
-    App::new().run(make_root_widget)
+pub fn run<T: Widget>(
+    init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
+) -> anyhow::Result<()> {
+    App::new().run::<T>(init)
 }
 
-struct Handler {
+type BoxInitFn<T> = Box<dyn FnOnce(&mut T) -> anyhow::Result<()>>;
+
+struct Handler<T> {
     app: App,
     is_initialized: bool,
+    init: Option<BoxInitFn<T>>,
     root_widget: Option<Box<dyn Widget>>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
-    make_root_widget: Option<Box<dyn FnOnce() -> Box<dyn Widget>>>,
 }
 
-impl Handler {
+impl<T: Widget> Handler<T> {
     fn new(
         app: App,
-        make_root_widget: impl FnOnce() -> Box<dyn Widget> + 'static,
         event_loop: &EventLoop<UserEvent>,
+        init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
     ) -> Self {
         Self {
             app,
+            init: Some(Box::new(init)),
             is_initialized: false,
             root_widget: None,
             event_loop_proxy: Some(event_loop.create_proxy()),
-            make_root_widget: Some(Box::new(make_root_widget)),
         }
     }
 
@@ -203,7 +208,7 @@ impl Handler {
 const DEFAULT_AUTO_REPEAT_DELAY: Duration = Duration::from_millis(500);
 const DEFAULT_AUTO_REPEAT_INTERVAL: Duration = Duration::from_millis(50);
 
-impl ApplicationHandler<UserEvent> for Handler {
+impl<T: Widget> ApplicationHandler<UserEvent> for Handler<T> {
     // TODO: It's recommended that applications should only initialize their graphics context
     // and create a window after they have received their first `Resumed` event.
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
@@ -293,8 +298,18 @@ impl ApplicationHandler<UserEvent> for Handler {
                     *system.0.borrow_mut() = Some(shared_system_data);
                 });
 
-                let root_widget = self.make_root_widget.take().unwrap()();
-                self.root_widget = Some(root_widget);
+                let id = RawWidgetId::new();
+                let ctx = WidgetCreationContext {
+                    parent_id: None,
+                    address: WidgetAddress::root(id),
+                    window: None,
+                    parent_style: with_system(|s| s.default_style.clone()),
+                    is_parent_enabled: true,
+                    is_window_root: false,
+                };
+                let mut root_widget = T::new(WidgetCommon::new(ctx));
+                self.init.take().expect("double init")(&mut root_widget).or_report_err();
+                self.root_widget = Some(Box::new(root_widget));
 
                 self.is_initialized = true;
 

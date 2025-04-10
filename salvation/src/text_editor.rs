@@ -4,7 +4,7 @@ use {
         draw::DrawEvent,
         event::{
             AccessibleActionEvent, FocusReason, ImeEvent, KeyboardInputEvent, MouseInputEvent,
-            MouseMoveEvent, WidgetScopeChangeEvent, WindowFocusChangeEvent,
+            MouseMoveEvent, WindowFocusChangeEvent,
         },
         impl_widget_common,
         layout::SizeHintMode,
@@ -18,7 +18,7 @@ use {
         },
         timer::TimerId,
         types::{Point, Rect, Size},
-        widgets::{RawWidgetId, Widget, WidgetCommon, WidgetExt},
+        widgets::{RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
         window::{ScrollToRectRequest, SetFocusRequest},
     },
     accesskit::{
@@ -84,42 +84,9 @@ pub struct AccessibleLine {
     // pub line_bottom: f32,
 }
 
-impl Default for Text {
-    fn default() -> Self {
-        let common = WidgetCommon::new::<Self>();
-        let mut t = with_system(|system| Self {
-            editor: Editor::new(Buffer::new(
-                &mut system.font_system,
-                system.default_style.0.font_metrics,
-            )),
-            pixmap: None,
-            text_color: Color::BLACK,
-            selected_text_color: Color::TRANSPARENT,
-            selected_text_background: Color::TRANSPARENT,
-            size: Size::default(),
-            is_multiline: true,
-            is_editable: false,
-            is_cursor_hidden: true,
-            is_host_focused: false,
-            host_id: None,
-            forbid_mouse_interaction: false,
-            blink_timer: None,
-            selected_text: String::new(),
-            accessible_line_id: accessible::new_accessible_node_id(),
-            common: common.into(),
-        });
-        t.editor.set_cursor_hidden(true);
-        t
-    }
-}
-
 #[impl_with]
 impl Text {
-    pub fn new(text: impl Display) -> Self {
-        Self::default().with_text(text, Attrs::new())
-    }
-
-    pub fn set_editable(&mut self, editable: bool) {
+    pub fn set_editable(&mut self, editable: bool) -> &mut Self {
         self.is_editable = editable;
         self.common.enable_ime = editable;
         self.common.cursor_icon = if editable {
@@ -132,9 +99,10 @@ impl Text {
         }
         self.reset_blink_timer();
         self.request_scroll();
+        self
     }
 
-    pub fn set_multiline(&mut self, multiline: bool) {
+    pub fn set_multiline(&mut self, multiline: bool) -> &mut Self {
         self.is_multiline = multiline;
         if !multiline {
             self.set_wrap(Wrap::None);
@@ -145,10 +113,12 @@ impl Text {
             self.set_text(sanitized, Attrs::new());
         }
         self.request_scroll();
+        self
     }
 
-    pub fn set_host_id(&mut self, id: RawWidgetId) {
+    pub fn set_host_id(&mut self, id: RawWidgetId) -> &mut Self {
         self.host_id = Some(id);
+        self
     }
 
     fn sanitize(&self, text: &str) -> String {
@@ -205,7 +175,7 @@ impl Text {
         if self.common.rect_in_window.is_none() {
             return;
         }
-        let Some(window_id) = self.common.scope.window_id() else {
+        let Some(window_id) = self.common.window_id() else {
             return;
         };
         // TODO: cursor width?
@@ -860,7 +830,7 @@ impl Text {
                 attrs: None,
             });
             self.insert_string(&text, None);
-            if let Some(window) = &self.common.scope.window {
+            if let Some(window) = &self.common.window {
                 window.cancel_ime_preedit();
             } else {
                 warn!("no window id in text editor event handler");
@@ -978,6 +948,37 @@ impl Text {
 impl Widget for Text {
     impl_widget_common!();
 
+    fn new(common: WidgetCommonTyped<Self>) -> Self {
+        let mut t = with_system(|system| Self {
+            editor: Editor::new(Buffer::new(
+                &mut system.font_system,
+                system.default_style.0.font_metrics,
+            )),
+            pixmap: None,
+            text_color: Color::BLACK,
+            selected_text_color: Color::TRANSPARENT,
+            selected_text_background: Color::TRANSPARENT,
+            size: Size::default(),
+            is_multiline: true,
+            is_editable: false,
+            is_cursor_hidden: true,
+            is_host_focused: false,
+            host_id: None,
+            forbid_mouse_interaction: false,
+            blink_timer: None,
+            selected_text: String::new(),
+            accessible_line_id: accessible::new_accessible_node_id(),
+            common: common.into(),
+        });
+        if let Some(window) = &t.common.window {
+            window.accessible_mount(Some(t.common.id.into()), t.accessible_line_id, 0);
+        }
+        t.editor.set_cursor_hidden(true);
+        t.reset_blink_timer();
+        t.request_scroll();
+        t
+    }
+
     fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
         if !event.is_focused {
             self.interrupt_preedit();
@@ -1017,7 +1018,6 @@ impl Widget for Text {
         }
         let is_released = self
             .common
-            .scope
             .window
             .as_ref()
             .map_or(false, |window| !window.any_mouse_buttons_pressed());
@@ -1076,29 +1076,6 @@ impl Widget for Text {
         Ok(())
     }
 
-    fn handle_widget_scope_change(&mut self, event: WidgetScopeChangeEvent) -> Result<()> {
-        self.reset_blink_timer();
-
-        let addr_changed = self.common.scope.address != event.previous_scope.address;
-        let parent_id_changed = self.common.scope.parent_id != event.previous_scope.parent_id;
-        let window_changed = self.common.scope.window_id() != event.previous_scope.window_id();
-        let update_accessible = addr_changed || parent_id_changed || window_changed;
-
-        if update_accessible {
-            if let Some(previous_window) = &event.previous_scope.window {
-                previous_window.accessible_update(self.accessible_line_id, None);
-                previous_window
-                    .accessible_unmount(Some(self.common.id.into()), self.accessible_line_id);
-            }
-
-            if let Some(window) = &self.common.scope.window {
-                window.accessible_mount(Some(self.common.id.into()), self.accessible_line_id, 0);
-            }
-        }
-        self.request_scroll();
-        Ok(())
-    }
-
     fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
         let window = self.common.window_or_err()?;
 
@@ -1148,7 +1125,7 @@ impl Widget for Text {
             });
         }
 
-        let window = self.common.scope.window.as_ref()?;
+        let window = self.common.window.as_ref()?;
         window.accessible_update(self.accessible_line_id, Some(line_node));
 
         // TODO: configurable role
@@ -1192,4 +1169,12 @@ fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Si
 fn convert_color(color: Color) -> cosmic_text::Color {
     let c = color.to_color_u8();
     cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
+}
+
+impl Drop for Text {
+    fn drop(&mut self) {
+        if let Some(window) = &self.common.window {
+            window.accessible_unmount(Some(self.common.id.into()), self.accessible_line_id);
+        }
+    }
 }
