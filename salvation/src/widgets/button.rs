@@ -173,6 +173,41 @@ impl Button {
         );
         self.auto_repeat_interval = Some(id);
     }
+
+    fn refresh_style(&mut self) {
+        let style = self.common.common_style.clone();
+        self.text_widget_mut().set_font_metrics(style.font_metrics);
+        self.text_widget_mut().set_text_color(style.text_color);
+
+        let icon = self
+            .common
+            .specific_style::<ComputedButtonStyle>()
+            .icon
+            .clone();
+        self.image_widget_mut().set_visible(icon.is_some());
+        self.image_widget_mut().set_prescaled(true);
+        self.image_widget_mut().set_pixmap(icon);
+
+        self.common.set_grid_options(Some(GridOptions {
+            x: GridAxisOptions {
+                min_padding: style.min_padding_with_border.x,
+                min_spacing: 0, // TODO: spacing between icon and image
+                preferred_padding: style.preferred_padding_with_border.x,
+                preferred_spacing: 0,
+                border_collapse: 0,
+                // TODO: get from style
+                alignment: Alignment::Middle,
+            },
+            y: GridAxisOptions {
+                min_padding: style.min_padding_with_border.y,
+                min_spacing: 0,
+                preferred_padding: style.preferred_padding_with_border.y,
+                preferred_spacing: 0,
+                border_collapse: 0,
+                alignment: Alignment::Middle,
+            },
+        }));
+    }
 }
 
 impl Widget for Button {
@@ -184,7 +219,7 @@ impl Widget for Button {
             .add_child::<Image>(LayoutItemOptions::from_pos_in_grid(0, 0))
             .set_visible(false);
         common.add_child::<Text>(LayoutItemOptions::from_pos_in_grid(1, 0));
-        Self {
+        let mut b = Self {
             auto_repeat: false,
             is_mouse_leave_sensitive: true,
             trigger_on_press: false,
@@ -194,7 +229,9 @@ impl Widget for Button {
             common: common.into(),
             auto_repeat_delay_timer: None,
             auto_repeat_interval: None,
-        }
+        };
+        b.refresh_style();
+        b
     }
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
@@ -303,39 +340,7 @@ impl Widget for Button {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        let style = self.common.common_style.clone();
-        self.text_widget_mut().set_font_metrics(style.font_metrics);
-        self.text_widget_mut().set_text_color(style.text_color);
-
-        let icon = self
-            .common
-            .specific_style::<ComputedButtonStyle>()
-            .icon
-            .clone();
-        self.image_widget_mut().set_visible(icon.is_some());
-        self.image_widget_mut().set_prescaled(true);
-        self.image_widget_mut().set_pixmap(icon);
-
-        self.common.set_grid_options(Some(GridOptions {
-            x: GridAxisOptions {
-                min_padding: style.min_padding_with_border.x,
-                min_spacing: 0, // TODO: spacing between icon and image
-                preferred_padding: style.preferred_padding_with_border.x,
-                preferred_spacing: 0,
-                border_collapse: 0,
-                // TODO: get from style
-                alignment: Alignment::Middle,
-            },
-            y: GridAxisOptions {
-                min_padding: style.min_padding_with_border.y,
-                min_spacing: 0,
-                preferred_padding: style.preferred_padding_with_border.y,
-                preferred_spacing: 0,
-                border_collapse: 0,
-                alignment: Alignment::Middle,
-            },
-        }));
-
+        self.refresh_style();
         self.common.size_hint_changed();
         self.common.update();
         Ok(())

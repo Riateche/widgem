@@ -4,8 +4,8 @@ use {
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
-            label::Label, row::Row, scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetCommonTyped,
-            WidgetExt, WidgetId,
+            column::Column, label::Label, row::Row, scroll_bar::ScrollBar, Widget, WidgetCommon,
+            WidgetCommonTyped, WidgetExt, WidgetId,
         },
         WindowAttributes,
     },
@@ -32,8 +32,8 @@ impl Widget for RootWidget {
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
-        let content =
-            common.add_child_window::<Row>(WindowAttributes::default().with_title(module_path!()));
+        let content = common
+            .add_child_window::<Column>(WindowAttributes::default().with_title(module_path!()));
 
         let value = 0;
 

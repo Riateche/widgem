@@ -126,50 +126,8 @@ impl TextInput {
             .get(&state)
             .unwrap()
     }
-}
 
-impl Widget for TextInput {
-    impl_widget_common!();
-
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        common.is_focusable = true;
-        common.cursor_icon = CursorIcon::Text;
-        let host_id = common.id;
-        let viewport = common.add_child::<Viewport>(LayoutItemOptions::from_pos_in_grid(0, 0));
-        viewport.common_mut().receives_all_mouse_events = true;
-        viewport.common_mut().cursor_icon = CursorIcon::Text;
-        let editor = viewport
-            .common_mut()
-            .add_child::<Text>(Default::default())
-            .set_multiline(false)
-            .set_editable(true)
-            .set_host_id(host_id);
-        editor.common_mut().receives_all_mouse_events = true;
-        Self {
-            common: common.into(),
-        }
-    }
-
-    fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
-        self.text_widget_mut().handle_host_focus_in(event.reason)
-    }
-
-    fn handle_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
-        self.text_widget_mut().handle_host_focus_out()
-    }
-
-    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
-        let options = self.common().grid_options();
-        let Some(size) = self.common().size() else {
-            return Ok(());
-        };
-        let rects = grid::layout(&mut self.common_mut().children, &options, size)?;
-        self.common_mut().set_child_rects(&rects)?;
-        self.adjust_scroll();
-        Ok(())
-    }
-
-    fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
+    fn refresh_style(&mut self) {
         let style = self.common.style().0.text_input.clone();
         let variant_style = self.current_variant_style().clone();
         self.common.set_grid_options(Some(GridOptions {
@@ -196,6 +154,54 @@ impl Widget for TextInput {
         text_widget.set_text_color(variant_style.text_color);
         text_widget.set_selected_text_color(variant_style.selected_text_color);
         text_widget.set_selected_text_background(variant_style.selected_text_background);
+    }
+}
+
+impl Widget for TextInput {
+    impl_widget_common!();
+
+    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+        common.set_focusable(true);
+        common.cursor_icon = CursorIcon::Text;
+        let host_id = common.id;
+        let viewport = common.add_child::<Viewport>(LayoutItemOptions::from_pos_in_grid(0, 0));
+        viewport.common_mut().receives_all_mouse_events = true;
+        viewport.common_mut().cursor_icon = CursorIcon::Text;
+        let editor = viewport
+            .common_mut()
+            .add_child::<Text>(Default::default())
+            .set_multiline(false)
+            .set_editable(true)
+            .set_host_id(host_id);
+        editor.common_mut().receives_all_mouse_events = true;
+        let mut t = Self {
+            common: common.into(),
+        };
+        t.refresh_style();
+        t
+    }
+
+    fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
+        self.text_widget_mut().handle_host_focus_in(event.reason)
+    }
+
+    fn handle_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
+        self.text_widget_mut().handle_host_focus_out()
+    }
+
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        let options = self.common().grid_options();
+        let Some(size) = self.common().size() else {
+            return Ok(());
+        };
+        let rects = grid::layout(&mut self.common_mut().children, &options, size)?;
+        self.common_mut().set_child_rects(&rects)?;
+        self.adjust_scroll();
+        Ok(())
+    }
+
+    fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
+        self.refresh_style();
 
         Ok(())
     }

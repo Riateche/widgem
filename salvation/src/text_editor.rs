@@ -498,7 +498,10 @@ impl Text {
         }
         let text_direction = self.editor.with_buffer(|buffer| {
             let mut runs = buffer.layout_runs();
-            let run = runs.next().expect("missing layout run");
+            let Some(run) = runs.next() else {
+                warn!("missing layout run");
+                return TextDirection::LeftToRight;
+            };
             if runs.next().is_some() {
                 warn!("multiple layout_runs in single line edit");
             }
