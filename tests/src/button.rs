@@ -28,7 +28,11 @@ impl Widget for RootWidget {
 
 #[salvation_test_kit::test]
 pub fn button(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "button")?;
     window.close()?;

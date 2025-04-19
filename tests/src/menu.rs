@@ -21,8 +21,8 @@ impl Widget for RootWidget {
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
-        let content =
-            common.add_child_window::<Row>(0, WindowAttributes::default().with_title(module_path!()));
+        let content = common
+            .add_child_window::<Row>(0, WindowAttributes::default().with_title(module_path!()));
 
         content
             .add_child::<Button>()
@@ -37,7 +37,11 @@ impl Widget for RootWidget {
 
 #[salvation_test_kit::test]
 fn menu(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.close()?;
     Ok(())

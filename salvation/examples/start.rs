@@ -243,5 +243,11 @@ fn main() {
         std::env::set_var("RUST_LOG", "info")
     }
     env_logger::init();
-    App::new().run::<RootWidget>(|_| Ok(())).unwrap();
+    App::new()
+        .run(|r| {
+            r.common_mut()
+                .add_child::<RootWidget>(0, Default::default());
+            Ok(())
+        })
+        .unwrap();
 }

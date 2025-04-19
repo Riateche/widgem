@@ -46,6 +46,7 @@ pub mod image;
 pub mod label;
 pub mod menu;
 pub mod padding_box;
+pub mod root;
 pub mod row;
 pub mod scroll_area;
 pub mod scroll_bar;

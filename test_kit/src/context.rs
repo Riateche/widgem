@@ -4,7 +4,7 @@ use {
     fs_err::create_dir_all,
     image::{ImageReader, RgbaImage},
     itertools::Itertools,
-    salvation::{widgets::Widget, App},
+    salvation::{widgets::root::RootWidget, App},
     std::{
         collections::BTreeMap,
         ffi::OsString,
@@ -305,10 +305,9 @@ impl Context {
         }
     }
 
-    // TODO: standard provided empty widget as root, actual init only in init fn
-    pub fn run<T: Widget>(
+    pub fn run(
         &mut self,
-        init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
+        init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
     ) -> anyhow::Result<()> {
         match self {
             Context::Check(ctx) => {
@@ -321,7 +320,7 @@ impl Context {
             }
             Context::Run(app) => {
                 let app = app.take().context("cannot run multiple apps in one test")?;
-                app.run::<T>(init)?;
+                app.run(init)?;
                 process::exit(0);
             }
         }

@@ -28,7 +28,11 @@ impl Widget for RootWidget {
 
 #[salvation_test_kit::test]
 pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "window with text input - text Hello world")?;
@@ -101,7 +105,11 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "text input")?;
@@ -127,7 +135,11 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     ctx.set_blinking_expected(true);
     let mut window = ctx.wait_for_window_by_pid()?;
     ctx.snapshot(&mut window, "text input")?;

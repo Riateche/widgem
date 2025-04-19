@@ -98,7 +98,11 @@ impl Widget for RootWidget {
 
 #[salvation_test_kit::test]
 pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.mouse_move(0, 0)?;
     ctx.snapshot(&mut window, "scroll bar and label")?;
@@ -111,7 +115,11 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "scroll bar")?;
@@ -151,7 +159,11 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "scroll bar")?;
@@ -189,7 +201,11 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "scroll bar")?;
@@ -235,7 +251,11 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "scroll bar")?;
@@ -276,7 +296,11 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     ctx.connection().mouse_move_global(0, 0)?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
@@ -302,7 +326,11 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "scroll bar")?;
@@ -336,7 +364,11 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[salvation_test_kit::test]
 pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run::<RootWidget>(|_| Ok(()))?;
+    ctx.run(|r| {
+        r.common_mut()
+            .add_child::<RootWidget>(0, Default::default());
+        Ok(())
+    })?;
     let mut window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     ctx.snapshot(&mut window, "scroll bar")?;

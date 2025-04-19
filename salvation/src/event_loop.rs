@@ -5,8 +5,8 @@ use {
         system::{address, with_system, ReportError, SharedSystemDataInner, SystemConfig, SYSTEM},
         timer::Timers,
         widgets::{
-            get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetAddress,
-            WidgetCommon, WidgetCreationContext, WidgetExt,
+            get_widget_by_address_mut, get_widget_by_id_mut, root::RootWidget, RawWidgetId, Widget,
+            WidgetAddress, WidgetCommon, WidgetCreationContext, WidgetExt,
         },
         window::{WindowId, WindowRequest},
     },
@@ -141,12 +141,12 @@ impl App {
         self
     }
 
-    pub fn run<T: Widget>(
+    pub fn run(
         self,
-        init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
+        init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
     ) -> anyhow::Result<()> {
         let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
-        let mut handler = Handler::<T>::new(self, &event_loop, init);
+        let mut handler = Handler::new(self, &event_loop, init);
         event_loop.run_app(&mut handler)?;
         // Delete widgets before de-initializing the system.
         handler.root_widget = None;
@@ -157,27 +157,27 @@ impl App {
     }
 }
 
-pub fn run<T: Widget>(
-    init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
+pub fn run(
+    init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
 ) -> anyhow::Result<()> {
-    App::new().run::<T>(init)
+    App::new().run(init)
 }
 
-type BoxInitFn<T> = Box<dyn FnOnce(&mut T) -> anyhow::Result<()>>;
+type BoxInitFn = Box<dyn FnOnce(&mut RootWidget) -> anyhow::Result<()>>;
 
-struct Handler<T> {
+struct Handler {
     app: App,
     is_initialized: bool,
-    init: Option<BoxInitFn<T>>,
+    init: Option<BoxInitFn>,
     root_widget: Option<Box<dyn Widget>>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
 }
 
-impl<T: Widget> Handler<T> {
+impl Handler {
     fn new(
         app: App,
         event_loop: &EventLoop<UserEvent>,
-        init: impl FnOnce(&mut T) -> anyhow::Result<()> + 'static,
+        init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
     ) -> Self {
         Self {
             app,
@@ -219,7 +219,7 @@ impl<T: Widget> Handler<T> {
 const DEFAULT_AUTO_REPEAT_DELAY: Duration = Duration::from_millis(500);
 const DEFAULT_AUTO_REPEAT_INTERVAL: Duration = Duration::from_millis(50);
 
-impl<T: Widget> ApplicationHandler<UserEvent> for Handler<T> {
+impl ApplicationHandler<UserEvent> for Handler {
     // TODO: It's recommended that applications should only initialize their graphics context
     // and create a window after they have received their first `Resumed` event.
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
@@ -320,7 +320,7 @@ impl<T: Widget> ApplicationHandler<UserEvent> for Handler<T> {
                     is_parent_enabled: true,
                     is_window_root: false,
                 };
-                let mut root_widget = T::new(WidgetCommon::new(ctx));
+                let mut root_widget = RootWidget::new(WidgetCommon::new(ctx));
                 self.init.take().expect("double init")(&mut root_widget).or_report_err();
                 self.root_widget = Some(Box::new(root_widget));
 
