@@ -6,7 +6,8 @@ use {
         event_loop::with_active_event_loop,
         system::with_system,
         types::{Point, Rect, Size},
-        widgets::{Key, RawWidgetId, WidgetAddress},
+        widgets::{Key, RawWidgetId, Widget, WidgetAddress, WidgetExt},
+        window_handler::WindowInfo,
     },
     accesskit::{NodeBuilder, NodeId},
     anyhow::{bail, Context},
@@ -26,7 +27,7 @@ use {
         dpi::{PhysicalPosition, PhysicalSize},
         event::{ElementState, MouseButton, WindowEvent},
         keyboard::ModifiersState,
-        window::{CursorIcon, WindowAttributes, WindowId},
+        window::{CursorIcon, WindowAttributes},
     },
 };
 
@@ -48,6 +49,9 @@ impl MouseEventState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WindowId(RawWidgetId);
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WindowInner {
@@ -66,12 +70,13 @@ pub struct WindowInner {
     // Drop order must be maintained as
     // `surface` -> `softbuffer_context` -> `winit_window`.
     #[derivative(Debug = "ignore")]
-    pub surface: softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>,
+    pub surface: Option<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>,
     #[derivative(Debug = "ignore")]
-    pub softbuffer_context: softbuffer::Context<Rc<winit::window::Window>>,
+    pub softbuffer_context: Option<softbuffer::Context<Rc<winit::window::Window>>>,
     #[derivative(Debug = "ignore")]
-    pub accesskit_adapter: accesskit_winit::Adapter,
-    pub winit_window: Rc<winit::window::Window>,
+    pub accesskit_adapter: Option<accesskit_winit::Adapter>,
+    pub winit_window: Option<Rc<winit::window::Window>>,
+    pub title: String,
     pub min_inner_size: Size,
     pub preferred_inner_size: Size,
     pub ime_allowed: bool,
@@ -95,21 +100,9 @@ pub struct WindowInner {
 pub struct Window(Rc<RefCell<WindowInner>>);
 
 impl Window {
-    pub(crate) fn new(root_widget_id: RawWidgetId, attrs: WindowAttributes) -> Self {
-        let winit_window = Rc::new(with_active_event_loop(|event_loop| {
-            event_loop.create_window(attrs).unwrap()
-        }));
-        let softbuffer_context = softbuffer::Context::new(winit_window.clone()).unwrap();
-        let surface = softbuffer::Surface::new(&softbuffer_context, winit_window.clone()).unwrap();
-        let accesskit_adapter = accesskit_winit::Adapter::with_event_loop_proxy(
-            &winit_window,
-            with_system(|system| system.event_loop_proxy.clone()),
-        );
-        let inner_size = winit_window.inner_size();
-
-        let id = winit_window.id();
-        Window(Rc::new(RefCell::new(WindowInner {
-            id,
+    pub(crate) fn new(root_widget_id: RawWidgetId) -> Self {
+        let window = Window(Rc::new(RefCell::new(WindowInner {
+            id: WindowId(RawWidgetId::new()),
             root_widget_id,
             cursor_position: None,
             cursor_entered: false,
@@ -120,17 +113,11 @@ impl Window {
             mouse_entered_widgets: Vec::new(),
             pending_size_hint_invalidations: Vec::new(),
             current_mouse_event_state: None,
-            pixmap: Rc::new(RefCell::new(
-                Pixmap::new(
-                    inner_size.width + EXTRA_SURFACE_SIZE,
-                    inner_size.height + EXTRA_SURFACE_SIZE,
-                )
-                .unwrap(),
-            )),
-            surface,
-            softbuffer_context,
-            accesskit_adapter,
-            winit_window,
+            pixmap: Rc::new(RefCell::new(Pixmap::new(1, 1).unwrap())),
+            surface: None,
+            softbuffer_context: None,
+            accesskit_adapter: None,
+            winit_window: None,
             ime_allowed: false,
             ime_cursor_area: Rect::default(),
             pending_redraw: false,
@@ -146,7 +133,73 @@ impl Window {
             min_inner_size: Size::default(),
             // This is updated in `init_window`
             preferred_inner_size: Size::default(),
-        })))
+            title: String::new(),
+        })));
+
+        let info = WindowInfo {
+            id: window.id(),
+            root_widget_id,
+            shared_window_data: window.clone(),
+        };
+        // TODO: when to remove?
+        with_system(|system| {
+            system.windows.insert(info.id, info);
+        });
+
+        window
+    }
+
+    pub fn after_event(&self, root_widget: &mut dyn Widget) {
+        let mut inner_guard = self.0.borrow_mut();
+        let inner = &mut *inner_guard;
+        if inner.winit_window.is_some() {
+            return;
+        }
+
+        let size_hints_x = root_widget.size_hints_x();
+        // TODO: adjust size_x for screen size
+        let size_hints_y = root_widget.size_hints_y_from_hints_x(size_hints_x);
+
+        let preferred_size = Size::new(size_hints_x.preferred, size_hints_y.preferred);
+        let min_size = Size::new(size_hints_x.min, size_hints_y.min);
+
+        // TODO: all attrs
+        let attrs = WindowAttributes::default()
+            .with_title(&inner.title)
+            .with_inner_size(PhysicalSize::new(preferred_size.x, preferred_size.y))
+            .with_min_inner_size(PhysicalSize::new(min_size.x, min_size.y));
+        let winit_window = Rc::new(with_active_event_loop(|event_loop| {
+            event_loop.create_window(attrs).unwrap()
+        }));
+        let softbuffer_context = softbuffer::Context::new(winit_window.clone()).unwrap();
+        let surface = softbuffer::Surface::new(&softbuffer_context, winit_window.clone()).unwrap();
+        let accesskit_adapter = accesskit_winit::Adapter::with_event_loop_proxy(
+            &winit_window,
+            with_system(|system| system.event_loop_proxy.clone()),
+        );
+        let winit_id = winit_window.id();
+        inner.winit_window = Some(winit_window);
+        inner.softbuffer_context = Some(softbuffer_context);
+        inner.surface = Some(surface);
+        inner.accesskit_adapter = Some(accesskit_adapter);
+
+        // TODO: only if user requested it to be visible?
+        // Window must be hidden until we initialize accesskit
+        drop(inner_guard);
+
+        let info = WindowInfo {
+            id: self.id(),
+            root_widget_id: self.root_widget_id(),
+            shared_window_data: self.clone(),
+        };
+        // TODO: when to remove?
+        with_system(|system| {
+            system.windows_by_winit_id.insert(winit_id, info);
+        });
+        self.set_visible(true);
+        // For some reason it's necessary to request redraw again after initializing accesskit on Windows.
+        self.clear_pending_redraw();
+        self.request_redraw();
     }
 
     pub fn id(&self) -> WindowId {
@@ -214,11 +267,15 @@ impl Window {
     }
 
     pub fn set_visible(&self, visible: bool) {
-        self.0.borrow_mut().winit_window.set_visible(visible);
+        if let Some(w) = self.0.borrow().winit_window.as_ref() {
+            w.set_visible(visible);
+        }
     }
 
     pub(crate) fn set_cursor(&self, icon: CursorIcon) {
-        self.0.borrow_mut().winit_window.set_cursor(icon);
+        if let Some(w) = self.0.borrow().winit_window.as_ref() {
+            w.set_cursor(icon);
+        }
     }
 
     pub fn modifiers(&self) -> ModifiersState {
@@ -230,7 +287,13 @@ impl Window {
     }
 
     pub fn inner_size(&self) -> Size {
-        let inner_size = self.0.borrow().winit_window.inner_size();
+        let inner_size = self
+            .0
+            .borrow()
+            .winit_window
+            .as_ref()
+            .map(|w| w.inner_size())
+            .unwrap_or_default();
         Size::new(inner_size.width as i32, inner_size.height as i32)
     }
 
@@ -242,11 +305,12 @@ impl Window {
         self.0.borrow().preferred_inner_size
     }
 
-    pub fn set_min_inner_size(&self, size: Size) {
+    pub(crate) fn set_min_inner_size(&self, size: Size) {
         let this = &mut *self.0.borrow_mut();
         if size != this.min_inner_size {
-            this.winit_window
-                .set_min_inner_size(Some(PhysicalSize::new(size.x, size.y)));
+            if let Some(w) = this.winit_window.as_ref() {
+                w.set_min_inner_size(Some(PhysicalSize::new(size.x, size.y)));
+            }
             this.min_inner_size = size;
         }
     }
@@ -257,7 +321,12 @@ impl Window {
 
     pub fn request_inner_size(&self, size: Size) -> Option<Size> {
         let size = PhysicalSize::new(size.x, size.y);
-        let response = self.0.borrow().winit_window.request_inner_size(size);
+        let response = self
+            .0
+            .borrow()
+            .winit_window
+            .as_ref()
+            .and_then(|w| w.request_inner_size(size));
         response.map(|size| Size::new(size.width as i32, size.height as i32))
     }
 
@@ -271,14 +340,19 @@ impl Window {
 
     pub(crate) fn pass_event_to_accesskit(&self, event: &WindowEvent) {
         let this = &mut *self.0.borrow_mut();
-        this.accesskit_adapter
-            .process_event(&this.winit_window, event);
+        if let Some(a) = this.accesskit_adapter.as_mut() {
+            a.process_event(this.winit_window.as_ref().unwrap(), event);
+        }
     }
 
     pub(crate) fn prepare_draw(&self) -> Option<DrawEvent> {
         let this = &mut *self.0.borrow_mut();
+        if this.winit_window.is_none() {
+            warn!("cannot draw without a window");
+            return None;
+        }
         let (width, height) = {
-            let size = &this.winit_window.inner_size();
+            let size = this.winit_window.as_ref().unwrap().inner_size();
             (
                 size.width + EXTRA_SURFACE_SIZE,
                 size.height + EXTRA_SURFACE_SIZE,
@@ -286,6 +360,8 @@ impl Window {
         };
 
         this.surface
+            .as_mut()
+            .unwrap()
             .resize(
                 NonZeroU32::new(width).unwrap(),
                 NonZeroU32::new(height).unwrap(),
@@ -322,7 +398,11 @@ impl Window {
 
     pub(crate) fn finalize_draw(&self) {
         let this = &mut *self.0.borrow_mut();
-        let mut buffer = this.surface.buffer_mut().unwrap();
+        if this.winit_window.is_none() {
+            warn!("cannot draw without a window");
+            return;
+        }
+        let mut buffer = this.surface.as_mut().unwrap().buffer_mut().unwrap();
         buffer.copy_from_slice(bytemuck::cast_slice(this.pixmap.borrow().data()));
 
         // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
@@ -393,13 +473,15 @@ impl Window {
 
     pub(crate) fn ime_enabled(&self) {
         let this = &*self.0.borrow();
-        this.winit_window.set_ime_cursor_area(
-            PhysicalPosition::new(
-                this.ime_cursor_area.top_left.x,
-                this.ime_cursor_area.top_left.y,
-            ),
-            PhysicalSize::new(this.ime_cursor_area.size.x, this.ime_cursor_area.size.y),
-        );
+        if let Some(w) = this.winit_window.as_ref() {
+            w.set_ime_cursor_area(
+                PhysicalPosition::new(
+                    this.ime_cursor_area.top_left.x,
+                    this.ime_cursor_area.top_left.y,
+                ),
+                PhysicalSize::new(this.ime_cursor_area.size.x, this.ime_cursor_area.size.y),
+            );
+        }
     }
 
     pub(crate) fn focus_changed(&self, focused: bool) -> bool {
@@ -426,10 +508,12 @@ impl Window {
     pub fn set_ime_cursor_area(&self, rect: Rect) {
         let mut this = self.0.borrow_mut();
         if this.ime_cursor_area != rect {
-            this.winit_window.set_ime_cursor_area(
-                PhysicalPosition::new(rect.top_left.x, rect.top_left.y),
-                PhysicalSize::new(rect.size.x, rect.size.y),
-            ); //TODO: actual size
+            if let Some(w) = this.winit_window.as_ref() {
+                w.set_ime_cursor_area(
+                    PhysicalPosition::new(rect.top_left.x, rect.top_left.y),
+                    PhysicalSize::new(rect.size.x, rect.size.y),
+                );
+            } //TODO: actual size
             this.ime_cursor_area = rect;
         }
     }
@@ -438,8 +522,10 @@ impl Window {
     pub fn cancel_ime_preedit(&self) {
         let this = self.0.borrow();
         if this.ime_allowed {
-            this.winit_window.set_ime_allowed(false);
-            this.winit_window.set_ime_allowed(true);
+            if let Some(w) = this.winit_window.as_ref() {
+                w.set_ime_allowed(false);
+                w.set_ime_allowed(true);
+            }
         }
     }
 
@@ -447,7 +533,9 @@ impl Window {
         let mut this = self.0.borrow_mut();
         if !this.pending_redraw {
             this.pending_redraw = true;
-            this.winit_window.request_redraw();
+            if let Some(w) = this.winit_window.as_ref() {
+                w.request_redraw();
+            }
         }
     }
 
@@ -506,8 +594,9 @@ impl Window {
 
     pub(crate) fn push_accessible_updates(&mut self) {
         let this = &mut *self.0.borrow_mut();
-        this.accesskit_adapter
-            .update_if_active(|| this.accessible_nodes.take_update());
+        if let Some(a) = this.accesskit_adapter.as_mut() {
+            a.update_if_active(|| this.accessible_nodes.take_update());
+        }
     }
 
     pub(crate) fn invalidate_size_hint(&self, addr: WidgetAddress) {
@@ -522,7 +611,9 @@ impl Window {
     pub(crate) fn unset_focus(&self) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
         let mut this = self.0.borrow_mut();
         let old = this.focused_widget.take();
-        this.winit_window.set_ime_allowed(false);
+        if let Some(w) = this.winit_window.as_ref() {
+            w.set_ime_allowed(false);
+        }
         this.ime_allowed = false;
         this.accessible_nodes.set_focus(None);
         old
@@ -536,7 +627,9 @@ impl Window {
         let mut this = self.0.borrow_mut();
         this.accessible_nodes.set_focus(Some(addr_id.1.into()));
         this.focused_widget = Some(addr_id);
-        this.winit_window.set_ime_allowed(ime_allowed);
+        if let Some(w) = this.winit_window.as_ref() {
+            w.set_ime_allowed(ime_allowed);
+        }
         this.ime_allowed = ime_allowed;
     }
 

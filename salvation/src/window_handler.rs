@@ -12,7 +12,7 @@ use {
             self, get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget,
             WidgetAddress, WidgetExt,
         },
-        window::{MouseEventState, Window, WindowRequest},
+        window::{MouseEventState, Window, WindowId, WindowRequest},
     },
     accesskit::ActionRequest,
     log::{trace, warn},
@@ -20,51 +20,9 @@ use {
     winit::{
         event::{ElementState, Ime, WindowEvent},
         keyboard::{Key, NamedKey},
-        window::{CursorIcon, WindowId},
+        window::CursorIcon,
     },
 };
-
-pub(crate) fn init_window(window: &Window, widget: &mut dyn Widget) {
-    let size_hints_x = widget.size_hints_x();
-    // TODO: adjust size_x for screen size
-    let size_hints_y = widget.size_hints_y_from_hints_x(size_hints_x);
-
-    let preferred_size = Size::new(size_hints_x.preferred, size_hints_y.preferred);
-    let min_size = Size::new(size_hints_x.min, size_hints_y.min);
-    window.set_preferred_inner_size(preferred_size);
-    window.request_inner_size(preferred_size);
-    window.set_min_inner_size(min_size);
-
-    // TODO: only if user requested it to be visible?
-    // Window must be hidden until we initialize accesskit
-    window.set_visible(true);
-    // For some reason it's necessary to request redraw again after initializing accesskit on Windows.
-    window.clear_pending_redraw();
-    window.request_redraw();
-
-    let info = WindowInfo {
-        id: window.id(),
-        root_widget_id: widget.common().id,
-        shared_window_data: window.clone(),
-    };
-    info.clone().with_root(widget).after_widget_activity();
-    let info_clone = info.clone();
-    with_system(|system| {
-        system.windows.insert(info_clone.id, info_clone);
-    });
-
-    // {
-    //     let pixmap = Pixmap::decode_png(include_bytes!("../assets/icon.png")).unwrap();
-    //     w.shared_window_data
-    //         .0
-    //         .borrow()
-    //         .winit_window
-    //         .set_window_icon(Some(
-    //             Icon::from_rgba(pixmap.data().to_vec(), pixmap.width(), pixmap.height())
-    //                 .unwrap(),
-    //         ));
-    // }
-}
 
 #[derive(Debug, Clone)]
 pub struct WindowInfo {
@@ -382,6 +340,11 @@ impl WindowWithWidget<'_> {
             self.check_auto_focus();
         }
         // TODO: may need another turn of `after_widget_activity()`
+    }
+
+    pub fn after_event(&mut self) {
+        self.window.after_event(self.root_widget);
+        self.after_widget_activity();
     }
 
     fn unset_focus(&mut self) {

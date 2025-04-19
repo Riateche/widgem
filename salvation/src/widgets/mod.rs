@@ -20,8 +20,7 @@ use {
         },
         system::{address, register_address, unregister_address, with_system, ReportError},
         types::{Point, Rect, Size},
-        window::Window,
-        window_handler::init_window,
+        window::{Window, WindowId},
     },
     accesskit::NodeId,
     anyhow::{Context, Result},
@@ -38,7 +37,7 @@ use {
         sync::atomic::{AtomicU64, Ordering},
     },
     thiserror::Error,
-    winit::window::{CursorIcon, WindowAttributes, WindowId},
+    winit::window::{CursorIcon, WindowAttributes},
 };
 
 pub mod button;
@@ -52,6 +51,7 @@ pub mod scroll_area;
 pub mod scroll_bar;
 pub mod stack;
 pub mod text_input;
+pub mod window;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RawWidgetId(pub u64);
@@ -386,13 +386,13 @@ impl WidgetCommon {
     }
 
     // TODO: rename
-    pub fn add_child_window<T: Widget>(&mut self, key: Key, attrs: WindowAttributes) -> &mut T {
-        self.add_child_internal::<T>(key, Default::default(), Some(attrs))
+    pub fn add_child_window<T: Widget>(&mut self, key: Key, _attrs: WindowAttributes) -> &mut T {
+        self.add_child_internal::<T>(key, Default::default(), true)
     }
 
     // TODO: rename
     pub fn add_child<T: Widget>(&mut self, key: Key, options: LayoutItemOptions) -> &mut T {
-        self.add_child_internal::<T>(key, options, None)
+        self.add_child_internal::<T>(key, options, false)
     }
 
     // TODO: check for row/column conflict
@@ -401,20 +401,16 @@ impl WidgetCommon {
         &mut self,
         key: Key,
         options: LayoutItemOptions,
-        window_attrs: Option<WindowAttributes>,
+        is_window: bool,
     ) -> &mut T {
         let new_id = RawWidgetId::new();
-        let window;
-        let ctx;
-        if let Some(attrs) = window_attrs {
-            let new_window = Window::new(new_id, attrs);
-            ctx = self.new_creation_context(new_id, key, Some(new_window.clone()));
-            window = Some(new_window);
+        let ctx = if is_window {
+            let new_window = Window::new(new_id);
+            self.new_creation_context(new_id, key, Some(new_window.clone()))
         } else {
-            window = None;
-            ctx = self.new_creation_context(new_id, key, None);
-        }
-        let child = match self.children.entry(key) {
+            self.new_creation_context(new_id, key, None)
+        };
+        match self.children.entry(key) {
             btree_map::Entry::Vacant(entry) => entry.insert(Child {
                 widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
                 options,
@@ -438,9 +434,6 @@ impl WidgetCommon {
                 }
             }
         };
-        if let Some(window) = window {
-            init_window(&window, &mut *child.widget);
-        }
 
         self.size_hint_changed();
         self.children
@@ -827,6 +820,13 @@ pub trait Widget: Downcast {
     fn type_name() -> &'static str
     where
         Self: Sized;
+
+    fn is_window_root_type() -> bool
+    where
+        Self: Sized,
+    {
+        false
+    }
 
     fn new(common: WidgetCommonTyped<Self>) -> Self
     where

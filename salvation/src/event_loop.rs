@@ -8,7 +8,7 @@ use {
             get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, Widget, WidgetAddress,
             WidgetCommon, WidgetCreationContext, WidgetExt,
         },
-        window::WindowRequest,
+        window::{WindowId, WindowRequest},
     },
     arboard::Clipboard,
     cosmic_text::{fontdb, FontSystem, SwashCache},
@@ -27,7 +27,6 @@ use {
         application::ApplicationHandler,
         event::{StartCause, WindowEvent},
         event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
-        window::WindowId,
     },
 };
 
@@ -198,6 +197,18 @@ impl<T: Widget> Handler<T> {
     }
 
     fn after_handler(&mut self) {
+        let windows = with_system(|s| s.windows.clone());
+        for (_, window) in windows {
+            if let Some(window_root_widget) = get_widget_by_id_mut(
+                self.root_widget.as_mut().unwrap().as_mut(),
+                window.root_widget_id,
+            )
+            .or_report_err()
+            {
+                window.with_root(window_root_widget).after_event();
+            }
+        }
+
         let exit = with_system(|s| s.windows.is_empty() && s.config.exit_after_last_window_closes);
         if exit {
             with_active_event_loop(|event_loop| event_loop.exit());
@@ -216,13 +227,14 @@ impl<T: Widget> ApplicationHandler<UserEvent> for Handler<T> {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
-        window_id: WindowId,
+        window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
             self.before_handler();
 
-            let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
+            let Some(window) = with_system(|s| s.windows_by_winit_id.get(&window_id).cloned())
+            else {
                 if !matches!(event, WindowEvent::Destroyed | WindowEvent::RedrawRequested) {
                     warn!("missing window object when dispatching event: {:?}", event);
                 }
@@ -291,6 +303,7 @@ impl<T: Widget> ApplicationHandler<UserEvent> for Handler<T> {
                     timers: Timers::new(),
                     clipboard: Clipboard::new().expect("failed to initialize clipboard"),
                     windows: HashMap::new(),
+                    windows_by_winit_id: HashMap::new(),
                     widget_callbacks: HashMap::new(),
                     application_shortcuts: Vec::new(),
                 };
@@ -359,7 +372,8 @@ impl<T: Widget> ApplicationHandler<UserEvent> for Handler<T> {
                     dispatch_widget_callback(root_widget.as_mut(), event.callback_id, event.event);
                 }
                 UserEvent::Accesskit(event) => {
-                    let Some(window) = with_system(|s| s.windows.get(&event.window_id).cloned())
+                    let Some(window) =
+                        with_system(|s| s.windows_by_winit_id.get(&event.window_id).cloned())
                     else {
                         warn!("missing window object when dispatching Accesskit event");
                         return;

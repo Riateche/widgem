@@ -6,7 +6,7 @@ use {
         style::computed::ComputedStyle,
         timer::{Timer, TimerId, Timers},
         widgets::{RawWidgetId, WidgetAddress},
-        window::WindowRequest,
+        window::{WindowId, WindowRequest},
         window_handler::WindowInfo,
     },
     anyhow::Result,
@@ -18,7 +18,7 @@ use {
         collections::HashMap,
         time::{Duration, Instant},
     },
-    winit::{event_loop::EventLoopProxy, window::WindowId},
+    winit::event_loop::EventLoopProxy,
 };
 
 thread_local! {
@@ -42,6 +42,7 @@ pub struct SharedSystemDataInner {
     pub timers: Timers,
     pub clipboard: Clipboard,
     pub windows: HashMap<WindowId, WindowInfo>,
+    pub windows_by_winit_id: HashMap<winit::window::WindowId, WindowInfo>,
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
     pub application_shortcuts: Vec<Shortcut>,
 }
