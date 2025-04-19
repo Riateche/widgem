@@ -18,14 +18,18 @@ pub struct ScrollArea {
     common: WidgetCommon,
 }
 
-const INDEX_SCROLL_BAR_X: usize = 0;
-const INDEX_SCROLL_BAR_Y: usize = 1;
-const INDEX_VIEWPORT: usize = 2;
+const INDEX_SCROLL_BAR_X: u64 = 0;
+const INDEX_SCROLL_BAR_Y: u64 = 1;
+const INDEX_VIEWPORT: u64 = 2;
 
 #[impl_with]
 impl ScrollArea {
     fn has_content(&self) -> bool {
-        !self.common.children[INDEX_VIEWPORT]
+        !self
+            .common
+            .children
+            .get(&INDEX_VIEWPORT)
+            .unwrap()
             .widget
             .common()
             .children
@@ -36,10 +40,13 @@ impl ScrollArea {
     // TODO: remove old content
     pub fn add_content<T: Widget>(&mut self) -> &mut T {
         assert!(!self.has_content());
-        self.common.children[INDEX_VIEWPORT]
+        self.common
+            .children
+            .get_mut(&INDEX_VIEWPORT)
+            .unwrap()
             .widget
             .common_mut()
-            .add_child::<T>(Default::default())
+            .add_child::<T>(0, Default::default())
     }
 
     // pub fn set_content(&mut self, content: Box<dyn Widget>) {
@@ -96,44 +103,73 @@ impl ScrollArea {
         self.common.set_child_rects(&rects)?;
 
         if self.has_content() {
-            let value_x = self.common.children[INDEX_SCROLL_BAR_X]
+            let value_x = self
+                .common
+                .children
+                .get(&INDEX_SCROLL_BAR_X)
+                .unwrap()
                 .widget
                 .downcast_ref::<ScrollBar>()
                 .unwrap()
                 .value();
-            let value_y = self.common.children[INDEX_SCROLL_BAR_Y]
+            let value_y = self
+                .common
+                .children
+                .get(&INDEX_SCROLL_BAR_Y)
+                .unwrap()
                 .widget
                 .downcast_ref::<ScrollBar>()
                 .unwrap()
                 .value();
 
             let viewport_rect = *rects.get(&INDEX_VIEWPORT).unwrap();
-            let content_size_x = self.common.children[INDEX_VIEWPORT]
+            let content_size_x = self
+                .common
+                .children
+                .get_mut(&INDEX_VIEWPORT)
+                .unwrap()
                 .widget
                 .common_mut()
-                .children[0]
+                .children
+                .get_mut(&0)
+                .unwrap()
                 .widget
                 .size_hint_x(SizeHintMode::Preferred);
-            let content_size_y = self.common.children[INDEX_VIEWPORT]
+            let content_size_y = self
+                .common
+                .children
+                .get_mut(&INDEX_VIEWPORT)
+                .unwrap()
                 .widget
                 .common_mut()
-                .children[0]
+                .children
+                .get_mut(&0)
+                .unwrap()
                 .widget
                 .size_hint_y(content_size_x, SizeHintMode::Preferred);
             let content_rect = Rect::from_xywh(-value_x, -value_y, content_size_x, content_size_y);
-            self.common.children[INDEX_VIEWPORT]
+            self.common
+                .children
+                .get_mut(&INDEX_VIEWPORT)
+                .unwrap()
                 .widget
                 .common_mut()
                 .set_child_rect(0, Some(content_rect))?;
 
             let max_value_x = max(0, content_size_x - viewport_rect.size.x);
             let max_value_y = max(0, content_size_y - viewport_rect.size.y);
-            self.common.children[INDEX_SCROLL_BAR_X]
+            self.common
+                .children
+                .get_mut(&INDEX_SCROLL_BAR_X)
+                .unwrap()
                 .widget
                 .downcast_mut::<ScrollBar>()
                 .unwrap()
                 .set_value_range(0..=max_value_x);
-            self.common.children[INDEX_SCROLL_BAR_Y]
+            self.common
+                .children
+                .get_mut(&INDEX_SCROLL_BAR_Y)
+                .unwrap()
                 .widget
                 .downcast_mut::<ScrollBar>()
                 .unwrap()
@@ -151,13 +187,19 @@ impl Widget for ScrollArea {
 
         // TODO: icons, localized name
         common
-            .add_child::<ScrollBar>(LayoutItemOptions::from_pos_in_grid(0, 1))
+            .add_child::<ScrollBar>(
+                INDEX_SCROLL_BAR_X,
+                LayoutItemOptions::from_pos_in_grid(0, 1),
+            )
             .on_value_changed(relayout.clone());
         common
-            .add_child::<ScrollBar>(LayoutItemOptions::from_pos_in_grid(1, 0))
+            .add_child::<ScrollBar>(
+                INDEX_SCROLL_BAR_Y,
+                LayoutItemOptions::from_pos_in_grid(1, 0),
+            )
             .set_axis(Axis::Y)
             .on_value_changed(relayout);
-        common.add_child::<Viewport>(LayoutItemOptions::from_pos_in_grid(0, 0));
+        common.add_child::<Viewport>(INDEX_VIEWPORT, LayoutItemOptions::from_pos_in_grid(0, 0));
         common.set_grid_options(Some(GridOptions::ZERO));
         Self {
             common: common.into(),
@@ -171,7 +213,11 @@ impl Widget for ScrollArea {
     fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
         let delta = event.unified_delta(&self.common);
 
-        let scroll_x = self.common.children[INDEX_SCROLL_BAR_X]
+        let scroll_x = self
+            .common
+            .children
+            .get_mut(&INDEX_SCROLL_BAR_X)
+            .unwrap()
             .widget
             .downcast_mut::<ScrollBar>()
             .unwrap();
@@ -181,7 +227,11 @@ impl Widget for ScrollArea {
             *scroll_x.value_range().end(),
         ));
 
-        let scroll_y = self.common.children[INDEX_SCROLL_BAR_Y]
+        let scroll_y = self
+            .common
+            .children
+            .get_mut(&INDEX_SCROLL_BAR_Y)
+            .unwrap()
             .widget
             .downcast_mut::<ScrollBar>()
             .unwrap();

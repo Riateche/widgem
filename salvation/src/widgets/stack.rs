@@ -1,5 +1,5 @@
 use {
-    super::{RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped},
+    super::{Key, RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped},
     crate::{
         event::LayoutEvent, impl_widget_common, layout::SizeHintMode, system::ReportError,
         types::Rect,
@@ -15,16 +15,16 @@ pub struct Stack {
 
 impl Stack {
     // TODO: impl explicit rect setting for universal grid layout?
-    pub fn add<T: Widget>(&mut self, rect: Rect) -> &mut T {
-        let index = self.common.children.len();
-        let widget = self.common.add_child::<T>(Default::default());
+    pub fn add<T: Widget>(&mut self, key: Key, rect: Rect) -> &mut T {
+        let widget = self.common.add_child::<T>(key, Default::default());
         let id = widget.common().id;
-        self.common
-            .set_child_rect(index, Some(rect))
-            .or_report_err();
+        self.common.set_child_rect(key, Some(rect)).or_report_err();
         self.rects.insert(id, Some(rect));
         self.common.update();
-        self.common.children[index]
+        self.common
+            .children
+            .get_mut(&key)
+            .unwrap()
             .widget
             .downcast_mut::<T>()
             .unwrap()
@@ -49,7 +49,7 @@ impl Widget for Stack {
         let max = self
             .common
             .children
-            .iter()
+            .values()
             .filter_map(|c| c.rect_in_parent)
             .map(|rect| rect.bottom_right().x)
             .max()
@@ -61,7 +61,7 @@ impl Widget for Stack {
         let max = self
             .common
             .children
-            .iter()
+            .values()
             .filter_map(|c| c.rect_in_parent)
             .map(|rect| rect.bottom_right().y)
             .max()

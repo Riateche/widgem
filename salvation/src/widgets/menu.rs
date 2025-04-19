@@ -32,7 +32,7 @@ impl Widget for Menu {
             attrs = attrs.with_skip_taskbar(true);
         }
         common
-            .add_child_window::<Label>(attrs)
+            .add_child_window::<Label>(0, attrs)
             .set_text("menu content 1\nmenu content 2\nmenu content 3");
         Self {
             common: common.into(),

@@ -35,29 +35,52 @@ impl Widget for AnotherWidget {
             this.counter += 1;
             println!("counter: {}", this.counter);
             this.common
-                .add_child_window::<Label>(Window::default_attributes().with_title("example"))
+                .add_child_window::<Label>(
+                    this.counter as u64,
+                    Window::default_attributes().with_title("example"),
+                )
                 .set_text(format!("counter: {}", this.counter));
             Ok(())
         });
-        let button = this.common_mut().add_child::<Button>(Default::default());
+        let button = this.common_mut().add_child::<Button>(0, Default::default());
         button.set_text("another button");
         button.on_triggered(callback);
         this
     }
 
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        Ok(self.common_mut().children[0].widget.size_hint_x(mode))
+        Ok(self
+            .common_mut()
+            .children
+            .get_mut(&0)
+            .unwrap()
+            .widget
+            .size_hint_x(mode))
     }
     fn recalculate_size_x_fixed(&mut self) -> bool {
-        self.common_mut().children[0].widget.size_x_fixed()
+        self.common_mut()
+            .children
+            .get_mut(&0)
+            .unwrap()
+            .widget
+            .size_x_fixed()
     }
     fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
-        Ok(self.common_mut().children[0]
+        Ok(self
+            .common_mut()
+            .children
+            .get_mut(&0)
+            .unwrap()
             .widget
             .size_hint_y(size_x, mode))
     }
     fn recalculate_size_y_fixed(&mut self) -> bool {
-        self.common_mut().children[0].widget.size_y_fixed()
+        self.common_mut()
+            .children
+            .get_mut(&0)
+            .unwrap()
+            .widget
+            .size_y_fixed()
     }
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
         self.common.set_child_rect(
@@ -121,8 +144,8 @@ impl Widget for RootWidget {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
 
-        let root =
-            common.add_child_window::<Column>(Window::default_attributes().with_title("example"));
+        let root = common
+            .add_child_window::<Column>(0, Window::default_attributes().with_title("example"));
 
         root.add_child::<TextInput>()
             .set_text("Hello, Rust! 🦀😂\n");

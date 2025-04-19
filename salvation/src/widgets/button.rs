@@ -46,31 +46,19 @@ pub struct Button {
 impl Button {
     #[allow(dead_code)]
     fn image_widget(&self) -> &Image {
-        self.common.children[0]
-            .widget
-            .downcast_ref::<Image>()
-            .unwrap()
+        self.common.get_child::<Image>(0).unwrap()
     }
 
     fn image_widget_mut(&mut self) -> &mut Image {
-        self.common.children[0]
-            .widget
-            .downcast_mut::<Image>()
-            .unwrap()
+        self.common.get_child_mut::<Image>(0).unwrap()
     }
 
     fn text_widget(&self) -> &Text {
-        self.common.children[1]
-            .widget
-            .downcast_ref::<Text>()
-            .unwrap()
+        self.common.get_child::<Text>(1).unwrap()
     }
 
     fn text_widget_mut(&mut self) -> &mut Text {
-        self.common.children[1]
-            .widget
-            .downcast_mut::<Text>()
-            .unwrap()
+        self.common.get_child_mut::<Text>(1).unwrap()
     }
 
     pub fn set_text(&mut self, text: impl Display) -> &mut Self {
@@ -216,9 +204,9 @@ impl Widget for Button {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         common.set_focusable(true);
         common
-            .add_child::<Image>(LayoutItemOptions::from_pos_in_grid(0, 0))
+            .add_child::<Image>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
             .set_visible(false);
-        common.add_child::<Text>(LayoutItemOptions::from_pos_in_grid(1, 0));
+        common.add_child::<Text>(1, LayoutItemOptions::from_pos_in_grid(1, 0));
         let mut b = Self {
             auto_repeat: false,
             is_mouse_leave_sensitive: true,

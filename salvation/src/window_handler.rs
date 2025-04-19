@@ -9,8 +9,8 @@ use {
         system::{address, with_system, ReportError},
         types::{Point, Rect, Size},
         widgets::{
-            get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget, WidgetAddress,
-            WidgetExt,
+            self, get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget,
+            WidgetAddress, WidgetExt,
         },
         window::{MouseEventState, Window, WindowRequest},
     },
@@ -409,7 +409,7 @@ impl WindowWithWidget<'_> {
 
     fn set_focus(
         &mut self,
-        widget_addr_id: (Vec<(usize, RawWidgetId)>, RawWidgetId),
+        widget_addr_id: (Vec<(widgets::Key, RawWidgetId)>, RawWidgetId),
         reason: FocusReason,
     ) {
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {

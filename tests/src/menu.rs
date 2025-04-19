@@ -11,7 +11,7 @@ pub struct RootWidget {
 
 impl RootWidget {
     fn on_triggered(&mut self, _event: ()) -> anyhow::Result<()> {
-        self.common.add_child::<Menu>(Default::default());
+        self.common.add_child::<Menu>(1, Default::default());
         Ok(())
     }
 }
@@ -22,7 +22,7 @@ impl Widget for RootWidget {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
         let content =
-            common.add_child_window::<Row>(WindowAttributes::default().with_title(module_path!()));
+            common.add_child_window::<Row>(0, WindowAttributes::default().with_title(module_path!()));
 
         content
             .add_child::<Button>()

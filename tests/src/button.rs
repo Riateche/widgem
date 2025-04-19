@@ -15,8 +15,8 @@ impl Widget for RootWidget {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        let content =
-            common.add_child_window::<Row>(WindowAttributes::default().with_title(module_path!()));
+        let content = common
+            .add_child_window::<Row>(0, WindowAttributes::default().with_title(module_path!()));
 
         content.add_child::<Button>().set_text("Test");
 

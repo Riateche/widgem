@@ -6,7 +6,7 @@ use {
         event_loop::with_active_event_loop,
         system::with_system,
         types::{Point, Rect, Size},
-        widgets::{RawWidgetId, WidgetAddress},
+        widgets::{Key, RawWidgetId, WidgetAddress},
     },
     accesskit::{NodeBuilder, NodeId},
     anyhow::{bail, Context},
@@ -80,10 +80,10 @@ pub struct WindowInner {
     pub pending_redraw: bool,
 
     // TODO: refactor as struct
-    pub focusable_widgets: Vec<(Vec<(usize, RawWidgetId)>, RawWidgetId)>,
+    pub focusable_widgets: Vec<(Vec<(Key, RawWidgetId)>, RawWidgetId)>,
     pub focusable_widgets_changed: bool,
 
-    pub focused_widget: Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)>,
+    pub focused_widget: Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
     pub num_clicks: u32,
     pub last_click_button: Option<MouseButton>,
@@ -480,7 +480,7 @@ impl Window {
     pub(crate) fn move_keyboard_focus(
         &self,
         direction: i32,
-    ) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
+    ) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
         let this = self.0.borrow();
         let focused_widget = this.focused_widget.as_ref()?;
         if this.focusable_widgets.is_empty() {
@@ -495,7 +495,7 @@ impl Window {
         }
     }
 
-    pub(crate) fn pending_auto_focus(&self) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
+    pub(crate) fn pending_auto_focus(&self) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
         let this = &*self.0.borrow();
         if this.focused_widget.is_none() {
             this.focusable_widgets.first().cloned()
@@ -519,7 +519,7 @@ impl Window {
         mem::take(&mut self.0.borrow_mut().pending_size_hint_invalidations)
     }
 
-    pub(crate) fn unset_focus(&self) -> Option<(Vec<(usize, RawWidgetId)>, RawWidgetId)> {
+    pub(crate) fn unset_focus(&self) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
         let mut this = self.0.borrow_mut();
         let old = this.focused_widget.take();
         this.winit_window.set_ime_allowed(false);
@@ -530,7 +530,7 @@ impl Window {
 
     pub(crate) fn set_focus(
         &self,
-        addr_id: (Vec<(usize, RawWidgetId)>, RawWidgetId),
+        addr_id: (Vec<(Key, RawWidgetId)>, RawWidgetId),
         ime_allowed: bool,
     ) {
         let mut this = self.0.borrow_mut();
@@ -542,7 +542,7 @@ impl Window {
 
     pub(crate) fn is_registered_as_focusable(
         &self,
-        addr_id: &(Vec<(usize, RawWidgetId)>, RawWidgetId),
+        addr_id: &(Vec<(Key, RawWidgetId)>, RawWidgetId),
     ) -> bool {
         let this = &*self.0.borrow();
         this.focusable_widgets.binary_search(addr_id).is_ok()
