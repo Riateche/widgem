@@ -17,6 +17,7 @@ use {
     std::{
         cell::RefCell,
         collections::HashSet,
+        fmt::Display,
         mem,
         num::NonZeroU32,
         rc::Rc,
@@ -27,7 +28,9 @@ use {
         dpi::{PhysicalPosition, PhysicalSize},
         event::{ElementState, MouseButton, WindowEvent},
         keyboard::ModifiersState,
-        window::{CursorIcon, WindowAttributes},
+        window::{
+            CursorIcon, Fullscreen, Icon, Theme, WindowAttributes, WindowButtons, WindowLevel,
+        },
     },
 };
 
@@ -76,7 +79,6 @@ pub struct WindowInner {
     #[derivative(Debug = "ignore")]
     pub accesskit_adapter: Option<accesskit_winit::Adapter>,
     pub winit_window: Option<Rc<winit::window::Window>>,
-    pub title: String,
     pub min_inner_size: Size,
     pub preferred_inner_size: Size,
     pub ime_allowed: bool,
@@ -94,6 +96,56 @@ pub struct WindowInner {
     pub last_click_button: Option<MouseButton>,
     pub last_click_instant: Option<Instant>,
     pub is_delete_widget_on_close_enabled: bool,
+
+    pub attributes: Attributes,
+}
+
+#[derive(Debug)]
+pub struct Attributes {
+    pub position: Option<Point>,
+    pub resizable: bool,
+    pub enabled_buttons: WindowButtons,
+    pub title: Option<String>,
+    pub maximized: bool,
+    pub visible: bool,
+    pub transparent: bool,
+    pub blur: bool,
+    pub decorations: bool,
+    pub window_icon: Option<Icon>,
+    pub preferred_theme: Option<Theme>,
+    pub resize_increments: Option<Size>,
+    pub content_protected: bool,
+    pub window_level: WindowLevel,
+    pub active: Option<bool>,
+    pub fullscreen: Option<Fullscreen>,
+    // TODO: more platform specific
+    pub x11_window_type: Option<Vec<X11WindowType>>,
+    pub skip_windows_taskbar: Option<bool>,
+}
+
+impl Default for Attributes {
+    fn default() -> Self {
+        Attributes {
+            position: None,
+            resizable: true,
+            enabled_buttons: WindowButtons::all(),
+            title: None,
+            maximized: false,
+            fullscreen: None,
+            visible: true,
+            transparent: false,
+            blur: false,
+            decorations: true,
+            window_level: Default::default(),
+            window_icon: None,
+            preferred_theme: None,
+            resize_increments: None,
+            content_protected: false,
+            active: None,
+            x11_window_type: None,
+            skip_windows_taskbar: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -133,7 +185,7 @@ impl Window {
             min_inner_size: Size::default(),
             // This is updated in `init_window`
             preferred_inner_size: Size::default(),
-            title: String::new(),
+            attributes: Attributes::default(),
         })));
 
         let info = WindowInfo {
@@ -149,7 +201,11 @@ impl Window {
         window
     }
 
-    pub fn after_event(&self, root_widget: &mut dyn Widget) {
+    pub fn has_winit_window(&self) -> bool {
+        self.0.borrow().winit_window.is_some()
+    }
+
+    pub fn init_winit_window(&self, root_widget: &mut dyn Widget) {
         let mut inner_guard = self.0.borrow_mut();
         let inner = &mut *inner_guard;
         if inner.winit_window.is_some() {
@@ -164,10 +220,51 @@ impl Window {
         let min_size = Size::new(size_hints_x.min, size_hints_y.min);
 
         // TODO: all attrs
-        let attrs = WindowAttributes::default()
-            .with_title(&inner.title)
+        let mut attrs = WindowAttributes::default()
             .with_inner_size(PhysicalSize::new(preferred_size.x, preferred_size.y))
-            .with_min_inner_size(PhysicalSize::new(min_size.x, min_size.y));
+            .with_min_inner_size(PhysicalSize::new(min_size.x, min_size.y))
+            .with_resizable(inner.attributes.resizable)
+            .with_enabled_buttons(inner.attributes.enabled_buttons)
+            .with_maximized(inner.attributes.maximized)
+            .with_visible(inner.attributes.visible)
+            .with_transparent(inner.attributes.transparent)
+            .with_blur(inner.attributes.blur)
+            .with_decorations(inner.attributes.decorations)
+            .with_resizable(inner.attributes.resizable)
+            .with_window_icon(inner.attributes.window_icon.clone())
+            .with_theme(inner.attributes.preferred_theme)
+            .with_content_protected(inner.attributes.content_protected)
+            .with_window_level(inner.attributes.window_level)
+            .with_fullscreen(inner.attributes.fullscreen.clone());
+
+        if let Some(title) = &inner.attributes.title {
+            attrs = attrs.with_title(title);
+        }
+        if let Some(active) = inner.attributes.active {
+            attrs = attrs.with_active(active);
+        }
+        if let Some(position) = &inner.attributes.position {
+            attrs = attrs.with_position(PhysicalPosition::new(position.x, position.y));
+        }
+        if let Some(v) = &inner.attributes.resize_increments {
+            attrs = attrs.with_resize_increments(PhysicalSize::new(v.x, v.y));
+        }
+        #[cfg(all(unix, not(target_vendor = "apple")))]
+        {
+            use winit::platform::x11::{WindowAttributesExtX11, WindowType};
+
+            if let Some(v) = &inner.attributes.x11_window_type {
+                attrs = attrs.with_x11_window_type(v.iter().copied().map(Into::into).collect());
+            }
+        }
+        #[cfg(windows)]
+        {
+            use winit::platform::windows::WindowAttributesExtWindows;
+
+            if let Some(v) = &inner.attributes.skip_windows_taskbar {
+                attrs = attrs.with_skip_taskbar(v);
+            }
+        }
         let winit_window = Rc::new(with_active_event_loop(|event_loop| {
             event_loop.create_window(attrs).unwrap()
         }));
@@ -696,6 +793,83 @@ impl Window {
             .take()
             .context("no current mouse event")
     }
+
+    pub fn set_title(&self, title: impl Display) {
+        let this = &mut *self.0.borrow_mut();
+        let title = title.to_string();
+        if Some(&title) == this.attributes.title.as_ref() {
+            return;
+        }
+        if let Some(window) = &this.winit_window {
+            window.set_title(&title);
+        }
+        this.attributes.title = Some(title);
+    }
+
+    pub fn set_decorations(&self, value: bool) {
+        let this = &mut *self.0.borrow_mut();
+        if value == this.attributes.decorations {
+            return;
+        }
+        if let Some(window) = &this.winit_window {
+            window.set_decorations(value);
+        }
+        this.attributes.decorations = value;
+    }
+
+    pub fn set_window_level(&self, value: WindowLevel) {
+        let this = &mut *self.0.borrow_mut();
+        if value == this.attributes.window_level {
+            return;
+        }
+        if let Some(window) = &this.winit_window {
+            window.set_window_level(value);
+        }
+        this.attributes.window_level = value;
+    }
+
+    #[allow(unused_variables)]
+    pub fn set_x11_window_type(&self, value: Vec<X11WindowType>) {
+        #[cfg(all(unix, not(target_vendor = "apple")))]
+        {
+            let this = &mut *self.0.borrow_mut();
+            if Some(&value) == this.attributes.x11_window_type.as_ref() {
+                return;
+            }
+            if let Some(window) = &this.winit_window {
+                window.set_x11_window_type(value.clone());
+            }
+            this.attributes.x11_window_type = Some(value);
+        }
+    }
+
+    #[allow(unused_variables)]
+    pub fn set_skip_windows_taskbar(&self, value: bool) {
+        #[cfg(windows)]
+        {
+            let this = &mut *self.0.borrow_mut();
+            if Some(value) == this.attributes.skip_windows_taskbar {
+                return;
+            }
+            if let Some(window) = &this.winit_window {
+                window.set_skip_windows_taskbar(value);
+            }
+            this.attributes.skip_windows_taskbar = Some(value);
+        }
+    }
+
+    pub fn deregister(&self) {
+        let this = self.0.borrow();
+        let id = this.id;
+        let winit_id = this.winit_window.as_ref().map(|w| w.id());
+        drop(this);
+        with_system(|system| {
+            system.windows.remove(&id);
+            if let Some(winit_id) = winit_id {
+                system.windows_by_winit_id.remove(&winit_id);
+            }
+        });
+    }
 }
 
 #[derive(Debug, From)]
@@ -715,4 +889,44 @@ pub struct ScrollToRectRequest {
     pub widget_id: RawWidgetId,
     // In widget coordinates.
     pub rect: Rect,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum X11WindowType {
+    Desktop,
+    Dock,
+    Toolbar,
+    Menu,
+    Utility,
+    Splash,
+    Dialog,
+    DropdownMenu,
+    PopupMenu,
+    Tooltip,
+    Notification,
+    Combo,
+    Dnd,
+    Normal,
+}
+
+#[cfg(all(unix, not(target_vendor = "apple")))]
+impl From<X11WindowType> for winit::platform::x11::WindowType {
+    fn from(value: X11WindowType) -> Self {
+        match value {
+            X11WindowType::Desktop => winit::platform::x11::WindowType::Desktop,
+            X11WindowType::Dock => winit::platform::x11::WindowType::Dock,
+            X11WindowType::Toolbar => winit::platform::x11::WindowType::Toolbar,
+            X11WindowType::Menu => winit::platform::x11::WindowType::Menu,
+            X11WindowType::Utility => winit::platform::x11::WindowType::Utility,
+            X11WindowType::Splash => winit::platform::x11::WindowType::Splash,
+            X11WindowType::Dialog => winit::platform::x11::WindowType::Dialog,
+            X11WindowType::DropdownMenu => winit::platform::x11::WindowType::DropdownMenu,
+            X11WindowType::PopupMenu => winit::platform::x11::WindowType::PopupMenu,
+            X11WindowType::Tooltip => winit::platform::x11::WindowType::Tooltip,
+            X11WindowType::Notification => winit::platform::x11::WindowType::Notification,
+            X11WindowType::Combo => winit::platform::x11::WindowType::Combo,
+            X11WindowType::Dnd => winit::platform::x11::WindowType::Dnd,
+            X11WindowType::Normal => winit::platform::x11::WindowType::Normal,
+        }
+    }
 }

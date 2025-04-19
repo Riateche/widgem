@@ -1,9 +1,48 @@
-use crate::impl_widget_common;
+use std::fmt::Display;
+
+use winit::window::WindowLevel;
+
+use crate::{impl_widget_common, window::X11WindowType};
 
 use super::{Widget, WidgetCommon, WidgetCommonTyped};
 
 pub struct WindowWidget {
     common: WidgetCommon,
+}
+
+impl WindowWidget {
+    pub fn set_title(&mut self, title: impl Display) -> &mut Self {
+        self.common.window.as_ref().unwrap().set_title(title);
+        self
+    }
+
+    pub fn set_decorations(&mut self, value: bool) -> &mut Self {
+        self.common.window.as_ref().unwrap().set_decorations(value);
+        self
+    }
+
+    pub fn set_window_level(&mut self, value: WindowLevel) -> &mut Self {
+        self.common.window.as_ref().unwrap().set_window_level(value);
+        self
+    }
+
+    pub fn set_x11_window_type(&mut self, value: Vec<X11WindowType>) -> &mut Self {
+        self.common
+            .window
+            .as_ref()
+            .unwrap()
+            .set_x11_window_type(value);
+        self
+    }
+
+    pub fn set_skip_windows_taskbar(&mut self, value: bool) -> &mut Self {
+        self.common
+            .window
+            .as_ref()
+            .unwrap()
+            .set_skip_windows_taskbar(value);
+        self
+    }
 }
 
 impl Widget for WindowWidget {
@@ -17,5 +56,11 @@ impl Widget for WindowWidget {
         Self {
             common: common.into(),
         }
+    }
+}
+
+impl Drop for WindowWidget {
+    fn drop(&mut self) {
+        self.common.window.as_ref().unwrap().deregister();
     }
 }

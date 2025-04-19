@@ -1,8 +1,8 @@
 use {
     salvation::{
         impl_widget_common,
-        widgets::{label::Label, row::Row, Widget, WidgetCommon, WidgetCommonTyped},
-        WindowAttributes,
+        layout::LayoutItemOptions,
+        widgets::{label::Label, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped},
     },
     salvation_test_kit::context::Context,
 };
@@ -15,10 +15,14 @@ impl Widget for RootWidget {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        let content = common
-            .add_child_window::<Row>(0, WindowAttributes::default().with_title(module_path!()));
+        let window = common
+            .add_child::<WindowWidget>(0, Default::default())
+            .set_title(module_path!());
 
-        content.add_child::<Label>().set_text("Test");
+        window
+            .common_mut()
+            .add_child::<Label>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
+            .set_text("Test");
 
         Self {
             common: common.into(),

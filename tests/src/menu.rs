@@ -1,7 +1,9 @@
 use salvation::{
     impl_widget_common,
-    widgets::{button::Button, menu::Menu, row::Row, Widget, WidgetCommon, WidgetCommonTyped},
-    WindowAttributes,
+    layout::LayoutItemOptions,
+    widgets::{
+        button::Button, menu::Menu, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped,
+    },
 };
 use salvation_test_kit::context::Context;
 
@@ -21,11 +23,13 @@ impl Widget for RootWidget {
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
-        let content = common
-            .add_child_window::<Row>(0, WindowAttributes::default().with_title(module_path!()));
+        let window = common
+            .add_child::<WindowWidget>(0, Default::default())
+            .set_title(module_path!());
 
-        content
-            .add_child::<Button>()
+        window
+            .common_mut()
+            .add_child::<Button>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
             .set_text("test")
             .on_triggered(id.callback(Self::on_triggered));
 

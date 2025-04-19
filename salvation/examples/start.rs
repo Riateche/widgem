@@ -5,17 +5,17 @@ use {
     salvation::{
         event::LayoutEvent,
         impl_widget_common,
-        layout::SizeHintMode,
+        layout::{LayoutItemOptions, SizeHintMode},
         system::add_interval,
         types::Rect,
         widgets::{
             button::Button, column::Column, label::Label, scroll_area::ScrollArea,
-            text_input::TextInput, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt, WidgetId,
+            text_input::TextInput, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped,
+            WidgetExt, WidgetId,
         },
         App,
     },
     std::time::Duration,
-    winit::window::Window,
 };
 
 struct AnotherWidget {
@@ -34,11 +34,13 @@ impl Widget for AnotherWidget {
         let callback = this.callback(|this, _event| {
             this.counter += 1;
             println!("counter: {}", this.counter);
-            this.common
-                .add_child_window::<Label>(
-                    this.counter as u64,
-                    Window::default_attributes().with_title("example"),
-                )
+            let window = this
+                .common
+                .add_child::<WindowWidget>(this.counter as u64, Default::default())
+                .set_title("example");
+            window
+                .common_mut()
+                .add_child::<Label>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
                 .set_text(format!("counter: {}", this.counter));
             Ok(())
         });
@@ -144,8 +146,13 @@ impl Widget for RootWidget {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
 
-        let root = common
-            .add_child_window::<Column>(0, Window::default_attributes().with_title("example"));
+        let window = common
+            .add_child::<WindowWidget>(0, Default::default())
+            .set_title("example");
+
+        let root = window
+            .common_mut()
+            .add_child::<Column>(0, LayoutItemOptions::from_pos_in_grid(0, 0));
 
         root.add_child::<TextInput>()
             .set_text("Hello, Rust! 🦀😂\n");

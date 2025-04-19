@@ -343,8 +343,11 @@ impl WindowWithWidget<'_> {
     }
 
     pub fn after_event(&mut self) {
-        self.window.after_event(self.root_widget);
-        self.after_widget_activity();
+        if !self.window.has_winit_window() {
+            self.window.init_winit_window(self.root_widget);
+            //self.layout(vec![]);
+            self.after_widget_activity();
+        }
     }
 
     fn unset_focus(&mut self) {

@@ -37,7 +37,7 @@ use {
         sync::atomic::{AtomicU64, Ordering},
     },
     thiserror::Error,
-    winit::window::{CursorIcon, WindowAttributes},
+    winit::window::CursorIcon,
 };
 
 pub mod button;
@@ -186,6 +186,8 @@ pub type Key = u64;
 impl Drop for WidgetCommon {
     fn drop(&mut self) {
         unregister_address(self.id);
+        // Drop and unmount children before unmounting self.
+        self.children.clear();
         self.unmount_accessible();
         for shortcut in &self.shortcuts {
             // TODO: deregister widget/window shortcuts
@@ -387,25 +389,15 @@ impl WidgetCommon {
     }
 
     // TODO: rename
-    pub fn add_child_window<T: Widget>(&mut self, key: Key, _attrs: WindowAttributes) -> &mut T {
-        self.add_child_internal::<T>(key, Default::default(), true)
-    }
-
-    // TODO: rename
     pub fn add_child<T: Widget>(&mut self, key: Key, options: LayoutItemOptions) -> &mut T {
-        self.add_child_internal::<T>(key, options, false)
+        self.add_child_internal::<T>(key, options)
     }
 
     // TODO: check for row/column conflict
     // TODO: move options to child widget common
-    fn add_child_internal<T: Widget>(
-        &mut self,
-        key: Key,
-        options: LayoutItemOptions,
-        is_window: bool,
-    ) -> &mut T {
+    fn add_child_internal<T: Widget>(&mut self, key: Key, options: LayoutItemOptions) -> &mut T {
         let new_id = RawWidgetId::new();
-        let ctx = if is_window {
+        let ctx = if T::is_window_root_type() {
             let new_window = Window::new(new_id);
             self.new_creation_context(new_id, key, Some(new_window.clone()))
         } else {
@@ -740,10 +732,6 @@ impl<W> WidgetCommonTyped<W> {
         E: 'static,
     {
         widget_callback(WidgetId::<W>::new(self.common.id), func)
-    }
-
-    pub fn add_child_window<T: Widget>(&mut self, key: Key, attrs: WindowAttributes) -> &mut T {
-        self.common.add_child_window::<T>(key, attrs)
     }
 
     pub fn add_child<T: Widget>(&mut self, key: Key, options: LayoutItemOptions) -> &mut T {

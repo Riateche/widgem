@@ -11,10 +11,9 @@ use {
         tiny_skia::{Pixmap, PremultipliedColorU8},
         types::Point,
         widgets::{
-            button::Button, image::Image, label::Label, row::Row, Widget, WidgetCommon,
-            WidgetCommonTyped, WidgetExt, WidgetId,
+            button::Button, image::Image, label::Label, row::Row, window::WindowWidget, Widget,
+            WidgetCommon, WidgetCommonTyped, WidgetExt, WidgetId,
         },
-        WindowAttributes,
     },
     std::{
         cmp::max,
@@ -121,23 +120,22 @@ impl Widget for ReviewWidget {
     #[allow(clippy::collapsible_if)]
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
-        // TODO: support Window as a widget (even a root widget)
         // TODO: Grid widget
-        let content = common.add_child_window::<Row>(
-            0,
-            WindowAttributes::default().with_title("salvation test review"),
-        );
 
-        content
+        let window = common
+            .add_child::<WindowWidget>(0, Default::default())
+            .set_title("salvation test review");
+
+        window
             .common_mut()
             .add_child::<Label>(0, LayoutItemOptions::from_pos_in_grid(1, 1))
             .set_text("Test:");
-        let test_name_id = content
+        let test_name_id = window
             .common_mut()
             .add_child::<Label>(1, LayoutItemOptions::from_pos_in_grid(2, 1))
             .id();
 
-        let row = content
+        let row = window
             .common_mut()
             .add_child::<Row>(2, LayoutItemOptions::from_pos_in_grid(2, 2))
             .set_no_padding(true);
@@ -173,16 +171,16 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
 
-        content
+        window
             .common_mut()
             .add_child::<Label>(3, LayoutItemOptions::from_pos_in_grid(1, 3))
             .set_text("Snapshot:");
-        let snapshot_name_id = content
+        let snapshot_name_id = window
             .common_mut()
             .add_child::<Label>(4, LayoutItemOptions::from_pos_in_grid(2, 3))
             .id();
 
-        let row = content
+        let row = window
             .common_mut()
             .add_child::<Row>(5, LayoutItemOptions::from_pos_in_grid(2, 4))
             .set_no_padding(true);
@@ -200,13 +198,13 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
 
-        content
+        window
             .common_mut()
             .add_child::<Label>(6, LayoutItemOptions::from_pos_in_grid(1, 5))
             .set_text("Display mode:");
 
         // TODO: radio buttons
-        let modes_row = content
+        let modes_row = window
             .common_mut()
             .add_child::<Row>(7, LayoutItemOptions::from_pos_in_grid(2, 5))
             .set_no_padding(true);
@@ -220,12 +218,12 @@ impl Widget for ReviewWidget {
             mode_button_ids.insert(mode, button.id());
         }
 
-        content
+        window
             .common_mut()
             .add_child::<Label>(8, LayoutItemOptions::from_pos_in_grid(1, 6))
             .set_text("Snapshot:");
 
-        let row = content
+        let row = window
             .common_mut()
             .add_child::<Row>(9, LayoutItemOptions::from_pos_in_grid(2, 6))
             .set_no_padding(true);
@@ -243,7 +241,7 @@ impl Widget for ReviewWidget {
                 Ok(())
             }));
         let coords_id = row.add_child::<Label>().id();
-        let image = content
+        let image = window
             .common_mut()
             .add_child::<Image>(10, LayoutItemOptions::from_pos_in_grid(2, 7));
         let image_mouse_move = id.callback(Self::image_mouse_move);
@@ -261,12 +259,12 @@ impl Widget for ReviewWidget {
         }));
         let image_id = image.id();
 
-        content
+        window
             .common_mut()
             .add_child::<Label>(11, LayoutItemOptions::from_pos_in_grid(1, 8))
             .set_text("Actions:");
 
-        let approve_and_skip = content
+        let approve_and_skip = window
             .common_mut()
             .add_child::<Row>(12, LayoutItemOptions::from_pos_in_grid(2, 8))
             .set_no_padding(true);
@@ -301,7 +299,7 @@ impl Widget for ReviewWidget {
             }));
         let approve_and_skip_id = approve_and_skip.id();
 
-        let unconfirmed_count_id = content
+        let unconfirmed_count_id = window
             .common_mut()
             .add_child::<Label>(13, LayoutItemOptions::from_pos_in_grid(2, 9))
             .id();

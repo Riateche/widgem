@@ -1,13 +1,13 @@
 use {
     salvation::{
         impl_widget_common,
+        layout::LayoutItemOptions,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
-            column::Column, label::Label, scroll_bar::ScrollBar, Widget, WidgetCommon,
+            label::Label, scroll_bar::ScrollBar, window::WindowWidget, Widget, WidgetCommon,
             WidgetCommonTyped, WidgetExt, WidgetId,
         },
-        WindowAttributes,
     },
     salvation_test_kit::context::Context,
 };
@@ -32,19 +32,22 @@ impl Widget for RootWidget {
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
-        let content = common
-            .add_child_window::<Column>(0, WindowAttributes::default().with_title(module_path!()));
+        let window = common
+            .add_child::<WindowWidget>(0, Default::default())
+            .set_title(module_path!());
 
         let value = 0;
 
-        let scroll_bar_id = content
-            .add_child::<ScrollBar>()
+        let scroll_bar_id = window
+            .common_mut()
+            .add_child::<ScrollBar>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
             .on_value_changed(id.callback(Self::on_scroll_bar_value_changed))
             .set_value(value)
             .id();
 
-        let label_id = content
-            .add_child::<Label>()
+        let label_id = window
+            .common_mut()
+            .add_child::<Label>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
             .set_text(value.to_string())
             .id();
 
