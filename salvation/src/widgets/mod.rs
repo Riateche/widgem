@@ -23,7 +23,7 @@ use {
         window::{Window, WindowId},
     },
     accesskit::NodeId,
-    anyhow::{Context, Result},
+    anyhow::{bail, Context, Result},
     derivative::Derivative,
     downcast_rs::{impl_downcast, Downcast},
     itertools::Itertools,
@@ -472,6 +472,9 @@ impl WidgetCommon {
             .children
             .get_mut(&key)
             .context("set_child_rect: invalid child index")?;
+        if child.widget.common().is_window_root {
+            bail!("cannot set child rect for child window");
+        }
 
         let rect_in_window = if let Some(rect_in_window) = self.rect_in_window {
             rect_in_parent.map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left))
@@ -564,7 +567,8 @@ impl WidgetCommon {
     }
 
     pub fn rect_in_window_or_err(&self) -> Result<Rect> {
-        self.rect_in_window.context("no rect_in_window")
+        self.rect_in_window
+            .with_context(|| format!("no rect_in_window for {:?}", self.id))
     }
 
     pub fn size_or_err(&self) -> Result<Size> {
@@ -1125,6 +1129,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
             }
             Event::Layout(event) => {
+                //println!("layout event for {:?}", self.common().id);
                 self.common_mut().rect_in_window = event.new_rect_in_window;
                 self.common_mut().visible_rect = event.new_visible_rect;
                 self.common_mut().current_layout_event = Some(event.clone());
@@ -1199,6 +1204,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         .get(&key)
                         .unwrap()
                         .rect_set_during_layout
+                        && !self
+                            .common()
+                            .children
+                            .get(&key)
+                            .unwrap()
+                            .widget
+                            .common()
+                            .is_window_root
                     {
                         let rect_in_parent =
                             self.common().children.get(&key).unwrap().rect_in_parent;

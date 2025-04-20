@@ -38,10 +38,12 @@ impl Widget for AnotherWidget {
                 .common
                 .add_child::<WindowWidget>(this.counter as u64, Default::default())
                 .set_title("example");
-            window
+            println!("window {:?}", window.id());
+            let label = window
                 .common_mut()
                 .add_child::<Label>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
                 .set_text(format!("counter: {}", this.counter));
+            println!("label {:?}", label.id());
             Ok(())
         });
         let button = this.common_mut().add_child::<Button>(0, Default::default());
