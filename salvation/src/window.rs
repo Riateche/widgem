@@ -251,7 +251,7 @@ impl Window {
         }
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
-            use winit::platform::x11::{WindowAttributesExtX11, WindowType};
+            use winit::platform::x11::WindowAttributesExtX11;
 
             if let Some(v) = &inner.attributes.x11_window_type {
                 attrs = attrs.with_x11_window_type(v.iter().copied().map(Into::into).collect());
@@ -836,8 +836,8 @@ impl Window {
             if Some(&value) == this.attributes.x11_window_type.as_ref() {
                 return;
             }
-            if let Some(window) = &this.winit_window {
-                window.set_x11_window_type(value.clone());
+            if this.winit_window.is_some() {
+                warn!("changing x11 window type after window creation is unsupported");
             }
             this.attributes.x11_window_type = Some(value);
         }

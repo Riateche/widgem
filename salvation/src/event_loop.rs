@@ -64,19 +64,6 @@ fn dispatch_widget_callback(
     };
     (callback.func)(widget, event).or_report_err();
     widget.update_accessible();
-
-    let window_id = widget.common().window.as_ref().map(|w| w.id());
-    if let Some(window_id) = window_id {
-        let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
-            warn!("missing window object");
-            return;
-        };
-        if let Some(window_root_widget) =
-            get_widget_by_id_mut(root_widget, window.root_widget_id).or_report_err()
-        {
-            window.with_root(window_root_widget).after_widget_activity();
-        }
-    }
 }
 
 fn default_scale(event_loop: &ActiveEventLoop) -> f32 {
@@ -370,6 +357,17 @@ impl ApplicationHandler<UserEvent> for Handler {
                 // TODO: remove event, remove window directly
                 UserEvent::InvokeCallback(event) => {
                     dispatch_widget_callback(root_widget.as_mut(), event.callback_id, event.event);
+                    let windows = with_system(|s| s.windows.clone());
+                    for (_, window) in windows {
+                        if let Some(window_root_widget) = get_widget_by_id_mut(
+                            self.root_widget.as_mut().unwrap().as_mut(),
+                            window.root_widget_id,
+                        )
+                        .or_report_err()
+                        {
+                            window.with_root(window_root_widget).after_widget_activity();
+                        }
+                    }
                 }
                 UserEvent::Accesskit(event) => {
                     let Some(window) =

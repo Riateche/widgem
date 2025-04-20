@@ -47,7 +47,7 @@ impl Widget for RootWidget {
 
         let label_id = window
             .common_mut()
-            .add_child::<Label>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
+            .add_child::<Label>(1, LayoutItemOptions::from_pos_in_grid(0, 1))
             .set_text(value.to_string())
             .id();
 
