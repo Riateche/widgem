@@ -8,7 +8,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            Alignment, LayoutItemOptions, SizeHintMode,
+            Alignment, SizeHintMode,
         },
         system::ReportError,
         types::{Axis, Point, Rect, Size},
@@ -120,11 +120,19 @@ impl ScrollBar {
                 grip.remove_class("scroll_grip_y");
 
                 self.common
-                    .set_child_options(INDEX_PAGER, LayoutItemOptions::from_pos_in_grid(1, 0))
-                    .unwrap();
+                    .children
+                    .get_mut(&INDEX_PAGER)
+                    .unwrap()
+                    .widget
+                    .set_column(1)
+                    .set_row(0);
                 self.common
-                    .set_child_options(INDEX_INCREASE, LayoutItemOptions::from_pos_in_grid(2, 0))
-                    .unwrap();
+                    .children
+                    .get_mut(&INDEX_INCREASE)
+                    .unwrap()
+                    .widget
+                    .set_column(2)
+                    .set_row(0);
             }
             Axis::Y => {
                 let decrease = self
@@ -169,11 +177,19 @@ impl ScrollBar {
                 grip.add_class("scroll_grip_y");
 
                 self.common
-                    .set_child_options(INDEX_PAGER, LayoutItemOptions::from_pos_in_grid(0, 1))
-                    .unwrap();
+                    .children
+                    .get_mut(&INDEX_PAGER)
+                    .unwrap()
+                    .widget
+                    .set_column(0)
+                    .set_row(1);
                 self.common
-                    .set_child_options(INDEX_INCREASE, LayoutItemOptions::from_pos_in_grid(0, 2))
-                    .unwrap();
+                    .children
+                    .get_mut(&INDEX_INCREASE)
+                    .unwrap()
+                    .widget
+                    .set_column(0)
+                    .set_row(2);
             }
         }
         self.common
@@ -554,7 +570,9 @@ impl Widget for ScrollBar {
         // TODO: localized name
 
         common
-            .add_child::<Button>(INDEX_DECREASE, LayoutItemOptions::from_pos_in_grid(0, 0))
+            .add_child::<Button>(INDEX_DECREASE)
+            .set_column(0)
+            .set_row(0)
             .set_text(names::SCROLL_LEFT)
             .set_accessible(false)
             .set_focusable(false)
@@ -564,9 +582,11 @@ impl Widget for ScrollBar {
             .set_trigger_on_press(true);
 
         let axis = Axis::X;
-        let pager =
-            common.add_child::<Pager>(INDEX_PAGER, LayoutItemOptions::from_pos_in_grid(1, 0));
-        pager.set_axis(axis);
+        let pager = common
+            .add_child::<Pager>(INDEX_PAGER)
+            .set_column(1)
+            .set_row(0)
+            .set_axis(axis);
         pager.common.set_grid_options(Some(GridOptions {
             x: GridAxisOptions {
                 min_padding: 0,
@@ -585,12 +605,13 @@ impl Widget for ScrollBar {
                 alignment: Alignment::Start,
             },
         }));
-        let mut pager_options = LayoutItemOptions::from_pos_in_grid(0, 0);
-        pager_options.x.is_fixed = Some(false);
-        pager_options.y.is_fixed = Some(false);
         pager
             .common
-            .add_child::<Button>(INDEX_BUTTON_IN_PAGER, pager_options)
+            .add_child::<Button>(INDEX_BUTTON_IN_PAGER)
+            .set_column(0)
+            .set_row(0)
+            .set_size_x_fixed(false)
+            .set_size_y_fixed(false)
             .set_accessible(false)
             .set_focusable(false)
             .add_class("scroll_pager")
@@ -600,7 +621,7 @@ impl Widget for ScrollBar {
             .set_trigger_on_press(true);
         pager
             .common
-            .add_child::<Button>(INDEX_GRIP_IN_PAGER, LayoutItemOptions::default())
+            .add_child::<Button>(INDEX_GRIP_IN_PAGER)
             .set_text(names::SCROLL_GRIP)
             .set_accessible(false)
             .set_focusable(false)
@@ -609,7 +630,9 @@ impl Widget for ScrollBar {
             .set_mouse_leave_sensitive(false);
 
         common
-            .add_child::<Button>(INDEX_INCREASE, LayoutItemOptions::from_pos_in_grid(2, 0))
+            .add_child::<Button>(INDEX_INCREASE)
+            .set_column(2)
+            .set_row(0)
             .set_text(names::SCROLL_RIGHT)
             .set_accessible(false)
             .set_focusable(false)
@@ -820,9 +843,10 @@ struct Pager {
 }
 
 impl Pager {
-    pub fn set_axis(&mut self, axis: Axis) {
+    pub fn set_axis(&mut self, axis: Axis) -> &mut Self {
         self.axis = axis;
         self.common.size_hint_changed();
+        self
     }
 }
 

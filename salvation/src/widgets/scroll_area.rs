@@ -5,7 +5,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridOptions},
-            LayoutItemOptions, SizeHintMode,
+            SizeHintMode,
         },
         types::{Axis, Rect},
     },
@@ -46,7 +46,7 @@ impl ScrollArea {
             .unwrap()
             .widget
             .common_mut()
-            .add_child::<T>(0, Default::default())
+            .add_child::<T>(0)
     }
 
     // pub fn set_content(&mut self, content: Box<dyn Widget>) {
@@ -187,19 +187,20 @@ impl Widget for ScrollArea {
 
         // TODO: icons, localized name
         common
-            .add_child::<ScrollBar>(
-                INDEX_SCROLL_BAR_X,
-                LayoutItemOptions::from_pos_in_grid(0, 1),
-            )
+            .add_child::<ScrollBar>(INDEX_SCROLL_BAR_X)
+            .set_column(0)
+            .set_row(1)
             .on_value_changed(relayout.clone());
         common
-            .add_child::<ScrollBar>(
-                INDEX_SCROLL_BAR_Y,
-                LayoutItemOptions::from_pos_in_grid(1, 0),
-            )
+            .add_child::<ScrollBar>(INDEX_SCROLL_BAR_Y)
+            .set_column(1)
+            .set_row(0)
             .set_axis(Axis::Y)
             .on_value_changed(relayout);
-        common.add_child::<Viewport>(INDEX_VIEWPORT, LayoutItemOptions::from_pos_in_grid(0, 0));
+        common
+            .add_child::<Viewport>(INDEX_VIEWPORT)
+            .set_column(0)
+            .set_row(0);
         common.set_grid_options(Some(GridOptions::ZERO));
         Self {
             common: common.into(),

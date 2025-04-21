@@ -154,6 +154,7 @@ pub struct WidgetCommon {
     pub visible_rect: Option<Rect>,
 
     pub children: BTreeMap<Key, Child>,
+    pub layout_item_options: LayoutItemOptions,
     pub current_layout_event: Option<LayoutEvent>,
 
     pub size_hint_x_cache: HashMap<SizeHintMode, i32>,
@@ -226,6 +227,7 @@ impl WidgetCommon {
             visible_rect: None,
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
+            layout_item_options: LayoutItemOptions::default(),
             size_hint_x_cache: HashMap::new(),
             size_hint_y_cache: HashMap::new(),
             size_x_fixed_cache: None,
@@ -389,13 +391,9 @@ impl WidgetCommon {
     }
 
     // TODO: rename
-    pub fn add_child<T: Widget>(&mut self, key: Key, options: LayoutItemOptions) -> &mut T {
-        self.add_child_internal::<T>(key, options)
-    }
-
     // TODO: check for row/column conflict
     // TODO: move options to child widget common
-    fn add_child_internal<T: Widget>(&mut self, key: Key, options: LayoutItemOptions) -> &mut T {
+    pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
         let new_id = RawWidgetId::new();
         let ctx = if T::is_window_root_type() {
             let new_window = Window::new(new_id);
@@ -406,20 +404,17 @@ impl WidgetCommon {
         match self.children.entry(key) {
             btree_map::Entry::Vacant(entry) => entry.insert(Child {
                 widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
-                options,
                 rect_in_parent: None,
                 rect_set_during_layout: false,
             }),
             btree_map::Entry::Occupied(entry) => {
                 if entry.get().widget.is::<T>() {
-                    // TODO: apply layout options
                     entry.into_mut()
                 } else {
                     let child = entry.into_mut();
                     // Deletes old widget.
                     *child = Child {
                         widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
-                        options,
                         rect_in_parent: None,
                         rect_set_during_layout: false,
                     };
@@ -455,10 +450,13 @@ impl WidgetCommon {
             .context("child type mismatch")
     }
 
-    pub fn set_child_options(&mut self, key: Key, options: LayoutItemOptions) -> Result<()> {
-        self.children.get_mut(&key).context("no such key")?.options = options;
+    pub fn layout_item_options(&self) -> &LayoutItemOptions {
+        &self.layout_item_options
+    }
+
+    pub fn set_layout_item_options(&mut self, options: LayoutItemOptions) {
+        self.layout_item_options = options;
         self.size_hint_changed();
-        Ok(())
     }
 
     pub fn remove_child(&mut self, key: Key) -> Result<()> {
@@ -738,8 +736,8 @@ impl<W> WidgetCommonTyped<W> {
         widget_callback(WidgetId::<W>::new(self.common.id), func)
     }
 
-    pub fn add_child<T: Widget>(&mut self, key: Key, options: LayoutItemOptions) -> &mut T {
-        self.common.add_child::<T>(key, options)
+    pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
+        self.common.add_child::<T>(key)
     }
 }
 
@@ -804,7 +802,6 @@ pub fn get_widget_by_id_mut(
 pub struct Child {
     #[derivative(Debug = "ignore")]
     pub widget: Box<dyn Widget>,
-    pub options: LayoutItemOptions,
     pub rect_in_parent: Option<Rect>,
     pub rect_set_during_layout: bool,
 }
@@ -969,6 +966,10 @@ pub trait WidgetExt {
     fn set_focusable(&mut self, value: bool) -> &mut Self;
     fn set_accessible(&mut self, value: bool) -> &mut Self;
     fn add_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self;
+    fn set_row(&mut self, row: i32) -> &mut Self;
+    fn set_column(&mut self, column: i32) -> &mut Self;
+    fn set_size_x_fixed(&mut self, fixed: bool) -> &mut Self;
+    fn set_size_y_fixed(&mut self, fixed: bool) -> &mut Self;
 
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
@@ -1418,6 +1419,32 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             // TODO: do it when pseudo class changes instead
             self.dispatch(StyleChangeEvent {}.into());
         }
+    }
+
+    fn set_row(&mut self, row: i32) -> &mut Self {
+        let mut options = self.common().layout_item_options().clone();
+        options.y.pos_in_grid = Some(row..=row);
+        self.common_mut().set_layout_item_options(options);
+        self
+    }
+    fn set_column(&mut self, column: i32) -> &mut Self {
+        let mut options = self.common().layout_item_options().clone();
+        options.x.pos_in_grid = Some(column..=column);
+        self.common_mut().set_layout_item_options(options);
+        self
+    }
+
+    fn set_size_x_fixed(&mut self, fixed: bool) -> &mut Self {
+        let mut options = self.common().layout_item_options().clone();
+        options.x.is_fixed = Some(fixed);
+        self.common_mut().set_layout_item_options(options);
+        self
+    }
+    fn set_size_y_fixed(&mut self, fixed: bool) -> &mut Self {
+        let mut options = self.common().layout_item_options().clone();
+        options.y.is_fixed = Some(fixed);
+        self.common_mut().set_layout_item_options(options);
+        self
     }
 
     fn boxed(self) -> Box<dyn Widget>

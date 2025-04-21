@@ -5,7 +5,7 @@ use {
     salvation::{
         event::LayoutEvent,
         impl_widget_common,
-        layout::{LayoutItemOptions, SizeHintMode},
+        layout::SizeHintMode,
         system::add_interval,
         types::Rect,
         widgets::{
@@ -36,17 +36,23 @@ impl Widget for AnotherWidget {
             println!("counter: {}", this.counter);
             let window = this
                 .common
-                .add_child::<WindowWidget>(this.counter as u64, Default::default())
+                .add_child::<WindowWidget>(this.counter as u64)
                 .set_title("example");
             println!("window {:?}", window.id());
             let label = window
                 .common_mut()
-                .add_child::<Label>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
+                .add_child::<Label>(0)
+                .set_column(0)
+                .set_row(0)
                 .set_text(format!("counter: {}", this.counter));
             println!("label {:?}", label.id());
             Ok(())
         });
-        let button = this.common_mut().add_child::<Button>(0, Default::default());
+        let button = this
+            .common_mut()
+            .add_child::<Button>(0)
+            .set_column(0)
+            .set_row(1);
         button.set_text("another button");
         button.on_triggered(callback);
         this
@@ -148,17 +154,23 @@ impl Widget for RootWidget {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
 
-        let window = common
-            .add_child::<WindowWidget>(0, Default::default())
-            .set_title("example");
+        let window = common.add_child::<WindowWidget>(0).set_title("example");
 
         let root = window
             .common_mut()
-            .add_child::<Column>(0, LayoutItemOptions::from_pos_in_grid(0, 0));
+            .add_child::<Column>(0)
+            .set_column(0)
+            .set_row(0);
 
-        root.add_child::<TextInput>()
+        root.common_mut()
+            .add_child::<TextInput>(0)
+            .set_column(0)
+            .set_row(0)
             .set_text("Hello, Rust! 🦀😂\n");
-        root.add_child::<TextInput>()
+        root.common_mut()
+            .add_child::<TextInput>(1)
+            .set_column(0)
+            .set_row(1)
             .set_text("Hebrew name Sarah: שרה.");
 
         /*
@@ -178,19 +190,32 @@ impl Widget for RootWidget {
         */
 
         let button_id = root
-            .add_child::<Button>()
+            .common_mut()
+            .add_child::<Button>(2)
+            .set_column(0)
+            .set_row(2)
             .set_text("btn1")
             .set_auto_repeat(true)
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 1)))
             .id();
 
-        root.add_child::<Button>()
+        root.common_mut()
+            .add_child::<Button>(3)
+            .set_column(0)
+            .set_row(3)
             .set_text("btn2")
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 2)));
 
-        let column2 = root.add_child::<Column>();
+        let column2 = root
+            .common_mut()
+            .add_child::<Column>(4)
+            .set_column(0)
+            .set_row(4);
         let button21_id = column2
-            .add_child::<Button>()
+            .common_mut()
+            .add_child::<Button>(0)
+            .set_column(0)
+            .set_row(0)
             .set_text("btn21")
             .on_triggered(id.callback(|_, _| {
                 println!("click!");
@@ -198,28 +223,40 @@ impl Widget for RootWidget {
             }))
             .id();
 
-        let button22_id = column2.add_child::<Button>().set_text("btn22").id();
+        let button22_id = column2
+            .common_mut()
+            .add_child::<Button>(1)
+            .set_column(0)
+            .set_row(1)
+            .set_text("btn22")
+            .id();
         let column2_id = column2.id();
 
-        root.add_child::<AnotherWidget>();
+        root.common_mut()
+            .add_child::<AnotherWidget>(5)
+            .set_column(0)
+            .set_row(5);
 
-        // root.add_child(
-        //     ScrollBar::new()
-        //         .with_axis(Axis::Y)
-        //         .with_on_value_changed(ctx.callback(|this, ctx, value| {
-        //             ctx.widget(this.label2_id)?
-        //                 .set_text(format!("value={value}"));
-        //             Ok(())
-        //         }))
-        //         .boxed(),
-        // );
-        let label2_id = root.add_child::<Label>().set_text("ok").id();
+        let label2_id = root
+            .common_mut()
+            .add_child::<Label>(6)
+            .set_column(0)
+            .set_row(6)
+            .set_text("ok")
+            .id();
 
-        let scroll_area = root.add_child::<ScrollArea>();
+        let scroll_area = root
+            .common_mut()
+            .add_child::<ScrollArea>(7)
+            .set_column(0)
+            .set_row(7);
         let content = scroll_area.add_content::<Column>();
         for i in 1..=80 {
             content
-                .add_child::<Button>()
+                .common_mut()
+                .add_child::<Button>(i)
+                .set_column(0)
+                .set_row(i as i32)
                 .set_text(format!("btn btn btn btn btn btn btn btn btn btn{i}"));
         }
 
@@ -254,8 +291,7 @@ fn main() {
     env_logger::init();
     App::new()
         .run(|r| {
-            r.common_mut()
-                .add_child::<RootWidget>(0, Default::default());
+            r.common_mut().add_child::<RootWidget>(0);
             Ok(())
         })
         .unwrap();

@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommon, WidgetCommonTyped},
+    super::{Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
     crate::{
         draw::DrawEvent,
         event::{
@@ -9,7 +9,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            Alignment, LayoutItemOptions, SizeHintMode,
+            Alignment, SizeHintMode,
         },
         style::text_input::{ComputedVariantStyle, TextInputState},
         system::ReportError,
@@ -209,12 +209,12 @@ impl Widget for TextInput {
         common.set_focusable(true);
         common.cursor_icon = CursorIcon::Text;
         let host_id = common.id;
-        let viewport = common.add_child::<Viewport>(0, LayoutItemOptions::from_pos_in_grid(0, 0));
+        let viewport = common.add_child::<Viewport>(0).set_column(0).set_row(0);
         viewport.common_mut().receives_all_mouse_events = true;
         viewport.common_mut().cursor_icon = CursorIcon::Text;
         let editor = viewport
             .common_mut()
-            .add_child::<Text>(0, Default::default())
+            .add_child::<Text>(0)
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id);

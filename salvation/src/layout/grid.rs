@@ -99,13 +99,19 @@ pub fn size_hint_x(
     let item_data = items
         .values_mut()
         .filter(|item| {
-            item.options.is_in_grid()
+            item.widget.common().layout_item_options.is_in_grid()
                 && !item.widget.common().is_window_root
                 && item.widget.common().is_self_visible
         })
         .map(|item| {
             (
-                item.options.x.pos_in_grid.clone().unwrap(),
+                item.widget
+                    .common()
+                    .layout_item_options
+                    .x
+                    .pos_in_grid
+                    .clone()
+                    .unwrap(),
                 item.widget.size_hint_x(mode),
             )
         })
@@ -122,7 +128,7 @@ pub fn size_hint_y(
     let x_layout = x_layout(items, &options.x, size_x)?;
     let mut item_data = Vec::new();
     for (key, item) in items.iter_mut() {
-        if !item.options.is_in_grid()
+        if !item.widget.common().layout_item_options.is_in_grid()
             || item.widget.common().is_window_root
             || !item.widget.common().is_self_visible
         {
@@ -131,7 +137,14 @@ pub fn size_hint_y(
         let Some(item_size_x) = x_layout.child_sizes.get(key) else {
             continue;
         };
-        let pos = item.options.y.pos_in_grid.clone().unwrap();
+        let pos = item
+            .widget
+            .common()
+            .layout_item_options
+            .y
+            .pos_in_grid
+            .clone()
+            .unwrap();
         let hints = item.widget.size_hint_y(*item_size_x, mode);
         item_data.push((pos, hints));
     }
@@ -141,11 +154,13 @@ pub fn size_hint_y(
 // TODO: skip hidden, check item options
 pub fn size_x_fixed(items: &mut BTreeMap<Key, Child>, _options: &GridOptions) -> bool {
     items.values_mut().all(|item| {
-        !item.options.is_in_grid()
+        !item.widget.common().layout_item_options.is_in_grid()
             || item.widget.common().is_window_root
             || !item.widget.common().is_self_visible
             || item
-                .options
+                .widget
+                .common()
+                .layout_item_options
                 .x
                 .is_fixed
                 .unwrap_or_else(|| item.widget.size_x_fixed())
@@ -153,11 +168,13 @@ pub fn size_x_fixed(items: &mut BTreeMap<Key, Child>, _options: &GridOptions) ->
 }
 pub fn size_y_fixed(items: &mut BTreeMap<Key, Child>, _options: &GridOptions) -> bool {
     items.values_mut().all(|item| {
-        !item.options.is_in_grid()
+        !item.widget.common().layout_item_options.is_in_grid()
             || item.widget.common().is_window_root
             || !item.widget.common().is_self_visible
             || item
-                .options
+                .widget
+                .common()
+                .layout_item_options
                 .y
                 .is_fixed
                 .unwrap_or_else(|| item.widget.size_y_fixed())
@@ -178,13 +195,20 @@ fn x_layout(
 ) -> Result<XLayout> {
     let mut hints_per_column = BTreeMap::new();
     for item in items.values_mut() {
-        if !item.options.is_in_grid()
+        if !item.widget.common().layout_item_options.is_in_grid()
             || item.widget.common().is_window_root
             || !item.widget.common().is_self_visible
         {
             continue;
         }
-        let Some(pos) = item.options.x.pos_in_grid.clone() else {
+        let Some(pos) = item
+            .widget
+            .common()
+            .layout_item_options
+            .x
+            .pos_in_grid
+            .clone()
+        else {
             continue;
         };
         if pos.start() != pos.end() {
@@ -192,7 +216,7 @@ fn x_layout(
         }
         let pos = *pos.start();
         let mut hints = item.widget.size_hints_x();
-        if let Some(is_fixed) = item.options.x.is_fixed {
+        if let Some(is_fixed) = item.widget.common().layout_item_options.x.is_fixed {
             hints.is_fixed = is_fixed;
         }
         let column_hints = hints_per_column.entry(pos).or_insert(hints);
@@ -208,13 +232,20 @@ fn x_layout(
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
     for (key, item) in items.iter_mut() {
-        if !item.options.is_in_grid()
+        if !item.widget.common().layout_item_options.is_in_grid()
             || item.widget.common().is_window_root
             || !item.widget.common().is_self_visible
         {
             continue;
         }
-        let Some(pos) = item.options.x.pos_in_grid.clone() else {
+        let Some(pos) = item
+            .widget
+            .common()
+            .layout_item_options
+            .x
+            .pos_in_grid
+            .clone()
+        else {
             continue;
         };
         if pos.start() != pos.end() {
@@ -225,7 +256,9 @@ fn x_layout(
             continue;
         };
         let child_size = if item
-            .options
+            .widget
+            .common()
+            .layout_item_options
             .x
             .is_fixed
             .unwrap_or_else(|| item.widget.size_x_fixed())
@@ -253,11 +286,20 @@ pub fn layout(
     let x_layout = x_layout(items, &options.x, size.x)?;
     let mut hints_per_row = BTreeMap::new();
     for (key, item) in items.iter_mut() {
-        if !item.options.is_in_grid() || item.widget.common().is_window_root {
+        if !item.widget.common().layout_item_options.is_in_grid()
+            || item.widget.common().is_window_root
+        {
             //|| !item.widget.common().is_self_visible {
             continue;
         }
-        let Some(pos) = item.options.y.pos_in_grid.clone() else {
+        let Some(pos) = item
+            .widget
+            .common()
+            .layout_item_options
+            .y
+            .pos_in_grid
+            .clone()
+        else {
             continue;
         };
         if pos.start() != pos.end() {
@@ -268,7 +310,7 @@ pub fn layout(
         };
         let pos = *pos.start();
         let mut hints = item.widget.size_hints_y(*item_size_x);
-        if let Some(is_fixed) = item.options.y.is_fixed {
+        if let Some(is_fixed) = item.widget.common().layout_item_options.y.is_fixed {
             hints.is_fixed = is_fixed;
         }
         let row_hints = hints_per_row.entry(pos).or_insert(hints);
@@ -302,10 +344,24 @@ pub fn layout(
         // if !item.widget.common().is_self_visible {
         //     continue;
         // }
-        let Some(pos_x) = item.options.x.pos_in_grid.clone() else {
+        let Some(pos_x) = item
+            .widget
+            .common()
+            .layout_item_options
+            .x
+            .pos_in_grid
+            .clone()
+        else {
             continue;
         };
-        let Some(pos_y) = item.options.y.pos_in_grid.clone() else {
+        let Some(pos_y) = item
+            .widget
+            .common()
+            .layout_item_options
+            .y
+            .pos_in_grid
+            .clone()
+        else {
             continue;
         };
         let Some(cell_pos_x) = positions_x.get(pos_x.start()) else {
@@ -324,7 +380,9 @@ pub fn layout(
             continue;
         };
         let size_y = if item
-            .options
+            .widget
+            .common()
+            .layout_item_options
             .y
             .is_fixed
             .unwrap_or_else(|| item.widget.size_y_fixed())

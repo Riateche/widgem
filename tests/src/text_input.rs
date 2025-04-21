@@ -1,9 +1,9 @@
 use {
     salvation::{
         impl_widget_common,
-        layout::LayoutItemOptions,
         widgets::{
             text_input::TextInput, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped,
+            WidgetExt,
         },
     },
     salvation_test_kit::context::Context,
@@ -18,12 +18,14 @@ impl Widget for RootWidget {
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let window = common
-            .add_child::<WindowWidget>(0, Default::default())
+            .add_child::<WindowWidget>(0)
             .set_title(module_path!());
 
         window
             .common_mut()
-            .add_child::<TextInput>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
+            .add_child::<TextInput>(0)
+            .set_column(0)
+            .set_row(0)
             .set_text("Hello world");
 
         Self {
@@ -35,8 +37,7 @@ impl Widget for RootWidget {
 #[salvation_test_kit::test]
 pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -112,8 +113,7 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -142,8 +142,7 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.set_blinking_expected(true);

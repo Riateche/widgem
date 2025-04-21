@@ -1,6 +1,6 @@
 use {
-    super::{Widget, WidgetCommon, WidgetCommonTyped},
-    crate::{impl_widget_common, layout::LayoutItemOptions, text_editor::Text},
+    super::{Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
+    crate::{impl_widget_common, text_editor::Text},
     cosmic_text::Attrs,
     std::fmt::Display,
 };
@@ -31,7 +31,7 @@ impl Widget for Label {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        common.add_child::<Text>(0, LayoutItemOptions::from_pos_in_grid(0, 0));
+        common.add_child::<Text>(0).set_column(0).set_row(0);
         common.set_no_padding(true);
         Self {
             common: common.into(),

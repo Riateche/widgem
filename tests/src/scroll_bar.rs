@@ -1,7 +1,6 @@
 use {
     salvation::{
         impl_widget_common,
-        layout::LayoutItemOptions,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
@@ -33,21 +32,25 @@ impl Widget for RootWidget {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
         let window = common
-            .add_child::<WindowWidget>(0, Default::default())
+            .add_child::<WindowWidget>(0)
             .set_title(module_path!());
 
         let value = 0;
 
         let scroll_bar_id = window
             .common_mut()
-            .add_child::<ScrollBar>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
+            .add_child::<ScrollBar>(0)
+            .set_column(0)
+            .set_row(0)
             .on_value_changed(id.callback(Self::on_scroll_bar_value_changed))
             .set_value(value)
             .id();
 
         let label_id = window
             .common_mut()
-            .add_child::<Label>(1, LayoutItemOptions::from_pos_in_grid(0, 1))
+            .add_child::<Label>(1)
+            .set_column(0)
+            .set_row(1)
             .set_text(value.to_string())
             .id();
 
@@ -102,8 +105,7 @@ impl Widget for RootWidget {
 #[salvation_test_kit::test]
 pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -119,8 +121,7 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -163,8 +164,7 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -205,8 +205,7 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -255,8 +254,7 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -300,8 +298,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.connection().mouse_move_global(0, 0)?;
@@ -330,8 +327,7 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -368,8 +364,7 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut()
-            .add_child::<RootWidget>(0, Default::default());
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;

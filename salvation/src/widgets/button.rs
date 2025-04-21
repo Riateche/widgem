@@ -10,7 +10,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{GridAxisOptions, GridOptions},
-            Alignment, LayoutItemOptions,
+            Alignment,
         },
         style::{button::ComputedButtonStyle, css::MyPseudoClass},
         system::{add_interval, add_timer, send_window_request, with_system},
@@ -204,9 +204,11 @@ impl Widget for Button {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         common.set_focusable(true);
         common
-            .add_child::<Image>(0, LayoutItemOptions::from_pos_in_grid(0, 0))
+            .add_child::<Image>(0)
+            .set_column(0)
+            .set_row(0)
             .set_visible(false);
-        common.add_child::<Text>(1, LayoutItemOptions::from_pos_in_grid(1, 0));
+        common.add_child::<Text>(1).set_column(1).set_row(0);
         let mut b = Self {
             auto_repeat: false,
             is_mouse_leave_sensitive: true,
