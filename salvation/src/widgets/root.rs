@@ -4,7 +4,7 @@ use {
 };
 
 pub struct RootWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Widget for RootWidget {
@@ -16,7 +16,7 @@ impl Widget for RootWidget {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

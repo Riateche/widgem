@@ -51,7 +51,7 @@ use {
 };
 
 pub struct Text {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     editor: Editor<'static>,
     pixmap: Option<Pixmap>,
     text_color: Color,
@@ -971,7 +971,7 @@ impl Widget for Text {
             blink_timer: None,
             selected_text: String::new(),
             accessible_line_id: accessible::new_accessible_node_id(),
-            common: common.into(),
+            common,
         });
         if let Some(window) = &t.common.window {
             window.accessible_mount(Some(t.common.id.into()), t.accessible_line_id, 0);

@@ -15,7 +15,7 @@ use {
 };
 
 pub struct ScrollArea {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 const INDEX_SCROLL_BAR_X: u64 = 0;
@@ -203,7 +203,7 @@ impl Widget for ScrollArea {
             .set_row(0);
         common.set_grid_options(Some(GridOptions::ZERO));
         Self {
-            common: common.into(),
+            common,
         }
     }
 
@@ -246,7 +246,7 @@ impl Widget for ScrollArea {
 }
 
 pub struct Viewport {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Viewport {}
@@ -256,7 +256,7 @@ impl Widget for Viewport {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
         }
     }
 

@@ -39,7 +39,7 @@ pub struct Button {
     was_pressed_but_moved_out: bool,
     auto_repeat_delay_timer: Option<TimerId>,
     auto_repeat_interval: Option<TimerId>,
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 #[impl_with]
@@ -216,7 +216,7 @@ impl Widget for Button {
             on_triggered: CallbackVec::new(),
             is_pressed: false,
             was_pressed_but_moved_out: false,
-            common: common.into(),
+            common,
             auto_repeat_delay_timer: None,
             auto_repeat_interval: None,
         };

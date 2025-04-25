@@ -24,16 +24,14 @@ use {
 };
 
 struct Viewport {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Widget for Viewport {
     impl_widget_common!();
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
-        Self {
-            common: common.into(),
-        }
+        Self { common }
     }
 
     fn recalculate_size_x_fixed(&mut self) -> bool {
@@ -62,7 +60,7 @@ impl Widget for Viewport {
 }
 
 pub struct TextInput {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl TextInput {
@@ -220,7 +218,7 @@ impl Widget for TextInput {
             .set_host_id(host_id);
         editor.common_mut().receives_all_mouse_events = true;
         let mut t = Self {
-            common: common.into(),
+            common,
         };
         t.refresh_style();
         t

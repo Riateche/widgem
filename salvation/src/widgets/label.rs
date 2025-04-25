@@ -6,7 +6,7 @@ use {
 };
 
 pub struct Label {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Label {
@@ -34,7 +34,7 @@ impl Widget for Label {
         common.add_child::<Text>(0).set_column(0).set_row(0);
         common.set_no_padding(true);
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

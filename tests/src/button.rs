@@ -10,7 +10,7 @@ use {
 };
 
 pub struct RootWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Widget for RootWidget {
@@ -29,7 +29,7 @@ impl Widget for RootWidget {
             .set_text("Test");
 
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

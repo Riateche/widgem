@@ -4,7 +4,7 @@ use {
 };
 
 pub struct PaddingBox {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl PaddingBox {
@@ -16,7 +16,7 @@ impl Widget for PaddingBox {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

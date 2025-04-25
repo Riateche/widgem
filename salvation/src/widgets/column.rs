@@ -5,7 +5,7 @@ use {
 
 pub struct Column {
     // TODO: add layout options
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Widget for Column {
@@ -13,7 +13,7 @@ impl Widget for Column {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

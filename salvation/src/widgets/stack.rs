@@ -9,7 +9,7 @@ use {
 };
 
 pub struct Stack {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     rects: HashMap<RawWidgetId, Option<Rect>>,
 }
 
@@ -36,7 +36,7 @@ impl Widget for Stack {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
             rects: HashMap::new(),
         }
     }

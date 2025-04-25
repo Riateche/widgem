@@ -28,7 +28,7 @@ use {
 };
 
 pub struct ScrollBar {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     axis: Axis,
     current_grip_pos: i32,
     max_slider_pos: i32,
@@ -641,7 +641,7 @@ impl Widget for ScrollBar {
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
         let mut this = Self {
-            common: common.into(),
+            common,
             axis,
             current_grip_pos: 0,
             max_slider_pos: 0,
@@ -838,7 +838,7 @@ impl Widget for ScrollBar {
 }
 
 struct Pager {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     axis: Axis,
 }
 
@@ -857,7 +857,7 @@ impl Widget for Pager {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
             axis: Axis::X,
         }
     }

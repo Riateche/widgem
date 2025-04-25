@@ -7,7 +7,7 @@ use {
 };
 
 pub struct Menu {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Menu {}
@@ -29,7 +29,7 @@ impl Widget for Menu {
             .set_row(0)
             .set_text("menu content 1\nmenu content 2\nmenu content 3");
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

@@ -5,7 +5,7 @@ use {
 
 // TODO: reimplement auto keys and auto row/column
 pub struct Row {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl Widget for Row {
@@ -13,7 +13,7 @@ impl Widget for Row {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

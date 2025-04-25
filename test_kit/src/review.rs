@@ -24,7 +24,7 @@ use {
 };
 
 pub struct ReviewWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     test_name_id: WidgetId<Label>,
     snapshot_name_id: WidgetId<Label>,
     coords_id: WidgetId<Label>,
@@ -373,7 +373,7 @@ impl Widget for ReviewWidget {
             .id();
 
         Self {
-            common: common.into(),
+            common,
             test_name_id,
             snapshot_name_id,
             image_id,

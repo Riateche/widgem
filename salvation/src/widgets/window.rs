@@ -7,7 +7,7 @@ use crate::{impl_widget_common, window::X11WindowType};
 use super::{Widget, WidgetCommon, WidgetCommonTyped};
 
 pub struct WindowWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl WindowWidget {
@@ -54,7 +54,7 @@ impl Widget for WindowWidget {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

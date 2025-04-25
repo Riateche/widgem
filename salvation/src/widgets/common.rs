@@ -645,7 +645,7 @@ impl WidgetCommon {
 
 #[derive(Debug)]
 pub struct WidgetCommonTyped<T> {
-    common: WidgetCommon,
+    pub common: WidgetCommon,
     _marker: PhantomData<T>,
 }
 

@@ -19,7 +19,7 @@ use {
 };
 
 struct AnotherWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     counter: i32,
 }
 
@@ -27,10 +27,7 @@ impl Widget for AnotherWidget {
     impl_widget_common!();
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
-        let mut this = Self {
-            counter: 0,
-            common: common.into(),
-        };
+        let mut this = Self { counter: 0, common };
         let callback = this.callback(|this, _event| {
             this.counter += 1;
             println!("counter: {}", this.counter);
@@ -103,7 +100,7 @@ impl Widget for AnotherWidget {
 }
 
 struct RootWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     button_id: WidgetId<Button>,
     column2_id: WidgetId<Column>,
     button21_id: WidgetId<Button>,
@@ -263,7 +260,7 @@ impl Widget for RootWidget {
         add_interval(Duration::from_secs(2), id.callback(|this, _| this.inc()));
 
         RootWidget {
-            common: common.into(),
+            common,
             button_id,
             column2_id,
             button21_id,

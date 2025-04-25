@@ -8,7 +8,7 @@ use salvation::{
 use salvation_test_kit::context::Context;
 
 pub struct RootWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
 }
 
 impl RootWidget {
@@ -36,7 +36,7 @@ impl Widget for RootWidget {
             .on_triggered(id.callback(Self::on_triggered));
 
         Self {
-            common: common.into(),
+            common,
         }
     }
 }

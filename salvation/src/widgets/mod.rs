@@ -87,11 +87,11 @@ macro_rules! impl_widget_common {
         }
 
         fn common(&self) -> &WidgetCommon {
-            &self.common
+            &self.common.common
         }
 
         fn common_mut(&mut self) -> &mut WidgetCommon {
-            &mut self.common
+            &mut self.common.common
         }
     };
 }

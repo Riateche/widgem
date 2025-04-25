@@ -13,7 +13,7 @@ pub struct Image {
     pixmap: Option<Rc<Pixmap>>,
     // TODO: finite f32
     scale: Option<f32>,
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     is_prescaled: bool,
 }
 
@@ -75,7 +75,7 @@ impl Widget for Image {
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
         Self {
-            common: common.into(),
+            common,
             pixmap: None,
             is_prescaled: false,
             scale: None,

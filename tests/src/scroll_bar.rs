@@ -12,7 +12,7 @@ use {
 };
 
 pub struct RootWidget {
-    common: WidgetCommon,
+    common: WidgetCommonTyped<Self>,
     label_id: WidgetId<Label>,
     scroll_bar_id: WidgetId<ScrollBar>,
 }
@@ -55,7 +55,7 @@ impl Widget for RootWidget {
             .id();
 
         let mut this = Self {
-            common: common.into(),
+            common,
             label_id,
             scroll_bar_id,
         };
