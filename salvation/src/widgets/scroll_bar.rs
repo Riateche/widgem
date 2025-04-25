@@ -607,7 +607,7 @@ impl Widget for ScrollBar {
         }));
         pager
             .common
-            .add_child::<Button>(INDEX_BUTTON_IN_PAGER)
+            .child::<Button>(INDEX_BUTTON_IN_PAGER)
             .set_column(0)
             .set_row(0)
             .set_size_x_fixed(false)
@@ -621,7 +621,7 @@ impl Widget for ScrollBar {
             .set_trigger_on_press(true);
         pager
             .common
-            .add_child::<Button>(INDEX_GRIP_IN_PAGER)
+            .child::<Button>(INDEX_GRIP_IN_PAGER)
             .set_text(names::SCROLL_GRIP)
             .set_accessible(false)
             .set_focusable(false)

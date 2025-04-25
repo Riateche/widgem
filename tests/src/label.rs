@@ -22,7 +22,7 @@ impl Widget for RootWidget {
 
         window
             .common_mut()
-            .add_child::<Label>(0)
+            .child::<Label>(0)
             .set_column(0)
             .set_row(0)
             .set_text("Test");
@@ -36,7 +36,7 @@ impl Widget for RootWidget {
 #[salvation_test_kit::test]
 pub fn label(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>(0);
+        r.common_mut().child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;

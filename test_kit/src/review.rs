@@ -127,25 +127,25 @@ impl Widget for ReviewWidget {
 
         window
             .common_mut()
-            .add_child::<Label>(0)
+            .child::<Label>(0)
             .set_column(1)
             .set_row(1)
             .set_text("Test:");
         let test_name_id = window
             .common_mut()
-            .add_child::<Label>(1)
+            .child::<Label>(1)
             .set_column(2)
             .set_row(1)
             .id();
 
         let row = window
             .common_mut()
-            .add_child::<Row>(2)
+            .child::<Row>(2)
             .set_column(2)
             .set_row(2)
             .set_no_padding(true);
         row.common_mut()
-            .add_child::<Button>(0)
+            .child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("First test")
@@ -154,7 +154,7 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
         row.common_mut()
-            .add_child::<Button>(1)
+            .child::<Button>(1)
             .set_column(1)
             .set_row(0)
             .set_text("Previous test")
@@ -163,7 +163,7 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
         row.common_mut()
-            .add_child::<Button>(2)
+            .child::<Button>(2)
             .set_column(2)
             .set_row(0)
             .set_text("Next test")
@@ -172,7 +172,7 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
         row.common_mut()
-            .add_child::<Button>(3)
+            .child::<Button>(3)
             .set_column(3)
             .set_row(0)
             .set_text("Last test")
@@ -190,26 +190,26 @@ impl Widget for ReviewWidget {
 
         window
             .common_mut()
-            .add_child::<Label>(3)
+            .child::<Label>(3)
             .set_column(1)
             .set_row(3)
             .set_text("Snapshot:");
         let snapshot_name_id = window
             .common_mut()
-            .add_child::<Label>(4)
+            .child::<Label>(4)
             .set_column(2)
             .set_row(3)
             .id();
 
         let row = window
             .common_mut()
-            .add_child::<Row>(5)
+            .child::<Row>(5)
             .set_column(2)
             .set_row(4)
             .set_no_padding(true);
 
         row.common_mut()
-            .add_child::<Button>(0)
+            .child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("Previous snapshot")
@@ -218,7 +218,7 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
         row.common_mut()
-            .add_child::<Button>(1)
+            .child::<Button>(1)
             .set_column(1)
             .set_row(0)
             .set_text("Next snapshot")
@@ -229,7 +229,7 @@ impl Widget for ReviewWidget {
 
         window
             .common_mut()
-            .add_child::<Label>(6)
+            .child::<Label>(6)
             .set_column(1)
             .set_row(5)
             .set_text("Display mode:");
@@ -237,7 +237,7 @@ impl Widget for ReviewWidget {
         // TODO: radio buttons
         let modes_row = window
             .common_mut()
-            .add_child::<Row>(7)
+            .child::<Row>(7)
             .set_column(2)
             .set_row(5)
             .set_no_padding(true);
@@ -246,7 +246,7 @@ impl Widget for ReviewWidget {
             // TODO: radio buttons
             let button = modes_row
                 .common_mut()
-                .add_child::<Button>(column as u64)
+                .child::<Button>(column as u64)
                 .set_column(column as i32)
                 .set_row(0)
                 .set_text(mode.ui_name())
@@ -256,20 +256,20 @@ impl Widget for ReviewWidget {
 
         window
             .common_mut()
-            .add_child::<Label>(8)
+            .child::<Label>(8)
             .set_column(1)
             .set_row(6)
             .set_text("Snapshot:");
 
         let row = window
             .common_mut()
-            .add_child::<Row>(9)
+            .child::<Row>(9)
             .set_column(2)
             .set_row(6)
             .set_no_padding(true);
 
         row.common_mut()
-            .add_child::<Button>(0)
+            .child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("100%")
@@ -278,7 +278,7 @@ impl Widget for ReviewWidget {
                 Ok(())
             }));
         row.common_mut()
-            .add_child::<Button>(1)
+            .child::<Button>(1)
             .set_column(1)
             .set_row(0)
             .set_text("200%")
@@ -288,13 +288,13 @@ impl Widget for ReviewWidget {
             }));
         let coords_id = row
             .common_mut()
-            .add_child::<Label>(2)
+            .child::<Label>(2)
             .set_column(2)
             .set_row(0)
             .id();
         let image = window
             .common_mut()
-            .add_child::<Image>(10)
+            .child::<Image>(10)
             .set_column(2)
             .set_row(7);
         let image_mouse_move = id.callback(Self::image_mouse_move);
@@ -314,21 +314,21 @@ impl Widget for ReviewWidget {
 
         window
             .common_mut()
-            .add_child::<Label>(11)
+            .child::<Label>(11)
             .set_column(1)
             .set_row(8)
             .set_text("Actions:");
 
         let approve_and_skip = window
             .common_mut()
-            .add_child::<Row>(12)
+            .child::<Row>(12)
             .set_column(2)
             .set_row(8)
             .set_no_padding(true);
 
         approve_and_skip
             .common_mut()
-            .add_child::<Button>(0)
+            .child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("Approve")
@@ -338,7 +338,7 @@ impl Widget for ReviewWidget {
             }));
         approve_and_skip
             .common_mut()
-            .add_child::<Button>(1)
+            .child::<Button>(1)
             .set_column(1)
             .set_row(0)
             .set_text("Skip snapshot")
@@ -350,7 +350,7 @@ impl Widget for ReviewWidget {
             }));
         approve_and_skip
             .common_mut()
-            .add_child::<Button>(2)
+            .child::<Button>(2)
             .set_column(2)
             .set_row(0)
             .set_text("Skip test")
@@ -367,7 +367,7 @@ impl Widget for ReviewWidget {
 
         let unconfirmed_count_id = window
             .common_mut()
-            .add_child::<Label>(13)
+            .child::<Label>(13)
             .set_column(2)
             .set_row(9)
             .id();

@@ -214,7 +214,7 @@ impl Widget for TextInput {
         viewport.common_mut().cursor_icon = CursorIcon::Text;
         let editor = viewport
             .common_mut()
-            .add_child::<Text>(0)
+            .child::<Text>(0)
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id);

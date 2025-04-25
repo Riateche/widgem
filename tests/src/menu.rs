@@ -13,7 +13,7 @@ pub struct RootWidget {
 
 impl RootWidget {
     fn on_triggered(&mut self, _event: ()) -> anyhow::Result<()> {
-        self.common.add_child::<Menu>(1);
+        self.common.child::<Menu>(1);
         Ok(())
     }
 }
@@ -29,7 +29,7 @@ impl Widget for RootWidget {
 
         window
             .common_mut()
-            .add_child::<Button>(0)
+            .child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("test")
@@ -44,7 +44,7 @@ impl Widget for RootWidget {
 #[salvation_test_kit::test]
 fn menu(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>(0);
+        r.common_mut().child::<RootWidget>(0);
         Ok(())
     })?;
     let window = ctx.wait_for_window_by_pid()?;

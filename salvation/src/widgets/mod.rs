@@ -390,10 +390,9 @@ impl WidgetCommon {
         self.children.contains_key(&key)
     }
 
-    // TODO: rename
     // TODO: check for row/column conflict
     // TODO: move options to child widget common
-    pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
+    pub fn child<T: Widget>(&mut self, key: Key) -> &mut T {
         let new_id = RawWidgetId::new();
         let ctx = if T::is_window_root_type() {
             let new_window = Window::new(new_id);
@@ -737,7 +736,7 @@ impl<W> WidgetCommonTyped<W> {
     }
 
     pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
-        self.common.add_child::<T>(key)
+        self.common.child::<T>(key)
     }
 }
 

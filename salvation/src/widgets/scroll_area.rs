@@ -46,7 +46,7 @@ impl ScrollArea {
             .unwrap()
             .widget
             .common_mut()
-            .add_child::<T>(0)
+            .child::<T>(0)
     }
 
     // pub fn set_content(&mut self, content: Box<dyn Widget>) {
