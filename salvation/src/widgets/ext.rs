@@ -1,0 +1,63 @@
+use {
+    super::{Widget, WidgetId, WidgetWithId},
+    crate::{
+        callback::Callback,
+        event::Event,
+        layout::{SizeHintMode, SizeHints},
+        style::{css::MyPseudoClass, Style},
+    },
+    anyhow::Result,
+    std::rc::Rc,
+};
+
+pub trait WidgetExt {
+    fn id(&self) -> WidgetId<Self>
+    where
+        Self: Sized;
+
+    fn callback<F, E>(&self, func: F) -> Callback<E>
+    where
+        F: Fn(&mut Self, E) -> Result<()> + 'static,
+        E: 'static,
+        Self: Sized;
+
+    fn with_id(self) -> WidgetWithId<Self>
+    where
+        Self: Sized,
+    {
+        WidgetWithId {
+            id: self.id(),
+            widget: self,
+        }
+    }
+
+    fn set_no_padding(&mut self, no_padding: bool) -> &mut Self;
+    fn set_visible(&mut self, value: bool) -> &mut Self;
+    fn set_focusable(&mut self, value: bool) -> &mut Self;
+    fn set_accessible(&mut self, value: bool) -> &mut Self;
+    fn add_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self;
+    fn set_row(&mut self, row: i32) -> &mut Self;
+    fn set_column(&mut self, column: i32) -> &mut Self;
+    fn set_size_x_fixed(&mut self, fixed: bool) -> &mut Self;
+    fn set_size_y_fixed(&mut self, fixed: bool) -> &mut Self;
+
+    fn dispatch(&mut self, event: Event) -> bool;
+    fn update_accessible(&mut self);
+    fn size_hint_x(&mut self, mode: SizeHintMode) -> i32;
+    fn size_hints_x(&mut self) -> SizeHints;
+    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32;
+    fn size_hints_y(&mut self, size_x: i32) -> SizeHints;
+    fn size_hints_y_from_hints_x(&mut self, hints_x: SizeHints) -> SizeHints;
+    fn size_x_fixed(&mut self) -> bool;
+    fn size_y_fixed(&mut self) -> bool;
+
+    // TODO: private
+    fn set_enabled(&mut self, enabled: bool);
+    fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()>;
+    fn add_class(&mut self, class: &'static str) -> &mut Self;
+    fn remove_class(&mut self, class: &'static str);
+
+    fn boxed(self) -> Box<dyn Widget>
+    where
+        Self: Sized;
+}
