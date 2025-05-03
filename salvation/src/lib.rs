@@ -7,6 +7,7 @@ mod callback;
 mod draw;
 pub mod event;
 mod event_loop;
+pub mod key;
 pub mod layout;
 pub mod shortcut;
 pub mod style;
