@@ -1,11 +1,13 @@
-use salvation::{
-    impl_widget_common,
-    widgets::{
-        button::Button, menu::Menu, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped,
-        WidgetExt,
+use {
+    salvation::{
+        impl_widget_common,
+        widgets::{
+            button::Button, menu::Menu, window::WindowWidget, Widget, WidgetCommon,
+            WidgetCommonTyped, WidgetExt,
+        },
     },
+    salvation_test_kit::context::Context,
 };
-use salvation_test_kit::context::Context;
 
 pub struct RootWidget {
     common: WidgetCommonTyped<Self>,
@@ -13,7 +15,7 @@ pub struct RootWidget {
 
 impl RootWidget {
     fn on_triggered(&mut self, _event: ()) -> anyhow::Result<()> {
-        self.common.child::<Menu>(1);
+        self.common.add_child::<Menu>(1);
         Ok(())
     }
 }
@@ -29,22 +31,20 @@ impl Widget for RootWidget {
 
         window
             .common_mut()
-            .child::<Button>(0)
+            .add_child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("test")
             .on_triggered(id.callback(Self::on_triggered));
 
-        Self {
-            common,
-        }
+        Self { common }
     }
 }
 
 #[salvation_test_kit::test]
 fn menu(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let window = ctx.wait_for_window_by_pid()?;

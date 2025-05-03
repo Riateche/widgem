@@ -24,12 +24,10 @@ impl Widget for Menu {
             .set_skip_windows_taskbar(true);
         window
             .common_mut()
-            .child::<Label>(0)
+            .add_child::<Label>(0)
             .set_column(0)
             .set_row(0)
             .set_text("menu content 1\nmenu content 2\nmenu content 3");
-        Self {
-            common,
-        }
+        Self { common }
     }
 }

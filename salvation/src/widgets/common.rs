@@ -1,5 +1,5 @@
 use {
-    super::{RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetId, WidgetNotFound},
+    super::{address, RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetId, WidgetNotFound},
     crate::{
         callback::{widget_callback, Callback},
         event::{Event, LayoutEvent},
@@ -12,17 +12,18 @@ use {
             computed::{CommonComputedStyle, ComputedElementStyle, ComputedStyle},
             css::{Element, MyPseudoClass},
         },
-        system::{register_address, unregister_address, with_system},
+        system::{register_address, request_children_update, unregister_address, with_system},
         types::{Point, Rect, Size},
         window::{Window, WindowId},
     },
     anyhow::{bail, Context, Result},
     derivative::Derivative,
-    log::warn,
+    log::{error, warn},
     std::{
-        collections::{btree_map, BTreeMap, HashMap},
+        collections::{BTreeMap, HashMap, HashSet},
         fmt::Debug,
         marker::PhantomData,
+        mem,
         ops::{Deref, DerefMut},
         rc::Rc,
     },
@@ -50,6 +51,7 @@ pub struct Child {
     pub rect_set_during_layout: bool,
 }
 
+// TODO: use bitflags?
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetCommon {
@@ -92,7 +94,6 @@ pub struct WidgetCommon {
     pub size_y_fixed_cache: Option<bool>,
 
     pub is_accessible: bool,
-    pub pending_accessible_update: bool,
 
     pub self_style: Option<ComputedStyle>,
 
@@ -107,6 +108,14 @@ pub struct WidgetCommon {
     pub shortcuts: Vec<Shortcut>,
     pub style_element: Element,
     pub common_style: Rc<CommonComputedStyle>,
+
+    pub has_declare_children_override: bool,
+    pub delete_undeclared_children: bool,
+    pub num_declared_children: u32,
+    pub declared_children: HashSet<RawWidgetId>,
+
+    // TODO: add setter
+    pub send_signals_on_setter_calls: bool,
 }
 
 // TODO: enum with other types
@@ -161,7 +170,6 @@ impl WidgetCommon {
             size_x_fixed_cache: None,
             size_y_fixed_cache: None,
             is_accessible: true,
-            pending_accessible_update: false,
             is_registered_as_focusable: false,
             event_filter: None,
             current_layout_event: None,
@@ -171,6 +179,12 @@ impl WidgetCommon {
             shortcuts: Vec::new(),
             style_element,
             common_style,
+            has_declare_children_override: true,
+            // Defaults to false if declare_children is not overwritten.
+            delete_undeclared_children: true,
+            num_declared_children: 0,
+            declared_children: HashSet::new(),
+            send_signals_on_setter_calls: false,
         };
 
         if let Some(window) = &common.window {
@@ -307,20 +321,49 @@ impl WidgetCommon {
 
     // Request redraw and accessible update
     pub fn update(&mut self) {
-        let Some(window) = &self.window else {
-            return;
+        if let Some(window) = &self.window {
+            window.request_redraw();
+            window.request_accessible_update(self.address.clone());
         };
-        window.request_redraw();
-        self.pending_accessible_update = true;
+        request_children_update(self.address.clone());
     }
 
     pub fn has_child(&self, key: Key) -> bool {
         self.children.contains_key(&key)
     }
 
-    // TODO: check for row/column conflict
-    // TODO: move options to child widget common
-    pub fn child<T: Widget>(&mut self, key: Key) -> &mut T {
+    pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
+        self.add_child_common(key, false)
+    }
+
+    pub fn declare_child<T: Widget>(&mut self, key: Key) -> &mut T {
+        self.add_child_common(key, true)
+    }
+
+    fn add_child_common<T: Widget>(&mut self, key: Key, declare: bool) -> &mut T {
+        if declare {
+            if let Some(old_widget) = self
+                .children
+                .get_mut(&key)
+                .and_then(|c| c.widget.downcast_mut::<T>())
+            {
+                with_system(|system| {
+                    if let Some(declared) = &mut system.widgets_created_in_current_children_update {
+                        declared.insert(old_widget.common().id);
+                    } else {
+                        warn!("declare_child shouldn't be used outside of declare_children()");
+                    }
+                });
+                // Should be `return old_widget` but borrow checker is not smart enough.
+                // Should we use `polonius-the-crab` crate?
+                return self
+                    .children
+                    .get_mut(&key)
+                    .and_then(|c| c.widget.downcast_mut::<T>())
+                    .unwrap();
+            }
+        }
+
         let new_id = RawWidgetId::new();
         let ctx = if T::is_window_root_type() {
             let new_window = Window::new(new_id);
@@ -328,35 +371,27 @@ impl WidgetCommon {
         } else {
             self.new_creation_context(new_id, key, None)
         };
-        match self.children.entry(key) {
-            btree_map::Entry::Vacant(entry) => entry.insert(Child {
+        // This may delete the old widget.
+        self.children.insert(
+            key,
+            Child {
                 widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
                 rect_in_parent: None,
                 rect_set_during_layout: false,
-            }),
-            btree_map::Entry::Occupied(entry) => {
-                if entry.get().widget.is::<T>() {
-                    entry.into_mut()
-                } else {
-                    let child = entry.into_mut();
-                    // Deletes old widget.
-                    *child = Child {
-                        widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
-                        rect_in_parent: None,
-                        rect_set_during_layout: false,
-                    };
-                    child
-                }
-            }
-        };
-
+            },
+        );
         self.size_hint_changed();
-        self.children
-            .get_mut(&key)
-            .unwrap()
-            .widget
-            .downcast_mut()
-            .unwrap()
+        let widget = &mut self.children.get_mut(&key).unwrap().widget;
+        if declare {
+            with_system(|system| {
+                if let Some(declared) = &mut system.widgets_created_in_current_children_update {
+                    declared.insert(widget.common().id);
+                } else {
+                    warn!("declare_child shouldn't be used outside of declare_children()");
+                }
+            });
+        }
+        widget.downcast_mut().unwrap()
     }
 
     pub fn get_child<T: Widget>(&self, key: Key) -> anyhow::Result<&T> {
@@ -386,10 +421,56 @@ impl WidgetCommon {
         self.size_hint_changed();
     }
 
-    pub fn remove_child(&mut self, key: Key) -> Result<()> {
-        self.children.remove(&key).context("no such key")?;
+    pub fn remove_child(&mut self, key: Key) -> Result<(), WidgetNotFound> {
+        self.children.remove(&key).ok_or(WidgetNotFound)?;
         self.size_hint_changed();
         Ok(())
+    }
+
+    pub fn remove_child_by_id(&mut self, id: RawWidgetId) -> Result<(), WidgetNotFound> {
+        if id == self.id {
+            warn!("remove_child_by_id: cannot delete self");
+            return Err(WidgetNotFound);
+        }
+        let Some(address) = address(id) else {
+            // Widget probably already deleted.
+            return Err(WidgetNotFound);
+        };
+        if !address.starts_with(&self.address) {
+            warn!("remove_child_by_id: address is not within widget");
+            return Err(WidgetNotFound);
+        }
+        let Some(parent_id) = address.parent_widget_id() else {
+            error!("remove_child_by_id: encountered root widget");
+            return Err(WidgetNotFound);
+        };
+        if parent_id == self.id {
+            return self.remove_child(address.path.last().unwrap().0);
+        }
+        let remaining_path = &address.path[self.address.len()..];
+        let Some(mut current_widget) = self
+            .children
+            .get_mut(&remaining_path[0].0)
+            .map(|c| c.widget.as_mut())
+        else {
+            return Err(WidgetNotFound);
+        };
+        for (key, _id) in &address.path[self.address.len() + 1..] {
+            if current_widget.common().id == parent_id {
+                return current_widget
+                    .common_mut()
+                    .remove_child(address.path.last().unwrap().0);
+            }
+            current_widget = current_widget
+                .common_mut()
+                .children
+                .get_mut(key)
+                .ok_or(WidgetNotFound)?
+                .widget
+                .as_mut();
+        }
+        error!("remove_child_by_id: did not reach parent widget");
+        Err(WidgetNotFound)
     }
 
     pub fn set_child_rect(&mut self, key: Key, rect_in_parent: Option<Rect>) -> Result<()> {
@@ -641,6 +722,26 @@ impl WidgetCommon {
         self.is_accessible = value;
         self.update();
     }
+
+    pub fn before_declare_children(&mut self) {
+        self.num_declared_children = 0;
+    }
+
+    pub fn after_declare_children(&mut self, created: HashSet<RawWidgetId>) {
+        if self.delete_undeclared_children {
+            let previous = mem::take(&mut self.declared_children);
+            // println!("before {:?}", previous);
+            // println!("after {:?}", created);
+            let to_delete = previous.difference(&created);
+            for id in to_delete {
+                //let _ = self.remove_child_by_id(*id);
+                if self.remove_child_by_id(*id).is_ok() {
+                    println!("deleted {:?}", id);
+                }
+            }
+        }
+        self.declared_children = created;
+    }
 }
 
 #[derive(Debug)]
@@ -664,7 +765,7 @@ impl<W> WidgetCommonTyped<W> {
     }
 
     pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
-        self.common.child::<T>(key)
+        self.common.add_child::<T>(key)
     }
 }
 

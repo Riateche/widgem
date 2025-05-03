@@ -58,14 +58,29 @@ const INDEX_INCREASE: u64 = 2;
 const INDEX_BUTTON_IN_PAGER: u64 = 0;
 const INDEX_GRIP_IN_PAGER: u64 = 1;
 
+// TODO: support other value types
 #[impl_with]
 impl ScrollBar {
     pub fn increase(&mut self) {
-        self.set_value(min(*self.value_range().end(), self.value() + self.step));
+        self.increase_internal(true)
+    }
+
+    fn increase_internal(&mut self, from_setter: bool) {
+        self.set_value_internal(
+            min(*self.value_range().end(), self.value() + self.step),
+            from_setter,
+        );
     }
 
     pub fn decrease(&mut self) {
-        self.set_value(max(*self.value_range().start(), self.value() - self.step));
+        self.decrease_internal(true)
+    }
+
+    fn decrease_internal(&mut self, from_setter: bool) {
+        self.set_value_internal(
+            min(*self.value_range().end(), self.value() - self.step),
+            from_setter,
+        );
     }
 
     pub fn axis(&mut self) -> Axis {
@@ -234,7 +249,7 @@ impl ScrollBar {
                             .round() as i32
                             + self.value_range.start()
                     };
-                    self.set_value(new_value);
+                    self.set_value_internal(new_value, false);
                 }
                 Axis::Y => {
                     // TODO: deduplicate
@@ -248,7 +263,7 @@ impl ScrollBar {
                             .round() as i32
                             + *self.value_range.start()
                     };
-                    self.set_value(new_value);
+                    self.set_value_internal(new_value, false);
                 }
             }
         }
@@ -321,7 +336,7 @@ impl ScrollBar {
                 Axis::Y => grip_rect_in_window.bottom() < self.pager_mouse_pos_in_window.y,
             };
             if condition {
-                self.page_forward();
+                self.page_forward_internal(false);
             }
         } else {
             let condition = match self.axis {
@@ -329,7 +344,7 @@ impl ScrollBar {
                 Axis::Y => grip_rect_in_window.top() > self.pager_mouse_pos_in_window.y,
             };
             if condition {
-                self.page_back();
+                self.page_back_internal(false);
             }
         }
         Ok(())
@@ -346,40 +361,56 @@ impl ScrollBar {
     }
 
     pub fn page_forward(&mut self) {
-        self.set_value(min(
-            *self.value_range.end(),
-            self.current_value + self.page_step(),
-        ));
+        self.page_forward_internal(true);
+    }
+
+    pub fn page_forward_internal(&mut self, from_setter: bool) {
+        self.set_value_internal(
+            min(
+                *self.value_range.end(),
+                self.current_value + self.page_step(),
+            ),
+            from_setter,
+        );
     }
 
     pub fn page_back(&mut self) {
-        self.set_value(max(
-            *self.value_range.start(),
-            self.current_value - self.page_step(),
-        ));
+        self.page_back_internal(true);
     }
 
-    pub fn set_value_range(&mut self, mut range: RangeInclusive<i32>) {
+    pub fn page_back_internal(&mut self, from_setter: bool) {
+        self.set_value_internal(
+            max(
+                *self.value_range.start(),
+                self.current_value - self.page_step(),
+            ),
+            from_setter,
+        );
+    }
+
+    pub fn set_value_range(&mut self, mut range: RangeInclusive<i32>) -> &mut Self {
         if range.end() < range.start() {
             warn!("invalid scroll bar range");
             range = *range.start()..=*range.start();
         }
         if self.value_range == range {
-            return;
+            return self;
         }
         self.value_range = range;
         self.update_grip_size().or_report_err();
         if self.current_value < *self.value_range.start()
             || self.current_value > *self.value_range.end()
         {
-            self.set_value(
+            self.set_value_internal(
                 self.current_value
                     .clamp(*self.value_range.start(), *self.value_range.end()),
+                true,
             );
         } else {
             self.update_grip_pos();
         }
         self.update_decrease_increase();
+        self
     }
 
     pub fn value_range(&self) -> RangeInclusive<i32> {
@@ -390,7 +421,11 @@ impl ScrollBar {
         self.step = step;
     }
 
-    pub fn set_value(&mut self, mut value: i32) -> &mut Self {
+    pub fn set_value(&mut self, value: i32) -> &mut Self {
+        self.set_value_internal(value, true)
+    }
+
+    fn set_value_internal(&mut self, mut value: i32, from_setter: bool) -> &mut Self {
         if value < *self.value_range.start() || value > *self.value_range.end() {
             warn!("scroll bar value out of bounds");
             value = value.clamp(*self.value_range.start(), *self.value_range.end());
@@ -399,8 +434,10 @@ impl ScrollBar {
             return self;
         }
         self.current_value = value;
-        if let Some(value_changed) = &self.value_changed {
-            value_changed.invoke(self.current_value);
+        if self.common.send_signals_on_setter_calls || !from_setter {
+            if let Some(value_changed) = &self.value_changed {
+                value_changed.invoke(self.current_value);
+            }
         }
         self.update_grip_pos();
         self.update_decrease_increase();
@@ -430,7 +467,6 @@ impl ScrollBar {
     }
 
     fn update_grip_pos(&mut self) {
-        //println!("update_grip_pos start");
         self.current_grip_pos = self.value_to_slider_pos();
         let shift = match self.axis {
             Axis::X => Point::new(self.current_grip_pos, 0),
@@ -467,7 +503,6 @@ impl ScrollBar {
             .downcast_mut::<Button>()
             .unwrap();
         pager_button.set_enabled(can_scroll);
-        //println!("update_grip_pos end");
     }
 
     pub fn value(&self) -> i32 {
@@ -607,7 +642,7 @@ impl Widget for ScrollBar {
         }));
         pager
             .common
-            .child::<Button>(INDEX_BUTTON_IN_PAGER)
+            .add_child::<Button>(INDEX_BUTTON_IN_PAGER)
             .set_column(0)
             .set_row(0)
             .set_size_x_fixed(false)
@@ -621,7 +656,7 @@ impl Widget for ScrollBar {
             .set_trigger_on_press(true);
         pager
             .common
-            .child::<Button>(INDEX_GRIP_IN_PAGER)
+            .add_child::<Button>(INDEX_GRIP_IN_PAGER)
             .set_text(names::SCROLL_GRIP)
             .set_accessible(false)
             .set_focusable(false)
@@ -682,7 +717,7 @@ impl Widget for ScrollBar {
         }));
 
         let decrease_callback = this.callback(|this, _| {
-            this.decrease();
+            this.decrease_internal(false);
             Ok(())
         });
         this.common
@@ -695,7 +730,7 @@ impl Widget for ScrollBar {
             .on_triggered(decrease_callback);
 
         let increase_callback = this.callback(|this, _| {
-            this.increase();
+            this.increase_internal(false);
             Ok(())
         });
         this.common
@@ -757,7 +792,10 @@ impl Widget for ScrollBar {
             delta.y
         };
         let new_value = self.value() - max_delta.round() as i32;
-        self.set_value(new_value.clamp(*self.value_range.start(), *self.value_range.end()));
+        self.set_value_internal(
+            new_value.clamp(*self.value_range.start(), *self.value_range.end()),
+            false,
+        );
         Ok(true)
     }
 
@@ -768,35 +806,35 @@ impl Widget for ScrollBar {
         if let Key::Named(key) = event.info.logical_key {
             match key {
                 NamedKey::ArrowDown => {
-                    self.increase();
+                    self.increase_internal(false);
                     Ok(true)
                 }
                 NamedKey::ArrowLeft => {
-                    self.decrease();
+                    self.decrease_internal(false);
                     Ok(true)
                 }
                 NamedKey::ArrowRight => {
-                    self.increase();
+                    self.increase_internal(false);
                     Ok(true)
                 }
                 NamedKey::ArrowUp => {
-                    self.decrease();
+                    self.decrease_internal(false);
                     Ok(true)
                 }
                 NamedKey::End => {
-                    self.set_value(*self.value_range().end());
+                    self.set_value_internal(*self.value_range().end(), false);
                     Ok(true)
                 }
                 NamedKey::Home => {
-                    self.set_value(*self.value_range().start());
+                    self.set_value_internal(*self.value_range().start(), false);
                     Ok(true)
                 }
                 NamedKey::PageDown => {
-                    self.page_forward();
+                    self.page_forward_internal(false);
                     Ok(true)
                 }
                 NamedKey::PageUp => {
-                    self.page_back();
+                    self.page_back_internal(false);
                     Ok(true)
                 }
                 _ => Ok(false),

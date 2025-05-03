@@ -9,8 +9,8 @@ use {
         style::{
             css::{
                 convert_background, convert_background_color, convert_border, convert_main_color,
+                is_root, is_selection,
             },
-            css::{is_root, is_selection},
             defaults,
         },
         types::{PhysicalPixels, Point},

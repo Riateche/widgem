@@ -23,21 +23,19 @@ impl Widget for RootWidget {
 
         window
             .common_mut()
-            .child::<Button>(0)
+            .add_child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("Test");
 
-        Self {
-            common,
-        }
+        Self { common }
     }
 }
 
 #[salvation_test_kit::test]
 pub fn button(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;

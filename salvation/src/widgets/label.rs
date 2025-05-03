@@ -33,8 +33,6 @@ impl Widget for Label {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         common.add_child::<Text>(0).set_column(0).set_row(0);
         common.set_no_padding(true);
-        Self {
-            common,
-        }
+        Self { common }
     }
 }

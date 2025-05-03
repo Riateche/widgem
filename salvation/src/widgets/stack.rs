@@ -16,7 +16,7 @@ pub struct Stack {
 impl Stack {
     // TODO: impl explicit rect setting for universal grid layout?
     pub fn add<T: Widget>(&mut self, key: Key, rect: Rect) -> &mut T {
-        let widget = self.common.child::<T>(key);
+        let widget = self.common.add_child::<T>(key);
         let id = widget.common().id;
         self.common.set_child_rect(key, Some(rect)).or_report_err();
         self.rects.insert(id, Some(rect));

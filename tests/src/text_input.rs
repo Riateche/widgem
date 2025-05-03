@@ -23,21 +23,19 @@ impl Widget for RootWidget {
 
         window
             .common_mut()
-            .child::<TextInput>(0)
+            .add_child::<TextInput>(0)
             .set_column(0)
             .set_row(0)
             .set_text("Hello world");
 
-        Self {
-            common,
-        }
+        Self { common }
     }
 }
 
 #[salvation_test_kit::test]
 pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -113,7 +111,7 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -142,7 +140,7 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.set_blinking_expected(true);

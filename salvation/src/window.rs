@@ -67,7 +67,6 @@ pub struct WindowInner {
     pub is_window_focused: bool,
     pub accessible_nodes: AccessibleNodes,
     pub mouse_entered_widgets: Vec<(Rect, RawWidgetId)>,
-    pub pending_size_hint_invalidations: Vec<WidgetAddress>,
     pub current_mouse_event_state: Option<MouseEventState>,
     pub pixmap: Rc<RefCell<Pixmap>>,
     // Drop order must be maintained as
@@ -84,7 +83,9 @@ pub struct WindowInner {
     pub ime_allowed: bool,
     pub ime_cursor_area: Rect,
 
+    pub pending_size_hint_invalidations: Vec<WidgetAddress>,
     pub pending_redraw: bool,
+    pub pending_accessible_updates: Vec<WidgetAddress>,
 
     // TODO: refactor as struct
     pub focusable_widgets: Vec<(Vec<(Key, RawWidgetId)>, RawWidgetId)>,
@@ -163,7 +164,6 @@ impl Window {
             is_window_focused: false,
             accessible_nodes: AccessibleNodes::new(),
             mouse_entered_widgets: Vec::new(),
-            pending_size_hint_invalidations: Vec::new(),
             current_mouse_event_state: None,
             pixmap: Rc::new(RefCell::new(Pixmap::new(1, 1).unwrap())),
             surface: None,
@@ -172,7 +172,9 @@ impl Window {
             winit_window: None,
             ime_allowed: false,
             ime_cursor_area: Rect::default(),
+            pending_size_hint_invalidations: Vec::new(),
             pending_redraw: false,
+            pending_accessible_updates: Vec::new(),
             focusable_widgets: Vec::new(),
             focusable_widgets_changed: false,
             focused_widget: None,
@@ -196,6 +198,7 @@ impl Window {
         // TODO: when to remove?
         with_system(|system| {
             system.windows.insert(info.id, info);
+            system.had_any_windows = true;
         });
 
         window
@@ -703,6 +706,15 @@ impl Window {
 
     pub(crate) fn take_pending_size_hint_invalidations(&self) -> Vec<WidgetAddress> {
         mem::take(&mut self.0.borrow_mut().pending_size_hint_invalidations)
+    }
+
+    pub(crate) fn request_accessible_update(&self, addr: WidgetAddress) {
+        let this = &mut *self.0.borrow_mut();
+        this.pending_accessible_updates.push(addr);
+    }
+
+    pub(crate) fn take_pending_accessible_updates(&self) -> Vec<WidgetAddress> {
+        mem::take(&mut self.0.borrow_mut().pending_accessible_updates)
     }
 
     pub(crate) fn unset_focus(&self) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {

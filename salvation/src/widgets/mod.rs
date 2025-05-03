@@ -20,14 +20,12 @@ pub mod text_input;
 mod widget_trait;
 pub mod window;
 
-pub use {
-    self::address::WidgetAddress,
-    self::common::{
-        Child, EventFilterFn, Key, WidgetCommon, WidgetCommonTyped, WidgetCreationContext,
-    },
-    self::ext::WidgetExt,
-    self::id::{RawWidgetId, WidgetId, WidgetWithId},
-    self::widget_trait::Widget,
+pub use self::{
+    address::WidgetAddress,
+    common::{Child, EventFilterFn, Key, WidgetCommon, WidgetCommonTyped, WidgetCreationContext},
+    ext::WidgetExt,
+    id::{RawWidgetId, WidgetId, WidgetWithId},
+    widget_trait::Widget,
 };
 
 #[derive(Debug, Error)]

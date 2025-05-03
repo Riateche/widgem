@@ -1,8 +1,6 @@
 pub mod context;
 pub mod review;
 
-pub use {ctor::ctor, salvation_macros::test, uitest::*};
-
 use {
     crate::{
         context::{CheckContext, Context, SnapshotMode},
@@ -23,6 +21,7 @@ use {
         time::{Duration, Instant},
     },
 };
+pub use {ctor::ctor, salvation_macros::test, uitest::*};
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
 
@@ -244,7 +243,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             }
             salvation::run(move |w| {
                 w.common_mut()
-                    .child::<ReviewWidget>(0)
+                    .add_child::<ReviewWidget>(0)
                     .set_reviewer(reviewer)
             })?;
         }

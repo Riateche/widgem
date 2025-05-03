@@ -1,10 +1,9 @@
-use std::fmt::Display;
-
-use winit::window::WindowLevel;
-
-use crate::{impl_widget_common, window::X11WindowType};
-
-use super::{Widget, WidgetCommon, WidgetCommonTyped};
+use {
+    super::{Widget, WidgetCommon, WidgetCommonTyped},
+    crate::{impl_widget_common, window::X11WindowType},
+    std::fmt::Display,
+    winit::window::WindowLevel,
+};
 
 pub struct WindowWidget {
     common: WidgetCommonTyped<Self>,
@@ -53,9 +52,7 @@ impl Widget for WindowWidget {
     }
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
-        Self {
-            common,
-        }
+        Self { common }
     }
 }
 

@@ -33,12 +33,12 @@ impl Widget for AnotherWidget {
             println!("counter: {}", this.counter);
             let window = this
                 .common
-                .child::<WindowWidget>(this.counter as u64)
+                .add_child::<WindowWidget>(this.counter as u64)
                 .set_title("example");
             println!("window {:?}", window.id());
             let label = window
                 .common_mut()
-                .child::<Label>(0)
+                .add_child::<Label>(0)
                 .set_column(0)
                 .set_row(0)
                 .set_text(format!("counter: {}", this.counter));
@@ -47,7 +47,7 @@ impl Widget for AnotherWidget {
         });
         let button = this
             .common_mut()
-            .child::<Button>(0)
+            .add_child::<Button>(0)
             .set_column(0)
             .set_row(1);
         button.set_text("another button");
@@ -155,17 +155,17 @@ impl Widget for RootWidget {
 
         let root = window
             .common_mut()
-            .child::<Column>(0)
+            .add_child::<Column>(0)
             .set_column(0)
             .set_row(0);
 
         root.common_mut()
-            .child::<TextInput>(0)
+            .add_child::<TextInput>(0)
             .set_column(0)
             .set_row(0)
             .set_text("Hello, Rust! 🦀😂\n");
         root.common_mut()
-            .child::<TextInput>(1)
+            .add_child::<TextInput>(1)
             .set_column(0)
             .set_row(1)
             .set_text("Hebrew name Sarah: שרה.");
@@ -188,7 +188,7 @@ impl Widget for RootWidget {
 
         let button_id = root
             .common_mut()
-            .child::<Button>(2)
+            .add_child::<Button>(2)
             .set_column(0)
             .set_row(2)
             .set_text("btn1")
@@ -197,7 +197,7 @@ impl Widget for RootWidget {
             .id();
 
         root.common_mut()
-            .child::<Button>(3)
+            .add_child::<Button>(3)
             .set_column(0)
             .set_row(3)
             .set_text("btn2")
@@ -205,12 +205,12 @@ impl Widget for RootWidget {
 
         let column2 = root
             .common_mut()
-            .child::<Column>(4)
+            .add_child::<Column>(4)
             .set_column(0)
             .set_row(4);
         let button21_id = column2
             .common_mut()
-            .child::<Button>(0)
+            .add_child::<Button>(0)
             .set_column(0)
             .set_row(0)
             .set_text("btn21")
@@ -222,7 +222,7 @@ impl Widget for RootWidget {
 
         let button22_id = column2
             .common_mut()
-            .child::<Button>(1)
+            .add_child::<Button>(1)
             .set_column(0)
             .set_row(1)
             .set_text("btn22")
@@ -230,13 +230,13 @@ impl Widget for RootWidget {
         let column2_id = column2.id();
 
         root.common_mut()
-            .child::<AnotherWidget>(5)
+            .add_child::<AnotherWidget>(5)
             .set_column(0)
             .set_row(5);
 
         let label2_id = root
             .common_mut()
-            .child::<Label>(6)
+            .add_child::<Label>(6)
             .set_column(0)
             .set_row(6)
             .set_text("ok")
@@ -244,14 +244,14 @@ impl Widget for RootWidget {
 
         let scroll_area = root
             .common_mut()
-            .child::<ScrollArea>(7)
+            .add_child::<ScrollArea>(7)
             .set_column(0)
             .set_row(7);
         let content = scroll_area.add_content::<Column>();
         for i in 1..=80 {
             content
                 .common_mut()
-                .child::<Button>(i)
+                .add_child::<Button>(i)
                 .set_column(0)
                 .set_row(i as i32)
                 .set_text(format!("btn btn btn btn btn btn btn btn btn btn{i}"));
@@ -288,7 +288,7 @@ fn main() {
     env_logger::init();
     App::new()
         .run(|r| {
-            r.common_mut().child::<RootWidget>(0);
+            r.common_mut().add_child::<RootWidget>(0);
             Ok(())
         })
         .unwrap();

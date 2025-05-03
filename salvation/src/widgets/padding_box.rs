@@ -15,8 +15,6 @@ impl Widget for PaddingBox {
     impl_widget_common!();
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
-        Self {
-            common,
-        }
+        Self { common }
     }
 }

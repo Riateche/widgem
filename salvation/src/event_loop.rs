@@ -1,8 +1,12 @@
 use {
     crate::{
         callback::{CallbackId, InvokeCallbackEvent},
+        event::DeclareChildrenEvent,
         style::{computed::ComputedStyle, defaults::default_style},
-        system::{address, with_system, ReportError, SharedSystemDataInner, SystemConfig, SYSTEM},
+        system::{
+            address, take_pending_children_updates, with_system, ReportError,
+            SharedSystemDataInner, SystemConfig, SYSTEM,
+        },
         timer::Timers,
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, root::RootWidget, RawWidgetId, Widget,
@@ -183,20 +187,42 @@ impl Handler {
         }
     }
 
-    fn after_handler(&mut self) {
+    fn after_widget_activity(&mut self) {
+        loop {
+            let mut addrs = take_pending_children_updates();
+            if addrs.is_empty() {
+                break;
+            }
+            // Update upper layers first.
+            addrs.sort_unstable_by_key(|addr| addr.len());
+            for addr in addrs {
+                if let Ok(widget) =
+                    get_widget_by_address_mut(self.root_widget.as_mut().unwrap().as_mut(), &addr)
+                {
+                    if widget.common().has_declare_children_override {
+                        widget.dispatch(DeclareChildrenEvent {}.into());
+                    }
+                }
+            }
+        }
         let windows = with_system(|s| s.windows.clone());
+        //println!("after widget activity1");
         for (_, window) in windows {
+            //println!("root_widget_id {:?}", window.root_widget_id);
             if let Some(window_root_widget) = get_widget_by_id_mut(
                 self.root_widget.as_mut().unwrap().as_mut(),
                 window.root_widget_id,
             )
             .or_report_err()
             {
-                window.with_root(window_root_widget).after_event();
+                window.with_root(window_root_widget).after_widget_activity();
             }
         }
+        //println!("after widget activity1 ok");
 
-        let exit = with_system(|s| s.windows.is_empty() && s.config.exit_after_last_window_closes);
+        let exit = with_system(|s| {
+            s.had_any_windows && s.windows.is_empty() && s.config.exit_after_last_window_closes
+        });
         if exit {
             with_active_event_loop(|event_loop| event_loop.exit());
         }
@@ -241,7 +267,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                 window.with_root(window_root_widget).handle_event(event);
             }
 
-            self.after_handler();
+            self.after_widget_activity();
         })
     }
 
@@ -289,10 +315,13 @@ impl ApplicationHandler<UserEvent> for Handler {
                     default_style: ComputedStyle::new(Rc::new(default_style()), scale).unwrap(),
                     timers: Timers::new(),
                     clipboard: Clipboard::new().expect("failed to initialize clipboard"),
+                    had_any_windows: false,
                     windows: HashMap::new(),
                     windows_by_winit_id: HashMap::new(),
                     widget_callbacks: HashMap::new(),
                     application_shortcuts: Vec::new(),
+                    pending_children_updates: Vec::new(),
+                    widgets_created_in_current_children_update: None,
                 };
                 SYSTEM.with(|system| {
                     *system.0.borrow_mut() = Some(shared_system_data);
@@ -312,20 +341,8 @@ impl ApplicationHandler<UserEvent> for Handler {
                 self.root_widget = Some(Box::new(root_widget));
 
                 self.is_initialized = true;
-
-                let windows = with_system(|s| s.windows.clone());
-                for (_, window) in windows {
-                    if let Some(window_root_widget) = get_widget_by_id_mut(
-                        self.root_widget.as_mut().unwrap().as_mut(),
-                        window.root_widget_id,
-                    )
-                    .or_report_err()
-                    {
-                        window.with_root(window_root_widget).after_widget_activity();
-                    }
-                }
             }
-            self.after_handler();
+            self.after_widget_activity();
         })
     }
 
@@ -357,17 +374,6 @@ impl ApplicationHandler<UserEvent> for Handler {
                 // TODO: remove event, remove window directly
                 UserEvent::InvokeCallback(event) => {
                     dispatch_widget_callback(root_widget.as_mut(), event.callback_id, event.event);
-                    let windows = with_system(|s| s.windows.clone());
-                    for (_, window) in windows {
-                        if let Some(window_root_widget) = get_widget_by_id_mut(
-                            self.root_widget.as_mut().unwrap().as_mut(),
-                            window.root_widget_id,
-                        )
-                        .or_report_err()
-                        {
-                            window.with_root(window_root_widget).after_widget_activity();
-                        }
-                    }
                 }
                 UserEvent::Accesskit(event) => {
                     let Some(window) =
@@ -413,7 +419,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     }
                 }
             }
-            self.after_handler();
+            self.after_widget_activity();
         })
     }
 
@@ -426,7 +432,7 @@ impl ApplicationHandler<UserEvent> for Handler {
             } else {
                 event_loop.set_control_flow(ControlFlow::Wait);
             }
-            self.after_handler();
+            self.after_widget_activity();
         })
     }
 }

@@ -15,19 +15,15 @@ use {
     lightningcss::{
         properties::{
             align::GapValue,
-            custom::{CustomPropertyName, Token, TokenOrValue},
-        },
-        rules::CssRule,
-        selector::{Component, PseudoClass, PseudoElement, Selector},
-        stylesheet::StyleSheet,
-    },
-    lightningcss::{
-        properties::{
             border::{BorderSideWidth, LineStyle},
+            custom::{CustomPropertyName, Token, TokenOrValue},
             font::{FontSize, LineHeight},
             size::Size,
             Property,
         },
+        rules::CssRule,
+        selector::{Component, PseudoClass, PseudoElement, Selector},
+        stylesheet::StyleSheet,
         values::{
             color::CssColor,
             gradient::{Gradient, GradientItem, LineDirection, LinearGradient},

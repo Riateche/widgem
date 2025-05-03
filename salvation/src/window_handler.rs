@@ -9,8 +9,8 @@ use {
         system::{address, with_system, ReportError},
         types::{Point, Rect, Size},
         widgets::{
-            self, get_widget_by_id_mut, invalidate_size_hint_cache, RawWidgetId, Widget,
-            WidgetAddress, WidgetExt,
+            self, get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
+            RawWidgetId, Widget, WidgetAddress, WidgetExt,
         },
         window::{MouseEventState, Window, WindowId, WindowRequest},
     },
@@ -326,6 +326,17 @@ impl WindowWithWidget<'_> {
     }
 
     pub fn after_widget_activity(&mut self) {
+        if !self.window.has_winit_window() {
+            self.window.init_winit_window(self.root_widget);
+        }
+        let accessible_updates = self.window.take_pending_accessible_updates();
+        for addr in accessible_updates {
+            let Some(widget) = get_widget_by_address_mut(self.root_widget, &addr).or_report_err()
+            else {
+                continue;
+            };
+            widget.update_accessible();
+        }
         self.window.push_accessible_updates();
         let pending_size_hint_invalidations = self.window.take_pending_size_hint_invalidations();
         if !pending_size_hint_invalidations.is_empty() {
@@ -340,14 +351,6 @@ impl WindowWithWidget<'_> {
             self.check_auto_focus();
         }
         // TODO: may need another turn of `after_widget_activity()`
-    }
-
-    pub fn after_event(&mut self) {
-        if !self.window.has_winit_window() {
-            self.window.init_winit_window(self.root_widget);
-            //self.layout(vec![]);
-            self.after_widget_activity();
-        }
     }
 
     fn unset_focus(&mut self) {

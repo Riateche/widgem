@@ -46,7 +46,7 @@ impl ScrollArea {
             .unwrap()
             .widget
             .common_mut()
-            .child::<T>(0)
+            .add_child::<T>(0)
     }
 
     // pub fn set_content(&mut self, content: Box<dyn Widget>) {
@@ -202,9 +202,7 @@ impl Widget for ScrollArea {
             .set_column(0)
             .set_row(0);
         common.set_grid_options(Some(GridOptions::ZERO));
-        Self {
-            common,
-        }
+        Self { common }
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
@@ -255,9 +253,7 @@ impl Widget for Viewport {
     impl_widget_common!();
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
-        Self {
-            common,
-        }
+        Self { common }
     }
 
     fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {

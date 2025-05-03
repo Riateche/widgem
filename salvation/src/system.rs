@@ -15,7 +15,8 @@ use {
     log::warn,
     std::{
         cell::RefCell,
-        collections::HashMap,
+        collections::{HashMap, HashSet},
+        mem,
         time::{Duration, Instant},
     },
     winit::event_loop::EventLoopProxy,
@@ -41,10 +42,13 @@ pub struct SharedSystemDataInner {
     pub(crate) event_loop_proxy: EventLoopProxy<UserEvent>,
     pub timers: Timers,
     pub clipboard: Clipboard,
+    pub had_any_windows: bool,
     pub windows: HashMap<WindowId, WindowInfo>,
     pub windows_by_winit_id: HashMap<winit::window::WindowId, WindowInfo>,
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
     pub application_shortcuts: Vec<Shortcut>,
+    pub pending_children_updates: Vec<WidgetAddress>,
+    pub widgets_created_in_current_children_update: Option<HashSet<RawWidgetId>>,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);
@@ -114,4 +118,14 @@ where
     fn or_report_err(self) -> Option<Self::Output> {
         self.map_err(|err| report_error(err)).ok()
     }
+}
+
+pub(crate) fn request_children_update(addr: WidgetAddress) {
+    with_system(|system| {
+        system.pending_children_updates.push(addr);
+    })
+}
+
+pub(crate) fn take_pending_children_updates() -> Vec<WidgetAddress> {
+    with_system(|system| mem::take(&mut system.pending_children_updates))
 }

@@ -1,27 +1,30 @@
 use {
     salvation::{
+        event::DeclareChildrenEvent,
         impl_widget_common,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
             label::Label, scroll_bar::ScrollBar, window::WindowWidget, Widget, WidgetCommon,
-            WidgetCommonTyped, WidgetExt, WidgetId,
+            WidgetCommonTyped, WidgetExt,
         },
     },
     salvation_test_kit::context::Context,
+    std::ops::RangeInclusive,
 };
 
 pub struct RootWidget {
     common: WidgetCommonTyped<Self>,
-    label_id: WidgetId<Label>,
-    scroll_bar_id: WidgetId<ScrollBar>,
+    range: RangeInclusive<i32>,
+    axis: Axis,
+    focusable: bool,
+    value: i32,
 }
 
 impl RootWidget {
     fn on_scroll_bar_value_changed(&mut self, value: i32) -> anyhow::Result<()> {
-        self.common
-            .widget(self.label_id)?
-            .set_text(value.to_string());
+        self.value = value;
+        self.common.update();
         Ok(())
     }
 }
@@ -30,82 +33,83 @@ impl Widget for RootWidget {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        let id = common.id();
-        let window = common
-            .add_child::<WindowWidget>(0)
-            .set_title(module_path!());
-
-        let value = 0;
-
-        let scroll_bar_id = window
-            .common_mut()
-            .child::<ScrollBar>(0)
-            .set_column(0)
-            .set_row(0)
-            .on_value_changed(id.callback(Self::on_scroll_bar_value_changed))
-            .set_value(value)
-            .id();
-
-        let label_id = window
-            .common_mut()
-            .child::<Label>(1)
-            .set_column(0)
-            .set_row(1)
-            .set_text(value.to_string())
-            .id();
-
-        let mut this = Self {
-            common,
-            label_id,
-            scroll_bar_id,
-        };
-
-        let on_r = id.callback(|this, _| {
-            let scroll_bar = this.common.widget(this.scroll_bar_id)?;
-            match scroll_bar.axis() {
-                Axis::X => {
-                    scroll_bar.set_axis(Axis::Y);
-                }
-                Axis::Y => {
-                    scroll_bar.set_axis(Axis::X);
-                }
-            }
+        let on_r = common.callback(|this, _| {
+            this.axis = match this.axis {
+                Axis::X => Axis::Y,
+                Axis::Y => Axis::X,
+            };
+            this.common.update();
             Ok(())
         });
-        let on_1 = id.callback(|this, _| {
-            let scroll_bar = this.common.widget(this.scroll_bar_id)?;
-            scroll_bar.set_value_range(0..=10000);
+        let on_1 = common.callback(|this, _| {
+            this.range = 0..=10000;
+            this.common.update();
             Ok(())
         });
-        let on_f = id.callback(|this, _| {
-            let scroll_bar = this.common.widget(this.scroll_bar_id)?;
-            let focusable = scroll_bar.common().is_focusable();
-            scroll_bar.common_mut().set_focusable(!focusable);
+        let on_f = common.callback(|this, _| {
+            this.focusable = !this.focusable;
+            this.common.update();
             Ok(())
         });
-        this.common.add_shortcut(Shortcut::new(
+        common.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("R").unwrap(),
             ShortcutScope::Application,
             on_r,
         ));
-        this.common.add_shortcut(Shortcut::new(
+        common.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("1").unwrap(),
             ShortcutScope::Application,
             on_1,
         ));
-        this.common.add_shortcut(Shortcut::new(
+        common.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("f").unwrap(),
             ShortcutScope::Application,
             on_f,
         ));
-        this
+
+        Self {
+            common,
+            range: 0..=100,
+            axis: Axis::X,
+            focusable: false,
+            value: 0,
+        }
+    }
+
+    fn handle_declare_children(&mut self, _event: DeclareChildrenEvent) -> anyhow::Result<()> {
+        let id = self.common.id();
+
+        let window = self
+            .common
+            .declare_child::<WindowWidget>(0)
+            .set_title(module_path!());
+
+        window
+            .common_mut()
+            .declare_child::<ScrollBar>(0)
+            .set_column(0)
+            .set_row(0)
+            .set_axis(self.axis)
+            .set_value_range(self.range.clone())
+            .set_focusable(self.focusable)
+            .set_value(self.value)
+            .on_value_changed(id.callback(Self::on_scroll_bar_value_changed));
+
+        window
+            .common_mut()
+            .declare_child::<Label>(1)
+            .set_column(0)
+            .set_row(1)
+            .set_text(self.value.to_string());
+
+        Ok(())
     }
 }
 
 #[salvation_test_kit::test]
 pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -121,7 +125,7 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -164,7 +168,7 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -205,7 +209,7 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -254,7 +258,7 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -298,7 +302,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     ctx.connection().mouse_move_global(0, 0)?;
@@ -327,7 +331,7 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -364,7 +368,7 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().child::<RootWidget>(0);
+        r.common_mut().add_child::<RootWidget>(0);
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;

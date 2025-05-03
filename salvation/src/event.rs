@@ -1,22 +1,16 @@
 #![allow(clippy::new_without_default)]
 
-use winit::{
-    dpi::PhysicalPosition,
-    event::{MouseScrollDelta, TouchPhase},
-};
-
 pub use crate::draw::DrawEvent;
-use crate::widgets::WidgetCommon;
-
 use {
     crate::{
         types::{Point, Rect},
-        widgets::WidgetAddress,
+        widgets::{WidgetAddress, WidgetCommon},
     },
     accesskit::{Action, ActionData},
     derive_more::From,
     winit::{
-        event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton},
+        dpi::PhysicalPosition,
+        event::{DeviceId, ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase},
         keyboard::ModifiersState,
     },
 };
@@ -31,6 +25,7 @@ pub enum Event {
     KeyboardInput(KeyboardInputEvent),
     Ime(ImeEvent),
     Draw(DrawEvent),
+    DeclareChildren(DeclareChildrenEvent),
     Layout(LayoutEvent),
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
@@ -202,3 +197,6 @@ pub struct StyleChangeEvent {}
 pub struct EnabledChangeEvent {
     pub is_enabled: bool,
 }
+
+#[derive(Debug, Clone)]
+pub struct DeclareChildrenEvent {}

@@ -212,14 +212,12 @@ impl Widget for TextInput {
         viewport.common_mut().cursor_icon = CursorIcon::Text;
         let editor = viewport
             .common_mut()
-            .child::<Text>(0)
+            .add_child::<Text>(0)
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id);
         editor.common_mut().receives_all_mouse_events = true;
-        let mut t = Self {
-            common,
-        };
+        let mut t = Self { common };
         t.refresh_style();
         t
     }

@@ -5,12 +5,12 @@ use {
         event::{EnabledChangeEvent, Event, StyleChangeEvent},
         layout::{SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
         style::{computed::ComputedStyle, css::MyPseudoClass, Style},
-        system::ReportError,
+        system::{with_system, ReportError},
     },
     anyhow::Result,
     itertools::Itertools,
-    log::warn,
-    std::{marker::PhantomData, rc::Rc},
+    log::{error, warn},
+    std::{collections::HashSet, marker::PhantomData, rc::Rc},
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
@@ -192,7 +192,20 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::EnabledChange(_) => {
                 self.common_mut().enabled_changed();
             }
-            _ => {}
+            Event::DeclareChildren(_) => {
+                let in_progress = with_system(|system| {
+                    system.widgets_created_in_current_children_update.is_some()
+                });
+                if in_progress {
+                    error!("attempted to dispatch Event::DeclareChildren while another is running");
+                    return false;
+                }
+                with_system(|system| {
+                    system.widgets_created_in_current_children_update = Some(HashSet::new());
+                });
+                self.common_mut().before_declare_children();
+            }
+            Event::Draw(_) | Event::Accessible(_) | Event::ScrollToRect(_) => {}
         }
         if !accepted && should_dispatch {
             if let Some(event_filter) = &mut self.common_mut().event_filter {
@@ -234,6 +247,17 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         }
                     }
                 }
+            }
+            Event::DeclareChildren(_) => {
+                let Some(created) =
+                    with_system(|system| system.widgets_created_in_current_children_update.take())
+                else {
+                    error!(
+                        "missing widgets_created_in_current_children_update after DeclareChildren"
+                    );
+                    return false;
+                };
+                self.common_mut().after_declare_children(created);
             }
             Event::WindowFocusChange(event) => {
                 for child in self.common_mut().children.values_mut() {
@@ -330,9 +354,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
 
     fn update_accessible(&mut self) {
-        if !self.common().pending_accessible_update {
-            return;
-        }
         let node = if self.common().is_accessible {
             self.accessible_node()
         } else {
@@ -342,6 +363,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let Some(window) = self.common().window.as_ref() else {
             return;
         };
+        // TODO: refresh after layout event
         let rect = self.common().rect_in_window;
         let node = node.map(|mut node| {
             if let Some(rect) = rect {
@@ -355,7 +377,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             node
         });
         window.accessible_update(self.common().id.0.into(), node);
-        self.common_mut().pending_accessible_update = false;
     }
 
     fn size_hint_x(&mut self, mode: SizeHintMode) -> i32 {
@@ -469,6 +490,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         }
     }
 
+    // TODO: check for row/column conflict
     fn set_row(&mut self, row: i32) -> &mut Self {
         let mut options = self.common().layout_item_options().clone();
         options.y.pos_in_grid = Some(row..=row);

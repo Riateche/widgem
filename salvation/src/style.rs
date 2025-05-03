@@ -8,11 +8,11 @@ use {
         properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
     },
     serde::{Deserialize, Serialize},
-    std::hash::Hash,
     std::{
         borrow::Cow,
         collections::HashMap,
         fmt::Debug,
+        hash::Hash,
         path::{Path, PathBuf},
         rc::Rc,
     },

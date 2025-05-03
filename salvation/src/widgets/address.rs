@@ -3,6 +3,7 @@ use {
     std::fmt::Debug,
 };
 
+// TODO: store only keys?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WidgetAddress {
     pub path: Vec<(Key, RawWidgetId)>,
