@@ -5,6 +5,7 @@ use {
     salvation::{
         event::LayoutEvent,
         impl_widget_common,
+        key::FormatKey,
         layout::SizeHintMode,
         system::add_interval,
         types::Rect,
@@ -15,13 +16,24 @@ use {
         },
         App,
     },
-    std::time::Duration,
+    std::{fmt::Display, time::Duration},
 };
 
 struct AnotherWidget {
     common: WidgetCommonTyped<Self>,
     counter: i32,
 }
+
+// #[derive(Debug)]
+// enum Abc {
+//     Def,
+// }
+
+// impl FormatKey for Abc {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         writeln!(f, "{:?}", self)
+//     }
+// }
 
 impl Widget for AnotherWidget {
     impl_widget_common!();
