@@ -48,7 +48,14 @@ pub struct SharedSystemDataInner {
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
     pub application_shortcuts: Vec<Shortcut>,
     pub pending_children_updates: Vec<WidgetAddress>,
-    pub widgets_created_in_current_children_update: Option<HashSet<RawWidgetId>>,
+    pub current_children_update: Option<ChildrenUpdateState>,
+}
+
+#[derive(Debug, Default)]
+pub struct ChildrenUpdateState {
+    // hashmap key is parent id
+    pub num_declared_children: HashMap<RawWidgetId, u32>,
+    pub declared_children: HashSet<RawWidgetId>,
 }
 
 pub struct SharedSystemData(pub RefCell<Option<SharedSystemDataInner>>);

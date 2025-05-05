@@ -12,7 +12,7 @@ pub struct Key(Box<str>);
 
 impl Debug for Key {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{}", self.0)
+        write!(f, "{}", self.0)
     }
 }
 
@@ -39,6 +39,11 @@ where
         Self(KeyFormatter(&value).to_string().into())
     }
 }
+impl From<&Key> for Key {
+    fn from(value: &Key) -> Self {
+        value.clone()
+    }
+}
 
 impl From<Box<str>> for Key {
     fn from(value: Box<str>) -> Key {
@@ -52,12 +57,12 @@ macro_rules! impl_from_debug {
     ($t:ty) => {
         impl FormatKey for $t {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                writeln!(f, "{:?}", self)
+                write!(f, "{:?}", self)
             }
         }
         impl FormatKey for &$t {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                writeln!(f, "{:?}", self)
+                write!(f, "{:?}", self)
             }
         }
     };
@@ -107,7 +112,7 @@ where
     T1: FormatKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
+        write!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
     }
 }
 impl<T0, T1, T2> FormatKey for (T0, T1, T2)
@@ -117,7 +122,7 @@ where
     T2: FormatKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(
+        write!(
             f,
             "({},{},{})",
             KeyFormatter(&self.0),
@@ -134,7 +139,7 @@ where
     T3: FormatKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(
+        write!(
             f,
             "({},{},{},{})",
             KeyFormatter(&self.0),
@@ -150,7 +155,7 @@ where
     T1: FormatKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
+        write!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
     }
 }
 impl<T0, T1, T2> FormatKey for &(T0, T1, T2)
@@ -160,7 +165,7 @@ where
     T2: FormatKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(
+        write!(
             f,
             "({},{},{})",
             KeyFormatter(&self.0),
@@ -177,7 +182,7 @@ where
     T3: FormatKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(
+        write!(
             f,
             "({},{},{},{})",
             KeyFormatter(&self.0),
@@ -286,8 +291,8 @@ struct X {
     data: BTreeMap<Key, String>,
 }
 impl X {
-    fn get(&self, key: impl Into<Key>) -> &String {
-        self.data.get(&key.into()).unwrap()
+    fn get(&self, key: impl Into<Key>) {
+        let _ = self.data.get(&key.into());
     }
 }
 

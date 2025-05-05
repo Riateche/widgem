@@ -47,15 +47,7 @@ impl Widget for Viewport {
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(self
-            .common
-            .children
-            .get(&0)
-            .unwrap()
-            .widget
-            .downcast_ref::<Text>()
-            .unwrap()
-            .line_height() as i32)
+        Ok(self.common.get_child::<Text>(0).unwrap().line_height() as i32)
     }
 }
 
@@ -66,32 +58,20 @@ pub struct TextInput {
 impl TextInput {
     fn text_widget(&self) -> &Text {
         self.common
-            .children
-            .get(&0)
+            .get_dyn_child(0)
             .unwrap()
-            .widget
             .common()
-            .children
-            .get(&0)
+            .get_child::<Text>(0)
             .unwrap()
-            .widget
-            .downcast_ref::<Text>()
-            .expect("invalid child widget type")
     }
 
     fn text_widget_mut(&mut self) -> &mut Text {
         self.common
-            .children
-            .get_mut(&0)
+            .get_dyn_child_mut(0)
             .unwrap()
-            .widget
             .common_mut()
-            .children
-            .get_mut(&0)
+            .get_child_mut::<Text>(0)
             .unwrap()
-            .widget
-            .downcast_mut::<Text>()
-            .expect("invalid child widget type")
     }
 
     pub fn set_text(&mut self, text: impl Display) {
@@ -99,7 +79,8 @@ impl TextInput {
     }
 
     fn adjust_scroll(&mut self) {
-        let Some(editor_viewport_rect) = self.common.children.get_mut(&0).unwrap().rect_in_parent
+        let Some(editor_viewport_rect) =
+            self.common.children.get(&0.into()).unwrap().rect_in_parent
         else {
             return;
         };
@@ -107,13 +88,11 @@ impl TextInput {
         let cursor_position = self.text_widget().cursor_position();
         let mut scroll_x = self
             .common
-            .children
-            .get(&0)
+            .get_dyn_child(0)
             .unwrap()
-            .widget
             .common()
             .children
-            .get(&0)
+            .get(&0.into())
             .unwrap()
             .rect_in_parent
             .map_or(0, |rect| -rect.left());
@@ -130,22 +109,18 @@ impl TextInput {
         let new_rect = Rect::from_pos_size(Point::new(-scroll_x, 0), text_size);
         if self
             .common
-            .children
-            .get(&0)
+            .get_dyn_child(0)
             .unwrap()
-            .widget
             .common()
             .children
-            .get(&0)
+            .get(&0.into())
             .unwrap()
             .rect_in_parent
             != Some(new_rect)
         {
             self.common
-                .children
-                .get_mut(&0)
+                .get_dyn_child_mut(0)
                 .unwrap()
-                .widget
                 .common_mut()
                 .set_child_rect(0, Some(new_rect))
                 .or_report_err();
@@ -207,12 +182,15 @@ impl Widget for TextInput {
         common.set_focusable(true);
         common.cursor_icon = CursorIcon::Text;
         let host_id = common.id;
-        let viewport = common.add_child::<Viewport>(0).set_column(0).set_row(0);
+        let viewport = common
+            .add_child_with_key::<Viewport>(0)
+            .set_column(0)
+            .set_row(0);
         viewport.common_mut().receives_all_mouse_events = true;
         viewport.common_mut().cursor_icon = CursorIcon::Text;
         let editor = viewport
             .common_mut()
-            .add_child::<Text>(0)
+            .add_child_with_key::<Text>(0)
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id);

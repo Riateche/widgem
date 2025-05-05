@@ -1,7 +1,4 @@
-use {
-    super::{Key, RawWidgetId},
-    std::fmt::Debug,
-};
+use {super::RawWidgetId, crate::key::Key, std::fmt::Debug};
 
 // TODO: store only keys?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -12,7 +9,7 @@ pub struct WidgetAddress {
 impl WidgetAddress {
     pub fn root(id: RawWidgetId) -> Self {
         Self {
-            path: vec![(0, id)],
+            path: vec![("".into(), id)],
         }
     }
     pub fn join(mut self, key: Key, id: RawWidgetId) -> Self {
@@ -43,7 +40,7 @@ impl WidgetAddress {
     pub fn len(&self) -> usize {
         self.path.len()
     }
-    pub fn item_at(&self, pos: usize) -> Option<(Key, RawWidgetId)> {
-        self.path.get(pos).copied()
+    pub fn item_at(&self, pos: usize) -> Option<(&Key, &RawWidgetId)> {
+        self.path.get(pos).map(|(x, y)| (x, y))
     }
 }

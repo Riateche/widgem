@@ -1,9 +1,10 @@
 use {
     super::{Alignment, SizeHintMode},
     crate::{
+        key::Key,
         layout::{fair_split, solve_layout},
         types::{Rect, Size},
-        widgets::{Child, Key, WidgetExt},
+        widgets::{Child, WidgetExt},
     },
     anyhow::Result,
     itertools::Itertools,
@@ -268,7 +269,7 @@ fn x_layout(
         } else {
             *column_size
         };
-        child_sizes.insert(*key, child_size);
+        child_sizes.insert(key.clone(), child_size);
     }
     Ok(XLayout {
         padding: output.padding,
@@ -395,7 +396,7 @@ pub fn layout(
             *row_size
         };
         result.insert(
-            *key,
+            key.clone(),
             Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
         );
     }

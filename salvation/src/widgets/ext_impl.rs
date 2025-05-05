@@ -10,7 +10,7 @@ use {
     anyhow::Result,
     itertools::Itertools,
     log::{error, warn},
-    std::{collections::HashSet, marker::PhantomData, rc::Rc},
+    std::{marker::PhantomData, rc::Rc},
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
@@ -193,17 +193,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().enabled_changed();
             }
             Event::DeclareChildren(_) => {
-                let in_progress = with_system(|system| {
-                    system.widgets_created_in_current_children_update.is_some()
-                });
+                let in_progress = with_system(|system| system.current_children_update.is_some());
                 if in_progress {
                     error!("attempted to dispatch Event::DeclareChildren while another is running");
                     return false;
                 }
                 with_system(|system| {
-                    system.widgets_created_in_current_children_update = Some(HashSet::new());
+                    system.current_children_update = Some(Default::default());
                 });
-                self.common_mut().before_declare_children();
             }
             Event::Draw(_) | Event::Accessible(_) | Event::ScrollToRect(_) => {}
         }
@@ -249,15 +246,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::DeclareChildren(_) => {
-                let Some(created) =
-                    with_system(|system| system.widgets_created_in_current_children_update.take())
+                let Some(state) = with_system(|system| system.current_children_update.take())
                 else {
                     error!(
                         "missing widgets_created_in_current_children_update after DeclareChildren"
                     );
                     return false;
                 };
-                self.common_mut().after_declare_children(created);
+                self.common_mut().after_declare_children(state);
             }
             Event::WindowFocusChange(event) => {
                 for child in self.common_mut().children.values_mut() {
@@ -269,7 +265,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::Layout(_) => {
                 // TODO: optimize
-                let keys = self.common().children.keys().copied().collect_vec();
+                let keys = self.common().children.keys().cloned().collect_vec();
                 for key in keys {
                     if !self
                         .common()
@@ -289,7 +285,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         let rect_in_parent =
                             self.common().children.get(&key).unwrap().rect_in_parent;
                         self.common_mut()
-                            .set_child_rect(key, rect_in_parent)
+                            .set_child_rect(key.clone(), rect_in_parent)
                             .or_report_err();
                     }
                     self.common_mut()
@@ -306,8 +302,8 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     if event.address.starts_with(&self.common().address) {
                         if let Some((key, id)) = event.address.item_at(self.common().address.len())
                         {
-                            if let Some(child) = self.common_mut().children.get_mut(&key) {
-                                if child.widget.common().id == id {
+                            if let Some(child) = self.common_mut().children.get_mut(key) {
+                                if &child.widget.common().id == id {
                                     child.widget.dispatch(event.clone().into());
                                 } else {
                                     warn!("child id mismatch while dispatching ScrollToRectEvent");

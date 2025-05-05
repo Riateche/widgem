@@ -5,7 +5,6 @@ use {
     salvation::{
         event::LayoutEvent,
         impl_widget_common,
-        key::FormatKey,
         layout::SizeHintMode,
         system::add_interval,
         types::Rect,
@@ -16,7 +15,7 @@ use {
         },
         App,
     },
-    std::{fmt::Display, time::Duration},
+    std::time::Duration,
 };
 
 struct AnotherWidget {
@@ -45,12 +44,12 @@ impl Widget for AnotherWidget {
             println!("counter: {}", this.counter);
             let window = this
                 .common
-                .add_child::<WindowWidget>(this.counter as u64)
+                .add_child_with_key::<WindowWidget>(("window", this.counter))
                 .set_title("example");
             println!("window {:?}", window.id());
             let label = window
                 .common_mut()
-                .add_child::<Label>(0)
+                .add_child::<Label>()
                 .set_column(0)
                 .set_row(0)
                 .set_text(format!("counter: {}", this.counter));
@@ -59,7 +58,7 @@ impl Widget for AnotherWidget {
         });
         let button = this
             .common_mut()
-            .add_child::<Button>(0)
+            .add_child_with_key::<Button>("button")
             .set_column(0)
             .set_row(1);
         button.set_text("another button");
@@ -70,40 +69,32 @@ impl Widget for AnotherWidget {
     fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
         Ok(self
             .common_mut()
-            .children
-            .get_mut(&0)
+            .get_dyn_child_mut("button")
             .unwrap()
-            .widget
             .size_hint_x(mode))
     }
     fn recalculate_size_x_fixed(&mut self) -> bool {
         self.common_mut()
-            .children
-            .get_mut(&0)
+            .get_dyn_child_mut("button")
             .unwrap()
-            .widget
             .size_x_fixed()
     }
     fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         Ok(self
             .common_mut()
-            .children
-            .get_mut(&0)
+            .get_dyn_child_mut("button")
             .unwrap()
-            .widget
             .size_hint_y(size_x, mode))
     }
     fn recalculate_size_y_fixed(&mut self) -> bool {
         self.common_mut()
-            .children
-            .get_mut(&0)
+            .get_dyn_child_mut("button")
             .unwrap()
-            .widget
             .size_y_fixed()
     }
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
         self.common.set_child_rect(
-            0,
+            "button",
             event
                 .new_rect_in_window
                 .map(|r| Rect::from_pos_size(Default::default(), r.size)),
@@ -163,21 +154,21 @@ impl Widget for RootWidget {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         let id = common.id();
 
-        let window = common.add_child::<WindowWidget>(0).set_title("example");
+        let window = common.add_child::<WindowWidget>().set_title("example");
 
         let root = window
             .common_mut()
-            .add_child::<Column>(0)
+            .add_child::<Column>()
             .set_column(0)
             .set_row(0);
 
         root.common_mut()
-            .add_child::<TextInput>(0)
+            .add_child::<TextInput>()
             .set_column(0)
             .set_row(0)
             .set_text("Hello, Rust! 🦀😂\n");
         root.common_mut()
-            .add_child::<TextInput>(1)
+            .add_child::<TextInput>()
             .set_column(0)
             .set_row(1)
             .set_text("Hebrew name Sarah: שרה.");
@@ -200,7 +191,7 @@ impl Widget for RootWidget {
 
         let button_id = root
             .common_mut()
-            .add_child::<Button>(2)
+            .add_child::<Button>()
             .set_column(0)
             .set_row(2)
             .set_text("btn1")
@@ -209,7 +200,7 @@ impl Widget for RootWidget {
             .id();
 
         root.common_mut()
-            .add_child::<Button>(3)
+            .add_child::<Button>()
             .set_column(0)
             .set_row(3)
             .set_text("btn2")
@@ -217,12 +208,12 @@ impl Widget for RootWidget {
 
         let column2 = root
             .common_mut()
-            .add_child::<Column>(4)
+            .add_child::<Column>()
             .set_column(0)
             .set_row(4);
         let button21_id = column2
             .common_mut()
-            .add_child::<Button>(0)
+            .add_child::<Button>()
             .set_column(0)
             .set_row(0)
             .set_text("btn21")
@@ -234,7 +225,7 @@ impl Widget for RootWidget {
 
         let button22_id = column2
             .common_mut()
-            .add_child::<Button>(1)
+            .add_child::<Button>()
             .set_column(0)
             .set_row(1)
             .set_text("btn22")
@@ -242,13 +233,13 @@ impl Widget for RootWidget {
         let column2_id = column2.id();
 
         root.common_mut()
-            .add_child::<AnotherWidget>(5)
+            .add_child::<AnotherWidget>()
             .set_column(0)
             .set_row(5);
 
         let label2_id = root
             .common_mut()
-            .add_child::<Label>(6)
+            .add_child::<Label>()
             .set_column(0)
             .set_row(6)
             .set_text("ok")
@@ -256,16 +247,16 @@ impl Widget for RootWidget {
 
         let scroll_area = root
             .common_mut()
-            .add_child::<ScrollArea>(7)
+            .add_child::<ScrollArea>()
             .set_column(0)
             .set_row(7);
-        let content = scroll_area.add_content::<Column>();
+        let content = scroll_area.set_content::<Column>();
         for i in 1..=80 {
             content
                 .common_mut()
-                .add_child::<Button>(i)
+                .add_child::<Button>()
                 .set_column(0)
-                .set_row(i as i32)
+                .set_row(i)
                 .set_text(format!("btn btn btn btn btn btn btn btn btn btn{i}"));
         }
 
@@ -300,7 +291,7 @@ fn main() {
     env_logger::init();
     App::new()
         .run(|r| {
-            r.common_mut().add_child::<RootWidget>(0);
+            r.common_mut().add_child::<RootWidget>();
             Ok(())
         })
         .unwrap();

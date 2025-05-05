@@ -974,7 +974,7 @@ impl Widget for Text {
             common,
         });
         if let Some(window) = &t.common.window {
-            window.accessible_mount(Some(t.common.id.into()), t.accessible_line_id, 0);
+            window.accessible_mount(Some(t.common.id.into()), t.accessible_line_id, 0.into());
         }
         t.editor.set_cursor_hidden(true);
         t.reset_blink_timer();

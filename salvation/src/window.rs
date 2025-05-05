@@ -4,9 +4,10 @@ use {
         draw::DrawEvent,
         event::FocusReason,
         event_loop::with_active_event_loop,
+        key::Key,
         system::with_system,
         types::{Point, Rect, Size},
-        widgets::{Key, RawWidgetId, Widget, WidgetAddress, WidgetExt},
+        widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
         window_handler::WindowInfo,
     },
     accesskit::{NodeBuilder, NodeId},
@@ -322,12 +323,12 @@ impl Window {
         &self,
         parent: Option<NodeId>,
         child: NodeId,
-        index_in_parent: usize,
+        key_in_parent: Key,
     ) {
         self.0
             .borrow_mut()
             .accessible_nodes
-            .mount(parent, child, index_in_parent);
+            .mount(parent, child, key_in_parent);
     }
 
     pub(crate) fn accessible_update(&self, id: NodeId, node: Option<NodeBuilder>) {

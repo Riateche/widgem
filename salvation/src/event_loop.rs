@@ -321,7 +321,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     widget_callbacks: HashMap::new(),
                     application_shortcuts: Vec::new(),
                     pending_children_updates: Vec::new(),
-                    widgets_created_in_current_children_update: None,
+                    current_children_update: None,
                 };
                 SYSTEM.with(|system| {
                     *system.0.borrow_mut() = Some(shared_system_data);
@@ -401,7 +401,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                             {
                                 match parent
                                     .common_mut()
-                                    .remove_child(address.path.last().unwrap().0)
+                                    .remove_child(&address.path.last().unwrap().0)
                                 {
                                     Ok(_) => {}
                                     Err(err) => {

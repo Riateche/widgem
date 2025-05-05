@@ -41,7 +41,6 @@ pub trait Widget: Downcast {
     fn handle_declare_children(&mut self, event: DeclareChildrenEvent) -> Result<()> {
         let _ = event;
         self.common_mut().has_declare_children_override = false;
-        self.common_mut().delete_undeclared_children = false;
         Ok(())
     }
     fn handle_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {

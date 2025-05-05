@@ -3,6 +3,7 @@ use {
     crate::{
         callback::{widget_callback, Callback},
         event::{Event, LayoutEvent},
+        key::Key,
         layout::{
             grid::{GridAxisOptions, GridOptions},
             Alignment, LayoutItemOptions, SizeHintMode,
@@ -12,7 +13,10 @@ use {
             computed::{CommonComputedStyle, ComputedElementStyle, ComputedStyle},
             css::{Element, MyPseudoClass},
         },
-        system::{register_address, request_children_update, unregister_address, with_system},
+        system::{
+            register_address, request_children_update, unregister_address, with_system,
+            ChildrenUpdateState,
+        },
         types::{Point, Rect, Size},
         window::{Window, WindowId},
     },
@@ -109,17 +113,15 @@ pub struct WidgetCommon {
     pub style_element: Element,
     pub common_style: Rc<CommonComputedStyle>,
 
+    pub num_added_children: u32,
     pub has_declare_children_override: bool,
-    pub delete_undeclared_children: bool,
-    pub num_declared_children: u32,
+    // Direct and indirect children created by last call of this widget's
+    // `handle_update_children`.
     pub declared_children: HashSet<RawWidgetId>,
 
     // TODO: add setter
     pub send_signals_on_setter_calls: bool,
 }
-
-// TODO: enum with other types
-pub type Key = u64;
 
 impl Drop for WidgetCommon {
     fn drop(&mut self) {
@@ -180,11 +182,9 @@ impl WidgetCommon {
             style_element,
             common_style,
             has_declare_children_override: true,
-            // Defaults to false if declare_children is not overwritten.
-            delete_undeclared_children: true,
-            num_declared_children: 0,
-            declared_children: HashSet::new(),
             send_signals_on_setter_calls: false,
+            num_added_children: 0,
+            declared_children: Default::default(),
         };
 
         if let Some(window) = &common.window {
@@ -204,8 +204,11 @@ impl WidgetCommon {
                     .address
                     .path
                     .last()
-                    .map(|(index, _id)| *index)
-                    .unwrap_or_default() as usize,
+                    .map(|(key, _id)| key.clone())
+                    .unwrap_or_else(|| {
+                        warn!("WidgetCommon::new: empty address encountered");
+                        "".into()
+                    }),
             );
         }
         common.update();
@@ -328,19 +331,44 @@ impl WidgetCommon {
         request_children_update(self.address.clone());
     }
 
-    pub fn has_child(&self, key: Key) -> bool {
-        self.children.contains_key(&key)
+    pub fn has_child(&self, key: impl Into<Key>) -> bool {
+        self.children.contains_key(&key.into())
     }
 
-    pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
-        self.add_child_common(key, false)
+    pub fn add_child<T: Widget>(&mut self) -> &mut T {
+        let key = self.num_added_children;
+        self.num_added_children += 1;
+        self.add_child_common(key.into(), false, None)
     }
 
-    pub fn declare_child<T: Widget>(&mut self, key: Key) -> &mut T {
-        self.add_child_common(key, true)
+    pub fn add_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
+        self.add_child_common(key.into(), false, None)
     }
 
-    fn add_child_common<T: Widget>(&mut self, key: Key, declare: bool) -> &mut T {
+    pub fn declare_child<T: Widget>(&mut self) -> &mut T {
+        let key = with_system(|system| {
+            let Some(state) = system.current_children_update.as_mut() else {
+                warn!("declare_child called outside of handle_update_children");
+                return 0;
+            };
+            let num = state.num_declared_children.entry(self.id).or_default();
+            let key = *num;
+            *num += 1;
+            key
+        });
+        self.add_child_common(key.into(), true, None)
+    }
+
+    pub fn declare_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
+        self.add_child_common(key.into(), true, None)
+    }
+
+    fn add_child_common<T: Widget>(
+        &mut self,
+        key: Key,
+        declare: bool,
+        new_id: Option<RawWidgetId>,
+    ) -> &mut T {
         if declare {
             if let Some(old_widget) = self
                 .children
@@ -348,8 +376,8 @@ impl WidgetCommon {
                 .and_then(|c| c.widget.downcast_mut::<T>())
             {
                 with_system(|system| {
-                    if let Some(declared) = &mut system.widgets_created_in_current_children_update {
-                        declared.insert(old_widget.common().id);
+                    if let Some(state) = &mut system.current_children_update {
+                        state.declared_children.insert(old_widget.common().id);
                     } else {
                         warn!("declare_child shouldn't be used outside of declare_children()");
                     }
@@ -364,16 +392,16 @@ impl WidgetCommon {
             }
         }
 
-        let new_id = RawWidgetId::new();
+        let new_id = new_id.unwrap_or_else(RawWidgetId::new);
         let ctx = if T::is_window_root_type() {
             let new_window = Window::new(new_id);
-            self.new_creation_context(new_id, key, Some(new_window.clone()))
+            self.new_creation_context(new_id, key.clone(), Some(new_window.clone()))
         } else {
-            self.new_creation_context(new_id, key, None)
+            self.new_creation_context(new_id, key.clone(), None)
         };
         // This may delete the old widget.
         self.children.insert(
-            key,
+            key.clone(),
             Child {
                 widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
                 rect_in_parent: None,
@@ -384,8 +412,8 @@ impl WidgetCommon {
         let widget = &mut self.children.get_mut(&key).unwrap().widget;
         if declare {
             with_system(|system| {
-                if let Some(declared) = &mut system.widgets_created_in_current_children_update {
-                    declared.insert(widget.common().id);
+                if let Some(state) = &mut system.current_children_update {
+                    state.declared_children.insert(widget.common().id);
                 } else {
                     warn!("declare_child shouldn't be used outside of declare_children()");
                 }
@@ -394,18 +422,34 @@ impl WidgetCommon {
         widget.downcast_mut().unwrap()
     }
 
-    pub fn get_child<T: Widget>(&self, key: Key) -> anyhow::Result<&T> {
+    pub fn get_dyn_child(&self, key: impl Into<Key>) -> anyhow::Result<&dyn Widget> {
+        Ok(&*self
+            .children
+            .get(&key.into())
+            .context("no such key")?
+            .widget)
+    }
+
+    pub fn get_dyn_child_mut(&mut self, key: impl Into<Key>) -> anyhow::Result<&mut dyn Widget> {
+        Ok(&mut *self
+            .children
+            .get_mut(&key.into())
+            .context("no such key")?
+            .widget)
+    }
+
+    pub fn get_child<T: Widget>(&self, key: impl Into<Key>) -> anyhow::Result<&T> {
         self.children
-            .get(&key)
+            .get(&key.into())
             .context("no such key")?
             .widget
             .downcast_ref()
             .context("child type mismatch")
     }
 
-    pub fn get_child_mut<T: Widget>(&mut self, key: Key) -> anyhow::Result<&mut T> {
+    pub fn get_child_mut<T: Widget>(&mut self, key: impl Into<Key>) -> anyhow::Result<&mut T> {
         self.children
-            .get_mut(&key)
+            .get_mut(&key.into())
             .context("no such key")?
             .widget
             .downcast_mut()
@@ -421,8 +465,8 @@ impl WidgetCommon {
         self.size_hint_changed();
     }
 
-    pub fn remove_child(&mut self, key: Key) -> Result<(), WidgetNotFound> {
-        self.children.remove(&key).ok_or(WidgetNotFound)?;
+    pub fn remove_child(&mut self, key: impl Into<Key>) -> Result<(), WidgetNotFound> {
+        self.children.remove(&key.into()).ok_or(WidgetNotFound)?;
         self.size_hint_changed();
         Ok(())
     }
@@ -445,7 +489,7 @@ impl WidgetCommon {
             return Err(WidgetNotFound);
         };
         if parent_id == self.id {
-            return self.remove_child(address.path.last().unwrap().0);
+            return self.remove_child(&address.path.last().unwrap().0);
         }
         let remaining_path = &address.path[self.address.len()..];
         let Some(mut current_widget) = self
@@ -459,7 +503,7 @@ impl WidgetCommon {
             if current_widget.common().id == parent_id {
                 return current_widget
                     .common_mut()
-                    .remove_child(address.path.last().unwrap().0);
+                    .remove_child(&address.path.last().unwrap().0);
             }
             current_widget = current_widget
                 .common_mut()
@@ -473,11 +517,16 @@ impl WidgetCommon {
         Err(WidgetNotFound)
     }
 
-    pub fn set_child_rect(&mut self, key: Key, rect_in_parent: Option<Rect>) -> Result<()> {
+    pub fn set_child_rect(
+        &mut self,
+        key: impl Into<Key>,
+        rect_in_parent: Option<Rect>,
+    ) -> Result<()> {
+        let key = key.into();
         let child = self
             .children
             .get_mut(&key)
-            .context("set_child_rect: invalid child index")?;
+            .with_context(|| format!("set_child_rect: invalid child key: {:?}", &key))?;
         if child.widget.common().is_window_root {
             bail!("cannot set child rect for child window");
         }
@@ -544,7 +593,7 @@ impl WidgetCommon {
 
     pub fn set_child_rects(&mut self, rects: &BTreeMap<Key, Rect>) -> Result<()> {
         for (key, rect) in rects {
-            self.set_child_rect(*key, Some(*rect))?;
+            self.set_child_rect(key.clone(), Some(*rect))?;
         }
         Ok(())
     }
@@ -723,24 +772,15 @@ impl WidgetCommon {
         self.update();
     }
 
-    pub fn before_declare_children(&mut self) {
-        self.num_declared_children = 0;
-    }
-
-    pub fn after_declare_children(&mut self, created: HashSet<RawWidgetId>) {
-        if self.delete_undeclared_children {
-            let previous = mem::take(&mut self.declared_children);
-            // println!("before {:?}", previous);
-            // println!("after {:?}", created);
-            let to_delete = previous.difference(&created);
-            for id in to_delete {
-                //let _ = self.remove_child_by_id(*id);
-                if self.remove_child_by_id(*id).is_ok() {
-                    println!("deleted {:?}", id);
-                }
+    pub fn after_declare_children(&mut self, state: ChildrenUpdateState) {
+        let previous = mem::take(&mut self.declared_children);
+        let to_delete = previous.difference(&state.declared_children);
+        for id in to_delete {
+            if self.remove_child_by_id(*id).is_ok() {
+                //                println!("deleted {:?}", id);
             }
         }
-        self.declared_children = created;
+        self.declared_children = state.declared_children;
     }
 }
 
@@ -764,8 +804,11 @@ impl<W> WidgetCommonTyped<W> {
         widget_callback(WidgetId::<W>::new(self.common.id), func)
     }
 
-    pub fn add_child<T: Widget>(&mut self, key: Key) -> &mut T {
-        self.common.add_child::<T>(key)
+    pub fn add_child<T: Widget>(&mut self) -> &mut T {
+        self.common.add_child::<T>()
+    }
+    pub fn add_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
+        self.common.add_child_with_key::<T>(key)
     }
 }
 

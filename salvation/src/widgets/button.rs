@@ -204,11 +204,11 @@ impl Widget for Button {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         common.set_focusable(true);
         common
-            .add_child::<Image>(0)
+            .add_child::<Image>()
             .set_column(0)
             .set_row(0)
             .set_visible(false);
-        common.add_child::<Text>(1).set_column(1).set_row(0);
+        common.add_child::<Text>().set_column(1).set_row(0);
         let mut b = Self {
             auto_repeat: false,
             is_mouse_leave_sensitive: true,

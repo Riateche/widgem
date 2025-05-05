@@ -1,5 +1,5 @@
 use {
-    crate::widgets::RawWidgetId,
+    crate::{key::Key, widgets::RawWidgetId},
     accesskit::{NodeBuilder, NodeId, Role, Tree, TreeUpdate},
     derivative::Derivative,
     log::warn,
@@ -13,7 +13,8 @@ use {
 #[derivative(Debug)]
 pub struct AccessibleNodes {
     nodes: HashMap<NodeId, NodeBuilder>,
-    direct_children: HashMap<NodeId, Vec<(usize, NodeId)>>,
+    // TODO: BTreeMap? sort by visible row+column?
+    direct_children: HashMap<NodeId, Vec<(Key, NodeId)>>,
     direct_parents: HashMap<NodeId, NodeId>,
 
     pending_updates: HashSet<NodeId>,
@@ -49,28 +50,27 @@ impl AccessibleNodes {
         self.update(self.root, Some(root_node));
     }
 
-    // TODO: separate method to update index_in_parent when it changes in the widget
-    pub fn mount(&mut self, parent: Option<NodeId>, child: NodeId, index_in_parent: usize) {
+    pub fn mount(&mut self, parent: Option<NodeId>, child: NodeId, key_in_parent: Key) {
         // TODO: stricter checks and warnings
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.insert(child, parent);
         let children = self.direct_children.entry(parent).or_default();
         let index = children
-            .binary_search_by_key(&index_in_parent, |i| i.0)
+            .binary_search_by_key(&&key_in_parent, |i| &i.0)
             .unwrap_or_else(identity);
-        children.insert(index, (index_in_parent, child));
+        children.insert(index, (key_in_parent, child));
         self.mark_parent_as_pending(parent);
     }
 
-    pub fn update_index_in_parent(
-        &mut self,
-        parent: Option<NodeId>,
-        child: NodeId,
-        index_in_parent: usize,
-    ) {
-        self.unmount(parent, child);
-        self.mount(parent, child, index_in_parent);
-    }
+    // pub fn update_key_in_parent(
+    //     &mut self,
+    //     parent: Option<NodeId>,
+    //     child: NodeId,
+    //     key_in_parent: Key,
+    // ) {
+    //     self.unmount(parent, child);
+    //     self.mount(parent, child, key_in_parent);
+    // }
 
     pub fn unmount(&mut self, parent: Option<NodeId>, child: NodeId) {
         // TODO: stricter checks and warnings
@@ -148,7 +148,7 @@ impl AccessibleNodes {
 
 fn find_children(
     parent: NodeId,
-    direct_children: &HashMap<NodeId, Vec<(usize, NodeId)>>,
+    direct_children: &HashMap<NodeId, Vec<(Key, NodeId)>>,
     nodes: &HashMap<NodeId, NodeBuilder>,
     out: &mut Vec<NodeId>,
 ) {

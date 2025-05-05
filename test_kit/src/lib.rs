@@ -243,7 +243,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             }
             salvation::run(move |w| {
                 w.common_mut()
-                    .add_child::<ReviewWidget>(0)
+                    .add_child::<ReviewWidget>()
                     .set_reviewer(reviewer)
             })?;
         }
