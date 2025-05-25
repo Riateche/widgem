@@ -22,7 +22,7 @@ pub mod window;
 
 pub use self::{
     address::WidgetAddress,
-    common::{Child, EventFilterFn, WidgetCommon, WidgetCommonTyped, WidgetCreationContext},
+    common::{EventFilterFn, WidgetCommon, WidgetCommonTyped, WidgetCreationContext},
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId, WidgetWithId},
     widget_trait::Widget,
@@ -50,7 +50,6 @@ pub fn get_widget_by_address_mut<'a>(
             .children
             .get_mut(key)
             .ok_or(WidgetNotFound)?
-            .widget
             .as_mut();
     }
     Ok(current_widget)
@@ -70,7 +69,7 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
         if pending_addr.starts_with(&common.address) {
             common.clear_size_hint_cache();
             for child in common.children.values_mut() {
-                invalidate_size_hint_cache(child.widget.as_mut(), pending);
+                invalidate_size_hint_cache(child.as_mut(), pending);
             }
             return;
         }

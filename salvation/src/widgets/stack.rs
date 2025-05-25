@@ -27,7 +27,6 @@ impl Stack {
             .children
             .get_mut(&key)
             .unwrap()
-            .widget
             .downcast_mut::<T>()
             .unwrap()
     }
@@ -52,7 +51,7 @@ impl Widget for Stack {
             .common
             .children
             .values()
-            .filter_map(|c| c.widget.common().rect_in_parent)
+            .filter_map(|c| c.common().rect_in_parent)
             .map(|rect| rect.bottom_right().x)
             .max()
             .unwrap_or(0);
@@ -68,7 +67,7 @@ impl Widget for Stack {
             .common
             .children
             .values()
-            .filter_map(|c| c.widget.common().rect_in_parent)
+            .filter_map(|c| c.common().rect_in_parent)
             .map(|rect| rect.bottom_right().y)
             .max()
             .unwrap_or(0);

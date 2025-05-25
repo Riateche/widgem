@@ -105,12 +105,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
+                        if let Some(rect_in_parent) = child.common().rect_in_parent {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
-                                child.widget.common().receives_all_mouse_events,
+                                child.common().receives_all_mouse_events,
                             ) {
-                                if child.widget.dispatch(child_event.into()) {
+                                if child.dispatch(child_event.into()) {
                                     accepted = true;
                                     break;
                                 }
@@ -123,12 +123,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
+                        if let Some(rect_in_parent) = child.common().rect_in_parent {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
-                                child.widget.common().receives_all_mouse_events,
+                                child.common().receives_all_mouse_events,
                             ) {
-                                if child.widget.dispatch(child_event.into()) {
+                                if child.dispatch(child_event.into()) {
                                     accepted = true;
                                     break;
                                 }
@@ -144,12 +144,12 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
+                        if let Some(rect_in_parent) = child.common().rect_in_parent {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
-                                child.widget.common().receives_all_mouse_events,
+                                child.common().receives_all_mouse_events,
                             ) {
-                                if child.widget.dispatch(child_event.into()) {
+                                if child.dispatch(child_event.into()) {
                                     accepted = true;
                                     break;
                                 }
@@ -234,9 +234,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::Draw(event) => {
                 for child in self.common_mut().children.values_mut() {
-                    if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
+                    if let Some(rect_in_parent) = child.common().rect_in_parent {
                         if let Some(child_event) = event.map_to_child(rect_in_parent) {
-                            child.widget.dispatch(child_event.into());
+                            child.dispatch(child_event.into());
                         }
                     }
                 }
@@ -253,7 +253,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::WindowFocusChange(event) => {
                 for child in self.common_mut().children.values_mut() {
-                    child.widget.dispatch(event.clone().into());
+                    child.dispatch(event.clone().into());
                 }
             }
             Event::FocusIn(_) | Event::FocusOut(_) | Event::MouseLeave(_) => {
@@ -270,8 +270,8 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         if let Some((key, id)) = event.address.item_at(self.common().address.len())
                         {
                             if let Some(child) = self.common_mut().children.get_mut(key) {
-                                if &child.widget.common().id == id {
-                                    child.widget.dispatch(event.clone().into());
+                                if &child.common().id == id {
+                                    child.dispatch(event.clone().into());
                                 } else {
                                     warn!("child id mismatch while dispatching ScrollToRectEvent");
                                 }
@@ -288,25 +288,25 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::EnabledChange(event) => {
                 for child in self.common_mut().children.values_mut() {
-                    let old_enabled = child.widget.common_mut().is_enabled();
-                    child.widget.common_mut().is_parent_enabled = event.is_enabled;
-                    let new_enabled = child.widget.common_mut().is_enabled();
+                    let old_enabled = child.common_mut().is_enabled();
+                    child.common_mut().is_parent_enabled = event.is_enabled;
+                    let new_enabled = child.common_mut().is_enabled();
                     if old_enabled != new_enabled {
-                        child.widget.dispatch(
+                        child.dispatch(
                             EnabledChangeEvent {
                                 is_enabled: new_enabled,
                             }
                             .into(),
                         );
                         // TODO: do it when pseudo class changes instead
-                        child.widget.dispatch(StyleChangeEvent {}.into());
+                        child.dispatch(StyleChangeEvent {}.into());
                     }
                 }
             }
             Event::StyleChange(event) => {
                 for child in self.common_mut().children.values_mut() {
                     // TODO: only if really changed
-                    child.widget.dispatch(event.clone().into());
+                    child.dispatch(event.clone().into());
                 }
             }
             Event::KeyboardInput(_) | Event::Ime(_) | Event::Accessible(_) => {}

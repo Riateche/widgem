@@ -46,13 +46,6 @@ pub struct WidgetCreationContext {
 
 pub type EventFilterFn = dyn Fn(Event) -> Result<bool>;
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct Child {
-    #[derivative(Debug = "ignore")]
-    pub widget: Box<dyn Widget>,
-}
-
 // TODO: use bitflags?
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -89,7 +82,8 @@ pub struct WidgetCommon {
     // In this widget's coordinates.
     pub visible_rect: Option<Rect>,
 
-    pub children: BTreeMap<Key, Child>,
+    #[derivative(Debug = "ignore")]
+    pub children: BTreeMap<Key, Box<dyn Widget>>,
     pub layout_item_options: LayoutItemOptions,
     pub current_layout_event: Option<LayoutEvent>,
 
@@ -371,7 +365,7 @@ impl WidgetCommon {
             if let Some(old_widget) = self
                 .children
                 .get_mut(&key)
-                .and_then(|c| c.widget.downcast_mut::<T>())
+                .and_then(|c| c.downcast_mut::<T>())
             {
                 with_system(|system| {
                     if let Some(state) = &mut system.current_children_update {
@@ -385,7 +379,7 @@ impl WidgetCommon {
                 return self
                     .children
                     .get_mut(&key)
-                    .and_then(|c| c.widget.downcast_mut::<T>())
+                    .and_then(|c| c.downcast_mut::<T>())
                     .unwrap();
             }
         }
@@ -398,14 +392,10 @@ impl WidgetCommon {
             self.new_creation_context(new_id, key.clone(), None)
         };
         // This may delete the old widget.
-        self.children.insert(
-            key.clone(),
-            Child {
-                widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
-            },
-        );
+        self.children
+            .insert(key.clone(), Box::new(T::new(WidgetCommon::new::<T>(ctx))));
         self.size_hint_changed();
-        let widget = &mut self.children.get_mut(&key).unwrap().widget;
+        let widget = self.children.get_mut(&key).unwrap();
         if declare {
             with_system(|system| {
                 if let Some(state) = &mut system.current_children_update {
@@ -419,26 +409,25 @@ impl WidgetCommon {
     }
 
     pub fn get_dyn_child(&self, key: impl Into<Key>) -> anyhow::Result<&dyn Widget> {
-        Ok(&*self
+        Ok(self
             .children
             .get(&key.into())
             .context("no such key")?
-            .widget)
+            .as_ref())
     }
 
     pub fn get_dyn_child_mut(&mut self, key: impl Into<Key>) -> anyhow::Result<&mut dyn Widget> {
-        Ok(&mut *self
+        Ok(self
             .children
             .get_mut(&key.into())
             .context("no such key")?
-            .widget)
+            .as_mut())
     }
 
     pub fn get_child<T: Widget>(&self, key: impl Into<Key>) -> anyhow::Result<&T> {
         self.children
             .get(&key.into())
             .context("no such key")?
-            .widget
             .downcast_ref()
             .context("child type mismatch")
     }
@@ -447,7 +436,6 @@ impl WidgetCommon {
         self.children
             .get_mut(&key.into())
             .context("no such key")?
-            .widget
             .downcast_mut()
             .context("child type mismatch")
     }
@@ -491,7 +479,7 @@ impl WidgetCommon {
         let Some(mut current_widget) = self
             .children
             .get_mut(&remaining_path[0].0)
-            .map(|c| c.widget.as_mut())
+            .map(|c| c.as_mut())
         else {
             return Err(WidgetNotFound);
         };
@@ -506,7 +494,6 @@ impl WidgetCommon {
                 .children
                 .get_mut(key)
                 .ok_or(WidgetNotFound)?
-                .widget
                 .as_mut();
         }
         error!("remove_child_by_id: did not reach parent widget");
@@ -523,7 +510,7 @@ impl WidgetCommon {
             .children
             .get_mut(&key)
             .with_context(|| format!("set_child_rect: invalid child key: {:?}", &key))?;
-        if child.widget.common().is_window_root {
+        if child.common().is_window_root {
             bail!("cannot set child rect for child window");
         }
 
@@ -544,23 +531,23 @@ impl WidgetCommon {
         } else {
             None
         };
-        child.widget.common_mut().rect_in_parent = rect_in_parent;
+        child.common_mut().rect_in_parent = rect_in_parent;
         // println!(
         //     "rect_in_window {:?} -> {:?}",
-        //     child.widget.common().rect_in_window,
+        //     child.common().rect_in_window,
         //     rect_in_window
         // );
         // println!(
         //     "visible_rect {:?} -> {:?}",
-        //     child.widget.common().visible_rect,
+        //     child.common().visible_rect,
         //     visible_rect
         // );
-        let rects_changed = child.widget.common().rect_in_window != rect_in_window
-            || child.widget.common().visible_rect != visible_rect;
+        let rects_changed = child.common().rect_in_window != rect_in_window
+            || child.common().visible_rect != visible_rect;
         if let Some(event) = &self.current_layout_event {
-            if rects_changed || event.size_hints_changed_within(child.widget.common().address()) {
+            if rects_changed || event.size_hints_changed_within(child.common().address()) {
                 //println!("set_child_rect ok1");
-                child.widget.dispatch(
+                child.dispatch(
                     LayoutEvent {
                         new_rect_in_window: rect_in_window,
                         new_visible_rect: visible_rect,
@@ -572,7 +559,7 @@ impl WidgetCommon {
         } else {
             if rects_changed {
                 //println!("set_child_rect ok2");
-                child.widget.dispatch(
+                child.dispatch(
                     LayoutEvent {
                         new_rect_in_window: rect_in_window,
                         new_visible_rect: visible_rect,
@@ -688,7 +675,7 @@ impl WidgetCommon {
     fn unmount_accessible(&mut self) {
         // println!("unmount_accessible {:?}", self.id);
         // for child in self.children.values_mut() {
-        //     child.widget.common_mut().unmount_accessible();
+        //     child.common_mut().unmount_accessible();
         // }
         if let Some(window) = &self.window {
             let root_widget_id = window.root_widget_id();
@@ -711,10 +698,10 @@ impl WidgetCommon {
     pub fn widget_raw(&mut self, id: RawWidgetId) -> Result<&mut dyn Widget, WidgetNotFound> {
         // TODO: speed up
         for child in self.children.values_mut() {
-            if child.widget.common().id == id {
-                return Ok(child.widget.as_mut());
+            if child.common().id == id {
+                return Ok(child.as_mut());
             }
-            if let Ok(widget) = child.widget.common_mut().widget_raw(id) {
+            if let Ok(widget) = child.common_mut().widget_raw(id) {
                 return Ok(widget);
             }
         }

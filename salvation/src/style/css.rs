@@ -492,7 +492,7 @@ pub fn convert_background(properties: &[&Property<'static>]) -> Option<ComputedB
                 match &background.image {
                     Image::None => {}
                     Image::Url(_) => warn!("url() is not supported in background"),
-                    Image::Gradient(value) => match &**value {
+                    Image::Gradient(value) => match value.as_ref() {
                         Gradient::Linear(value) => match convert_linear_gradient(value) {
                             Ok(value) => {
                                 final_background = Some(ComputedBackground::LinearGradient(value));

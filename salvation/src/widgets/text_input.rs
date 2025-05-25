@@ -85,7 +85,6 @@ impl TextInput {
             .children
             .get(&0.into())
             .unwrap()
-            .widget
             .common()
             .rect_in_parent
         else {
@@ -101,7 +100,6 @@ impl TextInput {
             .children
             .get(&0.into())
             .unwrap()
-            .widget
             .common()
             .rect_in_parent
             .map_or(0, |rect| -rect.left());
@@ -124,7 +122,6 @@ impl TextInput {
             .children
             .get(&0.into())
             .unwrap()
-            .widget
             .common()
             .rect_in_parent
             != Some(new_rect)
