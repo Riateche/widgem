@@ -3,7 +3,7 @@ use {
     crate::{
         draw::DrawEvent,
         event::{
-            FocusInEvent, FocusOutEvent, ImeEvent, KeyboardInputEvent, LayoutEvent,
+            FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
             ScrollToRectEvent, StyleChangeEvent,
         },
         impl_widget_common,
@@ -33,7 +33,7 @@ impl Widget for Viewport {
         Self { common }
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<crate::layout::SizeHints> {
+    fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
         Ok(SizeHints {
             min: 0,
             preferred: 0,
@@ -41,7 +41,7 @@ impl Widget for Viewport {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
         let size = self.common.get_child::<Text>(0).unwrap().line_height() as i32;
         Ok(SizeHints {
             min: size,
@@ -261,7 +261,7 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         let style = &self.common.style().0.text_input;
         Ok(SizeHints {
             min: style.min_width.get(),
@@ -270,7 +270,7 @@ impl Widget for TextInput {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
         let text_size = self.text_widget().size();
         let style = &self.common.style().0.text_input;
         Ok(SizeHints {
@@ -284,7 +284,7 @@ impl Widget for TextInput {
         self.text_widget_mut().handle_host_keyboard_input(event)
     }
 
-    fn handle_ime(&mut self, event: ImeEvent) -> Result<bool> {
+    fn handle_input_method(&mut self, event: InputMethodEvent) -> Result<bool> {
         self.text_widget_mut().handle_host_ime(event)
     }
 

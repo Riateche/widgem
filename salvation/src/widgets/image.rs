@@ -94,7 +94,7 @@ impl Widget for Image {
         Ok(())
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         let scale = self.total_scale();
         let size = (self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * scale).ceil() as i32;
 
@@ -105,7 +105,7 @@ impl Widget for Image {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
         let scale = self.total_scale();
         let size = (self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32) * scale).ceil() as i32;
 

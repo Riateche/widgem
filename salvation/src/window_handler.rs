@@ -1,7 +1,7 @@
 use {
     crate::{
         event::{
-            AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
+            AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, InputMethodEvent,
             KeyboardInputEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent,
             ScrollToRectEvent, WindowFocusChangeEvent,
         },
@@ -296,7 +296,7 @@ impl WindowWithWidget<'_> {
                 // TODO: deduplicate with ReceivedCharacter
                 if let Some(focused_widget) = self.window.focused_widget() {
                     if let Ok(widget) = get_widget_by_id_mut(self.root_widget, focused_widget) {
-                        widget.dispatch(ImeEvent { info: ime }.into());
+                        widget.dispatch(InputMethodEvent { info: ime }.into());
                     }
                 }
                 //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
@@ -305,8 +305,12 @@ impl WindowWithWidget<'_> {
                 if self.window.focus_changed(is_focused) {
                     self.dispatch_cursor_leave();
                 }
-                self.root_widget
-                    .dispatch(WindowFocusChangeEvent { is_focused }.into());
+                self.root_widget.dispatch(
+                    WindowFocusChangeEvent {
+                        is_window_focused: is_focused,
+                    }
+                    .into(),
+                );
             }
             _ => {}
         }

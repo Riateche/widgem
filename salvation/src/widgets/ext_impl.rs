@@ -98,7 +98,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().focused_changed();
             }
             Event::WindowFocusChange(e) => {
-                self.common_mut().is_window_focused = e.is_focused;
+                self.common_mut().is_window_focused = e.is_window_focused;
                 self.common_mut().focused_changed();
             }
             Event::MouseInput(event) => {
@@ -137,7 +137,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     }
                 }
             }
-            Event::MouseEnter(_) | Event::KeyboardInput(_) | Event::Ime(_) => {
+            Event::MouseEnter(_) | Event::KeyboardInput(_) | Event::InputMethod(_) => {
                 should_dispatch = self.common().is_enabled();
             }
             Event::MouseMove(event) => {
@@ -183,16 +183,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::EnabledChange(_) => {
                 self.common_mut().enabled_changed();
             }
-            Event::DeclareChildren(_) => {
-                let in_progress = with_system(|system| system.current_children_update.is_some());
-                if in_progress {
-                    error!("attempted to dispatch Event::DeclareChildren while another is running");
-                    return false;
-                }
-                with_system(|system| {
-                    system.current_children_update = Some(Default::default());
-                });
-            }
             Event::Draw(_) | Event::Accessible(_) | Event::ScrollToRect(_) => {}
         }
         if !accepted && should_dispatch {
@@ -235,16 +225,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         }
                     }
                 }
-            }
-            Event::DeclareChildren(_) => {
-                let Some(state) = with_system(|system| system.current_children_update.take())
-                else {
-                    error!(
-                        "missing widgets_created_in_current_children_update after DeclareChildren"
-                    );
-                    return false;
-                };
-                self.common_mut().after_declare_children(state);
             }
             Event::WindowFocusChange(event) => {
                 for child in self.common_mut().children.values_mut() {
@@ -302,7 +282,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     child.dispatch(event.clone().into());
                 }
             }
-            Event::KeyboardInput(_) | Event::Ime(_) | Event::Accessible(_) => {}
+            Event::KeyboardInput(_) | Event::InputMethod(_) | Event::Accessible(_) => {}
         }
 
         self.update_accessible();
@@ -311,7 +291,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
 
     fn update_accessible(&mut self) {
         let node = if self.common().is_accessible {
-            self.accessible_node()
+            self.handle_accessible_node_request()
+                .or_report_err()
+                .flatten()
         } else {
             None
         };
@@ -335,12 +317,32 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         window.accessible_update(self.common().id.0.into(), node);
     }
 
+    fn update_children(&mut self) {
+        if !self.common().has_declare_children_override {
+            return;
+        }
+        let in_progress = with_system(|system| system.current_children_update.is_some());
+        if in_progress {
+            error!("attempted to call update_children while another update_children is running");
+            return;
+        }
+        with_system(|system| {
+            system.current_children_update = Some(Default::default());
+        });
+        self.handle_declare_children_request().or_report_err();
+        let Some(state) = with_system(|system| system.current_children_update.take()) else {
+            error!("missing widgets_created_in_current_children_update after handle_declare_children_request");
+            return;
+        };
+        self.common_mut().after_declare_children(state);
+    }
+
     fn size_hint_x(&mut self) -> SizeHints {
         if let Some(cached) = &self.common().size_hint_x_cache {
             *cached
         } else {
             let r = self
-                .recalculate_size_hint_x()
+                .handle_size_hint_x_request()
                 .or_report_err()
                 .unwrap_or(FALLBACK_SIZE_HINTS);
             self.common_mut().size_hint_x_cache = Some(r);
@@ -353,7 +355,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             *cached
         } else {
             let r = self
-                .recalculate_size_hint_y(size_x)
+                .handle_size_hint_y_request(size_x)
                 .or_report_err()
                 .unwrap_or(FALLBACK_SIZE_HINTS);
             self.common_mut().size_hint_y_cache.insert(size_x, r);

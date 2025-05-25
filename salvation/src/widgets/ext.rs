@@ -43,6 +43,8 @@ pub trait WidgetExt {
 
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
+
+    fn update_children(&mut self);
     fn size_hint_x(&mut self) -> SizeHints;
     fn size_hint_y(&mut self, size_x: i32) -> SizeHints;
 

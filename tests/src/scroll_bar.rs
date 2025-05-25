@@ -1,6 +1,5 @@
 use {
     salvation::{
-        event::DeclareChildrenEvent,
         impl_widget_common,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
@@ -76,7 +75,7 @@ impl Widget for RootWidget {
         }
     }
 
-    fn handle_declare_children(&mut self, _event: DeclareChildrenEvent) -> anyhow::Result<()> {
+    fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
         let id = self.common.id();
 
         let window = self

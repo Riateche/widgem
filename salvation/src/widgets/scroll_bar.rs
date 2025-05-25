@@ -804,7 +804,7 @@ impl Widget for Pager {
         }
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         let grip = self.common.get_dyn_child_mut(INDEX_GRIP_IN_PAGER).unwrap();
         let grip_hint = grip.size_hint_x();
         let min_size = match self.axis {
@@ -821,7 +821,7 @@ impl Widget for Pager {
             is_fixed: self.axis == Axis::Y,
         })
     }
-    fn recalculate_size_hint_y(&mut self, size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, size_x: i32) -> Result<SizeHints> {
         let grip_hint = self
             .common
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)

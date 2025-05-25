@@ -37,7 +37,7 @@ impl Widget for Stack {
         Ok(())
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<crate::layout::SizeHints> {
+    fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
         let max = self
             .common
             .children
@@ -53,7 +53,7 @@ impl Widget for Stack {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
         let max = self
             .common
             .children

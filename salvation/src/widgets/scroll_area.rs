@@ -233,14 +233,14 @@ impl Widget for Viewport {
         Self { common }
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         Ok(SizeHints {
             min: 0,
             preferred: 0,
             is_fixed: false,
         })
     }
-    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
         Ok(SizeHints {
             min: 0,
             preferred: 0,

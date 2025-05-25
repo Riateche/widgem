@@ -24,9 +24,8 @@ pub enum Event {
     MouseMove(MouseMoveEvent),
     MouseLeave(MouseLeaveEvent),
     KeyboardInput(KeyboardInputEvent),
-    Ime(ImeEvent),
+    InputMethod(InputMethodEvent),
     Draw(DrawEvent),
-    DeclareChildren(DeclareChildrenEvent),
     Layout(LayoutEvent),
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
@@ -137,7 +136,7 @@ pub struct KeyboardInputEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct ImeEvent {
+pub struct InputMethodEvent {
     pub info: Ime,
 }
 
@@ -175,7 +174,7 @@ pub struct FocusOutEvent {}
 
 #[derive(Debug, Clone)]
 pub struct WindowFocusChangeEvent {
-    pub is_focused: bool,
+    pub is_window_focused: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -197,6 +196,3 @@ pub struct StyleChangeEvent {}
 pub struct EnabledChangeEvent {
     pub is_enabled: bool,
 }
-
-#[derive(Debug, Clone)]
-pub struct DeclareChildrenEvent {}

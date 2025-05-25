@@ -3,8 +3,8 @@ use {
         accessible,
         draw::DrawEvent,
         event::{
-            AccessibleActionEvent, FocusReason, ImeEvent, KeyboardInputEvent, MouseInputEvent,
-            MouseMoveEvent, WindowFocusChangeEvent,
+            AccessibleActionEvent, FocusReason, InputMethodEvent, KeyboardInputEvent,
+            MouseInputEvent, MouseMoveEvent, WindowFocusChangeEvent,
         },
         impl_widget_common,
         layout::SizeHints,
@@ -316,7 +316,7 @@ impl Text {
         Ok(true)
     }
 
-    pub fn handle_host_ime(&mut self, event: ImeEvent) -> Result<bool> {
+    pub fn handle_host_ime(&mut self, event: InputMethodEvent) -> Result<bool> {
         if !self.is_editable {
             return Ok(false);
         }
@@ -980,7 +980,7 @@ impl Widget for Text {
     }
 
     fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
-        if !event.is_focused {
+        if !event.is_window_focused {
             self.interrupt_preedit();
         }
         self.reset_blink_timer();
@@ -1106,7 +1106,7 @@ impl Widget for Text {
         Ok(())
     }
 
-    fn accessible_node(&mut self) -> Option<accesskit::NodeBuilder> {
+    fn handle_accessible_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
         let mut line_node = NodeBuilder::new(Role::InlineTextBox);
         let line = self.accessible_line();
         line_node.set_text_direction(line.text_direction);
@@ -1125,7 +1125,9 @@ impl Widget for Text {
             });
         }
 
-        let window = self.common.window.as_ref()?;
+        let Some(window) = self.common.window.as_ref() else {
+            return Ok(None);
+        };
         window.accessible_update(self.accessible_line_id, Some(line_node));
 
         // TODO: configurable role
@@ -1135,10 +1137,10 @@ impl Widget for Text {
         node.add_action(accesskit::Action::Focus);
         node.set_default_action_verb(DefaultActionVerb::Click);
         node.set_text_selection(self.accessible_selection(self.accessible_line_id));
-        Some(node)
+        Ok(Some(node))
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         Ok(SizeHints {
             min: self.size().x,
             preferred: self.size().x,
@@ -1146,7 +1148,7 @@ impl Widget for Text {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
         // TODO: use size_x, handle multiple lines
         Ok(SizeHints {
             min: self.size().y,

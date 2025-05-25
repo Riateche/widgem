@@ -1,7 +1,6 @@
 use {
     crate::{
         callback::{CallbackId, InvokeCallbackEvent},
-        event::DeclareChildrenEvent,
         style::{computed::ComputedStyle, defaults::default_style},
         system::{
             address, take_pending_children_updates, with_system, ReportError,
@@ -199,9 +198,7 @@ impl Handler {
                 if let Ok(widget) =
                     get_widget_by_address_mut(self.root_widget.as_mut().unwrap().as_mut(), &addr)
                 {
-                    if widget.common().has_declare_children_override {
-                        widget.dispatch(DeclareChildrenEvent {}.into());
-                    }
+                    widget.update_children();
                 }
             }
         }
