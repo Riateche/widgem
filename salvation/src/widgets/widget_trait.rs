@@ -10,7 +10,7 @@ use {
         },
         layout::{
             grid::{self},
-            SizeHintMode,
+            SizeHintMode, SizeHints,
         },
     },
     anyhow::Result,
@@ -76,7 +76,7 @@ pub trait Widget: Downcast {
         let Some(size) = self.common().size() else {
             return Ok(());
         };
-        let rects = grid::layout(&mut self.common_mut().children, &options, size)?;
+        let rects = grid::layout(&mut self.common_mut().children, &options, size);
         self.common_mut().set_child_rects(&rects)
     }
     fn handle_scroll_to_rect(&mut self, event: ScrollToRectEvent) -> Result<bool> {
@@ -128,17 +128,18 @@ pub trait Widget: Downcast {
             Event::EnabledChange(e) => self.handle_enabled_change(e).map(|()| true),
         }
     }
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
         let options = self.common().grid_options();
-        grid::size_hint_x(&mut self.common_mut().children, &options, mode)
+        Ok(grid::size_hint_x(&mut self.common_mut().children, &options))
     }
     fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let options = self.common().grid_options();
-        grid::size_hint_y(&mut self.common_mut().children, &options, size_x, mode)
-    }
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        let options = self.common().grid_options();
-        grid::size_x_fixed(&mut self.common_mut().children, &options)
+        Ok(grid::size_hint_y(
+            &mut self.common_mut().children,
+            &options,
+            size_x,
+            mode,
+        ))
     }
     fn recalculate_size_y_fixed(&mut self) -> bool {
         let options = self.common().grid_options();

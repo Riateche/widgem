@@ -9,7 +9,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            Alignment, SizeHintMode,
+            Alignment, SizeHintMode, SizeHints,
         },
         style::text_input::{ComputedVariantStyle, TextInputState},
         system::ReportError,
@@ -34,16 +34,16 @@ impl Widget for Viewport {
         Self { common }
     }
 
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        false
-    }
-
     fn recalculate_size_y_fixed(&mut self) -> bool {
         true
     }
 
-    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
+    fn recalculate_size_hint_x(&mut self) -> Result<crate::layout::SizeHints> {
+        Ok(SizeHints {
+            min: 0,
+            preferred: 0,
+            is_fixed: false,
+        })
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
@@ -213,7 +213,7 @@ impl Widget for TextInput {
         let Some(size) = self.common().size() else {
             return Ok(());
         };
-        let rects = grid::layout(&mut self.common_mut().children, &options, size)?;
+        let rects = grid::layout(&mut self.common_mut().children, &options, size);
         self.common_mut().set_child_rects(&rects)?;
         self.adjust_scroll();
         Ok(())
@@ -243,13 +243,13 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
         let style = &self.common.style().0.text_input;
-        let r = match mode {
-            SizeHintMode::Min => style.min_width,
-            SizeHintMode::Preferred => style.preferred_width,
-        };
-        Ok(r.get())
+        Ok(SizeHints {
+            min: style.min_width.get(),
+            preferred: style.preferred_width.get(),
+            is_fixed: false,
+        })
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
@@ -260,10 +260,6 @@ impl Widget for TextInput {
             SizeHintMode::Preferred => style.preferred_padding_with_border,
         };
         Ok(text_size.y + 2 * padding.y)
-    }
-
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        false
     }
 
     fn recalculate_size_y_fixed(&mut self) -> bool {

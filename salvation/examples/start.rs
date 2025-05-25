@@ -66,18 +66,12 @@ impl Widget for AnotherWidget {
         this
     }
 
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self) -> Result<salvation::layout::SizeHints> {
         Ok(self
             .common_mut()
             .get_dyn_child_mut("button")
             .unwrap()
-            .size_hint_x(mode))
-    }
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        self.common_mut()
-            .get_dyn_child_mut("button")
-            .unwrap()
-            .size_x_fixed()
+            .size_hint_x())
     }
     fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         Ok(self
@@ -273,10 +267,6 @@ impl Widget for RootWidget {
             i: 0,
             label2_id,
         }
-    }
-
-    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {

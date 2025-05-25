@@ -3,7 +3,7 @@ use {
     crate::{
         callback::{widget_callback, Callback},
         event::{EnabledChangeEvent, Event, StyleChangeEvent},
-        layout::{SizeHintMode, SizeHints, FALLBACK_SIZE_HINT},
+        layout::{SizeHintMode, SizeHints, FALLBACK_SIZE_HINT, FALLBACK_SIZE_HINTS},
         style::{computed::ComputedStyle, css::MyPseudoClass, Style},
         system::{with_system, ReportError},
     },
@@ -375,25 +375,19 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         window.accessible_update(self.common().id.0.into(), node);
     }
 
-    fn size_hint_x(&mut self, mode: SizeHintMode) -> i32 {
-        if let Some(cached) = self.common().size_hint_x_cache.get(&mode) {
+    fn size_hint_x(&mut self) -> SizeHints {
+        if let Some(cached) = &self.common().size_hint_x_cache {
             *cached
         } else {
             let r = self
-                .recalculate_size_hint_x(mode)
+                .recalculate_size_hint_x()
                 .or_report_err()
-                .unwrap_or(FALLBACK_SIZE_HINT);
-            self.common_mut().size_hint_x_cache.insert(mode, r);
+                .unwrap_or(FALLBACK_SIZE_HINTS);
+            self.common_mut().size_hint_x_cache = Some(r);
             r
         }
     }
-    fn size_hints_x(&mut self) -> SizeHints {
-        SizeHints {
-            min: self.size_hint_x(SizeHintMode::Min),
-            preferred: self.size_hint_x(SizeHintMode::Preferred),
-            is_fixed: self.size_x_fixed(),
-        }
-    }
+
     fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32 {
         if let Some(cached) = self.common().size_hint_y_cache.get(&(size_x, mode)) {
             *cached
@@ -425,15 +419,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         }
     }
 
-    fn size_x_fixed(&mut self) -> bool {
-        if let Some(cached) = self.common().size_x_fixed_cache {
-            cached
-        } else {
-            let r = self.recalculate_size_x_fixed();
-            self.common_mut().size_x_fixed_cache = Some(r);
-            r
-        }
-    }
     fn size_y_fixed(&mut self) -> bool {
         if let Some(cached) = self.common().size_y_fixed_cache {
             cached

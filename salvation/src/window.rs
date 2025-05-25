@@ -216,7 +216,7 @@ impl Window {
             return;
         }
 
-        let size_hints_x = root_widget.size_hints_x();
+        let size_hints_x = root_widget.size_hint_x();
         // TODO: adjust size_x for screen size
         let size_hints_y = root_widget.size_hints_y_from_hints_x(size_hints_x);
 

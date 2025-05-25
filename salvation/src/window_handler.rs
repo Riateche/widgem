@@ -409,7 +409,7 @@ impl WindowWithWidget<'_> {
         let mut inner_size = self.window.inner_size();
         let old_min_size = self.window.min_inner_size();
         let old_preferred_size = self.window.preferred_inner_size();
-        let hints_x = self.root_widget.size_hints_x();
+        let hints_x = self.root_widget.size_hint_x();
         let hints_y = self.root_widget.size_hints_y_from_hints_x(hints_x);
         let preferred_size = Size::new(hints_x.preferred, hints_y.preferred);
         let min_size = Size::new(hints_x.min, hints_y.min);

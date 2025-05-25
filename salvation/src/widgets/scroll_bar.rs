@@ -8,7 +8,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            Alignment, SizeHintMode,
+            Alignment, SizeHintMode, SizeHints,
         },
         system::ReportError,
         types::{Axis, Point, Rect, Size},
@@ -444,7 +444,7 @@ impl ScrollBar {
         let Some(size) = self.common.size() else {
             return Ok(());
         };
-        let rects = grid::layout(&mut self.common.children, &options, size)?;
+        let rects = grid::layout(&mut self.common.children, &options, size);
         self.common.set_child_rects(&rects)?;
         let pager_rect = rects.get(&INDEX_PAGER.into()).unwrap();
         let grip_size_hint_x = self
@@ -454,7 +454,8 @@ impl ScrollBar {
             .common_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .size_hint_x(SizeHintMode::Preferred);
+            .size_hint_x()
+            .preferred;
         let grip_size_hint_y = self
             .common
             .get_dyn_child_mut(INDEX_PAGER)
@@ -780,16 +781,22 @@ impl Widget for Pager {
         }
     }
 
-    fn recalculate_size_hint_x(&mut self, mode: SizeHintMode) -> Result<i32> {
-        let grip_hint = self
-            .common
-            .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
-            .unwrap()
-            .size_hint_x(mode);
-        match self.axis {
-            Axis::X => Ok(grip_hint * PAGER_SIZE_HINT_MULTIPLIER),
-            Axis::Y => Ok(grip_hint),
-        }
+    fn recalculate_size_hint_x(&mut self) -> Result<crate::layout::SizeHints> {
+        let grip = self.common.get_dyn_child_mut(INDEX_GRIP_IN_PAGER).unwrap();
+        let grip_hint = grip.size_hint_x();
+        let min_size = match self.axis {
+            Axis::X => grip_hint.min * PAGER_SIZE_HINT_MULTIPLIER,
+            Axis::Y => grip_hint.min,
+        };
+        let preferred_size = match self.axis {
+            Axis::X => grip_hint.preferred * PAGER_SIZE_HINT_MULTIPLIER,
+            Axis::Y => grip_hint.preferred,
+        };
+        Ok(SizeHints {
+            min: min_size,
+            preferred: preferred_size,
+            is_fixed: self.axis == Axis::Y,
+        })
     }
     fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
         let grip_hint = self
@@ -801,9 +808,6 @@ impl Widget for Pager {
             Axis::X => Ok(grip_hint),
             Axis::Y => Ok(grip_hint * PAGER_SIZE_HINT_MULTIPLIER),
         }
-    }
-    fn recalculate_size_x_fixed(&mut self) -> bool {
-        self.axis == Axis::Y
     }
     fn recalculate_size_y_fixed(&mut self) -> bool {
         self.axis == Axis::X

@@ -6,7 +6,7 @@ use {
         key::Key,
         layout::{
             grid::{GridAxisOptions, GridOptions},
-            Alignment, LayoutItemOptions, SizeHintMode,
+            Alignment, LayoutItemOptions, SizeHintMode, SizeHints,
         },
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
@@ -91,7 +91,7 @@ pub struct WidgetCommon {
     pub layout_item_options: LayoutItemOptions,
     pub current_layout_event: Option<LayoutEvent>,
 
-    pub size_hint_x_cache: HashMap<SizeHintMode, i32>,
+    pub size_hint_x_cache: Option<SizeHints>,
     // TODO: limit count
     pub size_hint_y_cache: HashMap<(i32, SizeHintMode), i32>,
     pub size_x_fixed_cache: Option<bool>,
@@ -167,7 +167,7 @@ impl WidgetCommon {
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
             layout_item_options: LayoutItemOptions::default(),
-            size_hint_x_cache: HashMap::new(),
+            size_hint_x_cache: None,
             size_hint_y_cache: HashMap::new(),
             size_x_fixed_cache: None,
             size_y_fixed_cache: None,
@@ -607,7 +607,7 @@ impl WidgetCommon {
     }
 
     pub fn clear_size_hint_cache(&mut self) {
-        self.size_hint_x_cache.clear();
+        self.size_hint_x_cache = None;
         self.size_hint_y_cache.clear();
         self.size_x_fixed_cache = None;
         self.size_y_fixed_cache = None;

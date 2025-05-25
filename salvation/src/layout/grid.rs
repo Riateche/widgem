@@ -1,12 +1,11 @@
 use {
-    super::{Alignment, SizeHintMode},
+    super::{Alignment, SizeHintMode, SizeHints},
     crate::{
         key::Key,
         layout::{fair_split, solve_layout},
         types::{Rect, Size},
         widgets::{Child, WidgetExt},
     },
-    anyhow::Result,
     itertools::Itertools,
     log::warn,
     std::{
@@ -57,7 +56,7 @@ fn size_hint(
     items: &[(RangeInclusive<i32>, i32)],
     options: &GridAxisOptions,
     mode: SizeHintMode,
-) -> Result<i32> {
+) -> i32 {
     let mut max_per_column = BTreeMap::new();
     let mut spanned = Vec::new();
     for (pos, hint) in items {
@@ -87,37 +86,52 @@ fn size_hint(
         SizeHintMode::Min => (options.min_padding, options.min_spacing),
         SizeHintMode::Preferred => (options.preferred_padding, options.preferred_spacing),
     };
-    Ok(max_per_column.values().sum::<i32>()
+    max_per_column.values().sum::<i32>()
         + 2 * padding
-        + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse))
+        + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse)
 }
 
-pub fn size_hint_x(
-    items: &mut BTreeMap<Key, Child>,
-    options: &GridOptions,
-    mode: SizeHintMode,
-) -> Result<i32> {
-    let item_data = items
-        .values_mut()
-        .filter(|item| {
-            item.widget.common().layout_item_options.is_in_grid()
-                && !item.widget.common().is_window_root
-                && item.widget.common().is_self_visible
-        })
-        .map(|item| {
-            (
-                item.widget
-                    .common()
-                    .layout_item_options
-                    .x
-                    .pos_in_grid
-                    .clone()
-                    .unwrap(),
-                item.widget.size_hint_x(mode),
-            )
-        })
-        .collect_vec();
-    size_hint(&item_data, &options.x, mode)
+pub fn size_hint_x(items: &mut BTreeMap<Key, Child>, options: &GridOptions) -> SizeHints {
+    let mut min_items = Vec::new();
+    let mut preferred_items = Vec::new();
+    let mut all_fixed = true;
+    for item in items.values_mut() {
+        if !(item.widget.common().layout_item_options.is_in_grid()
+            && !item.widget.common().is_window_root
+            && item.widget.common().is_self_visible)
+        {
+            continue;
+        }
+
+        let hints = item.widget.size_hint_x();
+        let pos_in_grid = item
+            .widget
+            .common()
+            .layout_item_options
+            .x
+            .pos_in_grid
+            .clone()
+            .unwrap();
+        min_items.push((pos_in_grid.clone(), hints.min));
+        preferred_items.push((pos_in_grid, hints.preferred));
+
+        let is_fixed = item
+            .widget
+            .common()
+            .layout_item_options
+            .x
+            .is_fixed
+            .unwrap_or(hints.is_fixed);
+
+        if !is_fixed {
+            all_fixed = false;
+        }
+    }
+    SizeHints {
+        min: size_hint(&min_items, &options.x, SizeHintMode::Min),
+        preferred: size_hint(&preferred_items, &options.x, SizeHintMode::Preferred),
+        is_fixed: all_fixed,
+    }
 }
 
 pub fn size_hint_y(
@@ -125,8 +139,8 @@ pub fn size_hint_y(
     options: &GridOptions,
     size_x: i32,
     mode: SizeHintMode,
-) -> Result<i32> {
-    let x_layout = x_layout(items, &options.x, size_x)?;
+) -> i32 {
+    let x_layout = x_layout(items, &options.x, size_x);
     let mut item_data = Vec::new();
     for (key, item) in items.iter_mut() {
         if !item.widget.common().layout_item_options.is_in_grid()
@@ -152,21 +166,6 @@ pub fn size_hint_y(
     size_hint(&item_data, &options.y, mode)
 }
 
-// TODO: skip hidden, check item options
-pub fn size_x_fixed(items: &mut BTreeMap<Key, Child>, _options: &GridOptions) -> bool {
-    items.values_mut().all(|item| {
-        !item.widget.common().layout_item_options.is_in_grid()
-            || item.widget.common().is_window_root
-            || !item.widget.common().is_self_visible
-            || item
-                .widget
-                .common()
-                .layout_item_options
-                .x
-                .is_fixed
-                .unwrap_or_else(|| item.widget.size_x_fixed())
-    })
-}
 pub fn size_y_fixed(items: &mut BTreeMap<Key, Child>, _options: &GridOptions) -> bool {
     items.values_mut().all(|item| {
         !item.widget.common().layout_item_options.is_in_grid()
@@ -189,11 +188,7 @@ struct XLayout {
     child_sizes: HashMap<Key, i32>,
 }
 
-fn x_layout(
-    items: &mut BTreeMap<Key, Child>,
-    options: &GridAxisOptions,
-    size_x: i32,
-) -> Result<XLayout> {
+fn x_layout(items: &mut BTreeMap<Key, Child>, options: &GridAxisOptions, size_x: i32) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
     for item in items.values_mut() {
         if !item.widget.common().layout_item_options.is_in_grid()
@@ -216,7 +211,7 @@ fn x_layout(
             warn!("spanned items are not supported yet");
         }
         let pos = *pos.start();
-        let mut hints = item.widget.size_hints_x();
+        let mut hints = item.widget.size_hint_x();
         if let Some(is_fixed) = item.widget.common().layout_item_options.x.is_fixed {
             hints.is_fixed = is_fixed;
         }
@@ -262,29 +257,29 @@ fn x_layout(
             .layout_item_options
             .x
             .is_fixed
-            .unwrap_or_else(|| item.widget.size_x_fixed())
+            .unwrap_or_else(|| item.widget.size_hint_x().is_fixed)
         {
-            let hint = item.widget.size_hint_x(SizeHintMode::Preferred);
+            let hint = item.widget.size_hint_x().preferred;
             min(hint, *column_size)
         } else {
             *column_size
         };
         child_sizes.insert(key.clone(), child_size);
     }
-    Ok(XLayout {
+    XLayout {
         padding: output.padding,
         spacing: output.spacing,
         column_sizes,
         child_sizes,
-    })
+    }
 }
 
 pub fn layout(
     items: &mut BTreeMap<Key, Child>,
     options: &GridOptions,
     size: Size,
-) -> Result<BTreeMap<Key, Rect>> {
-    let x_layout = x_layout(items, &options.x, size.x)?;
+) -> BTreeMap<Key, Rect> {
+    let x_layout = x_layout(items, &options.x, size.x);
     let mut hints_per_row = BTreeMap::new();
     for (key, item) in items.iter_mut() {
         if !item.widget.common().layout_item_options.is_in_grid()
@@ -400,7 +395,7 @@ pub fn layout(
             Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
         );
     }
-    Ok(result)
+    result
 }
 
 fn positions(

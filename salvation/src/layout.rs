@@ -27,6 +27,11 @@ pub struct SizeHints {
 // }
 
 pub const FALLBACK_SIZE_HINT: i32 = 48;
+pub const FALLBACK_SIZE_HINTS: SizeHints = SizeHints {
+    min: FALLBACK_SIZE_HINT,
+    preferred: FALLBACK_SIZE_HINT,
+    is_fixed: true,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SizeHintMode {

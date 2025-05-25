@@ -1,6 +1,11 @@
 use {
     super::{Widget, WidgetCommon, WidgetCommonTyped},
-    crate::{draw::DrawEvent, impl_widget_common, layout::SizeHintMode, types::Point},
+    crate::{
+        draw::DrawEvent,
+        impl_widget_common,
+        layout::{SizeHintMode, SizeHints},
+        types::Point,
+    },
     anyhow::Result,
     png::DecodingError,
     salvation_macros::impl_with,
@@ -94,9 +99,15 @@ impl Widget for Image {
         Ok(())
     }
 
-    fn recalculate_size_hint_x(&mut self, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
         let scale = self.total_scale();
-        Ok((self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * scale).ceil() as i32)
+        let size = (self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * scale).ceil() as i32;
+
+        Ok(SizeHints {
+            min: size,
+            preferred: size,
+            is_fixed: true,
+        })
     }
 
     fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
