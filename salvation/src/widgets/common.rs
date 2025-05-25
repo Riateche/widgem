@@ -52,7 +52,6 @@ pub struct Child {
     #[derivative(Debug = "ignore")]
     pub widget: Box<dyn Widget>,
     pub rect_in_parent: Option<Rect>,
-    pub rect_set_during_layout: bool,
 }
 
 // TODO: use bitflags?
@@ -400,7 +399,6 @@ impl WidgetCommon {
             Child {
                 widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
                 rect_in_parent: None,
-                rect_set_during_layout: false,
             },
         );
         self.size_hint_changed();
@@ -568,7 +566,6 @@ impl WidgetCommon {
                     .into(),
                 );
             }
-            child.rect_set_during_layout = true;
         } else {
             if rects_changed {
                 //println!("set_child_rect ok2");

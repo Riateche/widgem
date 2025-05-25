@@ -8,7 +8,6 @@ use {
         system::{with_system, ReportError},
     },
     anyhow::Result,
-    itertools::Itertools,
     log::{error, warn},
     std::{marker::PhantomData, rc::Rc},
 };
@@ -182,9 +181,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().rect_in_window = event.new_rect_in_window;
                 self.common_mut().visible_rect = event.new_visible_rect;
                 self.common_mut().current_layout_event = Some(event.clone());
-                for child in self.common_mut().children.values_mut() {
-                    child.rect_set_during_layout = false;
-                }
             }
             Event::StyleChange(_) => {
                 self.common_mut().refresh_common_style();
@@ -265,35 +261,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::Layout(_) => {
                 // TODO: optimize
-                let keys = self.common().children.keys().cloned().collect_vec();
-                for key in keys {
-                    if !self
-                        .common()
-                        .children
-                        .get(&key)
-                        .unwrap()
-                        .rect_set_during_layout
-                        && !self
-                            .common()
-                            .children
-                            .get(&key)
-                            .unwrap()
-                            .widget
-                            .common()
-                            .is_window_root
-                    {
-                        let rect_in_parent =
-                            self.common().children.get(&key).unwrap().rect_in_parent;
-                        self.common_mut()
-                            .set_child_rect(key.clone(), rect_in_parent)
-                            .or_report_err();
-                    }
-                    self.common_mut()
-                        .children
-                        .get_mut(&key)
-                        .unwrap()
-                        .rect_set_during_layout = false;
-                }
                 self.common_mut().current_layout_event = None;
                 self.common_mut().update();
             }
