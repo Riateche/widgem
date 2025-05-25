@@ -2,15 +2,15 @@ use {
     crate::{
         event::{
             AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, ImeEvent,
-            KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
-            MouseScrollEvent, ScrollToRectEvent, WindowFocusChangeEvent,
+            KeyboardInputEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent,
+            ScrollToRectEvent, WindowFocusChangeEvent,
         },
         event_loop::UserEvent,
         system::{address, with_system, ReportError},
         types::{Point, Rect, Size},
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
-            RawWidgetId, Widget, WidgetAddress, WidgetExt,
+            RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
         },
         window::{MouseEventState, Window, WindowId, WindowRequest},
     },
@@ -106,7 +106,8 @@ impl WindowWithWidget<'_> {
                     if let Ok(mouse_grabber_widget) =
                         get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
                     {
-                        if let Some(rect_in_window) = mouse_grabber_widget.common().rect_in_window {
+                        if let Some(rect_in_window) = mouse_grabber_widget.common().rect_in_window()
+                        {
                             let pos_in_widget = pos_in_window - rect_in_window.top_left;
                             mouse_grabber_widget.dispatch(
                                 MouseMoveEvent {
@@ -150,7 +151,7 @@ impl WindowWithWidget<'_> {
                             get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
                         {
                             if let Some(rect_in_window) =
-                                mouse_grabber_widget.common().rect_in_window
+                                mouse_grabber_widget.common().rect_in_window()
                             {
                                 let pos_in_widget = pos_in_window - rect_in_window.top_left;
                                 let event = MouseInputEvent {
@@ -211,7 +212,7 @@ impl WindowWithWidget<'_> {
                             get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
                         {
                             if let Some(rect_in_window) =
-                                mouse_grabber_widget.common().rect_in_window
+                                mouse_grabber_widget.common().rect_in_window()
                             {
                                 let pos_in_widget = pos_in_window - rect_in_window.top_left;
                                 let event = MouseScrollEvent {
@@ -429,16 +430,19 @@ impl WindowWithWidget<'_> {
             }
         }
 
-        self.root_widget.dispatch(
-            LayoutEvent {
-                new_rect_in_window: Some(Rect {
+        self.root_widget.set_geometry(
+            Some(WidgetGeometry {
+                rect_in_parent: Rect {
                     top_left: Point::default(),
                     size: inner_size,
-                }),
-                new_visible_rect: Some(Rect::from_pos_size(Point::default(), inner_size)),
-                changed_size_hints,
-            }
-            .into(),
+                },
+                parent_top_left_in_window: Point::default(),
+                parent_visible_rect: Rect {
+                    top_left: Point::default(),
+                    size: inner_size,
+                },
+            }),
+            &changed_size_hints,
         );
     }
 

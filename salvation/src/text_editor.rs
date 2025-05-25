@@ -172,9 +172,9 @@ impl Text {
         let Some(cursor_position) = self.cursor_position() else {
             return;
         };
-        if self.common.rect_in_window.is_none() {
+        let Some(visible_rect) = self.common.visible_rect() else {
             return;
-        }
+        };
         let Some(window_id) = self.common.window_id() else {
             return;
         };
@@ -183,10 +183,7 @@ impl Text {
             cursor_position,
             Size::new(1, self.line_height().ceil() as i32),
         );
-        let needs_scroll = self
-            .common
-            .visible_rect
-            .map_or(true, |visible_rect| visible_rect.intersect(rect).is_empty());
+        let needs_scroll = visible_rect.intersect(rect).is_empty();
         if !needs_scroll {
             return;
         }
@@ -499,7 +496,7 @@ impl Text {
         let text_direction = self.editor.with_buffer(|buffer| {
             let mut runs = buffer.layout_runs();
             let Some(run) = runs.next() else {
-                warn!("missing layout run");
+                // No runs is expected if the text is empty.
                 return TextDirection::LeftToRight;
             };
             if runs.next().is_some() {
@@ -1119,7 +1116,7 @@ impl Widget for Text {
         line_node.set_character_widths(line.character_widths);
         line_node.set_word_lengths(line.word_lengths);
 
-        if let Some(rect_in_window) = self.common.rect_in_window {
+        if let Some(rect_in_window) = self.common.rect_in_window() {
             line_node.set_bounds(accesskit::Rect {
                 x0: rect_in_window.top_left.x as f64,
                 y0: rect_in_window.top_left.y as f64,

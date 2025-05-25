@@ -241,7 +241,7 @@ impl Widget for Button {
     }
 
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
-        let rect = self.common.rect_or_err()?;
+        let rect = self.common.rect_in_self_or_err()?;
         if rect.contains(event.pos) {
             if self.was_pressed_but_moved_out {
                 self.was_pressed_but_moved_out = true;

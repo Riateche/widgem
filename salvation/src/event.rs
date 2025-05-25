@@ -1,6 +1,7 @@
 #![allow(clippy::new_without_default)]
 
 pub use crate::draw::DrawEvent;
+use crate::widgets::WidgetGeometry;
 use {
     crate::{
         types::{Point, Rect},
@@ -143,9 +144,8 @@ pub struct ImeEvent {
 #[derive(Debug, Clone)]
 pub struct LayoutEvent {
     // None means widget is hidden
-    pub new_rect_in_window: Option<Rect>,
-    // In receiver widget's coordinates
-    pub new_visible_rect: Option<Rect>,
+    pub new_geometry: Option<WidgetGeometry>,
+    // TODO: Rc?
     pub changed_size_hints: Vec<WidgetAddress>,
 }
 

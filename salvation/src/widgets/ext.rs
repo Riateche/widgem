@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetId, WidgetWithId},
+    super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetId, WidgetWithId},
     crate::{
         callback::Callback,
         event::Event,
@@ -51,6 +51,12 @@ pub trait WidgetExt {
     fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()>;
     fn add_class(&mut self, class: &'static str) -> &mut Self;
     fn remove_class(&mut self, class: &'static str);
+
+    fn set_geometry(
+        &mut self,
+        geometry: Option<WidgetGeometry>,
+        changed_size_hints: &[WidgetAddress],
+    );
 
     fn boxed(self) -> Box<dyn Widget>
     where

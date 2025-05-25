@@ -22,7 +22,9 @@ pub mod window;
 
 pub use self::{
     address::WidgetAddress,
-    common::{EventFilterFn, WidgetCommon, WidgetCommonTyped, WidgetCreationContext},
+    common::{
+        EventFilterFn, WidgetCommon, WidgetCommonTyped, WidgetCreationContext, WidgetGeometry,
+    },
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId, WidgetWithId},
     widget_trait::Widget,

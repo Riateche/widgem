@@ -2,7 +2,7 @@ use {
     super::{address, RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetId, WidgetNotFound},
     crate::{
         callback::{widget_callback, Callback},
-        event::{Event, LayoutEvent},
+        event::Event,
         key::Key,
         layout::{
             grid::{GridAxisOptions, GridOptions},
@@ -20,7 +20,7 @@ use {
         types::{Point, Rect, Size},
         window::{Window, WindowId},
     },
-    anyhow::{bail, Context, Result},
+    anyhow::{Context, Result},
     derivative::Derivative,
     log::{error, warn},
     std::{
@@ -45,6 +45,46 @@ pub struct WidgetCreationContext {
 }
 
 pub type EventFilterFn = dyn Fn(Event) -> Result<bool>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WidgetGeometry {
+    // Rect of this widget in parent coordinates.
+    pub rect_in_parent: Rect,
+    // Top left of the parent widget in window coordinates.
+    pub parent_top_left_in_window: Point,
+    // In this widget's coordinates.
+    pub parent_visible_rect: Rect,
+}
+
+impl WidgetGeometry {
+    pub fn new(parent: &WidgetGeometry, rect_in_parent: Rect) -> Self {
+        Self {
+            rect_in_parent,
+            parent_top_left_in_window: parent.rect_in_parent.top_left
+                + parent.parent_top_left_in_window,
+            parent_visible_rect: parent.visible_rect(),
+        }
+    }
+
+    pub fn size(&self) -> Size {
+        self.rect_in_parent.size
+    }
+
+    pub fn rect_in_self(&self) -> Rect {
+        Rect::from_pos_size(Point::default(), self.rect_in_parent.size)
+    }
+
+    pub fn rect_in_window(&self) -> Rect {
+        self.rect_in_parent
+            .translate(self.parent_top_left_in_window)
+    }
+
+    pub fn visible_rect(&self) -> Rect {
+        self.parent_visible_rect
+            .translate(-self.rect_in_parent.top_left)
+            .intersect(self.rect_in_self())
+    }
+}
 
 // TODO: use bitflags?
 #[derive(Derivative)]
@@ -73,19 +113,13 @@ pub struct WidgetCommon {
     pub is_window_root: bool,
 
     pub is_mouse_over: bool,
-    // Rect of this widget in window coordinates.
-    // Present if the widget is mounted, not hidden, and only after layout.
-    pub rect_in_window: Option<Rect>,
-    // Rect of this widget in parent coordinates.
-    // Present if the widget is mounted, not hidden, and only after layout.
-    pub rect_in_parent: Option<Rect>,
-    // In this widget's coordinates.
-    pub visible_rect: Option<Rect>,
+
+    // Present if the widget is not hidden, and only after layout.
+    pub geometry: Option<WidgetGeometry>,
 
     #[derivative(Debug = "ignore")]
     pub children: BTreeMap<Key, Box<dyn Widget>>,
     pub layout_item_options: LayoutItemOptions,
-    pub current_layout_event: Option<LayoutEvent>,
 
     pub size_hint_x_cache: Option<SizeHints>,
     // TODO: limit count
@@ -155,9 +189,7 @@ impl WidgetCommon {
             is_self_visible: true,
             is_mouse_over: false,
             enable_ime: false,
-            rect_in_window: None,
-            rect_in_parent: None,
-            visible_rect: None,
+            geometry: None,
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
             layout_item_options: LayoutItemOptions::default(),
@@ -166,7 +198,6 @@ impl WidgetCommon {
             is_accessible: true,
             is_registered_as_focusable: false,
             event_filter: None,
-            current_layout_event: None,
             is_window_root: ctx.is_window_root,
             grid_options: None,
             no_padding: false,
@@ -308,10 +339,6 @@ impl WidgetCommon {
             parent_style: self.style().clone(),
             is_parent_enabled: self.is_enabled(),
         }
-    }
-
-    pub fn size(&self) -> Option<Size> {
-        self.rect_in_window.as_ref().map(|g| g.size)
     }
 
     // Request redraw and accessible update
@@ -500,82 +527,17 @@ impl WidgetCommon {
         Err(WidgetNotFound)
     }
 
-    pub fn set_child_rect(
+    pub fn set_child_rects(
         &mut self,
-        key: impl Into<Key>,
-        rect_in_parent: Option<Rect>,
+        rects: &BTreeMap<Key, Rect>,
+        changed_size_hints: &[WidgetAddress],
     ) -> Result<()> {
-        let key = key.into();
-        let child = self
-            .children
-            .get_mut(&key)
-            .with_context(|| format!("set_child_rect: invalid child key: {:?}", &key))?;
-        if child.common().is_window_root {
-            bail!("cannot set child rect for child window");
-        }
-
-        let rect_in_window = if let Some(rect_in_window) = self.rect_in_window {
-            rect_in_parent.map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left))
-        } else {
-            None
-        };
-        let visible_rect = if let (Some(visible_rect), Some(rect_in_parent)) =
-            (self.visible_rect, rect_in_parent)
-        {
-            Some(
-                visible_rect
-                    .translate(-rect_in_parent.top_left)
-                    .intersect(Rect::from_pos_size(Point::default(), rect_in_parent.size)),
-            )
-            .filter(|r| r != &Rect::default())
-        } else {
-            None
-        };
-        child.common_mut().rect_in_parent = rect_in_parent;
-        // println!(
-        //     "rect_in_window {:?} -> {:?}",
-        //     child.common().rect_in_window,
-        //     rect_in_window
-        // );
-        // println!(
-        //     "visible_rect {:?} -> {:?}",
-        //     child.common().visible_rect,
-        //     visible_rect
-        // );
-        let rects_changed = child.common().rect_in_window != rect_in_window
-            || child.common().visible_rect != visible_rect;
-        if let Some(event) = &self.current_layout_event {
-            if rects_changed || event.size_hints_changed_within(child.common().address()) {
-                //println!("set_child_rect ok1");
-                child.dispatch(
-                    LayoutEvent {
-                        new_rect_in_window: rect_in_window,
-                        new_visible_rect: visible_rect,
-                        changed_size_hints: event.changed_size_hints.clone(),
-                    }
-                    .into(),
-                );
-            }
-        } else {
-            if rects_changed {
-                //println!("set_child_rect ok2");
-                child.dispatch(
-                    LayoutEvent {
-                        new_rect_in_window: rect_in_window,
-                        new_visible_rect: visible_rect,
-                        changed_size_hints: Vec::new(),
-                    }
-                    .into(),
-                );
-            }
-        }
-        //println!("set_child_rect end");
-        Ok(())
-    }
-
-    pub fn set_child_rects(&mut self, rects: &BTreeMap<Key, Rect>) -> Result<()> {
+        let geometry = self.geometry_or_err()?.clone();
         for (key, rect) in rects {
-            self.set_child_rect(key.clone(), Some(*rect))?;
+            self.get_dyn_child_mut(key)?.set_geometry(
+                Some(WidgetGeometry::new(&geometry, *rect)),
+                changed_size_hints,
+            );
         }
         Ok(())
     }
@@ -601,20 +563,36 @@ impl WidgetCommon {
         &self.address
     }
 
+    pub fn size(&self) -> Option<Size> {
+        self.geometry.as_ref().map(|g| g.size())
+    }
+
+    pub fn rect_in_window(&self) -> Option<Rect> {
+        self.geometry.as_ref().map(|g| g.rect_in_window())
+    }
+
+    pub fn rect_in_parent(&self) -> Option<Rect> {
+        self.geometry.as_ref().map(|g| g.rect_in_parent)
+    }
+
+    pub fn visible_rect(&self) -> Option<Rect> {
+        self.geometry.as_ref().map(|g| g.visible_rect())
+    }
+
+    pub fn geometry_or_err(&self) -> Result<&WidgetGeometry> {
+        self.geometry.as_ref().context("no geometry")
+    }
+
     pub fn rect_in_window_or_err(&self) -> Result<Rect> {
-        self.rect_in_window
-            .with_context(|| format!("no rect_in_window for {:?}", self.id))
+        Ok(self.geometry_or_err()?.rect_in_window())
     }
 
     pub fn size_or_err(&self) -> Result<Size> {
-        Ok(self.rect_in_window.context("no rect_in_window")?.size)
+        Ok(self.geometry_or_err()?.size())
     }
 
-    pub fn rect_or_err(&self) -> Result<Rect> {
-        Ok(Rect::from_pos_size(
-            Point::default(),
-            self.rect_in_window.context("no rect_in_window")?.size,
-        ))
+    pub fn rect_in_self_or_err(&self) -> Result<Rect> {
+        Ok(self.geometry_or_err()?.rect_in_self())
     }
 
     fn register_focusable(&mut self) {

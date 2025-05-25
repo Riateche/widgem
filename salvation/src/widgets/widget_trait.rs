@@ -71,13 +71,14 @@ pub trait Widget: Downcast {
         let _ = event;
         Ok(false)
     }
-    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
         let options = self.common().grid_options();
         let Some(size) = self.common().size() else {
             return Ok(());
         };
         let rects = grid::layout(&mut self.common_mut().children, &options, size);
-        self.common_mut().set_child_rects(&rects)
+        self.common_mut()
+            .set_child_rects(&rects, &event.changed_size_hints)
     }
     fn handle_scroll_to_rect(&mut self, event: ScrollToRectEvent) -> Result<bool> {
         let _ = event;

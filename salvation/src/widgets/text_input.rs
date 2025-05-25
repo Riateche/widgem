@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
+    super::{Widget, WidgetAddress, WidgetCommon, WidgetCommonTyped, WidgetExt, WidgetGeometry},
     crate::{
         draw::DrawEvent,
         event::{
@@ -12,7 +12,6 @@ use {
             Alignment, SizeHints,
         },
         style::text_input::{ComputedVariantStyle, TextInputState},
-        system::ReportError,
         text_editor::Text,
         types::{Point, Rect},
     },
@@ -79,14 +78,14 @@ impl TextInput {
         self.text_widget_mut().set_text(text, Attrs::new());
     }
 
-    fn adjust_scroll(&mut self) {
+    fn adjust_scroll(&mut self, changed_size_hints: &[WidgetAddress]) {
         let Some(editor_viewport_rect) = self
             .common
             .children
             .get(&0.into())
             .unwrap()
             .common()
-            .rect_in_parent
+            .rect_in_parent()
         else {
             return;
         };
@@ -101,7 +100,7 @@ impl TextInput {
             .get(&0.into())
             .unwrap()
             .common()
-            .rect_in_parent
+            .rect_in_parent()
             .map_or(0, |rect| -rect.left());
         let max_scroll = max(0, text_size.x - editor_viewport_rect.size.x);
         if let Some(cursor_position) = cursor_position {
@@ -123,15 +122,31 @@ impl TextInput {
             .get(&0.into())
             .unwrap()
             .common()
-            .rect_in_parent
+            .rect_in_parent()
             != Some(new_rect)
         {
+            let Some(geometry) = self
+                .common
+                .get_dyn_child(0)
+                .unwrap()
+                .common()
+                .geometry
+                .clone()
+            else {
+                return;
+            };
+
             self.common
                 .get_dyn_child_mut(0)
                 .unwrap()
                 .common_mut()
-                .set_child_rect(0, Some(new_rect))
-                .or_report_err();
+                .children
+                .get_mut(&0.into())
+                .unwrap()
+                .set_geometry(
+                    Some(WidgetGeometry::new(&geometry, new_rect)),
+                    changed_size_hints,
+                );
         }
     }
 
@@ -216,14 +231,15 @@ impl Widget for TextInput {
         self.text_widget_mut().handle_host_focus_out()
     }
 
-    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
         let options = self.common().grid_options();
         let Some(size) = self.common().size() else {
             return Ok(());
         };
         let rects = grid::layout(&mut self.common_mut().children, &options, size);
-        self.common_mut().set_child_rects(&rects)?;
-        self.adjust_scroll();
+        self.common_mut()
+            .set_child_rects(&rects, &event.changed_size_hints)?;
+        self.adjust_scroll(&event.changed_size_hints);
         Ok(())
     }
 
@@ -284,7 +300,7 @@ impl Widget for TextInput {
             return Ok(false);
         }
 
-        self.adjust_scroll();
+        self.adjust_scroll(&[]);
 
         Ok(true)
     }

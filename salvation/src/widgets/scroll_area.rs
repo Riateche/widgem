@@ -1,5 +1,8 @@
 use {
-    super::{scroll_bar::ScrollBar, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
+    super::{
+        scroll_bar::ScrollBar, Widget, WidgetAddress, WidgetCommon, WidgetCommonTyped, WidgetExt,
+        WidgetGeometry,
+    },
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_common,
@@ -91,11 +94,11 @@ impl ScrollArea {
     //     }
     // }
 
-    fn relayout(&mut self) -> Result<()> {
+    fn relayout(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
         let options = self.common.grid_options();
-        let size = self.common.size_or_err()?;
-        let rects = grid::layout(&mut self.common.children, &options, size);
-        self.common.set_child_rects(&rects)?;
+        let geometry = self.common.geometry_or_err()?.clone();
+        let rects = grid::layout(&mut self.common.children, &options, geometry.size());
+        self.common.set_child_rects(&rects, changed_size_hints)?;
 
         if self.has_content() {
             let value_x = self
@@ -133,7 +136,12 @@ impl ScrollArea {
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
                 .common_mut()
-                .set_child_rect(0, Some(content_rect))?;
+                .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
+                .unwrap()
+                .set_geometry(
+                    Some(WidgetGeometry::new(&geometry, content_rect)),
+                    changed_size_hints,
+                );
 
             let max_value_x = max(0, content_size_x - viewport_rect.size.x);
             let max_value_y = max(0, content_size_y - viewport_rect.size.y);
@@ -154,7 +162,7 @@ impl Widget for ScrollArea {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        let relayout = common.callback(|this, _| this.relayout());
+        let relayout = common.callback(|this, _| this.relayout(&[]));
 
         // TODO: icons, localized name
         common
@@ -176,8 +184,8 @@ impl Widget for ScrollArea {
         Self { common }
     }
 
-    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
-        self.relayout()
+    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
+        self.relayout(&event.changed_size_hints)
     }
 
     fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {

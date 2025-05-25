@@ -1,27 +1,21 @@
 use {
-    super::{RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped},
-    crate::{
-        event::LayoutEvent, impl_widget_common, key::Key, layout::SizeHints, system::ReportError,
-        types::Rect,
-    },
+    super::{Widget, WidgetCommon, WidgetCommonTyped, WidgetExt, WidgetGeometry},
+    crate::{event::LayoutEvent, impl_widget_common, key::Key, layout::SizeHints, types::Rect},
     anyhow::Result,
-    std::collections::HashMap,
 };
 
 pub struct Stack {
     common: WidgetCommonTyped<Self>,
-    rects: HashMap<RawWidgetId, Option<Rect>>,
 }
 
 impl Stack {
     // TODO: impl explicit rect setting for universal grid layout?
     pub fn add<T: Widget>(&mut self, key: Key, rect: Rect) -> &mut T {
+        let geometry = self.common.geometry.clone();
         let widget = self.common.add_child_with_key::<T>(key.clone());
-        let id = widget.common().id;
-        self.common
-            .set_child_rect(key.clone(), Some(rect))
-            .or_report_err();
-        self.rects.insert(id, Some(rect));
+        if let Some(geometry) = geometry {
+            widget.set_geometry(Some(WidgetGeometry::new(&geometry, rect)), &[]);
+        }
         self.common.update();
         self.common
             .children
@@ -36,10 +30,7 @@ impl Widget for Stack {
     impl_widget_common!();
 
     fn new(common: WidgetCommonTyped<Self>) -> Self {
-        Self {
-            common,
-            rects: HashMap::new(),
-        }
+        Self { common }
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
@@ -51,7 +42,7 @@ impl Widget for Stack {
             .common
             .children
             .values()
-            .filter_map(|c| c.common().rect_in_parent)
+            .filter_map(|c| c.common().rect_in_parent())
             .map(|rect| rect.bottom_right().x)
             .max()
             .unwrap_or(0);
@@ -67,7 +58,7 @@ impl Widget for Stack {
             .common
             .children
             .values()
-            .filter_map(|c| c.common().rect_in_parent)
+            .filter_map(|c| c.common().rect_in_parent())
             .map(|rect| rect.bottom_right().y)
             .max()
             .unwrap_or(0);

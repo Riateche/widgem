@@ -1,8 +1,8 @@
 use {
-    super::{Widget, WidgetExt, WidgetId},
+    super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetExt, WidgetId},
     crate::{
         callback::{widget_callback, Callback},
-        event::{EnabledChangeEvent, Event, StyleChangeEvent},
+        event::{EnabledChangeEvent, Event, LayoutEvent, StyleChangeEvent},
         layout::{SizeHints, FALLBACK_SIZE_HINTS},
         style::{computed::ComputedStyle, css::MyPseudoClass, Style},
         system::{with_system, ReportError},
@@ -105,7 +105,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.common().rect_in_parent {
+                        if let Some(rect_in_parent) = child.common().rect_in_parent() {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
                                 child.common().receives_all_mouse_events,
@@ -123,7 +123,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.common().rect_in_parent {
+                        if let Some(rect_in_parent) = child.common().rect_in_parent() {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
                                 child.common().receives_all_mouse_events,
@@ -144,7 +144,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.common().rect_in_parent {
+                        if let Some(rect_in_parent) = child.common().rect_in_parent() {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
                                 child.common().receives_all_mouse_events,
@@ -176,12 +176,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().mouse_over_changed();
                 should_dispatch = self.common().is_enabled();
             }
-            Event::Layout(event) => {
-                //println!("layout event for {:?}", self.common().id);
-                self.common_mut().rect_in_window = event.new_rect_in_window;
-                self.common_mut().visible_rect = event.new_visible_rect;
-                self.common_mut().current_layout_event = Some(event.clone());
-            }
+            Event::Layout(_) => {}
             Event::StyleChange(_) => {
                 self.common_mut().refresh_common_style();
             }
@@ -234,7 +229,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::Draw(event) => {
                 for child in self.common_mut().children.values_mut() {
-                    if let Some(rect_in_parent) = child.common().rect_in_parent {
+                    if let Some(rect_in_parent) = child.common().rect_in_parent() {
                         if let Some(child_event) = event.map_to_child(rect_in_parent) {
                             child.dispatch(child_event.into());
                         }
@@ -260,8 +255,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 self.common_mut().update();
             }
             Event::Layout(_) => {
-                // TODO: optimize
-                self.common_mut().current_layout_event = None;
                 self.common_mut().update();
             }
             Event::ScrollToRect(event) => {
@@ -327,7 +320,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             return;
         };
         // TODO: refresh after layout event
-        let rect = self.common().rect_in_window;
+        let rect = self.common().rect_in_window();
         let node = node.map(|mut node| {
             if let Some(rect) = rect {
                 node.set_bounds(accesskit::Rect {
@@ -435,6 +428,87 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         options.y.is_fixed = Some(fixed);
         self.common_mut().set_layout_item_options(options);
         self
+    }
+
+    fn set_geometry(
+        &mut self,
+        geometry: Option<WidgetGeometry>,
+        changed_size_hints: &[WidgetAddress],
+    ) {
+        let geometry_changed = self.common().geometry != geometry;
+        self.common_mut().geometry = geometry;
+        if geometry_changed
+            || changed_size_hints
+                .iter()
+                .any(|changed| changed.starts_with(self.common().address()))
+        {
+            self.dispatch(
+                LayoutEvent {
+                    new_geometry: None,
+                    changed_size_hints: changed_size_hints.to_vec(),
+                }
+                .into(),
+            );
+        }
+
+        /*
+        let rect_in_window = if let Some(rect_in_window) = self.rect_in_window {
+            rect_in_parent.map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left))
+        } else {
+            None
+        };
+        let visible_rect = if let (Some(visible_rect), Some(rect_in_parent)) =
+            (self.visible_rect, rect_in_parent)
+        {
+            Some(
+                visible_rect
+                    .translate(-rect_in_parent.top_left)
+                    .intersect(Rect::from_pos_size(Point::default(), rect_in_parent.size)),
+            )
+            .filter(|r| r != &Rect::default())
+        } else {
+            None
+        };
+        child.common_mut().rect_in_parent = rect_in_parent;
+        // println!(
+        //     "rect_in_window {:?} -> {:?}",
+        //     child.common().rect_in_window,
+        //     rect_in_window
+        // );
+        // println!(
+        //     "visible_rect {:?} -> {:?}",
+        //     child.common().visible_rect,
+        //     visible_rect
+        // );*/
+        // let rects_changed = self.common().geometry.as_ref() != Some(&geometry);
+        // self.common_mut().geometry = Some(geometry);
+        // if let Some(event) = &self.current_layout_event {
+        //     if rects_changed || event.size_hints_changed_within(child.common().address()) {
+        //         //println!("set_child_rect ok1");
+        //         child.dispatch(
+        //             LayoutEvent {
+        //                 new_rect_in_window: rect_in_window,
+        //                 new_visible_rect: visible_rect,
+        //                 changed_size_hints: event.changed_size_hints.clone(),
+        //             }
+        //             .into(),
+        //         );
+        //     }
+        // } else {
+        //     if rects_changed {
+        //         //println!("set_child_rect ok2");
+        //         child.dispatch(
+        //             LayoutEvent {
+        //                 new_rect_in_window: rect_in_window,
+        //                 new_visible_rect: visible_rect,
+        //                 changed_size_hints: Vec::new(),
+        //             }
+        //             .into(),
+        //         );
+        //     }
+        // }
+        //println!("set_child_rect end");
+        //Ok(())
     }
 
     fn boxed(self) -> Box<dyn Widget>
