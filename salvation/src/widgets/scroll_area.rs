@@ -7,7 +7,7 @@ use {
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_common,
         layout::{
-            grid::{self, GridOptions},
+            grid::{grid_layout, GridOptions},
             SizeHints,
         },
         types::{Axis, Rect},
@@ -95,10 +95,8 @@ impl ScrollArea {
     // }
 
     fn relayout(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
-        let options = self.common.grid_options();
         let geometry = self.common.geometry_or_err()?.clone();
-        let rects = grid::layout(&mut self.common.children, &options, geometry.size());
-        self.common.set_child_rects(&rects, changed_size_hints)?;
+        grid_layout(self, changed_size_hints);
 
         if self.has_content() {
             let value_x = self
@@ -112,7 +110,15 @@ impl ScrollArea {
                 .unwrap()
                 .value();
 
-            let viewport_rect = *rects.get(&INDEX_VIEWPORT.into()).unwrap();
+            let Some(viewport_rect) = self
+                .common
+                .get_dyn_child_mut(INDEX_VIEWPORT)
+                .unwrap()
+                .common_mut()
+                .rect_in_parent()
+            else {
+                return Ok(());
+            };
             let content_size_x = self
                 .common
                 .get_dyn_child_mut(INDEX_VIEWPORT)

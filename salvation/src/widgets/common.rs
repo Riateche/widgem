@@ -1,5 +1,5 @@
 use {
-    super::{address, RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetId, WidgetNotFound},
+    super::{address, RawWidgetId, Widget, WidgetAddress, WidgetId, WidgetNotFound},
     crate::{
         callback::{widget_callback, Callback},
         event::Event,
@@ -525,21 +525,6 @@ impl WidgetCommon {
         }
         error!("remove_child_by_id: did not reach parent widget");
         Err(WidgetNotFound)
-    }
-
-    pub fn set_child_rects(
-        &mut self,
-        rects: &BTreeMap<Key, Rect>,
-        changed_size_hints: &[WidgetAddress],
-    ) -> Result<()> {
-        let geometry = self.geometry_or_err()?.clone();
-        for (key, rect) in rects {
-            self.get_dyn_child_mut(key)?.set_geometry(
-                Some(WidgetGeometry::new(&geometry, *rect)),
-                changed_size_hints,
-            );
-        }
-        Ok(())
     }
 
     pub fn size_hint_changed(&mut self) {

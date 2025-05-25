@@ -3,8 +3,8 @@ use {
     crate::{
         key::Key,
         layout::{fair_split, solve_layout},
-        types::{Rect, Size},
-        widgets::{Widget, WidgetExt},
+        types::Rect,
+        widgets::{Widget, WidgetAddress, WidgetExt, WidgetGeometry},
     },
     itertools::Itertools,
     log::warn,
@@ -263,14 +263,21 @@ fn x_layout(
     }
 }
 
-pub fn layout(
-    items: &mut BTreeMap<Key, Box<dyn Widget>>,
-    options: &GridOptions,
-    size: Size,
-) -> BTreeMap<Key, Rect> {
-    let x_layout = x_layout(items, &options.x, size.x);
+pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
+    let Some(geometry) = widget.common().geometry.clone() else {
+        for child in widget.common_mut().children.values_mut() {
+            child.set_geometry(None, changed_size_hints);
+        }
+        return;
+    };
+    let options = widget.common().grid_options();
+    let x_layout = x_layout(
+        &mut widget.common_mut().children,
+        &options.x,
+        geometry.size().x,
+    );
     let mut hints_per_row = BTreeMap::new();
-    for (key, item) in items.iter_mut() {
+    for (key, item) in &mut widget.common_mut().children {
         if !item.common().layout_item_options.is_in_grid() || item.common().is_window_root {
             //|| !item.common().is_self_visible {
             continue;
@@ -299,24 +306,23 @@ pub fn layout(
         .values()
         .map(|hints| super::LayoutItem { size_hints: *hints })
         .collect_vec();
-    let output_y = solve_layout(&layout_items, size.y, &options.y);
+    let output_y = solve_layout(&layout_items, geometry.size().y, &options.y);
     let row_sizes: BTreeMap<_, _> = hints_per_row.keys().copied().zip(output_y.sizes).collect();
     let positions_x = positions(
         &x_layout.column_sizes,
         x_layout.padding,
         x_layout.spacing,
-        size.x,
+        geometry.size().x,
         options.x.alignment,
     );
     let positions_y = positions(
         &row_sizes,
         output_y.padding,
         output_y.spacing,
-        size.y,
+        geometry.size().y,
         options.y.alignment,
     );
-    let mut result = BTreeMap::new();
-    for (key, item) in items.iter_mut() {
+    for (key, item) in &mut widget.common_mut().children {
         // if !item.common().is_self_visible {
         //     continue;
         // }
@@ -353,12 +359,14 @@ pub fn layout(
         } else {
             *row_size
         };
-        result.insert(
-            key.clone(),
-            Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
+        item.set_geometry(
+            Some(WidgetGeometry::new(
+                &geometry,
+                Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
+            )),
+            changed_size_hints,
         );
     }
-    result
 }
 
 fn positions(

@@ -10,7 +10,7 @@ use {
         },
         impl_widget_common,
         layout::{
-            grid::{self, GridAxisOptions, GridOptions},
+            grid::{grid_layout, GridAxisOptions, GridOptions},
             Alignment, SizeHints,
         },
         system::ReportError,
@@ -458,13 +458,17 @@ impl ScrollBar {
     }
 
     fn update_grip_size(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
-        let options = self.common.grid_options();
         let Some(size) = self.common.size() else {
             return Ok(());
         };
-        let rects = grid::layout(&mut self.common.children, &options, size);
-        self.common.set_child_rects(&rects, changed_size_hints)?;
-        let pager_rect = rects.get(&INDEX_PAGER.into()).unwrap();
+        grid_layout(self, changed_size_hints);
+        let pager_rect = self
+            .common
+            .get_dyn_child(INDEX_PAGER)
+            .unwrap()
+            .common()
+            .rect_in_parent()
+            .unwrap();
         let grip_size_hint_x = self
             .common
             .get_dyn_child_mut(INDEX_PAGER)

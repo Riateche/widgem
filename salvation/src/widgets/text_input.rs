@@ -8,7 +8,7 @@ use {
         },
         impl_widget_common,
         layout::{
-            grid::{self, GridAxisOptions, GridOptions},
+            grid::{grid_layout, GridAxisOptions, GridOptions},
             Alignment, SizeHints,
         },
         style::text_input::{ComputedVariantStyle, TextInputState},
@@ -232,13 +232,7 @@ impl Widget for TextInput {
     }
 
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        let options = self.common().grid_options();
-        let Some(size) = self.common().size() else {
-            return Ok(());
-        };
-        let rects = grid::layout(&mut self.common_mut().children, &options, size);
-        self.common_mut()
-            .set_child_rects(&rects, &event.changed_size_hints)?;
+        grid_layout(self, &event.changed_size_hints);
         self.adjust_scroll(&event.changed_size_hints);
         Ok(())
     }

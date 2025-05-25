@@ -9,7 +9,7 @@ use {
             StyleChangeEvent, WindowFocusChangeEvent,
         },
         layout::{
-            grid::{self},
+            grid::{self, grid_layout},
             SizeHints,
         },
     },
@@ -72,13 +72,8 @@ pub trait Widget: Downcast {
         Ok(false)
     }
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        let options = self.common().grid_options();
-        let Some(size) = self.common().size() else {
-            return Ok(());
-        };
-        let rects = grid::layout(&mut self.common_mut().children, &options, size);
-        self.common_mut()
-            .set_child_rects(&rects, &event.changed_size_hints)
+        grid_layout(self, &event.changed_size_hints);
+        Ok(())
     }
     fn handle_scroll_to_rect(&mut self, event: ScrollToRectEvent) -> Result<bool> {
         let _ = event;
