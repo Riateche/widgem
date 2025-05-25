@@ -51,7 +51,6 @@ pub type EventFilterFn = dyn Fn(Event) -> Result<bool>;
 pub struct Child {
     #[derivative(Debug = "ignore")]
     pub widget: Box<dyn Widget>,
-    pub rect_in_parent: Option<Rect>,
 }
 
 // TODO: use bitflags?
@@ -81,8 +80,12 @@ pub struct WidgetCommon {
     pub is_window_root: bool,
 
     pub is_mouse_over: bool,
+    // Rect of this widget in window coordinates.
     // Present if the widget is mounted, not hidden, and only after layout.
     pub rect_in_window: Option<Rect>,
+    // Rect of this widget in parent coordinates.
+    // Present if the widget is mounted, not hidden, and only after layout.
+    pub rect_in_parent: Option<Rect>,
     // In this widget's coordinates.
     pub visible_rect: Option<Rect>,
 
@@ -159,6 +162,7 @@ impl WidgetCommon {
             is_mouse_over: false,
             enable_ime: false,
             rect_in_window: None,
+            rect_in_parent: None,
             visible_rect: None,
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
@@ -398,7 +402,6 @@ impl WidgetCommon {
             key.clone(),
             Child {
                 widget: Box::new(T::new(WidgetCommon::new::<T>(ctx))),
-                rect_in_parent: None,
             },
         );
         self.size_hint_changed();
@@ -541,7 +544,7 @@ impl WidgetCommon {
         } else {
             None
         };
-        child.rect_in_parent = rect_in_parent;
+        child.widget.common_mut().rect_in_parent = rect_in_parent;
         // println!(
         //     "rect_in_window {:?} -> {:?}",
         //     child.widget.common().rect_in_window,

@@ -80,8 +80,14 @@ impl TextInput {
     }
 
     fn adjust_scroll(&mut self) {
-        let Some(editor_viewport_rect) =
-            self.common.children.get(&0.into()).unwrap().rect_in_parent
+        let Some(editor_viewport_rect) = self
+            .common
+            .children
+            .get(&0.into())
+            .unwrap()
+            .widget
+            .common()
+            .rect_in_parent
         else {
             return;
         };
@@ -95,6 +101,8 @@ impl TextInput {
             .children
             .get(&0.into())
             .unwrap()
+            .widget
+            .common()
             .rect_in_parent
             .map_or(0, |rect| -rect.left());
         let max_scroll = max(0, text_size.x - editor_viewport_rect.size.x);
@@ -116,6 +124,8 @@ impl TextInput {
             .children
             .get(&0.into())
             .unwrap()
+            .widget
+            .common()
             .rect_in_parent
             != Some(new_rect)
         {

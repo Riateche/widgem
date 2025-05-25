@@ -105,7 +105,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.rect_in_parent {
+                        if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
                                 child.widget.common().receives_all_mouse_events,
@@ -123,7 +123,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.rect_in_parent {
+                        if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
                                 child.widget.common().receives_all_mouse_events,
@@ -144,7 +144,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 should_dispatch = self.common().is_enabled();
                 if should_dispatch {
                     for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.rect_in_parent {
+                        if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
                             if let Some(child_event) = event.map_to_child(
                                 rect_in_parent,
                                 child.widget.common().receives_all_mouse_events,
@@ -234,7 +234,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::Draw(event) => {
                 for child in self.common_mut().children.values_mut() {
-                    if let Some(rect_in_parent) = child.rect_in_parent {
+                    if let Some(rect_in_parent) = child.widget.common().rect_in_parent {
                         if let Some(child_event) = event.map_to_child(rect_in_parent) {
                             child.widget.dispatch(child_event.into());
                         }
