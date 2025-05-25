@@ -1,11 +1,7 @@
 use {
     super::{RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped},
     crate::{
-        event::LayoutEvent,
-        impl_widget_common,
-        key::Key,
-        layout::{SizeHintMode, SizeHints},
-        system::ReportError,
+        event::LayoutEvent, impl_widget_common, key::Key, layout::SizeHints, system::ReportError,
         types::Rect,
     },
     anyhow::Result,
@@ -67,7 +63,7 @@ impl Widget for Stack {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
         let max = self
             .common
             .children
@@ -76,6 +72,10 @@ impl Widget for Stack {
             .map(|rect| rect.bottom_right().y)
             .max()
             .unwrap_or(0);
-        Ok(max)
+        Ok(SizeHints {
+            min: max,
+            preferred: max,
+            is_fixed: true,
+        })
     }
 }

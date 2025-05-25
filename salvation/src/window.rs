@@ -218,10 +218,14 @@ impl Window {
 
         let size_hints_x = root_widget.size_hint_x();
         // TODO: adjust size_x for screen size
-        let size_hints_y = root_widget.size_hints_y_from_hints_x(size_hints_x);
-
-        let preferred_size = Size::new(size_hints_x.preferred, size_hints_y.preferred);
-        let min_size = Size::new(size_hints_x.min, size_hints_y.min);
+        let preferred_size = Size::new(
+            size_hints_x.preferred,
+            root_widget.size_hint_y(size_hints_x.preferred).preferred,
+        );
+        let min_size = Size::new(
+            size_hints_x.min,
+            root_widget.size_hint_y(size_hints_x.min).min,
+        );
 
         // TODO: all attrs
         let mut attrs = WindowAttributes::default()

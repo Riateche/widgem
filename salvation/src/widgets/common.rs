@@ -6,7 +6,7 @@ use {
         key::Key,
         layout::{
             grid::{GridAxisOptions, GridOptions},
-            Alignment, LayoutItemOptions, SizeHintMode, SizeHints,
+            Alignment, LayoutItemOptions, SizeHints,
         },
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
@@ -93,10 +93,7 @@ pub struct WidgetCommon {
 
     pub size_hint_x_cache: Option<SizeHints>,
     // TODO: limit count
-    pub size_hint_y_cache: HashMap<(i32, SizeHintMode), i32>,
-    pub size_x_fixed_cache: Option<bool>,
-    pub size_y_fixed_cache: Option<bool>,
-
+    pub size_hint_y_cache: HashMap<i32, SizeHints>,
     pub is_accessible: bool,
 
     pub self_style: Option<ComputedStyle>,
@@ -169,8 +166,6 @@ impl WidgetCommon {
             layout_item_options: LayoutItemOptions::default(),
             size_hint_x_cache: None,
             size_hint_y_cache: HashMap::new(),
-            size_x_fixed_cache: None,
-            size_y_fixed_cache: None,
             is_accessible: true,
             is_registered_as_focusable: false,
             event_filter: None,
@@ -609,8 +604,6 @@ impl WidgetCommon {
     pub fn clear_size_hint_cache(&mut self) {
         self.size_hint_x_cache = None;
         self.size_hint_y_cache.clear();
-        self.size_x_fixed_cache = None;
-        self.size_y_fixed_cache = None;
     }
 
     pub fn window_or_err(&self) -> Result<&Window> {

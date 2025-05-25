@@ -3,7 +3,7 @@ use {
     crate::{
         callback::{widget_callback, Callback},
         event::{EnabledChangeEvent, Event, StyleChangeEvent},
-        layout::{SizeHintMode, SizeHints, FALLBACK_SIZE_HINT, FALLBACK_SIZE_HINTS},
+        layout::{SizeHints, FALLBACK_SIZE_HINTS},
         style::{computed::ComputedStyle, css::MyPseudoClass, Style},
         system::{with_system, ReportError},
     },
@@ -388,43 +388,15 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         }
     }
 
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32 {
-        if let Some(cached) = self.common().size_hint_y_cache.get(&(size_x, mode)) {
+    fn size_hint_y(&mut self, size_x: i32) -> SizeHints {
+        if let Some(cached) = self.common().size_hint_y_cache.get(&size_x) {
             *cached
         } else {
             let r = self
-                .recalculate_size_hint_y(size_x, mode)
+                .recalculate_size_hint_y(size_x)
                 .or_report_err()
-                .unwrap_or(FALLBACK_SIZE_HINT);
-            self.common_mut()
-                .size_hint_y_cache
-                .insert((size_x, mode), r);
-            r
-        }
-    }
-
-    fn size_hints_y(&mut self, size_x: i32) -> SizeHints {
-        SizeHints {
-            min: self.size_hint_y(size_x, SizeHintMode::Min),
-            preferred: self.size_hint_y(size_x, SizeHintMode::Preferred),
-            is_fixed: self.size_y_fixed(),
-        }
-    }
-
-    fn size_hints_y_from_hints_x(&mut self, hints_x: SizeHints) -> SizeHints {
-        SizeHints {
-            min: self.size_hint_y(hints_x.min, SizeHintMode::Min),
-            preferred: self.size_hint_y(hints_x.preferred, SizeHintMode::Preferred),
-            is_fixed: self.size_y_fixed(),
-        }
-    }
-
-    fn size_y_fixed(&mut self) -> bool {
-        if let Some(cached) = self.common().size_y_fixed_cache {
-            cached
-        } else {
-            let r = self.recalculate_size_y_fixed();
-            self.common_mut().size_y_fixed_cache = Some(r);
+                .unwrap_or(FALLBACK_SIZE_HINTS);
+            self.common_mut().size_hint_y_cache.insert(size_x, r);
             r
         }
     }

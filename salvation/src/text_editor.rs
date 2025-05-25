@@ -7,7 +7,7 @@ use {
             MouseMoveEvent, WindowFocusChangeEvent,
         },
         impl_widget_common,
-        layout::{SizeHintMode, SizeHints},
+        layout::SizeHints,
         shortcut::standard_shortcuts,
         system::{add_interval, report_error, send_window_request, with_system, ReportError},
         text::{
@@ -1149,9 +1149,13 @@ impl Widget for Text {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
         // TODO: use size_x, handle multiple lines
-        Ok(self.size().y)
+        Ok(SizeHints {
+            min: self.size().y,
+            preferred: self.size().y,
+            is_fixed: true,
+        })
     }
 }
 

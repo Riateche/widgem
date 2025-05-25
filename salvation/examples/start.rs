@@ -3,11 +3,8 @@
 use {
     anyhow::Result,
     salvation::{
-        event::LayoutEvent,
         impl_widget_common,
-        layout::SizeHintMode,
         system::add_interval,
-        types::Rect,
         widgets::{
             button::Button, column::Column, label::Label, scroll_area::ScrollArea,
             text_input::TextInput, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped,
@@ -64,35 +61,6 @@ impl Widget for AnotherWidget {
         button.set_text("another button");
         button.on_triggered(callback);
         this
-    }
-
-    fn recalculate_size_hint_x(&mut self) -> Result<salvation::layout::SizeHints> {
-        Ok(self
-            .common_mut()
-            .get_dyn_child_mut("button")
-            .unwrap()
-            .size_hint_x())
-    }
-    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
-        Ok(self
-            .common_mut()
-            .get_dyn_child_mut("button")
-            .unwrap()
-            .size_hint_y(size_x, mode))
-    }
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        self.common_mut()
-            .get_dyn_child_mut("button")
-            .unwrap()
-            .size_y_fixed()
-    }
-    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        self.common.set_child_rect(
-            "button",
-            event
-                .new_rect_in_window
-                .map(|r| Rect::from_pos_size(Default::default(), r.size)),
-        )
     }
 }
 
@@ -267,10 +235,6 @@ impl Widget for RootWidget {
             i: 0,
             label2_id,
         }
-    }
-
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
     }
 }
 

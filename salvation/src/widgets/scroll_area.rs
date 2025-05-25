@@ -5,7 +5,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridOptions},
-            SizeHintMode, SizeHints,
+            SizeHints,
         },
         types::{Axis, Rect},
     },
@@ -126,7 +126,8 @@ impl ScrollArea {
                 .common_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
-                .size_hint_y(content_size_x, SizeHintMode::Preferred);
+                .size_hint_y(content_size_x)
+                .preferred;
             let content_rect = Rect::from_xywh(-value_x, -value_y, content_size_x, content_size_y);
             self.common
                 .get_dyn_child_mut(INDEX_VIEWPORT)
@@ -218,17 +219,18 @@ impl Widget for Viewport {
         Self { common }
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<crate::layout::SizeHints> {
+    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
         Ok(SizeHints {
             min: 0,
             preferred: 0,
             is_fixed: false,
         })
     }
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(0)
-    }
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        false
+    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+        Ok(SizeHints {
+            min: 0,
+            preferred: 0,
+            is_fixed: false,
+        })
     }
 }

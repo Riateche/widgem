@@ -10,7 +10,7 @@ use {
         },
         layout::{
             grid::{self},
-            SizeHintMode, SizeHints,
+            SizeHints,
         },
     },
     anyhow::Result,
@@ -132,18 +132,13 @@ pub trait Widget: Downcast {
         let options = self.common().grid_options();
         Ok(grid::size_hint_x(&mut self.common_mut().children, &options))
     }
-    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, size_x: i32) -> Result<SizeHints> {
         let options = self.common().grid_options();
         Ok(grid::size_hint_y(
             &mut self.common_mut().children,
             &options,
             size_x,
-            mode,
         ))
-    }
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        let options = self.common().grid_options();
-        grid::size_y_fixed(&mut self.common_mut().children, &options)
     }
 
     // TODO: result?

@@ -8,7 +8,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            Alignment, SizeHintMode, SizeHints,
+            Alignment, SizeHints,
         },
         system::ReportError,
         types::{Axis, Point, Rect, Size},
@@ -463,7 +463,8 @@ impl ScrollBar {
             .common_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .size_hint_y(grip_size_hint_x, SizeHintMode::Preferred);
+            .size_hint_y(grip_size_hint_x)
+            .preferred;
 
         let (size_along_axis, grip_min_size_along_axis, pager_size_along_axis) = match self.axis {
             Axis::X => (size.x, grip_size_hint_x, pager_rect.size.x),
@@ -781,7 +782,7 @@ impl Widget for Pager {
         }
     }
 
-    fn recalculate_size_hint_x(&mut self) -> Result<crate::layout::SizeHints> {
+    fn recalculate_size_hint_x(&mut self) -> Result<SizeHints> {
         let grip = self.common.get_dyn_child_mut(INDEX_GRIP_IN_PAGER).unwrap();
         let grip_hint = grip.size_hint_x();
         let min_size = match self.axis {
@@ -798,18 +799,24 @@ impl Widget for Pager {
             is_fixed: self.axis == Axis::Y,
         })
     }
-    fn recalculate_size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, size_x: i32) -> Result<SizeHints> {
         let grip_hint = self
             .common
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .size_hint_y(size_x, mode);
-        match self.axis {
-            Axis::X => Ok(grip_hint),
-            Axis::Y => Ok(grip_hint * PAGER_SIZE_HINT_MULTIPLIER),
-        }
-    }
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        self.axis == Axis::X
+            .size_hint_y(size_x);
+        let min_size = match self.axis {
+            Axis::X => grip_hint.min,
+            Axis::Y => grip_hint.min * PAGER_SIZE_HINT_MULTIPLIER,
+        };
+        let preferred_size = match self.axis {
+            Axis::X => grip_hint.preferred,
+            Axis::Y => grip_hint.preferred * PAGER_SIZE_HINT_MULTIPLIER,
+        };
+        Ok(SizeHints {
+            min: min_size,
+            preferred: preferred_size,
+            is_fixed: self.axis == Axis::X,
+        })
     }
 }

@@ -3,7 +3,7 @@ use {
     crate::{
         callback::Callback,
         event::Event,
-        layout::{SizeHintMode, SizeHints},
+        layout::SizeHints,
         style::{css::MyPseudoClass, Style},
     },
     anyhow::Result,
@@ -44,10 +44,7 @@ pub trait WidgetExt {
     fn dispatch(&mut self, event: Event) -> bool;
     fn update_accessible(&mut self);
     fn size_hint_x(&mut self) -> SizeHints;
-    fn size_hint_y(&mut self, size_x: i32, mode: SizeHintMode) -> i32;
-    fn size_hints_y(&mut self, size_x: i32) -> SizeHints;
-    fn size_hints_y_from_hints_x(&mut self, hints_x: SizeHints) -> SizeHints;
-    fn size_y_fixed(&mut self) -> bool;
+    fn size_hint_y(&mut self, size_x: i32) -> SizeHints;
 
     // TODO: private
     fn set_enabled(&mut self, enabled: bool);

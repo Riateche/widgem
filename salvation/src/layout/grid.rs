@@ -138,10 +138,11 @@ pub fn size_hint_y(
     items: &mut BTreeMap<Key, Child>,
     options: &GridOptions,
     size_x: i32,
-    mode: SizeHintMode,
-) -> i32 {
+) -> SizeHints {
     let x_layout = x_layout(items, &options.x, size_x);
-    let mut item_data = Vec::new();
+    let mut min_items = Vec::new();
+    let mut preferred_items = Vec::new();
+    let mut all_fixed = true;
     for (key, item) in items.iter_mut() {
         if !item.widget.common().layout_item_options.is_in_grid()
             || item.widget.common().is_window_root
@@ -152,7 +153,7 @@ pub fn size_hint_y(
         let Some(item_size_x) = x_layout.child_sizes.get(key) else {
             continue;
         };
-        let pos = item
+        let pos_in_grid = item
             .widget
             .common()
             .layout_item_options
@@ -160,25 +161,28 @@ pub fn size_hint_y(
             .pos_in_grid
             .clone()
             .unwrap();
-        let hints = item.widget.size_hint_y(*item_size_x, mode);
-        item_data.push((pos, hints));
-    }
-    size_hint(&item_data, &options.y, mode)
-}
+        let hints = item.widget.size_hint_y(*item_size_x);
 
-pub fn size_y_fixed(items: &mut BTreeMap<Key, Child>, _options: &GridOptions) -> bool {
-    items.values_mut().all(|item| {
-        !item.widget.common().layout_item_options.is_in_grid()
-            || item.widget.common().is_window_root
-            || !item.widget.common().is_self_visible
-            || item
-                .widget
-                .common()
-                .layout_item_options
-                .y
-                .is_fixed
-                .unwrap_or_else(|| item.widget.size_y_fixed())
-    })
+        min_items.push((pos_in_grid.clone(), hints.min));
+        preferred_items.push((pos_in_grid, hints.preferred));
+
+        let is_fixed = item
+            .widget
+            .common()
+            .layout_item_options
+            .x
+            .is_fixed
+            .unwrap_or(hints.is_fixed);
+
+        if !is_fixed {
+            all_fixed = false;
+        }
+    }
+    SizeHints {
+        min: size_hint(&min_items, &options.y, SizeHintMode::Min),
+        preferred: size_hint(&preferred_items, &options.y, SizeHintMode::Preferred),
+        is_fixed: all_fixed,
+    }
 }
 
 struct XLayout {
@@ -305,7 +309,7 @@ pub fn layout(
             continue;
         };
         let pos = *pos.start();
-        let mut hints = item.widget.size_hints_y(*item_size_x);
+        let mut hints = item.widget.size_hint_y(*item_size_x);
         if let Some(is_fixed) = item.widget.common().layout_item_options.y.is_fixed {
             hints.is_fixed = is_fixed;
         }
@@ -375,18 +379,16 @@ pub fn layout(
             warn!("missing item in row_sizes");
             continue;
         };
+        let size_hint_y = item.widget.size_hint_y(*size_x);
         let size_y = if item
             .widget
             .common()
             .layout_item_options
             .y
             .is_fixed
-            .unwrap_or_else(|| item.widget.size_y_fixed())
+            .unwrap_or(size_hint_y.is_fixed)
         {
-            min(
-                *row_size,
-                item.widget.size_hint_y(*size_x, SizeHintMode::Preferred),
-            )
+            min(*row_size, size_hint_y.preferred)
         } else {
             *row_size
         };

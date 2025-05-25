@@ -9,7 +9,7 @@ use {
         impl_widget_common,
         layout::{
             grid::{self, GridAxisOptions, GridOptions},
-            Alignment, SizeHintMode, SizeHints,
+            Alignment, SizeHints,
         },
         style::text_input::{ComputedVariantStyle, TextInputState},
         system::ReportError,
@@ -34,10 +34,6 @@ impl Widget for Viewport {
         Self { common }
     }
 
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        true
-    }
-
     fn recalculate_size_hint_x(&mut self) -> Result<crate::layout::SizeHints> {
         Ok(SizeHints {
             min: 0,
@@ -46,8 +42,13 @@ impl Widget for Viewport {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, _mode: SizeHintMode) -> Result<i32> {
-        Ok(self.common.get_child::<Text>(0).unwrap().line_height() as i32)
+    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
+        let size = self.common.get_child::<Text>(0).unwrap().line_height() as i32;
+        Ok(SizeHints {
+            min: size,
+            preferred: size,
+            is_fixed: true,
+        })
     }
 }
 
@@ -252,18 +253,14 @@ impl Widget for TextInput {
         })
     }
 
-    fn recalculate_size_hint_y(&mut self, _size_x: i32, mode: SizeHintMode) -> Result<i32> {
+    fn recalculate_size_hint_y(&mut self, _size_x: i32) -> Result<SizeHints> {
         let text_size = self.text_widget().size();
         let style = &self.common.style().0.text_input;
-        let padding = match mode {
-            SizeHintMode::Min => style.min_padding_with_border,
-            SizeHintMode::Preferred => style.preferred_padding_with_border,
-        };
-        Ok(text_size.y + 2 * padding.y)
-    }
-
-    fn recalculate_size_y_fixed(&mut self) -> bool {
-        true
+        Ok(SizeHints {
+            min: text_size.y + 2 * style.min_padding_with_border.y,
+            preferred: text_size.y + 2 * style.preferred_padding_with_border.y,
+            is_fixed: true,
+        })
     }
 
     fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
