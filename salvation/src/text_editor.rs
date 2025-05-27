@@ -3,7 +3,7 @@ use {
         accessible,
         draw::DrawEvent,
         event::{
-            AccessibleActionEvent, FocusReason, InputMethodEvent, KeyboardInputEvent,
+            AccessibilityActionEvent, FocusReason, InputMethodEvent, KeyboardInputEvent,
             MouseInputEvent, MouseMoveEvent, WindowFocusChangeEvent,
         },
         impl_widget_common,
@@ -1076,7 +1076,7 @@ impl Widget for Text {
         Ok(())
     }
 
-    fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
+    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
         let window = self.common.window_or_err()?;
 
         match event.action {

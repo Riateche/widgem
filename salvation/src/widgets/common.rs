@@ -635,6 +635,15 @@ impl WidgetCommon {
         self.register_focusable();
     }
 
+    pub fn set_ime_enabled(&mut self, enabled: bool) {
+        self.enable_ime = enabled;
+        if self.is_focused() {
+            if let Some(window) = &self.window {
+                window.set_ime_allowed(enabled);
+            }
+        }
+    }
+
     fn unmount_accessible(&mut self) {
         // println!("unmount_accessible {:?}", self.id);
         // for child in self.children.values_mut() {

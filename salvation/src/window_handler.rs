@@ -1,9 +1,9 @@
 use {
     crate::{
         event::{
-            AccessibleActionEvent, FocusInEvent, FocusOutEvent, FocusReason, InputMethodEvent,
+            AccessibilityActionEvent, FocusInEvent, FocusOutEvent, FocusReason, InputMethodEvent,
             KeyboardInputEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent,
-            ScrollToRectEvent, WindowFocusChangeEvent,
+            ScrollToRectRequest, WindowFocusChangeEvent,
         },
         event_loop::UserEvent,
         system::{address, with_system, ReportError},
@@ -471,7 +471,7 @@ impl WindowWithWidget<'_> {
             WindowRequest::ScrollToRect(request) => {
                 if let Some(address) = address(request.widget_id) {
                     self.root_widget.dispatch(
-                        ScrollToRectEvent {
+                        ScrollToRectRequest {
                             address,
                             rect: request.rect,
                         }
@@ -493,7 +493,7 @@ impl WindowWithWidget<'_> {
         let widget_id = RawWidgetId(request.target.0);
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_id) {
             widget.dispatch(
-                AccessibleActionEvent {
+                AccessibilityActionEvent {
                     action: request.action,
                     data: request.data,
                 }

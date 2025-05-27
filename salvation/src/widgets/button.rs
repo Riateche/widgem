@@ -4,7 +4,7 @@ use {
         callback::{Callback, CallbackVec},
         draw::DrawEvent,
         event::{
-            AccessibleActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent,
+            AccessibilityActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent,
             MouseMoveEvent, StyleChangeEvent,
         },
         impl_widget_common,
@@ -303,7 +303,7 @@ impl Widget for Button {
         Ok(false)
     }
 
-    fn handle_accessible_action(&mut self, event: AccessibleActionEvent) -> Result<()> {
+    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
         match event.action {
             Action::Default => self.trigger(),
             Action::Focus => {

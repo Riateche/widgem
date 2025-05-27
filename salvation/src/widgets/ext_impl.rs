@@ -183,7 +183,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::EnabledChange(_) => {
                 self.common_mut().enabled_changed();
             }
-            Event::Draw(_) | Event::Accessible(_) | Event::ScrollToRect(_) => {}
+            Event::Draw(_) | Event::AccessibilityAction(_) | Event::ScrollToRect(_) => {}
         }
         if !accepted && should_dispatch {
             if let Some(event_filter) = &mut self.common_mut().event_filter {
@@ -212,10 +212,14 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::MouseEnter(_) => {
-                accept_mouse_move_or_enter_event(self, true);
+                if accepted {
+                    accept_mouse_move_or_enter_event(self, true);
+                }
             }
             Event::MouseMove(_) => {
-                accept_mouse_move_or_enter_event(self, false);
+                if accepted {
+                    accept_mouse_move_or_enter_event(self, false);
+                }
             }
             Event::Draw(event) => {
                 for child in self.common_mut().children.values_mut() {
@@ -282,7 +286,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     child.dispatch(event.clone().into());
                 }
             }
-            Event::KeyboardInput(_) | Event::InputMethod(_) | Event::Accessible(_) => {}
+            Event::KeyboardInput(_) | Event::InputMethod(_) | Event::AccessibilityAction(_) => {}
         }
 
         self.update_accessible();

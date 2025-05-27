@@ -634,6 +634,14 @@ impl Window {
         }
     }
 
+    // Only for the case when ime_allowed is changed for the focused widget.
+    pub fn set_ime_allowed(&self, allowed: bool) {
+        let this = self.0.borrow();
+        if let Some(w) = this.winit_window.as_ref() {
+            w.set_ime_allowed(allowed);
+        }
+    }
+
     pub fn request_redraw(&self) {
         let mut this = self.0.borrow_mut();
         if !this.pending_redraw {

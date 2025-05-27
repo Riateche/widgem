@@ -4,7 +4,7 @@ use {
         draw::DrawEvent,
         event::{
             FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
-            ScrollToRectEvent, StyleChangeEvent,
+            ScrollToRectRequest, StyleChangeEvent,
         },
         impl_widget_common,
         layout::{
@@ -288,7 +288,7 @@ impl Widget for TextInput {
         self.text_widget_mut().handle_host_ime(event)
     }
 
-    fn handle_scroll_to_rect(&mut self, event: ScrollToRectEvent) -> Result<bool> {
+    fn handle_scroll_to_rect(&mut self, event: ScrollToRectRequest) -> Result<bool> {
         if self.text_widget().common().id != event.address.widget_id() {
             warn!("TextInput received unexpected ScrollToRectEvent");
             return Ok(false);

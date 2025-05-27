@@ -30,8 +30,8 @@ pub enum Event {
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
     WindowFocusChange(WindowFocusChangeEvent),
-    Accessible(AccessibleActionEvent),
-    ScrollToRect(ScrollToRectEvent),
+    AccessibilityAction(AccessibilityActionEvent),
+    ScrollToRect(ScrollToRectRequest),
     StyleChange(StyleChangeEvent),
     EnabledChange(EnabledChangeEvent),
 }
@@ -178,13 +178,13 @@ pub struct WindowFocusChangeEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct AccessibleActionEvent {
+pub struct AccessibilityActionEvent {
     pub action: Action,
     pub data: Option<ActionData>,
 }
 
 #[derive(Debug, Clone)]
-pub struct ScrollToRectEvent {
+pub struct ScrollToRectRequest {
     pub address: WidgetAddress,
     pub rect: Rect,
 }
