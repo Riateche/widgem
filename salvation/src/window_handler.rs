@@ -130,7 +130,7 @@ impl WindowWithWidget<'_> {
                     );
                 }
                 let state = self.window.take_mouse_event_state().or_report_err();
-                if state.map_or(false, |state| !state.is_accepted()) {
+                if state.is_some_and(|state| !state.is_accepted()) {
                     self.window.set_cursor(CursorIcon::Default);
                 }
             }

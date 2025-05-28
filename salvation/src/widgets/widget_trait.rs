@@ -14,11 +14,11 @@ use {
         },
     },
     anyhow::Result,
-    downcast_rs::{impl_downcast, Downcast},
     log::warn,
+    std::any::Any,
 };
 
-pub trait Widget: Downcast {
+pub trait Widget: Any {
     /// Returns widget type as a string. It's recommended to use [impl_widget_common!](crate::impl_widget_common) macro
     /// to automatically implement this method.
     fn type_name() -> &'static str
@@ -236,13 +236,15 @@ pub trait Widget: Downcast {
     /// is repositioned or resized.
     ///
     /// The widget receives a layout event when its geometry changes (i.e. its position within the window, its size,
-    /// or its visible are changes), and also when size hint is changed for this widget or any of its direct and indirect children.
+    /// or its visible area changes), and also when size hint is changed for this widget or any of its direct and indirect children.
     ///
     /// You should not call this function directly. To trigger a re-layout, call
     /// [size_hint_changed](crate::widgets::WidgetCommon::size_hint_changed).
     ///
     /// Implement this function to achieve a custom positioning of this widget's children that is not achievable
-    /// through the default grid layout.
+    /// through the default grid layout, or if you want to perform an action when the geometry of your widget changes
+    /// (i.e. its position within the window, its size, or its visible area changes).
+    ///
     /// In this function, use [set_geometry](crate::widgets::WidgetExt::set_geometry)
     /// to position the direct children of this widget. Note that this will immediately trigger a layout event
     /// for the child widget if the conditions listed above are met.
@@ -388,6 +390,8 @@ pub trait Widget: Downcast {
         Ok(())
     }
 
+    // TODO: remove this in favor of style change?
+
     /// Handles an event when this widget is enabled or disabled.
     ///
     /// This event can be triggered when a widget is enabled or disabled, or when its parent is enabled or disabled.
@@ -417,7 +421,7 @@ pub trait Widget: Downcast {
             Event::FocusOut(e) => self.handle_focus_out(e).map(|()| true),
             Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
             Event::AccessibilityAction(e) => self.handle_accessibility_action(e).map(|()| true),
-            Event::ScrollToRect(e) => self.handle_scroll_to_rect(e),
+            Event::ScrollToRect(e) => self.handle_scroll_to_rect_request(e),
             Event::StyleChange(e) => self.handle_style_change(e).map(|()| true),
             Event::EnabledChange(e) => self.handle_enabled_change(e).map(|()| true),
         }
@@ -493,6 +497,30 @@ pub trait Widget: Downcast {
         let options = self.common().grid_options();
         Ok(grid::size_hint_x(&mut self.common_mut().children, &options))
     }
+
+    /// Calculates size hint of this widget along the Y axis, given the X size.
+    ///
+    /// This function is typically called after widget creation and after
+    /// [size_hint_changed](crate::widgets::WidgetCommon::size_hint_changed) has been called for this widget.
+    /// The value is subsequently cached (separately for each `size_x`) until `size_hint_changed` is called again.
+    ///
+    /// Note that this function is typically called during layout calculation, and the value of `size_x`
+    /// may not be the same as the final value chosen by the layout. Implement `handle_layout` if you want
+    /// to be notified about the final size assigned to your widget.
+    ///
+    /// You should not call this function directly. Use
+    /// [size_hint_y](crate::widgets::WidgetExt::size_hint_y) to get the current size hint
+    /// (it can trigger a call to `handle_size_hint_y_request` internally if it hasn't been cached yet).
+    ///
+    /// Default implementation returns the size hint provided by the default grid layout.
+    ///
+    /// Implement this function if your widget uses a custom layout to position its children; if
+    /// your widget doesn't have any children but needs to have non-zero size; or if you want it
+    /// to be sized differently from what the default grid layout offers.
+    ///
+    /// Note that [set_layout_item_options](crate::widgets::WidgetCommon::set_layout_item_options)
+    /// offers many options that alter the size of the widget, which in many cases is sufficient,
+    /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_y_request(&mut self, size_x: i32) -> Result<SizeHints> {
         let options = self.common().grid_options();
         Ok(grid::size_hint_y(
@@ -501,7 +529,27 @@ pub trait Widget: Downcast {
             size_x,
         ))
     }
-    fn handle_accessible_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
+
+    // TODO: track accesskit state and don't update nodes if it's disabled
+
+    /// Calculates the accessibility node representing this widget.
+    ///
+    /// You should not call this function directly.
+    /// Call [WidgetCommon::update](crate::widgets::WidgetCommon::update) to request
+    /// an update of a widget. Note that `handle_accessibility_node_request` may not be called if
+    /// no assistive technologies are enabled in the OS.
+    ///
+    /// Implement this function if your widget displays something or interacts with the user.
+    /// If your accessibility node can receive any actions, you should also implement
+    /// [handle_accessibility_action](Self::handle_accessibility_action) to handle those actions.
+    ///
+    /// Note that you don't need to set the node's bounds using `set_bounds`. This data will be
+    /// filled automatically.
+    ///
+    /// You don't need to implement this function if your widget is non-interactive. You also don't need to implement it
+    /// if you're only composing or wrapping existing widgets and your widget only relies on the
+    /// interactivity provided by those widgets.
+    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
         Ok(None)
     }
 
@@ -519,11 +567,29 @@ pub trait Widget: Downcast {
     /// Implement this function in a rare case that your widget implements a container with a custom layout which may
     /// position children outside of its boundary. You don't need to implement this function if you're
     /// simply composing existing widgets that implement scrolling (e.g. `ScrollArea` or `TextInput`).
-    fn handle_scroll_to_rect(&mut self, request: ScrollToRectRequest) -> Result<bool> {
+    fn handle_scroll_to_rect_request(&mut self, request: ScrollToRectRequest) -> Result<bool> {
         // TODO: remove return value and always propagate to all parents?
         // (in case there are multiple nested scroll areas)
         let _ = request;
         Ok(false)
     }
 }
-impl_downcast!(Widget);
+
+impl dyn Widget {
+    /// Returns `true` if the widget has type `T`.
+    pub fn is<T: Widget>(&self) -> bool {
+        (self as &dyn Any).is::<T>()
+    }
+
+    /// Returns a reference to the widget if it is of type `T`, or
+    /// `None` if it isn't.
+    pub fn downcast_ref<T: Widget>(&self) -> Option<&T> {
+        (self as &dyn Any).downcast_ref()
+    }
+
+    /// Returns a mutable reference to the widget if it is of type `T`, or
+    /// `None` if it isn't.
+    pub fn downcast_mut<T: Widget>(&mut self) -> Option<&mut T> {
+        (self as &mut dyn Any).downcast_mut()
+    }
+}

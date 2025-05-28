@@ -548,7 +548,7 @@ impl Window {
                 this.pressed_mouse_buttons.insert(button);
                 let had_recent_click = this
                     .last_click_instant
-                    .map_or(false, |last| last.elapsed() < DOUBLE_CLICK_TIMEOUT);
+                    .is_some_and(|last| last.elapsed() < DOUBLE_CLICK_TIMEOUT);
                 let same_button = this.last_click_button == Some(button);
                 if had_recent_click && same_button {
                     this.num_clicks += 1;
@@ -605,7 +605,7 @@ impl Window {
         let pos = this.cursor_position;
         let list = &mut this.mouse_entered_widgets;
         let index = list.iter().position(|(rect, id)| {
-            pos.map_or(true, |pos| !rect.contains(pos)) && Some(*id) != this.mouse_grabber_widget
+            pos.is_none_or(|pos| !rect.contains(pos)) && Some(*id) != this.mouse_grabber_widget
         })?;
         Some(list.remove(index).1)
     }

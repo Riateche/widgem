@@ -321,7 +321,7 @@ impl Widget for Button {
         Ok(())
     }
 
-    fn handle_accessible_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
+    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
         let mut node = NodeBuilder::new(Role::Button);
         node.set_name(self.text_widget().text().as_str());
         node.add_action(Action::Focus);

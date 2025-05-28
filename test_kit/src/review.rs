@@ -436,7 +436,7 @@ impl Reviewer {
             }
             if self
                 .current_snapshot()
-                .map_or(false, |f| f.unconfirmed.is_some())
+                .is_ok_and(|f| f.unconfirmed.is_some())
             {
                 return true;
             }
@@ -677,20 +677,20 @@ impl Reviewer {
 
     pub fn has_unconfirmed(&self) -> bool {
         let current_files = self.current_snapshot();
-        current_files.map_or(false, |f| f.unconfirmed.is_some())
+        current_files.is_ok_and(|f| f.unconfirmed.is_some())
     }
 
     pub fn is_mode_allowed(&self, mode: Mode) -> bool {
         let current_files = self.current_snapshot();
         let has_new = current_files
             .as_ref()
-            .map_or(false, |f| f.unconfirmed.is_some());
+            .is_ok_and(|f| f.unconfirmed.is_some());
         let has_confirmed = current_files
             .as_ref()
-            .map_or(false, |f| f.confirmed.is_some());
+            .is_ok_and(|f| f.confirmed.is_some());
         let has_previous_confirmed = self
             .previous_snapshot()
-            .map_or(false, |f| f.confirmed.is_some());
+            .is_ok_and(|f| f.confirmed.is_some());
 
         match mode {
             Mode::New => has_new,

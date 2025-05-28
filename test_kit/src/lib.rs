@@ -177,19 +177,19 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             for test_name in registry.tests().map(|s| s.to_owned()).collect_vec() {
                 let matches_filter = filter
                     .as_ref()
-                    .map_or(true, |filter| test_name.contains(filter));
+                    .is_none_or(|filter| test_name.contains(filter));
                 if !matches_filter {
                     continue;
                 }
                 conn.mouse_move_global(1, 1)?;
                 println!("running test: {}", test_name);
-                let mut ctx = Context::Check(CheckContext::new(
+                let mut ctx = Context::Check(Box::new(CheckContext::new(
                     conn,
                     test_name.clone(),
                     test_snapshots_dir(snapshots_dir, &test_name),
                     mode,
                     exe_path.clone(),
-                )?);
+                )?));
                 let fails = run_test_check_and_verify(&mut registry, &test_name, &mut ctx)
                     .unwrap_or_else(|err| {
                         let fail = format!("test {:?} failed: {:?}", test_name, err);

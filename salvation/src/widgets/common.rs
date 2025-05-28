@@ -177,7 +177,7 @@ impl WidgetCommon {
             id,
             parent_id: ctx.parent_id,
             address: ctx.address,
-            is_window_focused: ctx.window.as_ref().map_or(false, |w| w.is_focused()),
+            is_window_focused: ctx.window.as_ref().is_some_and(|w| w.is_focused()),
             window: ctx.window,
             receives_all_mouse_events: false,
             parent_style: ctx.parent_style,

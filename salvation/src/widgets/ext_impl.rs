@@ -19,7 +19,7 @@ fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_ente
     if window
         .current_mouse_event_state()
         .or_report_err()
-        .map_or(false, |e| !e.is_accepted())
+        .is_some_and(|e| !e.is_accepted())
     {
         let Some(rect_in_window) = widget.common().rect_in_window_or_err().or_report_err() else {
             return;
@@ -204,7 +204,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         if window
                             .current_mouse_event_state()
                             .or_report_err()
-                            .map_or(false, |e| !e.is_accepted())
+                            .is_some_and(|e| !e.is_accepted())
                         {
                             window.accept_current_mouse_event(common.id).or_report_err();
                         }
@@ -212,14 +212,11 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 }
             }
             Event::MouseEnter(_) => {
-                if accepted {
-                    accept_mouse_move_or_enter_event(self, true);
-                }
+                // TODO: rename or rework to only accept if handler returned true
+                accept_mouse_move_or_enter_event(self, true);
             }
             Event::MouseMove(_) => {
-                if accepted {
-                    accept_mouse_move_or_enter_event(self, false);
-                }
+                accept_mouse_move_or_enter_event(self, false);
             }
             Event::Draw(event) => {
                 for child in self.common_mut().children.values_mut() {
@@ -295,7 +292,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
 
     fn update_accessible(&mut self) {
         let node = if self.common().is_accessible {
-            self.handle_accessible_node_request()
+            self.handle_accessibility_node_request()
                 .or_report_err()
                 .flatten()
         } else {

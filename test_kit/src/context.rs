@@ -293,7 +293,7 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
 }
 
 pub enum Context {
-    Check(CheckContext),
+    Check(Box<CheckContext>),
     Run(Option<App>),
 }
 

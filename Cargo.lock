@@ -3134,7 +3134,6 @@ dependencies = [
  "cosmic-text",
  "derivative",
  "derive_more",
- "downcast-rs",
  "env_logger",
  "fs-err",
  "itertools 0.11.0",

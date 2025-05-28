@@ -710,13 +710,13 @@ pub fn selector_items<'i, 'a>(selector: &'a Selector<'i>) -> Option<Vec<&'a Comp
 }
 
 pub fn is_root(selector: &Selector) -> bool {
-    selector_items(selector).map_or(false, |items| {
+    selector_items(selector).is_some_and(|items| {
         items.len() == 1 && matches!(items[0], Component::Root)
     })
 }
 
 pub fn is_selection(selector: &Selector) -> bool {
-    selector_items(selector).map_or(false, |items| {
+    selector_items(selector).is_some_and(|items| {
         items.len() == 1
             && matches!(
                 items[0],

@@ -915,7 +915,7 @@ impl Text {
             if click_cursor.line == old_cursor.line
                 && preedit_range
                     .as_ref()
-                    .map_or(false, |ime_range| ime_range.contains(&click_cursor.index))
+                    .is_some_and(|ime_range| ime_range.contains(&click_cursor.index))
             {
                 // Click is inside IME preedit, so we ignore it.
                 self.forbid_mouse_interaction = true;
@@ -1020,7 +1020,7 @@ impl Widget for Text {
             .common
             .window
             .as_ref()
-            .map_or(false, |window| !window.any_mouse_buttons_pressed());
+            .is_some_and(|window| !window.any_mouse_buttons_pressed());
         if is_released {
             self.forbid_mouse_interaction = false;
         }
@@ -1106,7 +1106,7 @@ impl Widget for Text {
         Ok(())
     }
 
-    fn handle_accessible_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
+    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
         let mut line_node = NodeBuilder::new(Role::InlineTextBox);
         let line = self.accessible_line();
         line_node.set_text_direction(line.text_direction);
