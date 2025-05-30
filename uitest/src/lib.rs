@@ -9,7 +9,7 @@ use {
         protocol::xproto::{Atom, ConnectionExt},
         rust_connection::RustConnection,
     },
-    xcap::image::RgbaImage,
+    xcap::{image::RgbaImage, XCapResult},
 };
 
 const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);
@@ -149,6 +149,7 @@ impl Connection {
 }
 
 pub struct Window {
+    id: u32,
     pid: u32,
     inner: xcap::Window,
 }
@@ -159,7 +160,7 @@ impl Window {
             .connection
             .get_property(
                 false,
-                inner.id(),
+                inner.id()?,
                 connection.net_wm_pid,
                 connection.cardinal,
                 0,
@@ -170,7 +171,8 @@ impl Window {
             .unwrap()
             .next()
             .unwrap();
-        Ok(Self { pid, inner })
+        let id = inner.id()?;
+        Ok(Self { id, pid, inner })
     }
 
     pub fn pid(&self) -> u32 {
@@ -179,44 +181,42 @@ impl Window {
 
     /// The window id
     pub fn id(&self) -> u32 {
-        self.inner.id()
+        self.id
     }
     /// The window app name
-    pub fn app_name(&self) -> &str {
+    pub fn app_name(&self) -> XCapResult<String> {
         self.inner.app_name()
     }
     /// The window title
-    pub fn title(&self) -> &str {
+    pub fn title(&self) -> XCapResult<String> {
         self.inner.title()
     }
     /// The window x coordinate.
-    pub fn x(&self) -> i32 {
+    pub fn x(&self) -> XCapResult<i32> {
         self.inner.x()
     }
     /// The window x coordinate.
-    pub fn y(&self) -> i32 {
+    pub fn y(&self) -> XCapResult<i32> {
         self.inner.y()
     }
     /// The window pixel width.
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> XCapResult<u32> {
         self.inner.width()
     }
     /// The window pixel height.
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> XCapResult<u32> {
         self.inner.height()
     }
     /// The window is minimized.
-    pub fn is_minimized(&self) -> bool {
+    pub fn is_minimized(&self) -> XCapResult<bool> {
         self.inner.is_minimized()
     }
     /// The window is maximized.
-    pub fn is_maximized(&self) -> bool {
+    pub fn is_maximized(&self) -> XCapResult<bool> {
         self.inner.is_maximized()
     }
 
     pub fn capture_image(&mut self) -> anyhow::Result<RgbaImage> {
-        // Necessary to fetch new window size.
-        self.inner.refresh()?;
         Ok(self.inner.capture_image()?)
     }
 
