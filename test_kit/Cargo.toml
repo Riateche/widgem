@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-salvation = { path = "../salvation" }
-salvation_macros = { path = "../macros" }
-uitest = { path = "../uitest" }
+salvation = { workspace = true }
+salvation_macros = { workspace = true }
+uitest = { workspace = true }
 
-anyhow = { version = "1.0.75", features = ["backtrace"] }
-clap = { version = "4.5.16", features = ["derive"] }
-fs-err = "2.11.0"
-image = "0.25.2"
-itertools = "0.13.0"
-env_logger = "0.10.0"
-log = "0.4.20"
-strum = { version = "0.26.3", features = ["derive"] }
-ctor = "0.2.9"
+anyhow = { workspace = true }
+clap = { workspace = true }
+ctor = { workspace = true }
+env_logger = { workspace = true }
+fs-err = { workspace = true }
+image = { workspace = true }
+itertools = { workspace = true }
+log = { workspace = true }
+strum = { workspace = true }

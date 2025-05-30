@@ -7,6 +7,6 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/Riateche/salvation"
 
 [dependencies]
-xcap = "0.6.0"
-x11rb = { version = "0.13.0", features = ["res"] }
-anyhow = { version = "1.0.80", features = ["backtrace"] }
+xcap = { workspace = true }
+x11rb = { workspace = true }
+anyhow = { workspace = true }

@@ -10,5 +10,5 @@ repository = "https://github.com/Riateche/salvation"
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0.58", features = ["full"] }
-quote = "1.0.33"
+syn = { workspace = true }
+quote = { workspace = true }

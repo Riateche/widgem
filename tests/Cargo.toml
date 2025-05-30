@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-salvation = { path = "../salvation" }
-salvation_test_kit = { path = "../test_kit" }
+salvation = { workspace = true }
+salvation_test_kit = { workspace = true }
 
-anyhow = { version = "1.0.75", features = ["backtrace"] }
-clap = { version = "4.5.16", features = ["derive"] }
-fs-err = "2.11.0"
-image = "0.25.2"
-itertools = "0.13.0"
-env_logger = "0.10.0"
-log = "0.4.20"
+anyhow = { workspace = true }
+clap = { workspace = true }
+env_logger = { workspace = true }
+fs-err = { workspace = true }
+image = { workspace = true }
+itertools = { workspace = true }
+log = { workspace = true }
