@@ -38,13 +38,11 @@ scoped-tls = "1.0.1"
 serde = { version = "1.0.219", features = ["derive"] }
 serde-value = "0.7.0"
 softbuffer = "0.4.6"
-strict-num = "0.1.1"
-strum = { version = "0.26.3", features = ["derive"] }
-strum_macros = "0.25.3"
+strict-num = "0.2.0"
+strum = { version = "0.27.1", features = ["derive"] }
 syn = { version = "2.0.101", features = ["full"] }
-thiserror = "1.0.69"
+thiserror = "2.0.12"
 tiny-skia = "0.11.4"
-typed-builder = "0.16.2"
 unicode-segmentation = "1.12.0"
 usvg = { version = "0.45.1", default-features = false }
 winit = "0.30.11"
