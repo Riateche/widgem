@@ -17,7 +17,6 @@ use {
         rc::Rc,
     },
     tiny_skia::Pixmap,
-    usvg::TreeParsing,
 };
 
 pub mod button;
@@ -186,12 +185,12 @@ impl Style {
         let data = self.load_resource(path)?;
 
         let tree = usvg::Tree::from_data(&data, &Default::default())?;
-        let rtree = resvg::Tree::from_usvg(&tree);
 
-        let pixmap_size_x = (rtree.size.width() * scale).ceil() as u32;
-        let pixmap_size_y = (rtree.size.height() * scale).ceil() as u32;
+        let pixmap_size_x = (tree.size().width() * scale).ceil() as u32;
+        let pixmap_size_y = (tree.size().height() * scale).ceil() as u32;
         let mut pixmap = tiny_skia::Pixmap::new(pixmap_size_x, pixmap_size_y).unwrap();
-        rtree.render(
+        resvg::render(
+            &tree,
             tiny_skia::Transform::from_scale(scale, scale),
             &mut pixmap.as_mut(),
         );
