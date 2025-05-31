@@ -21,7 +21,7 @@ else
 fi
 
 docker rm --force salvation_tests || true
-docker run -it --name salvation_tests \
+docker run --name salvation_tests \
     --mount "type=bind,source=$PWD,target=/salvation" \
     --publish 25901:5901 --publish 26901:6901 \
     salvation_tests \

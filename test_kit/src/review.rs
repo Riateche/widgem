@@ -685,9 +685,7 @@ impl Reviewer {
         let has_new = current_files
             .as_ref()
             .is_ok_and(|f| f.unconfirmed.is_some());
-        let has_confirmed = current_files
-            .as_ref()
-            .is_ok_and(|f| f.confirmed.is_some());
+        let has_confirmed = current_files.as_ref().is_ok_and(|f| f.confirmed.is_some());
         let has_previous_confirmed = self
             .previous_snapshot()
             .is_ok_and(|f| f.confirmed.is_some());
