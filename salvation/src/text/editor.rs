@@ -179,7 +179,7 @@ impl<'buffer> Editor<'buffer> {
 
                         if run.glyphs.is_empty() && end.line > line_i {
                             // Highlight all of internal empty lines
-                            range_opt = Some((0, buffer.size().0 as i32));
+                            range_opt = Some((0, buffer.size().0.unwrap_or(0.) as i32));
                         }
 
                         if let Some((mut min, mut max)) = range_opt.take() {
@@ -188,7 +188,7 @@ impl<'buffer> Editor<'buffer> {
                                 if run.rtl {
                                     min = 0;
                                 } else {
-                                    max = buffer.size().0 as i32;
+                                    max = buffer.size().0.unwrap_or(0.) as i32;
                                 }
                             }
                             f(
@@ -401,9 +401,15 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
 
             // Ensure there are enough lines in the buffer to handle this cursor
             while cursor.line >= buffer.lines.len() {
+                let ending = buffer
+                    .lines
+                    .last()
+                    .map(|line| line.ending())
+                    .unwrap_or_default();
                 let line = BufferLine::new(
                     String::new(),
-                    AttrsList::new(attrs_list.as_ref().map_or_else(
+                    ending,
+                    AttrsList::new(&attrs_list.as_ref().map_or_else(
                         || {
                             buffer
                                 .lines
@@ -419,6 +425,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
 
             let line: &mut BufferLine = &mut buffer.lines[cursor.line];
             let insert_line = cursor.line + 1;
+            let ending = line.ending();
 
             // Collect text after insertion as a line
             let after: BufferLine = line.split_off(cursor.index);
@@ -426,11 +433,12 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
 
             // Collect attributes
             let mut final_attrs = attrs_list.unwrap_or_else(|| {
-                AttrsList::new(line.attrs_list().get_span(cursor.index.saturating_sub(1)))
+                AttrsList::new(&line.attrs_list().get_span(cursor.index.saturating_sub(1)))
             });
 
             // Append the inserted text, line by line
             // we want to see a blank entry if the string ends with a newline
+            //TODO: adjust this to get line ending from data?
             let addendum = once("").filter(|_| data.ends_with('\n'));
             let mut lines_iter = data.split_inclusive('\n').chain(addendum);
             if let Some(data_line) = lines_iter.next() {
@@ -441,6 +449,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
                     data_line
                         .strip_suffix(char::is_control)
                         .unwrap_or(data_line),
+                    ending,
                     these_attrs,
                     Shaping::Advanced,
                 ));
@@ -453,6 +462,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
                     data_line
                         .strip_suffix(char::is_control)
                         .unwrap_or(data_line),
+                    ending,
                     final_attrs.split_off(remaining_split_len),
                     Shaping::Advanced,
                 );
@@ -468,6 +478,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
                     data_line
                         .strip_suffix(char::is_control)
                         .unwrap_or(data_line),
+                    ending,
                     final_attrs.split_off(remaining_split_len),
                     Shaping::Advanced,
                 );
@@ -988,7 +999,8 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
             Action::Scroll { lines } => {
                 self.with_buffer_mut(|buffer| {
                     let mut scroll = buffer.scroll();
-                    scroll.layout += lines;
+                    //TODO: align to layout lines
+                    scroll.vertical += lines as f32 * buffer.metrics().line_height;
                     buffer.set_scroll(scroll);
                 });
             }
@@ -1014,7 +1026,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
 
                 if !preedit.is_empty() {
                     let new_attrs = if let Some(attrs) = attrs {
-                        AttrsList::new(attrs.as_attrs().preedit(true))
+                        AttrsList::new(&attrs.as_attrs().preedit(true))
                     } else {
                         self.with_buffer(|buffer| {
                             let attrs_at_cursor = buffer.lines[self_cursor.line]
@@ -1022,7 +1034,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
                                 .get_span(self_cursor.index);
                             // TODO: get color from theme
                             AttrsList::new(
-                                attrs_at_cursor
+                                &attrs_at_cursor
                                     .preedit(true)
                                     .color(Color::rgb(128, 128, 128)),
                             )

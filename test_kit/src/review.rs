@@ -491,15 +491,16 @@ impl Reviewer {
             return false;
         };
         let Some(files) = snapshots.get(&index) else {
-            self.mode = Mode::Confirmed;
             return false;
         };
         self.current_snapshot_index = Some(index);
-        self.mode = if files.unconfirmed.is_some() {
-            Mode::New
-        } else {
-            Mode::Confirmed
-        };
+        if !self.is_mode_allowed(self.mode) {
+            self.mode = if files.unconfirmed.is_some() {
+                Mode::New
+            } else {
+                Mode::Confirmed
+            };
+        }
         true
     }
 
@@ -749,13 +750,6 @@ struct ReviewerState {
 }
 
 fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
-    println!(
-        "a {} {}, b {} {}",
-        a.width(),
-        a.height(),
-        b.width(),
-        b.height()
-    );
     let mut out = Pixmap::new(max(a.width(), b.width()), max(a.height(), b.height())).unwrap();
     let width = out.width();
     for y in 0..out.height() {

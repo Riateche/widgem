@@ -346,7 +346,7 @@ impl Text {
                 buffer.set_text(
                     &mut system.font_system,
                     &text.to_string(),
-                    attrs,
+                    &attrs,
                     Shaping::Advanced,
                 )
             });
@@ -670,8 +670,8 @@ impl Text {
         if self.pixmap.is_none() || self.needs_redraw() {
             let (buffer_width, buffer_height) = self.editor.with_buffer(|buffer| buffer.size());
             let size = Size {
-                x: max(1, buffer_width.ceil() as i32),
-                y: max(1, buffer_height.ceil() as i32),
+                x: max(1, buffer_width.unwrap_or(0.).ceil() as i32),
+                y: max(1, buffer_height.unwrap_or(0.).ceil() as i32),
             };
             let mut pixmap =
                 Pixmap::new(size.x as u32, size.y as u32).expect("failed to create pixmap");
@@ -839,7 +839,7 @@ impl Text {
         // TODO: use lines.get() everywhere to be safe
         self.editor.with_buffer(|buffer| {
             let line = &buffer.lines[self.editor.cursor().line];
-            AttrsOwned::new(line.attrs_list().get_span(self.editor.cursor().index))
+            AttrsOwned::new(&line.attrs_list().get_span(self.editor.cursor().index))
         })
     }
 
@@ -850,8 +850,8 @@ impl Text {
                     unrestricted_text_size(&mut buffer.borrow_with(&mut system.font_system));
                 buffer.set_size(
                     &mut system.font_system,
-                    new_size.x as f32,
-                    new_size.y as f32,
+                    Some(new_size.x as f32),
+                    Some(new_size.y as f32),
                 );
                 new_size
             })
@@ -1162,7 +1162,7 @@ impl Widget for Text {
 const MEASURE_MAX_SIZE: f32 = 10_000.;
 
 fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Size {
-    buffer.set_size(MEASURE_MAX_SIZE, MEASURE_MAX_SIZE);
+    buffer.set_size(Some(MEASURE_MAX_SIZE), Some(MEASURE_MAX_SIZE));
     buffer.shape_until_scroll(false);
     let height = (buffer.lines.len() as f32 * buffer.metrics().line_height).ceil() as i32;
     let width = buffer
