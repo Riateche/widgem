@@ -21,10 +21,7 @@ use {
         widgets::{RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
         window::{ScrollToRectRequest, SetFocusRequest},
     },
-    accesskit::{
-        ActionData, DefaultActionVerb, NodeBuilder, NodeId, Role, TextDirection, TextPosition,
-        TextSelection,
-    },
+    accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
     anyhow::Result,
     cosmic_text::{
         Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Motion,
@@ -1080,7 +1077,7 @@ impl Widget for Text {
         let window = self.common.window_or_err()?;
 
         match event.action {
-            accesskit::Action::Default | accesskit::Action::Focus => {
+            accesskit::Action::Click => {
                 send_window_request(
                     window.id(),
                     SetFocusRequest {
@@ -1106,8 +1103,8 @@ impl Widget for Text {
         Ok(())
     }
 
-    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
-        let mut line_node = NodeBuilder::new(Role::InlineTextBox);
+    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
+        let mut line_node = accesskit::Node::new(Role::TextInput);
         let line = self.accessible_line();
         line_node.set_text_direction(line.text_direction);
         line_node.set_value(line.text);
@@ -1131,11 +1128,15 @@ impl Widget for Text {
         window.accessible_update(self.accessible_line_id, Some(line_node));
 
         // TODO: configurable role
-        let mut node = NodeBuilder::new(Role::TextInput);
-        // TODO: use label
-        node.set_name("some input");
-        node.add_action(accesskit::Action::Focus);
-        node.set_default_action_verb(DefaultActionVerb::Click);
+        let role = if self.is_multiline {
+            Role::TextInput
+        } else {
+            Role::MultilineTextInput
+        };
+        let mut node = accesskit::Node::new(role);
+        // TODO: use label widget and `Node::set_labeled_by`
+        node.set_label("some input");
+        node.add_action(accesskit::Action::Click);
         node.set_text_selection(self.accessible_selection(self.accessible_line_id));
         Ok(Some(node))
     }

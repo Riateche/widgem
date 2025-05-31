@@ -19,7 +19,7 @@ use {
         types::{Point, Rect},
         window::SetFocusRequest,
     },
-    accesskit::{Action, DefaultActionVerb, NodeBuilder, Role},
+    accesskit::{Action, Role},
     anyhow::Result,
     cosmic_text::Attrs,
     salvation_macros::impl_with,
@@ -305,7 +305,7 @@ impl Widget for Button {
 
     fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
         match event.action {
-            Action::Default => self.trigger(),
+            Action::Click => self.trigger(),
             Action::Focus => {
                 send_window_request(
                     self.common.window_or_err()?.id(),
@@ -321,11 +321,11 @@ impl Widget for Button {
         Ok(())
     }
 
-    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
-        let mut node = NodeBuilder::new(Role::Button);
-        node.set_name(self.text_widget().text().as_str());
+    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
+        let mut node = accesskit::Node::new(Role::Button);
+        node.set_label(self.text_widget().text().as_str());
+        node.add_action(Action::Click);
         node.add_action(Action::Focus);
-        node.set_default_action_verb(DefaultActionVerb::Click);
         Ok(Some(node))
     }
 

@@ -10,7 +10,7 @@ use {
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
         window_handler::WindowInfo,
     },
-    accesskit::{NodeBuilder, NodeId},
+    accesskit::NodeId,
     anyhow::{bail, Context},
     derivative::Derivative,
     derive_more::From,
@@ -21,7 +21,9 @@ use {
         fmt::Display,
         mem,
         num::NonZeroU32,
+        panic::catch_unwind,
         rc::Rc,
+        sync::Mutex,
         time::{Duration, Instant},
     },
     tiny_skia::Pixmap,
@@ -76,8 +78,9 @@ pub struct WindowInner {
     pub surface: Option<softbuffer::Surface<Rc<winit::window::Window>, Rc<winit::window::Window>>>,
     #[derivative(Debug = "ignore")]
     pub softbuffer_context: Option<softbuffer::Context<Rc<winit::window::Window>>>,
+    // Mutex provides unwind safety.
     #[derivative(Debug = "ignore")]
-    pub accesskit_adapter: Option<accesskit_winit::Adapter>,
+    pub accesskit_adapter: Option<Mutex<accesskit_winit::Adapter>>,
     pub winit_window: Option<Rc<winit::window::Window>>,
     pub min_inner_size: Size,
     pub preferred_inner_size: Size,
@@ -234,7 +237,8 @@ impl Window {
             .with_resizable(inner.attributes.resizable)
             .with_enabled_buttons(inner.attributes.enabled_buttons)
             .with_maximized(inner.attributes.maximized)
-            .with_visible(inner.attributes.visible)
+            // Window must be hidden until we initialize accesskit
+            .with_visible(false)
             .with_transparent(inner.attributes.transparent)
             .with_blur(inner.attributes.blur)
             .with_decorations(inner.attributes.decorations)
@@ -278,18 +282,19 @@ impl Window {
         }));
         let softbuffer_context = softbuffer::Context::new(winit_window.clone()).unwrap();
         let surface = softbuffer::Surface::new(&softbuffer_context, winit_window.clone()).unwrap();
-        let accesskit_adapter = accesskit_winit::Adapter::with_event_loop_proxy(
-            &winit_window,
-            with_system(|system| system.event_loop_proxy.clone()),
-        );
+        let accesskit_adapter = with_active_event_loop(|event_loop| {
+            accesskit_winit::Adapter::with_event_loop_proxy(
+                event_loop,
+                &winit_window,
+                with_system(|system| system.event_loop_proxy.clone()),
+            )
+        });
+        winit_window.set_visible(inner.attributes.visible);
         let winit_id = winit_window.id();
         inner.winit_window = Some(winit_window);
         inner.softbuffer_context = Some(softbuffer_context);
         inner.surface = Some(surface);
-        inner.accesskit_adapter = Some(accesskit_adapter);
-
-        // TODO: only if user requested it to be visible?
-        // Window must be hidden until we initialize accesskit
+        inner.accesskit_adapter = Some(Mutex::new(accesskit_adapter));
         drop(inner_guard);
 
         let info = WindowInfo {
@@ -335,7 +340,7 @@ impl Window {
             .mount(parent, child, key_in_parent);
     }
 
-    pub(crate) fn accessible_update(&self, id: NodeId, node: Option<NodeBuilder>) {
+    pub(crate) fn accessible_update(&self, id: NodeId, node: Option<accesskit::Node>) {
         self.0.borrow_mut().accessible_nodes.update(id, node);
     }
 
@@ -445,8 +450,11 @@ impl Window {
 
     pub(crate) fn pass_event_to_accesskit(&self, event: &WindowEvent) {
         let this = &mut *self.0.borrow_mut();
-        if let Some(a) = this.accesskit_adapter.as_mut() {
-            a.process_event(this.winit_window.as_ref().unwrap(), event);
+        if let Some(adapter) = this.accesskit_adapter.as_ref() {
+            let Ok(mut adapter) = adapter.lock() else {
+                return;
+            };
+            adapter.process_event(this.winit_window.as_ref().unwrap(), event);
         }
     }
 
@@ -707,8 +715,23 @@ impl Window {
 
     pub(crate) fn push_accessible_updates(&mut self) {
         let this = &mut *self.0.borrow_mut();
-        if let Some(a) = this.accesskit_adapter.as_mut() {
-            a.update_if_active(|| this.accessible_nodes.take_update());
+        if let Some(adapter) = this.accesskit_adapter.as_ref() {
+            let update = this.accessible_nodes.take_update();
+            let r = catch_unwind(|| {
+                adapter
+                    .lock()
+                    .expect("accesskit adapter mutex is poisoned")
+                    .update_if_active(|| update);
+            });
+            if let Err(err) = r {
+                let err_msg = err
+                    .downcast_ref::<&'static str>()
+                    .map(|s| s.to_string())
+                    .or_else(|| err.downcast_ref::<String>().cloned())
+                    .unwrap_or_else(|| format!("{err:?}"));
+                warn!("accesskit panicked: {err_msg}");
+                this.accesskit_adapter = None;
+            }
         }
     }
 

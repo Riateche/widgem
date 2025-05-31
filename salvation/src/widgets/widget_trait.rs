@@ -549,7 +549,7 @@ pub trait Widget: Any {
     /// You don't need to implement this function if your widget is non-interactive. You also don't need to implement it
     /// if you're only composing or wrapping existing widgets and your widget only relies on the
     /// interactivity provided by those widgets.
-    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::NodeBuilder>> {
+    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
         Ok(None)
     }
 

@@ -1,6 +1,6 @@
 use {
     crate::{key::Key, widgets::RawWidgetId},
-    accesskit::{NodeBuilder, NodeId, Role, Tree, TreeUpdate},
+    accesskit::{Node, NodeId, Role, Tree, TreeUpdate},
     derivative::Derivative,
     log::warn,
     std::{
@@ -12,7 +12,7 @@ use {
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct AccessibleNodes {
-    nodes: HashMap<NodeId, NodeBuilder>,
+    nodes: HashMap<NodeId, Node>,
     // TODO: BTreeMap? sort by visible row+column?
     direct_children: HashMap<NodeId, Vec<(Key, NodeId)>>,
     direct_parents: HashMap<NodeId, NodeId>,
@@ -46,7 +46,7 @@ impl AccessibleNodes {
         self.nodes.clear();
         self.pending_updates.clear();
 
-        let root_node = NodeBuilder::new(Role::Group);
+        let root_node = Node::new(Role::Group);
         self.update(self.root, Some(root_node));
     }
 
@@ -102,7 +102,7 @@ impl AccessibleNodes {
         }
     }
 
-    pub fn update(&mut self, id: NodeId, node: Option<NodeBuilder>) {
+    pub fn update(&mut self, id: NodeId, node: Option<Node>) {
         let added_or_removed;
         if let Some(node) = node {
             let r = self.nodes.insert(id, node);
@@ -134,7 +134,7 @@ impl AccessibleNodes {
                 find_children(id, &self.direct_children, &self.nodes, &mut children);
                 let mut node = node.clone();
                 node.set_children(children);
-                nodes.push((id, node.build()));
+                nodes.push((id, node));
             }
         }
         TreeUpdate {
@@ -149,7 +149,7 @@ impl AccessibleNodes {
 fn find_children(
     parent: NodeId,
     direct_children: &HashMap<NodeId, Vec<(Key, NodeId)>>,
-    nodes: &HashMap<NodeId, NodeBuilder>,
+    nodes: &HashMap<NodeId, Node>,
     out: &mut Vec<NodeId>,
 ) {
     if let Some(children) = direct_children.get(&parent) {
