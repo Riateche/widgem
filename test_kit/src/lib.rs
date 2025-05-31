@@ -21,7 +21,11 @@ use {
         time::{Duration, Instant},
     },
 };
-pub use {ctor::ctor, salvation_macros::test, uitest::*};
+
+#[doc(hidden)]
+pub use ctor as __ctor;
+
+pub use {salvation_macros::test, uitest::*};
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
 
