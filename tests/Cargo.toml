@@ -2,6 +2,9 @@
 name = "salvation_tests"
 version = "0.1.0"
 edition = "2021"
+description = "Tests for salvation widget toolkit"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Riateche/salvation"
 
 [dependencies]
 salvation = { workspace = true }
