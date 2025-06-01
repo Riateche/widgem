@@ -7,7 +7,7 @@ use {
         },
         event_loop::UserEvent,
         system::{address, with_system, ReportError},
-        types::{Point, Rect, Size},
+        types::{Point, Size},
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
             RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
@@ -434,20 +434,8 @@ impl WindowWithWidget<'_> {
             }
         }
 
-        self.root_widget.set_geometry(
-            Some(WidgetGeometry {
-                rect_in_parent: Rect {
-                    top_left: Point::default(),
-                    size: inner_size,
-                },
-                parent_top_left_in_window: Point::default(),
-                parent_visible_rect: Rect {
-                    top_left: Point::default(),
-                    size: inner_size,
-                },
-            }),
-            &changed_size_hints,
-        );
+        self.root_widget
+            .set_geometry(Some(WidgetGeometry::root(inner_size)), &changed_size_hints);
     }
 
     pub fn handle_request(&mut self, request: WindowRequest) {
@@ -490,8 +478,7 @@ impl WindowWithWidget<'_> {
             warn!("cannot dispatch accessible event to virtual root: {request:?}");
             return;
         }
-        let widget_id = RawWidgetId(request.target.0);
-        if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_id) {
+        if let Ok(widget) = get_widget_by_id_mut(self.root_widget, request.target.into()) {
             widget.dispatch(
                 AccessibilityActionEvent {
                     action: request.action,

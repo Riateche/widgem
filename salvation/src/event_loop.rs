@@ -324,7 +324,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     *system.0.borrow_mut() = Some(shared_system_data);
                 });
 
-                let id = RawWidgetId::new();
+                let id = RawWidgetId::new_unique();
                 let ctx = WidgetCreationContext {
                     parent_id: None,
                     address: WidgetAddress::root(id),
@@ -388,7 +388,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     window.with_root(root_widget).handle_accesskit_event(event);
                 }
                 UserEvent::DeleteWidget(id) => {
-                    if id == root_widget.common().id {
+                    if id == root_widget.common().id() {
                         self.root_widget = None;
                         with_active_event_loop(|event_loop| event_loop.exit());
                     } else if let Some(address) = address(id) {

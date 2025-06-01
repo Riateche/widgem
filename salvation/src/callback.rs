@@ -119,7 +119,7 @@ where
 {
     let callback_id = CallbackId::new();
     let data = WidgetCallbackData {
-        widget_id: widget_id.0,
+        widget_id: widget_id.raw(),
         func: Rc::new(move |widget, any_event| {
             let widget = widget
                 .downcast_mut::<W>()

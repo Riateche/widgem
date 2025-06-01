@@ -164,5 +164,5 @@ fn find_children(
 }
 
 pub fn new_accessible_node_id() -> NodeId {
-    RawWidgetId::new().into()
+    RawWidgetId::new_unique().into()
 }

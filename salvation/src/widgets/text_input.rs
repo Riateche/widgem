@@ -204,7 +204,7 @@ impl Widget for TextInput {
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         common.set_focusable(true);
         common.cursor_icon = CursorIcon::Text;
-        let host_id = common.id;
+        let host_id = common.id();
         let viewport = common
             .add_child_with_key::<Viewport>(0)
             .set_column(0)
@@ -216,7 +216,7 @@ impl Widget for TextInput {
             .add_child_with_key::<Text>(0)
             .set_multiline(false)
             .set_editable(true)
-            .set_host_id(host_id);
+            .set_host_id(host_id.into());
         editor.common_mut().receives_all_mouse_events = true;
         let mut t = Self { common };
         t.refresh_style();
@@ -289,7 +289,7 @@ impl Widget for TextInput {
     }
 
     fn handle_scroll_to_rect_request(&mut self, event: ScrollToRectRequest) -> Result<bool> {
-        if self.text_widget().common().id != event.address.widget_id() {
+        if self.text_widget().common().id() != event.address.widget_id() {
             warn!("TextInput received unexpected ScrollToRectEvent");
             return Ok(false);
         }

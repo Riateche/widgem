@@ -9,7 +9,7 @@ use {
     },
     anyhow::Result,
     log::{error, warn},
-    std::{marker::PhantomData, rc::Rc},
+    std::rc::Rc,
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
@@ -27,7 +27,7 @@ fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_ente
         let Some(window) = widget.common().window_or_err().or_report_err() else {
             return;
         };
-        let id = widget.common().id;
+        let id = widget.common().id();
         window.accept_current_mouse_event(id).or_report_err();
 
         window.set_cursor(widget.common().cursor_icon);
@@ -44,7 +44,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     where
         Self: Sized,
     {
-        WidgetId(self.common().id, PhantomData)
+        WidgetId::new(self.common().id())
     }
 
     // TODO: use classes instead?
@@ -160,7 +160,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                     if !accepted {
                         let is_enter =
                             if let Some(window) = self.common().window_or_err().or_report_err() {
-                                !window.is_mouse_entered(self.common().id)
+                                !window.is_mouse_entered(self.common().id())
                             } else {
                                 false
                             };
@@ -206,7 +206,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                             .or_report_err()
                             .is_some_and(|e| !e.is_accepted())
                         {
-                            window.accept_current_mouse_event(common.id).or_report_err();
+                            window
+                                .accept_current_mouse_event(common.id())
+                                .or_report_err();
                         }
                     }
                 }
@@ -244,7 +246,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                         if let Some((key, id)) = event.address.item_at(self.common().address.len())
                         {
                             if let Some(child) = self.common_mut().children.get_mut(key) {
-                                if &child.common().id == id {
+                                if &child.common().id() == id {
                                     child.dispatch(event.clone().into());
                                 } else {
                                     warn!("child id mismatch while dispatching ScrollToRectEvent");
@@ -315,7 +317,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             node
         });
-        window.accessible_update(self.common().id.0.into(), node);
+        window.accessible_update(self.common().id().into(), node);
     }
 
     fn update_children(&mut self) {

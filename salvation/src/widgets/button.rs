@@ -271,7 +271,7 @@ impl Widget for Button {
                         send_window_request(
                             window.id(),
                             SetFocusRequest {
-                                widget_id: self.common.id,
+                                widget_id: self.common.id().into(),
                                 reason: FocusReason::Mouse,
                             },
                         );
@@ -310,7 +310,7 @@ impl Widget for Button {
                 send_window_request(
                     self.common.window_or_err()?.id(),
                     SetFocusRequest {
-                        widget_id: self.common.id,
+                        widget_id: self.common.id().into(),
                         // TODO: separate reason?
                         reason: FocusReason::Mouse,
                     },

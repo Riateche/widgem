@@ -187,7 +187,7 @@ impl Text {
         send_window_request(
             window_id,
             ScrollToRectRequest {
-                widget_id: self.common.id,
+                widget_id: self.common.id().into(),
                 rect,
             },
         );
@@ -968,7 +968,7 @@ impl Widget for Text {
             common,
         });
         if let Some(window) = &t.common.window {
-            window.accessible_mount(Some(t.common.id.into()), t.accessible_line_id, 0.into());
+            window.accessible_mount(Some(t.common.id().into()), t.accessible_line_id, 0.into());
         }
         t.editor.set_cursor_hidden(true);
         t.reset_blink_timer();
@@ -1081,7 +1081,7 @@ impl Widget for Text {
                 send_window_request(
                     window.id(),
                     SetFocusRequest {
-                        widget_id: self.common.id,
+                        widget_id: self.common.id().into(),
                         // TODO: separate reason?
                         reason: FocusReason::Mouse,
                     },
@@ -1185,7 +1185,7 @@ fn convert_color(color: Color) -> cosmic_text::Color {
 impl Drop for Text {
     fn drop(&mut self) {
         if let Some(window) = &self.common.window {
-            window.accessible_unmount(Some(self.common.id.into()), self.accessible_line_id);
+            window.accessible_unmount(Some(self.common.id().into()), self.accessible_line_id);
         }
     }
 }

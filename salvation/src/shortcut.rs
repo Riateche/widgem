@@ -330,7 +330,7 @@ pub struct ShortcutId(RawWidgetId);
 impl ShortcutId {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self(RawWidgetId::new())
+        Self(RawWidgetId::new_unique())
     }
 }
 

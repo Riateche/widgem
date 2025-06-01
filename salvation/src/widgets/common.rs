@@ -46,41 +46,67 @@ pub struct WidgetCreationContext {
 
 pub type EventFilterFn = dyn Fn(Event) -> Result<bool>;
 
+/// Information about position, size and clipping of a widget.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WidgetGeometry {
-    // Rect of this widget in parent coordinates.
-    pub rect_in_parent: Rect,
-    // Top left of the parent widget in window coordinates.
-    pub parent_top_left_in_window: Point,
-    // In this widget's coordinates.
-    pub parent_visible_rect: Rect,
+    /// Rect of this widget in parent coordinates.
+    rect_in_parent: Rect,
+    /// Top left of the parent widget in window coordinates.
+    parent_top_left_in_window: Point,
+    /// Parent widget's visible rect in parent widget's coordinates.
+    parent_visible_rect_in_parent: Rect,
 }
 
 impl WidgetGeometry {
+    pub fn root(size: Size) -> Self {
+        WidgetGeometry {
+            rect_in_parent: Rect {
+                top_left: Point::default(),
+                size,
+            },
+            parent_top_left_in_window: Point::default(),
+            parent_visible_rect_in_parent: Rect {
+                top_left: Point::default(),
+                size,
+            },
+        }
+    }
+
+    /// Returns widget geometry of the child widget given the parent widget geometry and the
+    /// rect of the child in the parent's coordinates.
     pub fn new(parent: &WidgetGeometry, rect_in_parent: Rect) -> Self {
         Self {
             rect_in_parent,
             parent_top_left_in_window: parent.rect_in_parent.top_left
                 + parent.parent_top_left_in_window,
-            parent_visible_rect: parent.visible_rect(),
+            parent_visible_rect_in_parent: parent.visible_rect_in_self(),
         }
     }
 
-    pub fn size(&self) -> Size {
-        self.rect_in_parent.size
-    }
-
+    /// Rect of this widget in this widget's coordinates (top left is always zero).
     pub fn rect_in_self(&self) -> Rect {
         Rect::from_pos_size(Point::default(), self.rect_in_parent.size)
     }
 
+    /// Rect of this widget in parent coordinates.
+    pub fn rect_in_parent(&self) -> Rect {
+        self.rect_in_parent
+    }
+
+    /// Size of the widget.
+    pub fn size(&self) -> Size {
+        self.rect_in_parent.size
+    }
+
+    /// Rect of this widget in the window coordinates.
     pub fn rect_in_window(&self) -> Rect {
         self.rect_in_parent
             .translate(self.parent_top_left_in_window)
     }
 
-    pub fn visible_rect(&self) -> Rect {
-        self.parent_visible_rect
+    /// Visible rect of this widget in this widget's coordinates.
+    pub fn visible_rect_in_self(&self) -> Rect {
+        self.parent_visible_rect_in_parent
             .translate(-self.rect_in_parent.top_left)
             .intersect(self.rect_in_self())
     }
@@ -90,7 +116,7 @@ impl WidgetGeometry {
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetCommon {
-    pub id: RawWidgetId,
+    id: RawWidgetId,
     pub is_focusable: bool,
     pub enable_ime: bool,
     pub cursor_icon: CursorIcon,
@@ -411,7 +437,7 @@ impl WidgetCommon {
             }
         }
 
-        let new_id = new_id.unwrap_or_else(RawWidgetId::new);
+        let new_id = new_id.unwrap_or_else(RawWidgetId::new_unique);
         let ctx = if T::is_window_root_type() {
             let new_window = Window::new(new_id);
             self.new_creation_context(new_id, key.clone(), Some(new_window.clone()))
@@ -561,7 +587,7 @@ impl WidgetCommon {
     }
 
     pub fn visible_rect(&self) -> Option<Rect> {
-        self.geometry.as_ref().map(|g| g.visible_rect())
+        self.geometry.as_ref().map(|g| g.visible_rect_in_self())
     }
 
     pub fn geometry_or_err(&self) -> Result<&WidgetGeometry> {
@@ -663,7 +689,7 @@ impl WidgetCommon {
     }
 
     pub fn widget<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
-        let w = self.widget_raw(id.0)?;
+        let w = self.widget_raw(id.raw())?;
         Ok(w.downcast_mut::<W>().expect("widget downcast failed"))
     }
 
@@ -734,6 +760,14 @@ impl WidgetCommon {
         }
         self.declared_children = state.declared_children;
     }
+
+    /// Returns untyped ID of this widget.
+    ///
+    /// To obtain a typed ID of the widget, use [WidgetExt::id] externally
+    /// or `self.common.id()` internally.
+    pub fn id(&self) -> RawWidgetId {
+        self.id
+    }
 }
 
 #[derive(Debug)]
@@ -744,7 +778,7 @@ pub struct WidgetCommonTyped<T> {
 
 impl<W> WidgetCommonTyped<W> {
     pub fn id(&self) -> WidgetId<W> {
-        WidgetId(self.common.id, PhantomData)
+        WidgetId::new(self.common.id)
     }
 
     pub fn callback<E, F>(&self, func: F) -> Callback<E>

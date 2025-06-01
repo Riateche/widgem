@@ -159,7 +159,7 @@ pub struct Window(Rc<RefCell<WindowInner>>);
 impl Window {
     pub(crate) fn new(root_widget_id: RawWidgetId) -> Self {
         let window = Window(Rc::new(RefCell::new(WindowInner {
-            id: WindowId(RawWidgetId::new()),
+            id: WindowId(RawWidgetId::new_unique()),
             root_widget_id,
             cursor_position: None,
             cursor_entered: false,
