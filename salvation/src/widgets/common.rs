@@ -117,6 +117,7 @@ impl WidgetGeometry {
 #[derivative(Debug)]
 pub struct WidgetCommon {
     id: RawWidgetId,
+    type_name: &'static str,
     pub is_focusable: bool,
     pub enable_ime: bool,
     pub cursor_icon: CursorIcon,
@@ -188,16 +189,24 @@ impl Drop for WidgetCommon {
     }
 }
 
+fn last_path_part(str: &str) -> &str {
+    str.rsplit("::")
+        .next()
+        .expect("rsplit always returns at least one element")
+}
+
 impl WidgetCommon {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<T: Widget>(ctx: WidgetCreationContext) -> WidgetCommonTyped<T> {
         let id = ctx.address.widget_id();
         register_address(id, ctx.address.clone());
 
-        let style_element = Element::new(T::type_name());
+        let type_name = T::type_name();
+        let style_element = Element::new(last_path_part(type_name));
         let common_style = ctx.parent_style.get_common(&style_element);
         let mut common = Self {
             id,
+            type_name,
             parent_id: ctx.parent_id,
             address: ctx.address,
             is_window_focused: ctx.window.as_ref().is_some_and(|w| w.is_focused()),
@@ -763,6 +772,13 @@ impl WidgetCommon {
     /// or `self.common.id()` internally.
     pub fn id(&self) -> RawWidgetId {
         self.id
+    }
+
+    /// Returns full path to the widget type as a string.
+    ///
+    /// Returns the same value as [Widget::type_name].
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
     }
 }
 

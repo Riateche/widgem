@@ -19,8 +19,12 @@ use {
 };
 
 pub trait Widget: Any {
-    /// Returns widget type as a string. It's recommended to use [impl_widget_common!](crate::impl_widget_common) macro
+    /// Returns full path to the widget type as a string.
+    ///
+    /// It's recommended to use [impl_widget_common!](crate::impl_widget_common) macro
     /// to automatically implement this method.
+    /// If not using the macro, it's recommended to return `std::any::type_name::<Self>()`
+    /// from this function.
     fn type_name() -> &'static str
     where
         Self: Sized;

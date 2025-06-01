@@ -82,7 +82,7 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
 macro_rules! impl_widget_common {
     () => {
         fn type_name() -> &'static str {
-            std::any::type_name::<Self>().rsplit("::").next().unwrap()
+            std::any::type_name::<Self>()
         }
 
         fn common(&self) -> &WidgetCommon {
