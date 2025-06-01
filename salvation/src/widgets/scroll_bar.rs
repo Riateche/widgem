@@ -4,7 +4,7 @@ use {
         WidgetGeometry,
     },
     crate::{
-        callback::Callback,
+        callback::{Callback, Callbacks},
         event::{
             Event, FocusInEvent, FocusOutEvent, KeyboardInputEvent, LayoutEvent, MouseScrollEvent,
         },
@@ -40,7 +40,7 @@ pub struct ScrollBar {
     current_value: i32,
     step: i32,
     slider_grab_pos: Option<(Point, i32)>,
-    value_changed: Option<Callback<i32>>,
+    value_changed: Callbacks<i32>,
     pager_direction: i32,
     pager_mouse_pos_in_window: Point,
 }
@@ -170,7 +170,7 @@ impl ScrollBar {
     }
 
     pub fn on_value_changed(&mut self, callback: Callback<i32>) -> &mut Self {
-        self.value_changed = Some(callback);
+        self.value_changed.add(callback);
         self
     }
 
@@ -377,11 +377,7 @@ impl ScrollBar {
             return self;
         }
         self.current_value = value;
-        if self.common.send_signals_on_setter_calls || !from_setter {
-            if let Some(value_changed) = &self.value_changed {
-                value_changed.invoke(self.current_value);
-            }
-        }
+        self.value_changed.invoke(self.current_value, from_setter);
         self.update_grip_pos(&[]);
         self.update_decrease_increase();
         self
@@ -607,6 +603,9 @@ impl Widget for ScrollBar {
             .set_text_visible(false)
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
+
+        println!("{:?}", common.id());
+
         let mut this = Self {
             common,
             axis,
@@ -617,7 +616,7 @@ impl Widget for ScrollBar {
             current_value: 0,
             step: 5,
             slider_grab_pos: None,
-            value_changed: None,
+            value_changed: Default::default(),
             pager_direction: 0,
             pager_mouse_pos_in_window: Point::default(),
         };

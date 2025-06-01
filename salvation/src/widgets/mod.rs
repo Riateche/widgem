@@ -26,7 +26,7 @@ pub use self::{
         EventFilterFn, WidgetCommon, WidgetCommonTyped, WidgetCreationContext, WidgetGeometry,
     },
     ext::WidgetExt,
-    id::{RawWidgetId, WidgetId, WidgetWithId},
+    id::{RawWidgetId, WidgetId},
     widget_trait::Widget,
 };
 

@@ -1,5 +1,5 @@
 use {
-    super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetId, WidgetWithId},
+    super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetId},
     crate::{
         callback::Callback,
         event::Event,
@@ -20,16 +20,6 @@ pub trait WidgetExt {
         F: Fn(&mut Self, E) -> Result<()> + 'static,
         E: 'static,
         Self: Sized;
-
-    fn with_id(self) -> WidgetWithId<Self>
-    where
-        Self: Sized,
-    {
-        WidgetWithId {
-            id: self.id(),
-            widget: self,
-        }
-    }
 
     fn set_no_padding(&mut self, no_padding: bool) -> &mut Self;
     fn set_visible(&mut self, value: bool) -> &mut Self;

@@ -171,9 +171,6 @@ pub struct WidgetCommon {
     // Direct and indirect children created by last call of this widget's
     // `handle_update_children`.
     pub declared_children: HashSet<RawWidgetId>,
-
-    // TODO: add setter
-    pub send_signals_on_setter_calls: bool,
 }
 
 impl Drop for WidgetCommon {
@@ -231,7 +228,6 @@ impl WidgetCommon {
             style_element,
             common_style,
             has_declare_children_override: true,
-            send_signals_on_setter_calls: false,
             num_added_children: 0,
             declared_children: Default::default(),
         };

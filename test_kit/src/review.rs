@@ -153,6 +153,7 @@ impl Widget for ReviewWidget {
                 w.reviewer.as_mut().unwrap().go_to_test_case(0);
                 w.update_ui()
             }));
+
         row.common_mut()
             .add_child::<Button>()
             .set_column(1)
