@@ -387,7 +387,7 @@ impl WindowWithWidget<'_> {
         reason: FocusReason,
     ) {
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
-            if !widget.common().is_focusable {
+            if !widget.common().is_focusable() {
                 warn!("cannot focus widget that is not focusable");
                 return;
             }
@@ -404,7 +404,7 @@ impl WindowWithWidget<'_> {
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
             widget.dispatch(FocusInEvent { reason }.into());
             self.window
-                .set_focus(widget_addr_id, widget.common().enable_ime);
+                .set_focus(widget_addr_id, widget.common().is_input_method_enabled());
         } else {
             warn!("set_focus: widget not found on second pass");
         }

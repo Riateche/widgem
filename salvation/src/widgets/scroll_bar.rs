@@ -529,7 +529,10 @@ impl Widget for ScrollBar {
         grid_options.x.border_collapse = border_collapse;
         grid_options.y.border_collapse = border_collapse;
         // TODO: update when style changes
-        common.set_grid_options(Some(grid_options));
+        common
+            .set_supports_focus(true)
+            .set_focusable(false)
+            .set_grid_options(Some(grid_options));
         // TODO: localized name
 
         common
@@ -603,8 +606,6 @@ impl Widget for ScrollBar {
             .set_text_visible(false)
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
-
-        println!("{:?}", common.id());
 
         let mut this = Self {
             common,

@@ -202,7 +202,7 @@ impl Widget for TextInput {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        common.set_focusable(true);
+        common.set_supports_focus(true);
         common.cursor_icon = CursorIcon::Text;
         let host_id = common.id();
         let viewport = common

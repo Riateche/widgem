@@ -84,7 +84,7 @@ pub struct WindowInner {
     pub winit_window: Option<Rc<winit::window::Window>>,
     pub min_inner_size: Size,
     pub preferred_inner_size: Size,
-    pub ime_allowed: bool,
+    pub input_method_enabled: bool,
     pub ime_cursor_area: Rect,
 
     pub pending_size_hint_invalidations: Vec<WidgetAddress>,
@@ -174,7 +174,7 @@ impl Window {
             softbuffer_context: None,
             accesskit_adapter: None,
             winit_window: None,
-            ime_allowed: false,
+            input_method_enabled: false,
             ime_cursor_area: Rect::default(),
             pending_size_hint_invalidations: Vec::new(),
             pending_redraw: false,
@@ -634,7 +634,7 @@ impl Window {
     // TODO: should there be a proper way to do this in winit?
     pub fn cancel_ime_preedit(&self) {
         let this = self.0.borrow();
-        if this.ime_allowed {
+        if this.input_method_enabled {
             if let Some(w) = this.winit_window.as_ref() {
                 w.set_ime_allowed(false);
                 w.set_ime_allowed(true);
@@ -759,7 +759,7 @@ impl Window {
         if let Some(w) = this.winit_window.as_ref() {
             w.set_ime_allowed(false);
         }
-        this.ime_allowed = false;
+        this.input_method_enabled = false;
         this.accessible_nodes.set_focus(None);
         old
     }
@@ -767,15 +767,15 @@ impl Window {
     pub(crate) fn set_focus(
         &self,
         addr_id: (Vec<(Key, RawWidgetId)>, RawWidgetId),
-        ime_allowed: bool,
+        input_method_enabled: bool,
     ) {
         let mut this = self.0.borrow_mut();
         this.accessible_nodes.set_focus(Some(addr_id.1.into()));
         this.focused_widget = Some(addr_id);
         if let Some(w) = this.winit_window.as_ref() {
-            w.set_ime_allowed(ime_allowed);
+            w.set_ime_allowed(input_method_enabled);
         }
-        this.ime_allowed = ime_allowed;
+        this.input_method_enabled = input_method_enabled;
     }
 
     pub(crate) fn is_registered_as_focusable(

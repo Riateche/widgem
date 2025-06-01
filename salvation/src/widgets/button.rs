@@ -202,7 +202,7 @@ impl Widget for Button {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        common.set_focusable(true);
+        common.set_supports_focus(true);
         common
             .add_child::<Image>()
             .set_column(0)

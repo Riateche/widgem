@@ -85,7 +85,7 @@ pub struct AccessibleLine {
 impl Text {
     pub fn set_editable(&mut self, editable: bool) -> &mut Self {
         self.is_editable = editable;
-        self.common.enable_ime = editable;
+        self.common.set_input_method_enabled(editable);
         self.common.cursor_icon = if editable {
             CursorIcon::Text
         } else {

@@ -112,14 +112,56 @@ impl WidgetGeometry {
     }
 }
 
+macro_rules! auto_bitflags {
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $Name:ident : $T:ty { $( $flag:ident ),+ $(,)? }
+    ) => {
+        #[repr(u8)]
+        #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
+        enum __Flag { $( $flag ),+ }
+        bitflags::bitflags! {
+            $(#[$meta])*
+            $vis struct $Name: $T {
+                $(
+                    const $flag = 1 << __Flag::$flag as $T;
+                )+
+            }
+        }
+    }
+}
+
+auto_bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct Flags: u64 {
+        // explicitly set for this widget using `set_focusable`
+        self_focusable,
+        // reported by widget internally using `set_supports_focus`
+        supports_focus,
+        // whether IME is enabled when the widget has focus
+        input_method_enabled,
+        receives_all_mouse_events,
+        focused,
+        window_focused,
+        parent_enabled,
+        self_enabled,
+        self_visible,
+        window_root,
+        mouse_over,
+        accessible,
+        registered_as_focusable,
+        no_padding,
+        has_declare_children_override,
+    }
+}
+
 // TODO: use bitflags?
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetCommon {
     id: RawWidgetId,
     type_name: &'static str,
-    pub is_focusable: bool,
-    pub enable_ime: bool,
+    flags: Flags,
     pub cursor_icon: CursorIcon,
     // If true, all mouse events from the parent propagate to this widget,
     // regardless of its boundaries.
@@ -207,6 +249,10 @@ impl WidgetCommon {
         let mut common = Self {
             id,
             type_name,
+            flags: Flags::self_enabled
+                & Flags::self_visible
+                & Flags::accessible
+                & Flags::has_declare_children_override,
             parent_id: ctx.parent_id,
             address: ctx.address,
             is_window_focused: ctx.window.as_ref().is_some_and(|w| w.is_focused()),
@@ -214,13 +260,11 @@ impl WidgetCommon {
             receives_all_mouse_events: false,
             parent_style: ctx.parent_style,
             self_style: None,
-            is_focusable: false,
             is_focused: false,
             is_parent_enabled: ctx.is_parent_enabled,
             is_self_enabled: true,
             is_self_visible: true,
             is_mouse_over: false,
-            enable_ime: false,
             geometry: None,
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
@@ -269,7 +313,7 @@ impl WidgetCommon {
         common.enabled_changed();
         common.focused_changed();
         common.mouse_over_changed();
-        common.register_focusable();
+        common.focusable_changed();
         common.refresh_common_style();
 
         WidgetCommonTyped {
@@ -282,9 +326,10 @@ impl WidgetCommon {
         self.window.as_ref().map(|w| w.id())
     }
 
-    pub fn set_grid_options(&mut self, options: Option<GridOptions>) {
+    pub fn set_grid_options(&mut self, options: Option<GridOptions>) -> &mut Self {
         self.grid_options = options;
         self.size_hint_changed();
+        self
     }
 
     pub fn set_no_padding(&mut self, value: bool) {
@@ -344,8 +389,14 @@ impl WidgetCommon {
         self.is_parent_enabled && self.is_self_enabled
     }
 
+    /// Returns `true` if this widget can receive focus.
+    ///
+    /// The widget is focusable if it supports focus, is not disabled and hasn't been configured with `set_focusable(false)`.
+    /// Widgets that support focus are focusable by default.
     pub fn is_focusable(&self) -> bool {
-        self.is_focusable && self.is_enabled()
+        self.flags
+            .contains(Flags::self_focusable | Flags::supports_focus)
+            && self.is_enabled()
     }
 
     pub fn is_focused(&self) -> bool {
@@ -611,7 +662,7 @@ impl WidgetCommon {
         Ok(self.geometry_or_err()?.rect_in_self())
     }
 
-    fn register_focusable(&mut self) {
+    fn focusable_changed(&mut self) {
         let is_focusable = self.is_focusable();
         if is_focusable != self.is_registered_as_focusable {
             if let Some(window) = &self.window {
@@ -628,7 +679,7 @@ impl WidgetCommon {
     }
 
     pub fn enabled_changed(&mut self) {
-        self.register_focusable();
+        self.focusable_changed();
         self.focused_changed();
         self.mouse_over_changed();
         if self.is_enabled() {
@@ -661,18 +712,29 @@ impl WidgetCommon {
         self.refresh_common_style();
     }
 
-    pub fn set_focusable(&mut self, focusable: bool) {
-        self.is_focusable = focusable;
-        self.register_focusable();
-    }
-
-    pub fn set_ime_enabled(&mut self, enabled: bool) {
-        self.enable_ime = enabled;
+    /// Enable or disable input method for this widget.
+    ///
+    /// IME will be enabled for the window if the currently focused widget has input method enabled.
+    /// Default value is false.
+    ///
+    /// Call this function with `true` in your widget's `new` function if your widget receives text input
+    /// (as opposed to e.g. hotkeys). Implement [handle_input_method](Widget::handle_input_method) to
+    /// handle events from the input method.
+    pub fn set_input_method_enabled(&mut self, enabled: bool) -> &mut Self {
+        self.flags.set(Flags::input_method_enabled, enabled);
         if self.is_focused() {
             if let Some(window) = &self.window {
                 window.set_ime_allowed(enabled);
             }
         }
+        self
+    }
+
+    /// Returns true if input method is enabled for this widget.
+    ///
+    /// See also [set_input_method_enabled](Self::set_input_method_enabled).
+    pub fn is_input_method_enabled(&self) -> bool {
+        self.flags.contains(Flags::input_method_enabled)
     }
 
     fn unmount_accessible(&mut self) {
@@ -780,6 +842,31 @@ impl WidgetCommon {
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
+
+    /// Returns `true` if this widget's implementation is able to receive focus.
+    ///
+    /// This value is set by the widget's implementation. Widgets cannot be focusable if they don't support focus.
+    /// Most widgets that support focus are focusable by default, but can be made unfocusable using [set_focusable](Self::set_focusable).
+    pub fn supports_focus(&self) -> bool {
+        self.flags.contains(Flags::supports_focus)
+    }
+
+    /// Set focusability of the widget.
+    ///
+    /// Widgets that support focus are usually focusable by default, so usually you shouldn't use this function.
+    /// Disabling focus can make your interface less accessible.
+    pub fn set_focusable(&mut self, focusable: bool) -> &mut Self {
+        if focusable == self.flags.contains(Flags::self_focusable) {
+            return self;
+        }
+        if focusable && !self.supports_focus() {
+            warn!("cannot do `set_focusable(true)` on a widget that doesn't support focus");
+            return self;
+        }
+        self.flags.set(Flags::self_focusable, focusable);
+        self.focusable_changed();
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -807,6 +894,26 @@ impl<W> WidgetCommonTyped<W> {
     }
     pub fn add_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
         self.common.add_child_with_key::<T>(key)
+    }
+
+    /// Report the widget as supporting (or not supporting) focus.
+    ///
+    /// This function should only be called by the widget itself and should never be called by other widgets.
+    /// To control focusability of other widgets, use [set_focusable](WidgetCommon::set_focusable) instead.
+    ///
+    /// Call `set_supports_focus(true)` from the `new` function of your widget if it supports being focusable.
+    /// In most cases it's not needed to ever call it again.
+    ///
+    /// Note that it also implies `set_focusable(true)`. In a rare case when you don't want your widget
+    /// to be focusable by default,
+    /// Call `set_focusable(false)` **after** `set_supports_focus(true)`.
+    pub fn set_supports_focus(&mut self, supports_focus: bool) -> &mut Self {
+        self.common.flags.set(
+            Flags::supports_focus | Flags::self_focusable,
+            supports_focus,
+        );
+        self.focusable_changed();
+        self
     }
 }
 
