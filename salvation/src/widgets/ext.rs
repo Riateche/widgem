@@ -2,7 +2,7 @@ use {
     super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetId},
     crate::{
         callback::Callback,
-        event::Event,
+        event::{Event, ScrollToRectRequest},
         layout::SizeHints,
         style::{css::MyPseudoClass, Style},
     },
@@ -49,6 +49,8 @@ pub trait WidgetExt {
         geometry: Option<WidgetGeometry>,
         changed_size_hints: &[WidgetAddress],
     );
+
+    fn scroll_to_rect(&mut self, request: ScrollToRectRequest) -> bool;
 
     fn boxed(self) -> Box<dyn Widget>
     where

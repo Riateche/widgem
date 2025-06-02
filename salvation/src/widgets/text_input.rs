@@ -209,7 +209,7 @@ impl Widget for TextInput {
             .add_child_with_key::<Viewport>(0)
             .set_column(0)
             .set_row(0);
-        viewport.common_mut().receives_all_mouse_events = true;
+        viewport.common_mut().set_receives_all_mouse_events(true);
         viewport.common_mut().cursor_icon = CursorIcon::Text;
         let editor = viewport
             .common_mut()
@@ -217,7 +217,7 @@ impl Widget for TextInput {
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into());
-        editor.common_mut().receives_all_mouse_events = true;
+        editor.common_mut().set_receives_all_mouse_events(true);
         let mut t = Self { common };
         t.refresh_style();
         t

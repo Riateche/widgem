@@ -425,7 +425,6 @@ pub trait Widget: Any {
             Event::FocusOut(e) => self.handle_focus_out(e).map(|()| true),
             Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
             Event::AccessibilityAction(e) => self.handle_accessibility_action(e).map(|()| true),
-            Event::ScrollToRect(e) => self.handle_scroll_to_rect_request(e),
             Event::StyleChange(e) => self.handle_style_change(e).map(|()| true),
             Event::EnabledChange(e) => self.handle_enabled_change(e).map(|()| true),
         }

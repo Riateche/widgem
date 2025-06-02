@@ -891,7 +891,7 @@ impl Text {
         }
         let window = self.common.window_or_err()?;
 
-        if !self.common.is_focused {
+        if !self.common.is_focused() {
             if let Some(host_id) = self.host_id {
                 send_window_request(
                     window.id(),

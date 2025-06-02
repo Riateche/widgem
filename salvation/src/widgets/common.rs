@@ -18,6 +18,7 @@ use {
             ChildrenUpdateState,
         },
         types::{Point, Rect, Size},
+        widgets::WidgetExt,
         window::{Window, WindowId},
     },
     anyhow::{Context, Result},
@@ -138,11 +139,13 @@ auto_bitflags! {
         self_focusable,
         // reported by widget internally using `set_supports_focus`
         supports_focus,
+        // widget currently has focus
+        focused,
         // whether IME is enabled when the widget has focus
         input_method_enabled,
+        // If true, all mouse events from the parent propagate to this widget,
+        // regardless of its boundaries.
         receives_all_mouse_events,
-        focused,
-        window_focused,
         parent_enabled,
         self_enabled,
         self_visible,
@@ -163,12 +166,6 @@ pub struct WidgetCommon {
     type_name: &'static str,
     flags: Flags,
     pub cursor_icon: CursorIcon,
-    // If true, all mouse events from the parent propagate to this widget,
-    // regardless of its boundaries.
-    pub receives_all_mouse_events: bool,
-
-    pub is_focused: bool,
-    pub is_window_focused: bool,
 
     pub parent_id: Option<RawWidgetId>,
     pub address: WidgetAddress,
@@ -255,12 +252,9 @@ impl WidgetCommon {
                 & Flags::has_declare_children_override,
             parent_id: ctx.parent_id,
             address: ctx.address,
-            is_window_focused: ctx.window.as_ref().is_some_and(|w| w.is_focused()),
             window: ctx.window,
-            receives_all_mouse_events: false,
             parent_style: ctx.parent_style,
             self_style: None,
-            is_focused: false,
             is_parent_enabled: ctx.is_parent_enabled,
             is_self_enabled: true,
             is_self_visible: true,
@@ -399,8 +393,14 @@ impl WidgetCommon {
             && self.is_enabled()
     }
 
+    /// Returns `true` if the widget currently has focus.
     pub fn is_focused(&self) -> bool {
-        self.is_focused && self.is_window_focused && self.is_enabled()
+        self.flags.contains(Flags::focused) && self.is_enabled()
+    }
+
+    /// Returns `true` if the widget's OS window is focused.
+    pub fn is_window_focused(&self) -> bool {
+        self.window.as_ref().is_some_and(|w| w.is_focused())
     }
 
     pub fn style(&self) -> &ComputedStyle {
@@ -662,6 +662,84 @@ impl WidgetCommon {
         Ok(self.geometry_or_err()?.rect_in_self())
     }
 
+    /// Processes the event before it's dispatched to the widget.
+    ///
+    /// Returns `true` if the event is consumed and shouldn't be dispatched to the widget.
+    pub(crate) fn before_event(&mut self, event: &Event) -> bool {
+        match &event {
+            Event::FocusIn(_) => {
+                self.flags.insert(Flags::focused);
+                self.focused_changed();
+            }
+            Event::FocusOut(_) => {
+                self.flags.remove(Flags::focused);
+                self.focused_changed();
+            }
+            Event::WindowFocusChange(_) => {
+                self.focused_changed();
+            }
+            Event::MouseInput(event) => {
+                for child in self.children.values_mut().rev() {
+                    if let Some(rect_in_parent) = child.common().rect_in_parent() {
+                        if let Some(child_event) = event.map_to_child(
+                            rect_in_parent,
+                            child.common().receives_all_mouse_events(),
+                        ) {
+                            if child.dispatch(child_event.into()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::MouseScroll(event) => {
+                for child in self.children.values_mut().rev() {
+                    if let Some(rect_in_parent) = child.common().rect_in_parent() {
+                        if let Some(child_event) = event.map_to_child(
+                            rect_in_parent,
+                            child.common().receives_all_mouse_events(),
+                        ) {
+                            if child.dispatch(child_event.into()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::MouseMove(event) => {
+                for child in self.children.values_mut().rev() {
+                    if let Some(rect_in_parent) = child.common().rect_in_parent() {
+                        if let Some(child_event) = event.map_to_child(
+                            rect_in_parent,
+                            child.common().receives_all_mouse_events(),
+                        ) {
+                            if child.dispatch(child_event.into()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::MouseLeave(_) => {
+                self.is_mouse_over = false;
+                self.mouse_over_changed();
+            }
+            Event::StyleChange(_) => {
+                self.refresh_common_style();
+            }
+            Event::EnabledChange(_) => {
+                self.enabled_changed();
+            }
+            Event::MouseEnter(_)
+            | Event::KeyboardInput(_)
+            | Event::InputMethod(_)
+            | Event::Layout(_)
+            | Event::Draw(_)
+            | Event::AccessibilityAction(_) => {}
+        }
+        false
+    }
+
     fn focusable_changed(&mut self) {
         let is_focusable = self.is_focusable();
         if is_focusable != self.is_registered_as_focusable {
@@ -695,7 +773,7 @@ impl WidgetCommon {
     }
 
     pub fn focused_changed(&mut self) {
-        if self.is_focused() {
+        if self.is_focused() && self.is_window_focused() {
             self.style_element.add_pseudo_class(MyPseudoClass::Focus);
         } else {
             self.style_element.remove_pseudo_class(MyPseudoClass::Focus);
@@ -866,6 +944,19 @@ impl WidgetCommon {
         self.flags.set(Flags::self_focusable, focusable);
         self.focusable_changed();
         self
+    }
+
+    /// If true, all mouse events from the parent propagate to this widget,
+    /// regardless of its boundaries.
+    pub fn set_receives_all_mouse_events(&mut self, enabled: bool) -> &mut Self {
+        self.flags.set(Flags::receives_all_mouse_events, enabled);
+        self
+    }
+
+    /// If true, all mouse events from the parent propagate to this widget,
+    /// regardless of its boundaries.
+    pub fn receives_all_mouse_events(&self) -> bool {
+        self.flags.contains(Flags::receives_all_mouse_events)
     }
 }
 

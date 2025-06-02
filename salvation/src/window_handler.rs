@@ -458,13 +458,10 @@ impl WindowWithWidget<'_> {
             }
             WindowRequest::ScrollToRect(request) => {
                 if let Some(address) = address(request.widget_id) {
-                    self.root_widget.dispatch(
-                        ScrollToRectRequest {
-                            address,
-                            rect: request.rect,
-                        }
-                        .into(),
-                    );
+                    self.root_widget.scroll_to_rect(ScrollToRectRequest {
+                        address,
+                        rect: request.rect,
+                    });
                 } else {
                     warn!("ScrollToRectRequest: couldn't find widget address");
                 }

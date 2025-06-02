@@ -31,7 +31,6 @@ pub enum Event {
     FocusOut(FocusOutEvent),
     WindowFocusChange(WindowFocusChangeEvent),
     AccessibilityAction(AccessibilityActionEvent),
-    ScrollToRect(ScrollToRectRequest),
     StyleChange(StyleChangeEvent),
     EnabledChange(EnabledChangeEvent),
 }

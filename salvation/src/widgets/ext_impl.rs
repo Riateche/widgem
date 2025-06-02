@@ -2,7 +2,7 @@ use {
     super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetExt, WidgetId},
     crate::{
         callback::{widget_callback, Callback},
-        event::{EnabledChangeEvent, Event, LayoutEvent, StyleChangeEvent},
+        event::{EnabledChangeEvent, Event, LayoutEvent, ScrollToRectRequest, StyleChangeEvent},
         layout::{SizeHints, FALLBACK_SIZE_HINTS},
         style::{computed::ComputedStyle, css::MyPseudoClass, Style},
         system::{with_system, ReportError},
@@ -87,103 +87,44 @@ impl<W: Widget + ?Sized> WidgetExt for W {
 
     fn dispatch(&mut self, event: Event) -> bool {
         let mut accepted = false;
-        let mut should_dispatch = true;
-        match &event {
-            Event::FocusIn(_) => {
-                self.common_mut().is_focused = true;
-                self.common_mut().focused_changed();
+        let should_dispatch = if self.common().is_enabled() {
+            true
+        } else {
+            match &event {
+                Event::MouseInput(_)
+                | Event::MouseScroll(_)
+                | Event::MouseEnter(_)
+                | Event::MouseMove(_)
+                | Event::MouseLeave(_)
+                | Event::KeyboardInput(_)
+                | Event::InputMethod(_) => false,
+                Event::Draw(_)
+                | Event::Layout(_)
+                | Event::FocusIn(_)
+                | Event::FocusOut(_)
+                | Event::WindowFocusChange(_)
+                | Event::AccessibilityAction(_)
+                | Event::StyleChange(_)
+                | Event::EnabledChange(_) => true,
             }
-            Event::FocusOut(_) => {
-                self.common_mut().is_focused = false;
-                self.common_mut().focused_changed();
+        };
+        if should_dispatch {
+            if self.common_mut().before_event(&event) {
+                accepted = true;
             }
-            Event::WindowFocusChange(e) => {
-                self.common_mut().is_window_focused = e.is_window_focused;
-                self.common_mut().focused_changed();
-            }
-            Event::MouseInput(event) => {
-                should_dispatch = self.common().is_enabled();
-                if should_dispatch {
-                    for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.common().rect_in_parent() {
-                            if let Some(child_event) = event.map_to_child(
-                                rect_in_parent,
-                                child.common().receives_all_mouse_events,
-                            ) {
-                                if child.dispatch(child_event.into()) {
-                                    accepted = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Event::MouseScroll(event) => {
-                should_dispatch = self.common().is_enabled();
-                if should_dispatch {
-                    for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.common().rect_in_parent() {
-                            if let Some(child_event) = event.map_to_child(
-                                rect_in_parent,
-                                child.common().receives_all_mouse_events,
-                            ) {
-                                if child.dispatch(child_event.into()) {
-                                    accepted = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Event::MouseEnter(_) | Event::KeyboardInput(_) | Event::InputMethod(_) => {
-                should_dispatch = self.common().is_enabled();
-            }
-            Event::MouseMove(event) => {
-                should_dispatch = self.common().is_enabled();
-                if should_dispatch {
-                    for child in self.common_mut().children.values_mut().rev() {
-                        if let Some(rect_in_parent) = child.common().rect_in_parent() {
-                            if let Some(child_event) = event.map_to_child(
-                                rect_in_parent,
-                                child.common().receives_all_mouse_events,
-                            ) {
-                                if child.dispatch(child_event.into()) {
-                                    accepted = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
+        }
+        if let Event::MouseMove(event) = &event {
+            if !accepted && should_dispatch {
+                let is_enter = if let Some(window) = self.common().window_or_err().or_report_err() {
+                    !window.is_mouse_entered(self.common().id())
+                } else {
+                    false
+                };
 
-                    if !accepted {
-                        let is_enter =
-                            if let Some(window) = self.common().window_or_err().or_report_err() {
-                                !window.is_mouse_entered(self.common().id())
-                            } else {
-                                false
-                            };
-
-                        if is_enter {
-                            self.dispatch(event.create_enter_event().into());
-                        }
-                    }
+                if is_enter {
+                    self.dispatch(event.create_enter_event().into());
                 }
             }
-            Event::MouseLeave(_) => {
-                self.common_mut().is_mouse_over = false;
-                self.common_mut().mouse_over_changed();
-                should_dispatch = self.common().is_enabled();
-            }
-            Event::Layout(_) => {}
-            Event::StyleChange(_) => {
-                self.common_mut().refresh_common_style();
-            }
-            Event::EnabledChange(_) => {
-                self.common_mut().enabled_changed();
-            }
-            Event::Draw(_) | Event::AccessibilityAction(_) | Event::ScrollToRect(_) => {}
         }
         if !accepted && should_dispatch {
             if let Some(event_filter) = &mut self.common_mut().event_filter {
@@ -240,28 +181,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             Event::Layout(_) => {
                 self.common_mut().update();
             }
-            Event::ScrollToRect(event) => {
-                if !accepted && event.address != self.common().address {
-                    if event.address.starts_with(&self.common().address) {
-                        if let Some((key, id)) = event.address.item_at(self.common().address.len())
-                        {
-                            if let Some(child) = self.common_mut().children.get_mut(key) {
-                                if &child.common().id() == id {
-                                    child.dispatch(event.clone().into());
-                                } else {
-                                    warn!("child id mismatch while dispatching ScrollToRectEvent");
-                                }
-                            } else {
-                                warn!("invalid child index while dispatching ScrollToRectEvent");
-                            }
-                        } else {
-                            warn!("couldn't get child index while dispatching ScrollToRectEvent");
-                        }
-                    } else {
-                        warn!("ScrollToRectEvent dispatched to unrelated widget");
-                    }
-                }
-            }
             Event::EnabledChange(event) => {
                 for child in self.common_mut().children.values_mut() {
                     let old_enabled = child.common_mut().is_enabled();
@@ -290,6 +209,38 @@ impl<W: Widget + ?Sized> WidgetExt for W {
 
         self.update_accessible();
         accepted
+    }
+
+    fn scroll_to_rect(&mut self, request: ScrollToRectRequest) -> bool {
+        let accepted = self
+            .handle_scroll_to_rect_request(request.clone())
+            .or_report_err()
+            .unwrap_or(false);
+        if accepted {
+            // TODO: propagate to inner widgets anyway? how does it work with two scroll areas?
+            return true;
+        }
+        if request.address != self.common().address {
+            if request.address.starts_with(&self.common().address) {
+                if let Some((key, id)) = request.address.item_at(self.common().address.len()) {
+                    if let Some(child) = self.common_mut().children.get_mut(key) {
+                        if &child.common().id() == id {
+                            child.scroll_to_rect(request.clone());
+                        } else {
+                            warn!("child id mismatch while dispatching ScrollToRectEvent");
+                        }
+                    } else {
+                        warn!("invalid child index while dispatching ScrollToRectEvent");
+                    }
+                } else {
+                    warn!("couldn't get child index while dispatching ScrollToRectEvent");
+                }
+            } else {
+                warn!("ScrollToRectEvent dispatched to unrelated widget");
+            }
+        }
+
+        false
     }
 
     fn update_accessible(&mut self) {
