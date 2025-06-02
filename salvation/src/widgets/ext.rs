@@ -39,7 +39,7 @@ pub trait WidgetExt {
     fn size_hint_y(&mut self, size_x: i32) -> SizeHints;
 
     // TODO: private
-    fn set_enabled(&mut self, enabled: bool);
+    fn set_enabled(&mut self, enabled: bool) -> &mut Self;
     fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()>;
     fn add_class(&mut self, class: &'static str) -> &mut Self;
     fn remove_class(&mut self, class: &'static str);

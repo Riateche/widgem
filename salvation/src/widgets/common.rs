@@ -146,7 +146,9 @@ auto_bitflags! {
         // If true, all mouse events from the parent propagate to this widget,
         // regardless of its boundaries.
         receives_all_mouse_events,
+        // true if parent is enabled or if there is no parent
         parent_enabled,
+        // true if this widget hasn't been explicitly disabled
         self_enabled,
         self_visible,
         window_root,
@@ -172,8 +174,6 @@ pub struct WidgetCommon {
     pub window: Option<Window>,
 
     pub parent_style: ComputedStyle,
-    pub is_parent_enabled: bool,
-    pub is_self_enabled: bool,
     pub is_self_visible: bool,
 
     pub is_window_root: bool,
@@ -241,22 +241,26 @@ impl WidgetCommon {
         register_address(id, ctx.address.clone());
 
         let type_name = T::type_name();
-        let style_element = Element::new(last_path_part(type_name));
+        let style_element =
+            Element::new(last_path_part(type_name)).with_pseudo_class(MyPseudoClass::Enabled);
         let common_style = ctx.parent_style.get_common(&style_element);
         let mut common = Self {
             id,
             type_name,
             flags: Flags::self_enabled
-                & Flags::self_visible
-                & Flags::accessible
-                & Flags::has_declare_children_override,
+                | Flags::self_visible
+                | Flags::accessible
+                | Flags::has_declare_children_override
+                | if ctx.is_parent_enabled {
+                    Flags::parent_enabled
+                } else {
+                    Flags::empty()
+                },
             parent_id: ctx.parent_id,
             address: ctx.address,
             window: ctx.window,
             parent_style: ctx.parent_style,
             self_style: None,
-            is_parent_enabled: ctx.is_parent_enabled,
-            is_self_enabled: true,
             is_self_visible: true,
             is_mouse_over: false,
             geometry: None,
@@ -321,14 +325,21 @@ impl WidgetCommon {
     }
 
     pub fn set_grid_options(&mut self, options: Option<GridOptions>) -> &mut Self {
+        if self.grid_options == options {
+            return self;
+        }
         self.grid_options = options;
         self.size_hint_changed();
         self
     }
 
-    pub fn set_no_padding(&mut self, value: bool) {
+    pub fn set_no_padding(&mut self, value: bool) -> &mut Self {
+        if self.no_padding == value {
+            return self;
+        }
         self.no_padding = value;
         self.size_hint_changed();
+        self
     }
 
     pub fn grid_options(&self) -> GridOptions {
@@ -375,12 +386,50 @@ impl WidgetCommon {
         self.is_self_visible
     }
 
+    /// True if this widget hasn't been explicitly disabled.
+    ///
+    /// This method can be used to tell if the widget is disabled because `set_enabled(false)` was called on it
+    /// or because its parent is disabled. In most cases it's sufficient to use [is_enabled](Self::is_enabled) instead.
     pub fn is_self_enabled(&self) -> bool {
-        self.is_self_enabled
+        self.flags.contains(Flags::self_enabled)
     }
 
+    /// True if this widget is enabled.
+    ///
+    /// Disabled widgets do not receive input events and have an alternate (usually grayed out) appearance.
+    /// Use [set_enabled](Self::set_enabled) to enable or disable a widget. If a widget is disabled,
+    /// all its children are disabled as well.
     pub fn is_enabled(&self) -> bool {
-        self.is_parent_enabled && self.is_self_enabled
+        self.flags
+            .contains(Flags::self_enabled | Flags::parent_enabled)
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) -> &mut Self {
+        if self.flags.contains(Flags::self_enabled) == enabled {
+            return self;
+        }
+        let old_enabled = self.is_enabled();
+        self.flags.set(Flags::self_enabled, enabled);
+        let new_enabled = self.is_enabled();
+        if old_enabled == new_enabled {
+            return self;
+        }
+        self.enabled_changed();
+        self
+    }
+
+    fn set_parent_enabled(&mut self, enabled: bool) -> &mut Self {
+        if self.flags.contains(Flags::parent_enabled) == enabled {
+            return self;
+        }
+        let old_enabled = self.is_enabled();
+        self.flags.set(Flags::parent_enabled, enabled);
+        let new_enabled = self.is_enabled();
+        if old_enabled == new_enabled {
+            return self;
+        }
+        self.enabled_changed();
+        self
     }
 
     /// Returns `true` if this widget can receive focus.
@@ -553,9 +602,13 @@ impl WidgetCommon {
         &self.layout_item_options
     }
 
-    pub fn set_layout_item_options(&mut self, options: LayoutItemOptions) {
+    pub fn set_layout_item_options(&mut self, options: LayoutItemOptions) -> &mut Self {
+        if self.layout_item_options == options {
+            return self;
+        }
         self.layout_item_options = options;
         self.size_hint_changed();
+        self
     }
 
     pub fn remove_child(&mut self, key: impl Into<Key>) -> Result<(), WidgetNotFound> {
@@ -727,9 +780,6 @@ impl WidgetCommon {
             Event::StyleChange(_) => {
                 self.refresh_common_style();
             }
-            Event::EnabledChange(_) => {
-                self.enabled_changed();
-            }
             Event::MouseEnter(_)
             | Event::KeyboardInput(_)
             | Event::InputMethod(_)
@@ -756,11 +806,17 @@ impl WidgetCommon {
         }
     }
 
-    pub fn enabled_changed(&mut self) {
+    fn enabled_changed(&mut self) {
+        // TODO: dispatch or remove StyleChangeEvent
+        // TODO: do it when pseudo class changes instead
+        //child.dispatch(StyleChangeEvent {}.into());
+
         self.focusable_changed();
         self.focused_changed();
+        // TODO: widget should receive MouseLeave even if it's disabled
         self.mouse_over_changed();
-        if self.is_enabled() {
+        let is_enabled = self.is_enabled();
+        if is_enabled {
             self.style_element
                 .remove_pseudo_class(MyPseudoClass::Disabled);
             self.style_element.add_pseudo_class(MyPseudoClass::Enabled);
@@ -770,6 +826,9 @@ impl WidgetCommon {
             self.style_element.add_pseudo_class(MyPseudoClass::Disabled);
         }
         self.refresh_common_style();
+        for child in self.children.values_mut() {
+            child.common_mut().set_parent_enabled(is_enabled);
+        }
     }
 
     pub fn focused_changed(&mut self) {
@@ -799,6 +858,9 @@ impl WidgetCommon {
     /// (as opposed to e.g. hotkeys). Implement [handle_input_method](Widget::handle_input_method) to
     /// handle events from the input method.
     pub fn set_input_method_enabled(&mut self, enabled: bool) -> &mut Self {
+        if self.flags.contains(Flags::input_method_enabled) == enabled {
+            return self;
+        }
         self.flags.set(Flags::input_method_enabled, enabled);
         if self.is_focused() {
             if let Some(window) = &self.window {
@@ -949,6 +1011,9 @@ impl WidgetCommon {
     /// If true, all mouse events from the parent propagate to this widget,
     /// regardless of its boundaries.
     pub fn set_receives_all_mouse_events(&mut self, enabled: bool) -> &mut Self {
+        if self.flags.contains(Flags::receives_all_mouse_events) == enabled {
+            return self;
+        }
         self.flags.set(Flags::receives_all_mouse_events, enabled);
         self
     }
@@ -999,10 +1064,14 @@ impl<W> WidgetCommonTyped<W> {
     /// to be focusable by default,
     /// Call `set_focusable(false)` **after** `set_supports_focus(true)`.
     pub fn set_supports_focus(&mut self, supports_focus: bool) -> &mut Self {
+        let old_flags = self.common.flags.bits();
         self.common.flags.set(
             Flags::supports_focus | Flags::self_focusable,
             supports_focus,
         );
+        if self.common.flags.bits() == old_flags {
+            return self;
+        }
         self.focusable_changed();
         self
     }

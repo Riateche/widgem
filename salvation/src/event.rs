@@ -29,10 +29,10 @@ pub enum Event {
     Layout(LayoutEvent),
     FocusIn(FocusInEvent),
     FocusOut(FocusOutEvent),
+    // TODO: use a callback instead
     WindowFocusChange(WindowFocusChangeEvent),
     AccessibilityAction(AccessibilityActionEvent),
     StyleChange(StyleChangeEvent),
-    EnabledChange(EnabledChangeEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -190,8 +190,3 @@ pub struct ScrollToRectRequest {
 
 #[derive(Debug, Clone)]
 pub struct StyleChangeEvent {}
-
-#[derive(Debug, Clone)]
-pub struct EnabledChangeEvent {
-    pub is_enabled: bool,
-}

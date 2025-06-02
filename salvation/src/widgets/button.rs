@@ -225,6 +225,8 @@ impl Widget for Button {
     }
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
+        // TODO: too expensive! refactor styles
+        self.refresh_style();
         let size = self.common.size_or_err()?;
         let style = &self.common.common_style;
 

@@ -15,7 +15,7 @@ use {
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GridOptions {
     pub x: GridAxisOptions,
     pub y: GridAxisOptions,
@@ -42,7 +42,7 @@ impl GridOptions {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GridAxisOptions {
     pub min_padding: i32,
     pub min_spacing: i32,

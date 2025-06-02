@@ -3,10 +3,10 @@ use {
     crate::{
         draw::DrawEvent,
         event::{
-            AccessibilityActionEvent, EnabledChangeEvent, Event, FocusInEvent, FocusOutEvent,
-            InputMethodEvent, KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent,
-            MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent, ScrollToRectRequest,
-            StyleChangeEvent, WindowFocusChangeEvent,
+            AccessibilityActionEvent, Event, FocusInEvent, FocusOutEvent, InputMethodEvent,
+            KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
+            MouseMoveEvent, MouseScrollEvent, ScrollToRectRequest, StyleChangeEvent,
+            WindowFocusChangeEvent,
         },
         layout::{
             grid::{self, grid_layout},
@@ -394,22 +394,6 @@ pub trait Widget: Any {
         Ok(())
     }
 
-    // TODO: remove this in favor of style change?
-
-    /// Handles an event when this widget is enabled or disabled.
-    ///
-    /// This event can be triggered when a widget is enabled or disabled, or when its parent is enabled or disabled.
-    ///
-    /// This event is handled by the parent widget first, then propagates to all affected children.
-    ///
-    /// You should not call this function directly. You can adjust the *enabledness* of the widget using
-    /// [set_enabled](crate::widgets::WidgetExt::set_enabled).
-    ///
-    /// Implement this function if your widget needs to react to being enabled or disabled.
-    fn handle_enabled_change(&mut self, event: EnabledChangeEvent) -> Result<()> {
-        let _ = event;
-        Ok(())
-    }
     fn handle_event(&mut self, event: Event) -> Result<bool> {
         match event {
             Event::MouseInput(e) => self.handle_mouse_input(e),
@@ -426,7 +410,6 @@ pub trait Widget: Any {
             Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
             Event::AccessibilityAction(e) => self.handle_accessibility_action(e).map(|()| true),
             Event::StyleChange(e) => self.handle_style_change(e).map(|()| true),
-            Event::EnabledChange(e) => self.handle_enabled_change(e).map(|()| true),
         }
     }
 

@@ -2,7 +2,7 @@ use {
     super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetExt, WidgetId},
     crate::{
         callback::{widget_callback, Callback},
-        event::{EnabledChangeEvent, Event, LayoutEvent, ScrollToRectRequest, StyleChangeEvent},
+        event::{Event, LayoutEvent, ScrollToRectRequest, StyleChangeEvent},
         layout::{SizeHints, FALLBACK_SIZE_HINTS},
         style::{computed::ComputedStyle, css::MyPseudoClass, Style},
         system::{with_system, ReportError},
@@ -104,8 +104,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 | Event::FocusOut(_)
                 | Event::WindowFocusChange(_)
                 | Event::AccessibilityAction(_)
-                | Event::StyleChange(_)
-                | Event::EnabledChange(_) => true,
+                | Event::StyleChange(_) => true,
             }
         };
         if should_dispatch {
@@ -180,23 +179,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
             }
             Event::Layout(_) => {
                 self.common_mut().update();
-            }
-            Event::EnabledChange(event) => {
-                for child in self.common_mut().children.values_mut() {
-                    let old_enabled = child.common_mut().is_enabled();
-                    child.common_mut().is_parent_enabled = event.is_enabled;
-                    let new_enabled = child.common_mut().is_enabled();
-                    if old_enabled != new_enabled {
-                        child.dispatch(
-                            EnabledChangeEvent {
-                                is_enabled: new_enabled,
-                            }
-                            .into(),
-                        );
-                        // TODO: do it when pseudo class changes instead
-                        child.dispatch(StyleChangeEvent {}.into());
-                    }
-                }
             }
             Event::StyleChange(event) => {
                 for child in self.common_mut().children.values_mut() {
@@ -340,23 +322,9 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         self.dispatch(StyleChangeEvent {}.into());
     }
 
-    fn set_enabled(&mut self, enabled: bool) {
-        let old_enabled = self.common().is_enabled();
-        if self.common().is_self_enabled == enabled {
-            return;
-        }
-        self.common_mut().is_self_enabled = enabled;
-        let new_enabled = self.common().is_enabled();
-        if old_enabled != new_enabled {
-            self.dispatch(
-                EnabledChangeEvent {
-                    is_enabled: new_enabled,
-                }
-                .into(),
-            );
-            // TODO: do it when pseudo class changes instead
-            self.dispatch(StyleChangeEvent {}.into());
-        }
+    fn set_enabled(&mut self, enabled: bool) -> &mut Self {
+        self.common_mut().set_enabled(enabled);
+        self
     }
 
     // TODO: check for row/column conflict
