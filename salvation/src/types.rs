@@ -1,6 +1,7 @@
 use {
     anyhow::Context,
     derive_more::{Add, AddAssign, From, Into, Neg, Sub, SubAssign, Sum},
+    ordered_float::OrderedFloat,
     serde::{Deserialize, Serialize},
     std::{
         cmp::{max, min},
@@ -9,16 +10,34 @@ use {
     },
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, From, Into, Default, Serialize, Deserialize)]
-pub struct LogicalPixels(f32);
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, From, Into, Default, Serialize, Deserialize,
+)]
+pub struct LogicalPixels(OrderedFloat<f32>);
 
 impl LogicalPixels {
-    pub fn get(self) -> f32 {
-        self.0
+    pub const fn from_f32(value: f32) -> Self {
+        Self(OrderedFloat(value))
+    }
+
+    pub const fn to_f32(self) -> f32 {
+        self.0 .0
     }
 
     pub fn to_physical(self, scale: f32) -> PhysicalPixels {
         ((self.0 * scale).round() as i32).ppx()
+    }
+}
+
+impl From<LogicalPixels> for f32 {
+    fn from(value: LogicalPixels) -> Self {
+        value.to_f32()
+    }
+}
+
+impl From<f32> for LogicalPixels {
+    fn from(value: f32) -> Self {
+        Self::from_f32(value)
     }
 }
 
@@ -36,7 +55,7 @@ pub trait LpxSuffix {
 
 impl LpxSuffix for f32 {
     fn lpx(self) -> LogicalPixels {
-        LogicalPixels(self)
+        LogicalPixels::from_f32(self)
     }
 }
 
@@ -68,7 +87,7 @@ impl PhysicalPixels {
         Self(value)
     }
 
-    pub fn to_i32(self) -> i32 {
+    pub const fn to_i32(self) -> i32 {
         self.0
     }
 
@@ -128,7 +147,7 @@ pub struct Point {
 }
 
 impl Point {
-    pub fn new(x: PhysicalPixels, y: PhysicalPixels) -> Self {
+    pub const fn new(x: PhysicalPixels, y: PhysicalPixels) -> Self {
         Self { x, y }
     }
 }
@@ -187,7 +206,7 @@ pub struct Size {
 }
 
 impl Size {
-    pub fn new(x: PhysicalPixels, y: PhysicalPixels) -> Self {
+    pub const fn new(x: PhysicalPixels, y: PhysicalPixels) -> Self {
         Self { x, y }
     }
 }
@@ -214,7 +233,7 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub fn from_xywh(
+    pub const fn from_xywh(
         x: PhysicalPixels,
         y: PhysicalPixels,
         w: PhysicalPixels,
@@ -223,7 +242,7 @@ impl Rect {
         Self::from_pos_size(Point::new(x, y), Size::new(w, h))
     }
 
-    pub fn from_pos_size(top_left: Point, size: Size) -> Self {
+    pub const fn from_pos_size(top_left: Point, size: Size) -> Self {
         Self { top_left, size }
     }
 
