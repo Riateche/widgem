@@ -10,7 +10,7 @@ use {
     },
     anyhow::Result,
     log::{error, warn},
-    std::rc::Rc,
+    std::{borrow::Cow, rc::Rc},
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
@@ -69,11 +69,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
     }
     fn set_accessible(&mut self, value: bool) -> &mut Self {
         self.common_mut().set_accessible(value);
-        self
-    }
-
-    fn add_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self {
-        self.common_mut().add_pseudo_class(class);
         self
     }
 
@@ -307,15 +302,68 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         Ok(())
     }
 
-    fn add_class(&mut self, class: &'static str) -> &mut Self {
+    fn add_class(&mut self, class: Cow<'static, str>) -> &mut Self {
+        if self.common().style_element.has_class(&class) {
+            return self;
+        }
         self.common_mut().style_element.add_class(class);
         self.dispatch(StyleChangeEvent {}.into());
         self
     }
 
-    fn remove_class(&mut self, class: &'static str) {
+    fn remove_class(&mut self, class: Cow<'static, str>) -> &mut Self {
+        if !self.common().style_element.has_class(&class) {
+            return self;
+        }
         self.common_mut().style_element.remove_class(class);
         self.dispatch(StyleChangeEvent {}.into());
+        self
+    }
+
+    fn has_class(&self, class: &str) -> bool {
+        self.common().style_element.has_class(class)
+    }
+
+    fn set_class(&mut self, class: Cow<'static, str>, present: bool) -> &mut Self {
+        if self.common().style_element.has_class(&class) == present {
+            return self;
+        }
+        self.common_mut().style_element.set_class(class, present);
+        self.dispatch(StyleChangeEvent {}.into());
+        self
+    }
+
+    fn add_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self {
+        if self.common().style_element.has_pseudo_class(class) {
+            return self;
+        }
+        self.common_mut().style_element.add_pseudo_class(class);
+        self.dispatch(StyleChangeEvent {}.into());
+        self
+    }
+
+    fn remove_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self {
+        if !self.common().style_element.has_pseudo_class(class) {
+            return self;
+        }
+        self.common_mut().style_element.remove_pseudo_class(class);
+        self.dispatch(StyleChangeEvent {}.into());
+        self
+    }
+
+    fn has_pseudo_class(&self, class: MyPseudoClass) -> bool {
+        self.common().style_element.has_pseudo_class(class)
+    }
+
+    fn set_pseudo_class(&mut self, class: MyPseudoClass, present: bool) -> &mut Self {
+        if self.common().style_element.has_pseudo_class(class) == present {
+            return self;
+        }
+        self.common_mut()
+            .style_element
+            .set_pseudo_class(class, present);
+        self.dispatch(StyleChangeEvent {}.into());
+        self
     }
 
     fn set_enabled(&mut self, enabled: bool) -> &mut Self {
@@ -370,65 +418,6 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 .into(),
             );
         }
-
-        /*
-        let rect_in_window = if let Some(rect_in_window) = self.rect_in_window {
-            rect_in_parent.map(|rect_in_parent| rect_in_parent.translate(rect_in_window.top_left))
-        } else {
-            None
-        };
-        let visible_rect = if let (Some(visible_rect), Some(rect_in_parent)) =
-            (self.visible_rect, rect_in_parent)
-        {
-            Some(
-                visible_rect
-                    .translate(-rect_in_parent.top_left)
-                    .intersect(Rect::from_pos_size(Point::default(), rect_in_parent.size)),
-            )
-            .filter(|r| r != &Rect::default())
-        } else {
-            None
-        };
-        child.common_mut().rect_in_parent = rect_in_parent;
-        // println!(
-        //     "rect_in_window {:?} -> {:?}",
-        //     child.common().rect_in_window,
-        //     rect_in_window
-        // );
-        // println!(
-        //     "visible_rect {:?} -> {:?}",
-        //     child.common().visible_rect,
-        //     visible_rect
-        // );*/
-        // let rects_changed = self.common().geometry.as_ref() != Some(&geometry);
-        // self.common_mut().geometry = Some(geometry);
-        // if let Some(event) = &self.current_layout_event {
-        //     if rects_changed || event.size_hints_changed_within(child.common().address()) {
-        //         //println!("set_child_rect ok1");
-        //         child.dispatch(
-        //             LayoutEvent {
-        //                 new_rect_in_window: rect_in_window,
-        //                 new_visible_rect: visible_rect,
-        //                 changed_size_hints: event.changed_size_hints.clone(),
-        //             }
-        //             .into(),
-        //         );
-        //     }
-        // } else {
-        //     if rects_changed {
-        //         //println!("set_child_rect ok2");
-        //         child.dispatch(
-        //             LayoutEvent {
-        //                 new_rect_in_window: rect_in_window,
-        //                 new_visible_rect: visible_rect,
-        //                 changed_size_hints: Vec::new(),
-        //             }
-        //             .into(),
-        //         );
-        //     }
-        // }
-        //println!("set_child_rect end");
-        //Ok(())
     }
 
     fn boxed(self) -> Box<dyn Widget>

@@ -941,16 +941,6 @@ impl WidgetCommon {
         self.style().get(&self.style_element)
     }
 
-    pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
-        self.style_element.add_pseudo_class(class);
-        self.refresh_common_style();
-    }
-
-    pub fn remove_pseudo_class(&mut self, class: MyPseudoClass) {
-        self.style_element.remove_pseudo_class(class);
-        self.refresh_common_style();
-    }
-
     pub fn set_accessible(&mut self, value: bool) {
         if self.is_accessible == value {
             return;

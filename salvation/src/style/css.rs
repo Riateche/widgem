@@ -34,7 +34,7 @@ use {
         },
     },
     log::warn,
-    std::collections::HashMap,
+    std::{borrow::Cow, collections::HashMap},
     tiny_skia::{Color, GradientStop, SpreadMode},
 };
 
@@ -759,7 +759,7 @@ impl<'a, 'b> From<&'a PseudoClass<'b>> for MyPseudoClass {
 pub struct Element {
     tag: &'static str,
     // TODO: small vec?
-    classes: Vec<&'static str>,
+    classes: Vec<Cow<'static, str>>,
     pseudo_classes: Vec<MyPseudoClass>,
 }
 
@@ -772,14 +772,26 @@ impl Element {
         }
     }
 
-    pub fn add_class(&mut self, class: &'static str) {
+    pub fn add_class(&mut self, class: Cow<'static, str>) {
         self.classes.push(class);
         self.classes.sort_unstable();
         self.classes.dedup();
     }
 
-    pub fn remove_class(&mut self, class: &'static str) {
+    pub fn remove_class(&mut self, class: Cow<'static, str>) {
         self.classes.retain(|c| *c != class);
+    }
+
+    pub fn has_class(&self, class: &str) -> bool {
+        self.classes.iter().any(|c| *c == class)
+    }
+
+    pub fn set_class(&mut self, class: Cow<'static, str>, present: bool) {
+        if present {
+            self.add_class(class);
+        } else {
+            self.remove_class(class);
+        }
     }
 
     pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
@@ -791,7 +803,19 @@ impl Element {
         self.pseudo_classes.retain(|c| *c != class);
     }
 
-    pub fn with_class(mut self, class: &'static str) -> Self {
+    pub fn has_pseudo_class(&self, class: MyPseudoClass) -> bool {
+        self.pseudo_classes.contains(&class)
+    }
+
+    pub fn set_pseudo_class(&mut self, class: MyPseudoClass, present: bool) {
+        if present {
+            self.add_pseudo_class(class);
+        } else {
+            self.remove_pseudo_class(class);
+        }
+    }
+
+    pub fn with_class(mut self, class: Cow<'static, str>) -> Self {
         self.add_class(class);
         self
     }
@@ -813,7 +837,7 @@ impl Element {
                     }
                 }
                 Component::Class(c) => {
-                    if !self.classes.contains(&c.as_ref()) {
+                    if !self.classes.iter().any(|i| **i == **c) {
                         return false;
                     }
                 }

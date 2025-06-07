@@ -99,13 +99,13 @@ impl ScrollBar {
             Axis::X => {
                 let decrease = self.common.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
                 decrease.set_text(names::SCROLL_LEFT);
-                decrease.add_class("scroll_left");
-                decrease.remove_class("scroll_up");
+                decrease.add_class("scroll_left".into());
+                decrease.remove_class("scroll_up".into());
 
                 let increase = self.common.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
                 increase.set_text(names::SCROLL_RIGHT);
-                increase.add_class("scroll_right");
-                increase.remove_class("scroll_down");
+                increase.add_class("scroll_right".into());
+                increase.remove_class("scroll_down".into());
 
                 let grip = self
                     .common
@@ -114,8 +114,8 @@ impl ScrollBar {
                     .common_mut()
                     .get_child_mut::<Button>(INDEX_GRIP_IN_PAGER)
                     .unwrap();
-                grip.add_class("scroll_grip_x");
-                grip.remove_class("scroll_grip_y");
+                grip.add_class("scroll_grip_x".into());
+                grip.remove_class("scroll_grip_y".into());
 
                 self.common
                     .get_dyn_child_mut(INDEX_PAGER)
@@ -131,13 +131,13 @@ impl ScrollBar {
             Axis::Y => {
                 let decrease = self.common.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
                 decrease.set_text(names::SCROLL_UP);
-                decrease.remove_class("scroll_left");
-                decrease.add_class("scroll_up");
+                decrease.remove_class("scroll_left".into());
+                decrease.add_class("scroll_up".into());
 
                 let increase = self.common.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
                 increase.set_text(names::SCROLL_DOWN);
-                increase.remove_class("scroll_right");
-                increase.add_class("scroll_down");
+                increase.remove_class("scroll_right".into());
+                increase.add_class("scroll_down".into());
 
                 let grip = self
                     .common
@@ -147,8 +147,8 @@ impl ScrollBar {
                     .get_child_mut::<Button>(INDEX_GRIP_IN_PAGER)
                     .unwrap();
 
-                grip.remove_class("scroll_grip_x");
-                grip.add_class("scroll_grip_y");
+                grip.remove_class("scroll_grip_x".into());
+                grip.add_class("scroll_grip_y".into());
 
                 self.common
                     .get_dyn_child_mut(INDEX_PAGER)
@@ -546,7 +546,7 @@ impl Widget for ScrollBar {
             .set_text(names::SCROLL_LEFT)
             .set_accessible(false)
             .set_focusable(false)
-            .add_class("scroll_left")
+            .add_class("scroll_left".into())
             .set_text_visible(false)
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
@@ -584,7 +584,7 @@ impl Widget for ScrollBar {
             .set_size_y_fixed(false)
             .set_accessible(false)
             .set_focusable(false)
-            .add_class("scroll_pager")
+            .add_class("scroll_pager".into())
             .set_text(names::SCROLL_PAGER)
             .set_text_visible(false)
             .set_auto_repeat(true)
@@ -595,7 +595,7 @@ impl Widget for ScrollBar {
             .set_text(names::SCROLL_GRIP)
             .set_accessible(false)
             .set_focusable(false)
-            .add_class("scroll_grip_x")
+            .add_class("scroll_grip_x".into())
             .set_text_visible(false)
             .set_mouse_leave_sensitive(false);
 
@@ -606,7 +606,7 @@ impl Widget for ScrollBar {
             .set_text(names::SCROLL_RIGHT)
             .set_accessible(false)
             .set_focusable(false)
-            .add_class("scroll_right")
+            .add_class("scroll_right".into())
             .set_text_visible(false)
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
@@ -767,7 +767,7 @@ impl Widget for ScrollBar {
             .common_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .add_class("scroll_bar_focused");
+            .add_class("scroll_bar_focused".into());
         Ok(())
     }
 
@@ -778,7 +778,7 @@ impl Widget for ScrollBar {
             .common_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .remove_class("scroll_bar_focused");
+            .remove_class("scroll_bar_focused".into());
         Ok(())
     }
 }

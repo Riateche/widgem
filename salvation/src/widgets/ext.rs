@@ -8,7 +8,7 @@ use {
         types::PhysicalPixels,
     },
     anyhow::Result,
-    std::rc::Rc,
+    std::{borrow::Cow, rc::Rc},
 };
 
 pub trait WidgetExt {
@@ -26,7 +26,6 @@ pub trait WidgetExt {
     fn set_visible(&mut self, value: bool) -> &mut Self;
     fn set_focusable(&mut self, value: bool) -> &mut Self;
     fn set_accessible(&mut self, value: bool) -> &mut Self;
-    fn add_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self;
     fn set_row(&mut self, row: i32) -> &mut Self;
     fn set_column(&mut self, column: i32) -> &mut Self;
     fn set_size_x_fixed(&mut self, fixed: bool) -> &mut Self;
@@ -42,8 +41,15 @@ pub trait WidgetExt {
     // TODO: private
     fn set_enabled(&mut self, enabled: bool) -> &mut Self;
     fn set_style(&mut self, style: Option<Rc<Style>>) -> Result<()>;
-    fn add_class(&mut self, class: &'static str) -> &mut Self;
-    fn remove_class(&mut self, class: &'static str);
+
+    fn add_class(&mut self, class: Cow<'static, str>) -> &mut Self;
+    fn remove_class(&mut self, class: Cow<'static, str>) -> &mut Self;
+    fn has_class(&self, class: &str) -> bool;
+    fn set_class(&mut self, class: Cow<'static, str>, present: bool) -> &mut Self;
+    fn add_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self;
+    fn remove_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self;
+    fn has_pseudo_class(&self, class: MyPseudoClass) -> bool;
+    fn set_pseudo_class(&mut self, class: MyPseudoClass, present: bool) -> &mut Self;
 
     fn set_geometry(
         &mut self,
