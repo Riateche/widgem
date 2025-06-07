@@ -111,11 +111,7 @@ impl Button {
             return;
         }
         self.is_pressed = value;
-        if self.is_pressed {
-            self.add_pseudo_class(MyPseudoClass::Active);
-        } else {
-            self.remove_pseudo_class(MyPseudoClass::Active);
-        }
+        self.set_pseudo_class(MyPseudoClass::Active, self.is_pressed);
         if value {
             if self.trigger_on_press && !suppress_trigger {
                 self.trigger();

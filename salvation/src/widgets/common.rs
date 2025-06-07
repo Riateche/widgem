@@ -311,8 +311,6 @@ impl WidgetCommon {
         }
         common.update();
         common.enabled_changed();
-        common.focused_changed();
-        common.mouse_over_changed();
         common.focusable_changed();
         common.refresh_common_style();
 
@@ -724,15 +722,11 @@ impl WidgetCommon {
         match &event {
             Event::FocusIn(_) => {
                 self.flags.insert(Flags::focused);
-                self.focused_changed();
             }
             Event::FocusOut(_) => {
                 self.flags.remove(Flags::focused);
-                self.focused_changed();
             }
-            Event::WindowFocusChange(_) => {
-                self.focused_changed();
-            }
+            Event::WindowFocusChange(_) => {}
             Event::MouseInput(event) => {
                 for child in self.children.values_mut().rev() {
                     if let Some(rect_in_parent) = child.common().rect_in_parent() {
@@ -777,7 +771,6 @@ impl WidgetCommon {
             }
             Event::MouseLeave(_) => {
                 self.is_mouse_over = false;
-                self.mouse_over_changed();
             }
             Event::StyleChange(_) => {
                 self.refresh_common_style();
@@ -814,9 +807,7 @@ impl WidgetCommon {
         //child.dispatch(StyleChangeEvent {}.into());
 
         self.focusable_changed();
-        self.focused_changed();
         // TODO: widget should receive MouseLeave even if it's disabled
-        self.mouse_over_changed();
         let is_enabled = self.is_enabled();
         if is_enabled {
             self.style_element
@@ -831,24 +822,6 @@ impl WidgetCommon {
         for child in self.children.values_mut() {
             child.common_mut().set_parent_enabled(is_enabled);
         }
-    }
-
-    pub fn focused_changed(&mut self) {
-        if self.is_focused() && self.is_window_focused() {
-            self.style_element.add_pseudo_class(MyPseudoClass::Focus);
-        } else {
-            self.style_element.remove_pseudo_class(MyPseudoClass::Focus);
-        }
-        self.refresh_common_style();
-    }
-
-    pub fn mouse_over_changed(&mut self) {
-        if self.is_mouse_over {
-            self.style_element.add_pseudo_class(MyPseudoClass::Hover);
-        } else {
-            self.style_element.remove_pseudo_class(MyPseudoClass::Hover);
-        }
-        self.refresh_common_style();
     }
 
     /// Enable or disable input method for this widget.

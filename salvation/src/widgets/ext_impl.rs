@@ -35,7 +35,6 @@ fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_ente
         if is_enter {
             window.add_mouse_entered(rect_in_window, id);
             widget.common_mut().is_mouse_over = true;
-            widget.common_mut().mouse_over_changed();
         }
     }
 }
@@ -108,18 +107,40 @@ impl<W: Widget + ?Sized> WidgetExt for W {
                 accepted = true;
             }
         }
-        if let Event::MouseMove(event) = &event {
-            if !accepted && should_dispatch {
-                let is_enter = if let Some(window) = self.common().window_or_err().or_report_err() {
-                    !window.is_mouse_entered(self.common().id())
-                } else {
-                    false
-                };
+        match &event {
+            Event::MouseMove(event) => {
+                if !accepted && should_dispatch {
+                    let is_enter =
+                        if let Some(window) = self.common().window_or_err().or_report_err() {
+                            !window.is_mouse_entered(self.common().id())
+                        } else {
+                            false
+                        };
 
-                if is_enter {
-                    self.dispatch(event.create_enter_event().into());
+                    if is_enter {
+                        self.dispatch(event.create_enter_event().into());
+                    }
                 }
             }
+            Event::MouseEnter(_) => {
+                self.add_pseudo_class(MyPseudoClass::Hover);
+            }
+            Event::MouseLeave(_) => {
+                self.remove_pseudo_class(MyPseudoClass::Hover);
+            }
+            Event::FocusIn(_) => {
+                self.set_pseudo_class(MyPseudoClass::Focus, self.common().is_window_focused());
+            }
+            Event::FocusOut(_) => {
+                self.remove_pseudo_class(MyPseudoClass::Focus);
+            }
+            Event::WindowFocusChange(event) => {
+                self.set_pseudo_class(
+                    MyPseudoClass::Focus,
+                    event.is_window_focused && self.common().is_focused(),
+                );
+            }
+            _ => (),
         }
         if !accepted && should_dispatch {
             if let Some(event_filter) = &mut self.common_mut().event_filter {
