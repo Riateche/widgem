@@ -104,13 +104,13 @@ impl TextInput {
             .common()
             .rect_in_parent()
             .map_or(0.ppx(), |rect| -rect.left());
-        let max_scroll = max(0.ppx(), text_size.x - editor_viewport_rect.size.x);
+        let max_scroll = max(0.ppx(), text_size.x() - editor_viewport_rect.size_x());
         if let Some(cursor_position) = cursor_position {
-            let cursor_x_in_viewport = cursor_position.x - scroll_x;
+            let cursor_x_in_viewport = cursor_position.x() - scroll_x;
             if cursor_x_in_viewport < 0.ppx() {
                 scroll_x -= -cursor_x_in_viewport;
-            } else if cursor_x_in_viewport > editor_viewport_rect.size.x - 1.ppx() {
-                scroll_x += cursor_x_in_viewport - (editor_viewport_rect.size.x - 1.ppx());
+            } else if cursor_x_in_viewport > editor_viewport_rect.size_x() - 1.ppx() {
+                scroll_x += cursor_x_in_viewport - (editor_viewport_rect.size_x() - 1.ppx());
             }
         }
         scroll_x = scroll_x.clamp(0.ppx(), max_scroll);
@@ -175,17 +175,17 @@ impl TextInput {
         let variant_style = self.current_variant_style().clone();
         self.common.set_grid_options(Some(GridOptions {
             x: GridAxisOptions {
-                min_padding: style.min_padding_with_border.x,
+                min_padding: style.min_padding_with_border.x(),
                 min_spacing: 0.ppx(),
-                preferred_padding: style.preferred_padding_with_border.x,
+                preferred_padding: style.preferred_padding_with_border.x(),
                 preferred_spacing: 0.ppx(),
                 border_collapse: 0.ppx(),
                 alignment: Alignment::Start,
             },
             y: GridAxisOptions {
-                min_padding: style.min_padding_with_border.y,
+                min_padding: style.min_padding_with_border.y(),
                 min_spacing: 0.ppx(),
-                preferred_padding: style.preferred_padding_with_border.y,
+                preferred_padding: style.preferred_padding_with_border.y(),
                 preferred_spacing: 0.ppx(),
                 border_collapse: 0.ppx(),
                 alignment: Alignment::Start,
@@ -251,10 +251,7 @@ impl Widget for TextInput {
 
         // TODO: stroke and fill instead
         event.stroke_rounded_rect(
-            Rect {
-                top_left: Point::default(),
-                size: rect_in_window.size,
-            },
+            Rect::from_pos_size(Point::default(), rect_in_window.size()),
             style.border.radius.to_i32() as f32,
             style.border.color,
             style.border.width.to_i32() as f32,
@@ -276,8 +273,8 @@ impl Widget for TextInput {
         let text_size = self.text_widget().size();
         let style = &self.common.style().0.text_input;
         Ok(SizeHints {
-            min: text_size.y + 2 * style.min_padding_with_border.y,
-            preferred: text_size.y + 2 * style.preferred_padding_with_border.y,
+            min: text_size.y() + 2 * style.min_padding_with_border.y(),
+            preferred: text_size.y() + 2 * style.preferred_padding_with_border.y(),
             is_fixed: true,
         })
     }

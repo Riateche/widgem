@@ -142,13 +142,21 @@ impl PpxSuffix for i32 {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct Point {
-    pub x: PhysicalPixels,
-    pub y: PhysicalPixels,
+    x: PhysicalPixels,
+    y: PhysicalPixels,
 }
 
 impl Point {
     pub const fn new(x: PhysicalPixels, y: PhysicalPixels) -> Self {
         Self { x, y }
+    }
+
+    pub fn x(&self) -> PhysicalPixels {
+        self.x
+    }
+
+    pub fn y(&self) -> PhysicalPixels {
+        self.y
     }
 }
 
@@ -201,13 +209,21 @@ impl From<Point> for winit::dpi::PhysicalPosition<i32> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Size {
-    pub x: PhysicalPixels,
-    pub y: PhysicalPixels,
+    x: PhysicalPixels,
+    y: PhysicalPixels,
 }
 
 impl Size {
     pub const fn new(x: PhysicalPixels, y: PhysicalPixels) -> Self {
         Self { x, y }
+    }
+
+    pub fn x(&self) -> PhysicalPixels {
+        self.x
+    }
+
+    pub fn y(&self) -> PhysicalPixels {
+        self.y
     }
 }
 
@@ -228,8 +244,8 @@ impl From<winit::dpi::PhysicalSize<u32>> for Size {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Rect {
-    pub top_left: Point,
-    pub size: Size,
+    top_left: Point,
+    size: Size,
 }
 
 impl Rect {
@@ -255,6 +271,10 @@ impl Rect {
     }
 
     // TODO: naming with "x" and "y" for all methods?
+
+    pub fn top_left(&self) -> Point {
+        self.top_left
+    }
 
     /// Not inclusive.
     pub fn bottom_right(&self) -> Point {
@@ -284,11 +304,11 @@ impl Rect {
         self.size
     }
 
-    pub fn height(&self) -> PhysicalPixels {
+    pub fn size_y(&self) -> PhysicalPixels {
         self.size.y
     }
 
-    pub fn width(&self) -> PhysicalPixels {
+    pub fn size_x(&self) -> PhysicalPixels {
         self.size.x
     }
 

@@ -630,6 +630,14 @@ impl Text {
         self.size
     }
 
+    pub fn size_x(&self) -> PhysicalPixels {
+        self.size.x()
+    }
+
+    pub fn size_y(&self) -> PhysicalPixels {
+        self.size.y()
+    }
+
     pub fn set_text_color(&mut self, color: Color) {
         if self.text_color != color {
             self.text_color = color;
@@ -853,8 +861,8 @@ impl Text {
                     unrestricted_text_size(&mut buffer.borrow_with(&mut system.font_system));
                 buffer.set_size(
                     &mut system.font_system,
-                    Some(new_size.x.to_i32() as f32),
-                    Some(new_size.y.to_i32() as f32),
+                    Some(new_size.x().to_i32() as f32),
+                    Some(new_size.y().to_i32() as f32),
                 );
                 new_size
             })
@@ -909,7 +917,7 @@ impl Text {
         let old_cursor = self.editor.cursor();
         let preedit_range = self.editor.preedit_range();
         let click_cursor = self.editor.with_buffer(|buffer| {
-            buffer.hit(event.pos.x.to_i32() as f32, event.pos.y.to_i32() as f32)
+            buffer.hit(event.pos.x().to_i32() as f32, event.pos.y().to_i32() as f32)
         });
         if let Some(click_cursor) = click_cursor {
             if click_cursor.line == old_cursor.line
@@ -924,8 +932,8 @@ impl Text {
                 // as real text and cancel IME preedit.
                 self.interrupt_preedit();
                 self.shape_as_needed();
-                let x = event.pos.x.to_i32();
-                let y = event.pos.y.to_i32();
+                let x = event.pos.x().to_i32();
+                let y = event.pos.y().to_i32();
                 let window = self.common.window_or_err()?;
                 match ((event.num_clicks - 1) % 3) + 1 {
                     1 => self.action(Action::Click {
@@ -1040,8 +1048,8 @@ impl Widget for Text {
         if window.is_mouse_button_pressed(MouseButton::Left) {
             let old_selection = (self.select_opt(), self.editor.cursor());
             self.action(Action::Drag {
-                x: event.pos.x.to_i32(),
-                y: event.pos.y.to_i32(),
+                x: event.pos.x().to_i32(),
+                y: event.pos.y().to_i32(),
             });
             let new_selection = (self.select_opt(), self.editor.cursor());
             if old_selection != new_selection {
@@ -1062,14 +1070,14 @@ impl Widget for Text {
                 // the IME window obscures the specified area.
                 let rect_in_window = self.common.rect_in_window_or_err()?;
                 let window = self.common.window_or_err()?;
-                let top_left = rect_in_window.top_left
+                let top_left = rect_in_window.top_left()
                     + editor_cursor
-                    + Point {
-                        x: 0.ppx(),
-                        y: PhysicalPixels::from_i32(self.line_height().ceil() as i32),
-                    };
-                let size = rect_in_window.size; // TODO: self_viewport_rect.size
-                window.set_ime_cursor_area(Rect { top_left, size });
+                    + Point::new(
+                        0.ppx(),
+                        PhysicalPixels::from_i32(self.line_height().ceil() as i32),
+                    );
+                let size = rect_in_window.size(); // TODO: self_viewport_rect.size
+                window.set_ime_cursor_area(Rect::from_pos_size(top_left, size));
             }
         }
 
@@ -1141,8 +1149,8 @@ impl Widget for Text {
 
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         Ok(SizeHints {
-            min: self.size().x,
-            preferred: self.size().x,
+            min: self.size_x(),
+            preferred: self.size_x(),
             is_fixed: true,
         })
     }
@@ -1150,8 +1158,8 @@ impl Widget for Text {
     fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         // TODO: use size_x, handle multiple lines
         Ok(SizeHints {
-            min: self.size().y,
-            preferred: self.size().y,
+            min: self.size_y(),
+            preferred: self.size_y(),
             is_fixed: true,
         })
     }
@@ -1169,10 +1177,10 @@ fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Si
         .max()
         .unwrap_or(0);
 
-    Size {
-        x: PhysicalPixels::from_i32(width),
-        y: PhysicalPixels::from_i32(height),
-    }
+    Size::new(
+        PhysicalPixels::from_i32(width),
+        PhysicalPixels::from_i32(height),
+    )
 }
 
 fn convert_color(color: Color) -> cosmic_text::Color {

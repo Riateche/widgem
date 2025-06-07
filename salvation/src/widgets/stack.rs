@@ -49,7 +49,7 @@ impl Widget for Stack {
             .children
             .values()
             .filter_map(|c| c.common().rect_in_parent())
-            .map(|rect| rect.bottom_right().x)
+            .map(|rect| rect.bottom_right().x())
             .max()
             .unwrap_or(0.ppx());
         Ok(SizeHints {
@@ -65,7 +65,7 @@ impl Widget for Stack {
             .children
             .values()
             .filter_map(|c| c.common().rect_in_parent())
-            .map(|rect| rect.bottom_right().y)
+            .map(|rect| rect.bottom_right().y())
             .max()
             .unwrap_or(0.ppx());
         Ok(SizeHints {

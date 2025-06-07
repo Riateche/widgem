@@ -154,8 +154,8 @@ impl ScrollArea {
                     changed_size_hints,
                 );
 
-            let max_value_x = max(0.ppx(), content_size_x - viewport_rect.size.x);
-            let max_value_y = max(0.ppx(), content_size_y - viewport_rect.size.y);
+            let max_value_x = max(0.ppx(), content_size_x - viewport_rect.size_x());
+            let max_value_y = max(0.ppx(), content_size_y - viewport_rect.size_y());
             self.common
                 .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)
                 .unwrap()

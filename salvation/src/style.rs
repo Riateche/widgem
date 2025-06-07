@@ -56,10 +56,7 @@ impl Padding {
         Self { x, y }
     }
     pub fn to_physical(self, scale: f32) -> Point {
-        Point {
-            x: self.x.to_physical(scale),
-            y: self.y.to_physical(scale),
-        }
+        Point::new(self.x.to_physical(scale), self.y.to_physical(scale))
     }
 }
 

@@ -178,18 +178,18 @@ impl Button {
 
         self.common.set_grid_options(Some(GridOptions {
             x: GridAxisOptions {
-                min_padding: style.min_padding_with_border.x,
+                min_padding: style.min_padding_with_border.x(),
                 min_spacing: 0.ppx(), // TODO: spacing between icon and image
-                preferred_padding: style.preferred_padding_with_border.x,
+                preferred_padding: style.preferred_padding_with_border.x(),
                 preferred_spacing: 0.ppx(),
                 border_collapse: 0.ppx(),
                 // TODO: get from style
                 alignment: Alignment::Middle,
             },
             y: GridAxisOptions {
-                min_padding: style.min_padding_with_border.y,
+                min_padding: style.min_padding_with_border.y(),
                 min_spacing: 0.ppx(),
-                preferred_padding: style.preferred_padding_with_border.y,
+                preferred_padding: style.preferred_padding_with_border.y(),
                 preferred_spacing: 0.ppx(),
                 border_collapse: 0.ppx(),
                 alignment: Alignment::Middle,
@@ -231,10 +231,7 @@ impl Widget for Button {
         let style = &self.common.common_style;
 
         event.stroke_and_fill_rounded_rect(
-            Rect {
-                top_left: Point::default(),
-                size,
-            },
+            Rect::from_pos_size(Point::default(), size),
             &style.border,
             style.background.as_ref(),
         );

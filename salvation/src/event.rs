@@ -50,7 +50,7 @@ impl MouseInputEvent {
     pub fn map_to_child(&self, rect_in_parent: Rect, force: bool) -> Option<Self> {
         if force || rect_in_parent.contains(self.pos) {
             let mut event = self.clone();
-            event.pos -= rect_in_parent.top_left;
+            event.pos -= rect_in_parent.top_left();
             Some(event)
         } else {
             None
@@ -72,7 +72,7 @@ impl MouseScrollEvent {
     pub fn map_to_child(&self, rect_in_parent: Rect, force: bool) -> Option<Self> {
         if force || rect_in_parent.contains(self.pos) {
             let mut event = self.clone();
-            event.pos -= rect_in_parent.top_left;
+            event.pos -= rect_in_parent.top_left();
             Some(event)
         } else {
             None
@@ -102,7 +102,7 @@ impl MouseMoveEvent {
     pub fn map_to_child(&self, rect_in_parent: Rect, force: bool) -> Option<Self> {
         if force || rect_in_parent.contains(self.pos) {
             let mut event = self.clone();
-            event.pos -= rect_in_parent.top_left;
+            event.pos -= rect_in_parent.top_left();
             Some(event)
         } else {
             None

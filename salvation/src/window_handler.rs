@@ -91,11 +91,11 @@ impl WindowWithWidget<'_> {
                 device_id,
                 ..
             } => {
-                let pos_in_window = Point {
+                let pos_in_window = Point::new(
                     // TODO: is round() fine?
-                    x: PhysicalPixels::from_i32(position.x.round() as i32),
-                    y: PhysicalPixels::from_i32(position.y.round() as i32),
-                };
+                    PhysicalPixels::from_i32(position.x.round() as i32),
+                    PhysicalPixels::from_i32(position.y.round() as i32),
+                );
                 if !self.window.cursor_moved(pos_in_window) {
                     return;
                 }
@@ -108,7 +108,7 @@ impl WindowWithWidget<'_> {
                     {
                         if let Some(rect_in_window) = mouse_grabber_widget.common().rect_in_window()
                         {
-                            let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                            let pos_in_widget = pos_in_window - rect_in_window.top_left();
                             mouse_grabber_widget.dispatch(
                                 MouseMoveEvent {
                                     device_id,
@@ -153,7 +153,7 @@ impl WindowWithWidget<'_> {
                             if let Some(rect_in_window) =
                                 mouse_grabber_widget.common().rect_in_window()
                             {
-                                let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                                let pos_in_widget = pos_in_window - rect_in_window.top_left();
                                 let event = MouseInputEvent {
                                     device_id,
                                     state,
@@ -214,7 +214,7 @@ impl WindowWithWidget<'_> {
                             if let Some(rect_in_window) =
                                 mouse_grabber_widget.common().rect_in_window()
                             {
-                                let pos_in_widget = pos_in_window - rect_in_window.top_left;
+                                let pos_in_widget = pos_in_window - rect_in_window.top_left();
                                 let event = MouseScrollEvent {
                                     device_id,
                                     delta,
@@ -423,10 +423,10 @@ impl WindowWithWidget<'_> {
         self.window.set_min_inner_size(min_size);
         if min_size != old_min_size || preferred_size != old_preferred_size {
             self.window.set_preferred_inner_size(preferred_size);
-            if inner_size.x < preferred_size.x || inner_size.y < preferred_size.y {
+            if inner_size.x() < preferred_size.x() || inner_size.y() < preferred_size.y() {
                 let new_size = Size::new(
-                    max(inner_size.x, preferred_size.x),
-                    max(inner_size.y, preferred_size.y),
+                    max(inner_size.x(), preferred_size.x()),
+                    max(inner_size.y(), preferred_size.y()),
                 );
                 if let Some(response) = self.window.request_inner_size(new_size) {
                     inner_size = response;

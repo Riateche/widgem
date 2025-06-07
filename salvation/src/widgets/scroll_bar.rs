@@ -190,7 +190,7 @@ impl ScrollBar {
         if let Some((start_mouse_pos, start_slider_pos)) = self.slider_grab_pos {
             match self.axis {
                 Axis::X => {
-                    let new_pos = start_slider_pos - start_mouse_pos.x + pos_in_window.x;
+                    let new_pos = start_slider_pos - start_mouse_pos.x() + pos_in_window.x();
                     self.current_grip_pos = new_pos.clamp(0.ppx(), self.max_slider_pos);
                     let new_value = if self.max_slider_pos == 0.ppx() {
                         *self.value_range.start()
@@ -205,7 +205,7 @@ impl ScrollBar {
                 }
                 Axis::Y => {
                     // TODO: deduplicate
-                    let new_pos = start_slider_pos - start_mouse_pos.y + pos_in_window.y;
+                    let new_pos = start_slider_pos - start_mouse_pos.y() + pos_in_window.y();
                     self.current_grip_pos = new_pos.clamp(0.ppx(), self.max_slider_pos);
                     let new_value = if self.max_slider_pos == 0.ppx() {
                         *self.value_range.start()
@@ -238,14 +238,14 @@ impl ScrollBar {
         };
         self.pager_direction = match self.axis {
             Axis::X => {
-                if grip_rect_in_window.right() < pos_in_window.x {
+                if grip_rect_in_window.right() < pos_in_window.x() {
                     1
                 } else {
                     -1
                 }
             }
             Axis::Y => {
-                if grip_rect_in_window.bottom() < pos_in_window.y {
+                if grip_rect_in_window.bottom() < pos_in_window.y() {
                     1
                 } else {
                     -1
@@ -277,16 +277,16 @@ impl ScrollBar {
 
         if self.pager_direction > 0 {
             let condition = match self.axis {
-                Axis::X => grip_rect_in_window.right() < self.pager_mouse_pos_in_window.x,
-                Axis::Y => grip_rect_in_window.bottom() < self.pager_mouse_pos_in_window.y,
+                Axis::X => grip_rect_in_window.right() < self.pager_mouse_pos_in_window.x(),
+                Axis::Y => grip_rect_in_window.bottom() < self.pager_mouse_pos_in_window.y(),
             };
             if condition {
                 self.page_forward_internal(false);
             }
         } else {
             let condition = match self.axis {
-                Axis::X => grip_rect_in_window.left() > self.pager_mouse_pos_in_window.x,
-                Axis::Y => grip_rect_in_window.top() > self.pager_mouse_pos_in_window.y,
+                Axis::X => grip_rect_in_window.left() > self.pager_mouse_pos_in_window.x(),
+                Axis::Y => grip_rect_in_window.top() > self.pager_mouse_pos_in_window.y(),
             };
             if condition {
                 self.page_back_internal(false);
@@ -300,8 +300,8 @@ impl ScrollBar {
             return 1;
         };
         match self.axis {
-            Axis::X => size.x.to_i32(),
-            Axis::Y => size.y.to_i32(),
+            Axis::X => size.x().to_i32(),
+            Axis::Y => size.y().to_i32(),
         }
     }
 
@@ -487,8 +487,8 @@ impl ScrollBar {
             .preferred;
 
         let (size_along_axis, grip_min_size_along_axis, pager_size_along_axis) = match self.axis {
-            Axis::X => (size.x, grip_size_hint_x, pager_rect.size.x),
-            Axis::Y => (size.y, grip_size_hint_y, pager_rect.size.y),
+            Axis::X => (size.x(), grip_size_hint_x, pager_rect.size_x()),
+            Axis::Y => (size.y(), grip_size_hint_y, pager_rect.size_y()),
         };
         // For a scroll bar that's a part of a scroll area, we assume the following:
         // min value is 0; max value is the max displacement of the content in pixels;
@@ -512,12 +512,12 @@ impl ScrollBar {
 
         match self.axis {
             Axis::X => {
-                self.grip_size = Size::new(grip_len, pager_rect.size.y);
-                self.max_slider_pos = pager_rect.size.x - self.grip_size.x;
+                self.grip_size = Size::new(grip_len, pager_rect.size_y());
+                self.max_slider_pos = pager_rect.size_x() - self.grip_size.x();
             }
             Axis::Y => {
-                self.grip_size = Size::new(pager_rect.size.x, grip_len);
-                self.max_slider_pos = pager_rect.size.y - self.grip_size.y;
+                self.grip_size = Size::new(pager_rect.size_x(), grip_len);
+                self.max_slider_pos = pager_rect.size_y() - self.grip_size.y();
             }
         }
         Ok(())

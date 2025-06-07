@@ -68,7 +68,7 @@ impl Image {
 
     pub fn map_widget_pos_to_content_pos(&self, pos: Point) -> Point {
         let scale = self.total_scale();
-        Point::new(pos.x.div_f32_round(scale), pos.y.div_f32_round(scale))
+        Point::new(pos.x().div_f32_round(scale), pos.y().div_f32_round(scale))
     }
 }
 

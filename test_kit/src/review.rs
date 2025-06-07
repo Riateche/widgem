@@ -108,7 +108,7 @@ impl ReviewWidget {
             .map_widget_pos_to_content_pos(pos_in_widget);
         self.common
             .widget(self.coords_id)?
-            .set_text(format!("{:?}, {:?}", pos_in_content.x, pos_in_content.y));
+            .set_text(format!("{:?}", pos_in_content));
         Ok(())
     }
 }

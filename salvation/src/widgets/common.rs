@@ -61,15 +61,9 @@ pub struct WidgetGeometry {
 impl WidgetGeometry {
     pub fn root(size: Size) -> Self {
         WidgetGeometry {
-            rect_in_parent: Rect {
-                top_left: Point::default(),
-                size,
-            },
+            rect_in_parent: Rect::from_pos_size(Point::default(), size),
             parent_top_left_in_window: Point::default(),
-            parent_visible_rect_in_parent: Rect {
-                top_left: Point::default(),
-                size,
-            },
+            parent_visible_rect_in_parent: Rect::from_pos_size(Point::default(), size),
         }
     }
 
@@ -78,7 +72,7 @@ impl WidgetGeometry {
     pub fn new(parent: &WidgetGeometry, rect_in_parent: Rect) -> Self {
         Self {
             rect_in_parent,
-            parent_top_left_in_window: parent.rect_in_parent.top_left
+            parent_top_left_in_window: parent.rect_in_parent.top_left()
                 + parent.parent_top_left_in_window,
             parent_visible_rect_in_parent: parent.visible_rect_in_self(),
         }
@@ -86,7 +80,7 @@ impl WidgetGeometry {
 
     /// Rect of this widget in this widget's coordinates (top left is always zero).
     pub fn rect_in_self(&self) -> Rect {
-        Rect::from_pos_size(Point::default(), self.rect_in_parent.size)
+        Rect::from_pos_size(Point::default(), self.rect_in_parent.size())
     }
 
     /// Rect of this widget in parent coordinates.
@@ -96,7 +90,15 @@ impl WidgetGeometry {
 
     /// Size of the widget.
     pub fn size(&self) -> Size {
-        self.rect_in_parent.size
+        self.rect_in_parent.size()
+    }
+
+    pub fn size_x(&self) -> PhysicalPixels {
+        self.rect_in_parent.size_x()
+    }
+
+    pub fn size_y(&self) -> PhysicalPixels {
+        self.rect_in_parent.size_y()
     }
 
     /// Rect of this widget in the window coordinates.
@@ -108,7 +110,7 @@ impl WidgetGeometry {
     /// Visible rect of this widget in this widget's coordinates.
     pub fn visible_rect_in_self(&self) -> Rect {
         self.parent_visible_rect_in_parent
-            .translate(-self.rect_in_parent.top_left)
+            .translate(-self.rect_in_parent.top_left())
             .intersect(self.rect_in_self())
     }
 }
@@ -350,15 +352,15 @@ impl WidgetCommon {
                     min_padding: if self.no_padding {
                         0.ppx()
                     } else {
-                        style.0.grid.min_padding.x
+                        style.0.grid.min_padding.x()
                     },
-                    min_spacing: style.0.grid.min_spacing.x,
+                    min_spacing: style.0.grid.min_spacing.x(),
                     preferred_padding: if self.no_padding {
                         0.ppx()
                     } else {
-                        style.0.grid.preferred_padding.x
+                        style.0.grid.preferred_padding.x()
                     },
-                    preferred_spacing: style.0.grid.preferred_spacing.x,
+                    preferred_spacing: style.0.grid.preferred_spacing.x(),
                     border_collapse: 0.ppx(),
                     alignment: Alignment::Start,
                 },
@@ -366,15 +368,15 @@ impl WidgetCommon {
                     min_padding: if self.no_padding {
                         0.ppx()
                     } else {
-                        style.0.grid.min_padding.y
+                        style.0.grid.min_padding.y()
                     },
-                    min_spacing: style.0.grid.min_spacing.y,
+                    min_spacing: style.0.grid.min_spacing.y(),
                     preferred_padding: if self.no_padding {
                         0.ppx()
                     } else {
-                        style.0.grid.preferred_padding.y
+                        style.0.grid.preferred_padding.y()
                     },
-                    preferred_spacing: style.0.grid.preferred_spacing.y,
+                    preferred_spacing: style.0.grid.preferred_spacing.y(),
                     border_collapse: 0.ppx(),
                     alignment: Alignment::Start,
                 },

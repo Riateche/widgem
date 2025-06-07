@@ -491,13 +491,13 @@ impl Window {
         let draw_event = DrawEvent::new(
             Rc::clone(&this.pixmap),
             Point::default(),
-            Rect {
-                top_left: Point::default(),
-                size: Size {
-                    x: PhysicalPixels::from_i32(width as i32),
-                    y: PhysicalPixels::from_i32(height as i32),
-                },
-            },
+            Rect::from_pos_size(
+                Point::default(),
+                Size::new(
+                    PhysicalPixels::from_i32(width as i32),
+                    PhysicalPixels::from_i32(height as i32),
+                ),
+            ),
         );
         // TODO: option to turn off background, set style
         let color = with_system(|system| system.default_style.0.background);
@@ -585,8 +585,8 @@ impl Window {
         let this = &*self.0.borrow();
         if let Some(w) = this.winit_window.as_ref() {
             w.set_ime_cursor_area(
-                PhysicalPosition::from(this.ime_cursor_area.top_left),
-                PhysicalSize::from(this.ime_cursor_area.size),
+                PhysicalPosition::from(this.ime_cursor_area.top_left()),
+                PhysicalSize::from(this.ime_cursor_area.size()),
             );
         }
     }
@@ -617,8 +617,8 @@ impl Window {
         if this.ime_cursor_area != rect {
             if let Some(w) = this.winit_window.as_ref() {
                 w.set_ime_cursor_area(
-                    PhysicalPosition::from(rect.top_left),
-                    PhysicalSize::from(rect.size),
+                    PhysicalPosition::from(rect.top_left()),
+                    PhysicalSize::from(rect.size()),
                 );
             } //TODO: actual size
             this.ime_cursor_area = rect;

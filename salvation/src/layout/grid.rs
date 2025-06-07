@@ -274,7 +274,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
     let x_layout = x_layout(
         &mut widget.common_mut().children,
         &options.x,
-        geometry.size().x,
+        geometry.size_x(),
     );
     let mut hints_per_row = BTreeMap::new();
     for (key, item) in &mut widget.common_mut().children {
@@ -306,20 +306,20 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         .values()
         .map(|hints| super::LayoutItem { size_hints: *hints })
         .collect_vec();
-    let output_y = solve_layout(&layout_items, geometry.size().y, &options.y);
+    let output_y = solve_layout(&layout_items, geometry.size_y(), &options.y);
     let row_sizes: BTreeMap<_, _> = hints_per_row.keys().copied().zip(output_y.sizes).collect();
     let positions_x = positions(
         &x_layout.column_sizes,
         x_layout.padding,
         x_layout.spacing,
-        geometry.size().x,
+        geometry.size_x(),
         options.x.alignment,
     );
     let positions_y = positions(
         &row_sizes,
         output_y.padding,
         output_y.spacing,
-        geometry.size().y,
+        geometry.size_y(),
         options.y.alignment,
     );
     for (key, item) in &mut widget.common_mut().children {
