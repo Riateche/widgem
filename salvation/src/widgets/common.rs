@@ -394,6 +394,10 @@ impl WidgetCommon {
         self.flags.contains(Flags::self_enabled)
     }
 
+    pub(crate) fn is_parent_enabled(&self) -> bool {
+        self.flags.contains(Flags::parent_enabled)
+    }
+
     /// True if this widget is enabled.
     ///
     /// Disabled widgets do not receive input events and have an alternate (usually grayed out) appearance.
@@ -404,7 +408,7 @@ impl WidgetCommon {
             .contains(Flags::self_enabled | Flags::parent_enabled)
     }
 
-    pub fn set_enabled(&mut self, enabled: bool) -> &mut Self {
+    pub(crate) fn self_enabled_changed(&mut self, enabled: bool) -> &mut Self {
         if self.flags.contains(Flags::self_enabled) == enabled {
             return self;
         }
@@ -418,7 +422,7 @@ impl WidgetCommon {
         self
     }
 
-    fn set_parent_enabled(&mut self, enabled: bool) -> &mut Self {
+    pub(crate) fn parent_enabled_changed(&mut self, enabled: bool) -> &mut Self {
         if self.flags.contains(Flags::parent_enabled) == enabled {
             return self;
         }
@@ -802,25 +806,11 @@ impl WidgetCommon {
     }
 
     fn enabled_changed(&mut self) {
-        // TODO: dispatch or remove StyleChangeEvent
-        // TODO: do it when pseudo class changes instead
-        //child.dispatch(StyleChangeEvent {}.into());
-
         self.focusable_changed();
         // TODO: widget should receive MouseLeave even if it's disabled
         let is_enabled = self.is_enabled();
-        if is_enabled {
-            self.style_element
-                .remove_pseudo_class(MyPseudoClass::Disabled);
-            self.style_element.add_pseudo_class(MyPseudoClass::Enabled);
-        } else {
-            self.style_element
-                .remove_pseudo_class(MyPseudoClass::Enabled);
-            self.style_element.add_pseudo_class(MyPseudoClass::Disabled);
-        }
-        self.refresh_common_style();
         for child in self.children.values_mut() {
-            child.common_mut().set_parent_enabled(is_enabled);
+            child.set_parent_enabled(is_enabled);
         }
     }
 

@@ -388,7 +388,18 @@ pub trait WidgetExt: Widget {
     }
 
     fn set_enabled(&mut self, enabled: bool) -> &mut Self {
-        self.common_mut().set_enabled(enabled);
+        let new_enabled = enabled && self.common().is_parent_enabled();
+        self.set_pseudo_class(MyPseudoClass::Enabled, new_enabled);
+        self.set_pseudo_class(MyPseudoClass::Disabled, !new_enabled);
+        self.common_mut().self_enabled_changed(enabled);
+        self
+    }
+
+    fn set_parent_enabled(&mut self, enabled: bool) -> &mut Self {
+        let new_enabled = enabled && self.common().is_self_enabled();
+        self.set_pseudo_class(MyPseudoClass::Enabled, new_enabled);
+        self.set_pseudo_class(MyPseudoClass::Disabled, !new_enabled);
+        self.common_mut().parent_enabled_changed(enabled);
         self
     }
 
