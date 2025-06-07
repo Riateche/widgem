@@ -147,10 +147,9 @@ impl ComputedStyle {
             .width;
 
         Ok(Self {
-            min_padding_with_border: min_padding
-                + Point::new(border_width.get(), border_width.get()),
+            min_padding_with_border: min_padding + Point::new(border_width, border_width),
             preferred_padding_with_border: preferred_padding
-                + Point::new(border_width.get(), border_width.get()),
+                + Point::new(border_width, border_width),
             min_width,
             preferred_width,
             font_metrics: font.to_metrics(scale),

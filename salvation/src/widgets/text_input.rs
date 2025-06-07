@@ -13,7 +13,7 @@ use {
         },
         style::text_input::{ComputedVariantStyle, TextInputState},
         text_editor::Text,
-        types::{Point, Rect},
+        types::{PhysicalPixels, Point, PpxSuffix, Rect},
     },
     anyhow::Result,
     cosmic_text::Attrs,
@@ -35,14 +35,16 @@ impl Widget for Viewport {
 
     fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
         Ok(SizeHints {
-            min: 0,
-            preferred: 0,
+            min: 0.ppx(),
+            preferred: 0.ppx(),
             is_fixed: false,
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
-        let size = self.common.get_child::<Text>(0).unwrap().line_height() as i32;
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+        let size = PhysicalPixels::from_i32(
+            self.common.get_child::<Text>(0).unwrap().line_height() as i32,
+        );
         Ok(SizeHints {
             min: size,
             preferred: size,
@@ -101,18 +103,18 @@ impl TextInput {
             .unwrap()
             .common()
             .rect_in_parent()
-            .map_or(0, |rect| -rect.left());
-        let max_scroll = max(0, text_size.x - editor_viewport_rect.size.x);
+            .map_or(0.ppx(), |rect| -rect.left());
+        let max_scroll = max(0.ppx(), text_size.x - editor_viewport_rect.size.x);
         if let Some(cursor_position) = cursor_position {
             let cursor_x_in_viewport = cursor_position.x - scroll_x;
-            if cursor_x_in_viewport < 0 {
+            if cursor_x_in_viewport < 0.ppx() {
                 scroll_x -= -cursor_x_in_viewport;
-            } else if cursor_x_in_viewport > editor_viewport_rect.size.x - 1 {
-                scroll_x += cursor_x_in_viewport - (editor_viewport_rect.size.x - 1);
+            } else if cursor_x_in_viewport > editor_viewport_rect.size.x - 1.ppx() {
+                scroll_x += cursor_x_in_viewport - (editor_viewport_rect.size.x - 1.ppx());
             }
         }
-        scroll_x = scroll_x.clamp(0, max_scroll);
-        let new_rect = Rect::from_pos_size(Point::new(-scroll_x, 0), text_size);
+        scroll_x = scroll_x.clamp(0.ppx(), max_scroll);
+        let new_rect = Rect::from_pos_size(Point::new(-scroll_x, 0.ppx()), text_size);
         if self
             .common
             .get_dyn_child(0)
@@ -174,18 +176,18 @@ impl TextInput {
         self.common.set_grid_options(Some(GridOptions {
             x: GridAxisOptions {
                 min_padding: style.min_padding_with_border.x,
-                min_spacing: 0,
+                min_spacing: 0.ppx(),
                 preferred_padding: style.preferred_padding_with_border.x,
-                preferred_spacing: 0,
-                border_collapse: 0,
+                preferred_spacing: 0.ppx(),
+                border_collapse: 0.ppx(),
                 alignment: Alignment::Start,
             },
             y: GridAxisOptions {
                 min_padding: style.min_padding_with_border.y,
-                min_spacing: 0,
+                min_spacing: 0.ppx(),
                 preferred_padding: style.preferred_padding_with_border.y,
-                preferred_spacing: 0,
-                border_collapse: 0,
+                preferred_spacing: 0.ppx(),
+                border_collapse: 0.ppx(),
                 alignment: Alignment::Start,
             },
         }));
@@ -253,9 +255,9 @@ impl Widget for TextInput {
                 top_left: Point::default(),
                 size: rect_in_window.size,
             },
-            style.border.radius.get() as f32,
+            style.border.radius.to_i32() as f32,
             style.border.color,
-            style.border.width.get() as f32,
+            style.border.width.to_i32() as f32,
         );
 
         Ok(())
@@ -264,13 +266,13 @@ impl Widget for TextInput {
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         let style = &self.common.style().0.text_input;
         Ok(SizeHints {
-            min: style.min_width.get(),
-            preferred: style.preferred_width.get(),
+            min: style.min_width,
+            preferred: style.preferred_width,
             is_fixed: false,
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let text_size = self.text_widget().size();
         let style = &self.common.style().0.text_input;
         Ok(SizeHints {

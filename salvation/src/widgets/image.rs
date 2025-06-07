@@ -1,6 +1,11 @@
 use {
     super::{Widget, WidgetCommon, WidgetCommonTyped},
-    crate::{draw::DrawEvent, impl_widget_common, layout::SizeHints, types::Point},
+    crate::{
+        draw::DrawEvent,
+        impl_widget_common,
+        layout::SizeHints,
+        types::{PhysicalPixels, Point},
+    },
     anyhow::Result,
     png::DecodingError,
     salvation_macros::impl_with,
@@ -63,10 +68,7 @@ impl Image {
 
     pub fn map_widget_pos_to_content_pos(&self, pos: Point) -> Point {
         let scale = self.total_scale();
-        Point::new(
-            ((pos.x as f32) / scale).round() as i32,
-            ((pos.y as f32) / scale).round() as i32,
-        )
+        Point::new(pos.x.div_f32_round(scale), pos.y.div_f32_round(scale))
     }
 }
 
@@ -99,19 +101,19 @@ impl Widget for Image {
         let size = (self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * scale).ceil() as i32;
 
         Ok(SizeHints {
-            min: size,
-            preferred: size,
+            min: PhysicalPixels::from_i32(size),
+            preferred: PhysicalPixels::from_i32(size),
             is_fixed: true,
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let scale = self.total_scale();
         let size = (self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32) * scale).ceil() as i32;
 
         Ok(SizeHints {
-            min: size,
-            preferred: size,
+            min: PhysicalPixels::from_i32(size),
+            preferred: PhysicalPixels::from_i32(size),
             is_fixed: true,
         })
     }

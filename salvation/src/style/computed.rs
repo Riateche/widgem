@@ -106,10 +106,9 @@ impl CommonComputedStyle {
         let background = convert_background(&properties);
 
         Self {
-            min_padding_with_border: min_padding
-                + Point::new(border.width.get(), border.width.get()),
+            min_padding_with_border: min_padding + Point::new(border.width, border.width),
             preferred_padding_with_border: preferred_padding
-                + Point::new(border.width.get(), border.width.get()),
+                + Point::new(border.width, border.width),
             font_metrics: font.to_metrics(scale),
             border,
             background,

@@ -266,8 +266,8 @@ pub fn convert_padding(
         }
     }
     Point::new(
-        left.unwrap_or_default().to_physical(scale).get(),
-        top.unwrap_or_default().to_physical(scale).get(),
+        left.unwrap_or_default().to_physical(scale),
+        top.unwrap_or_default().to_physical(scale),
     )
 }
 
@@ -294,8 +294,8 @@ pub fn convert_spacing(
         }
     }
     Ok(Point::new(
-        x.unwrap_or_default().to_physical(scale).get(),
-        y.unwrap_or_default().to_physical(scale).get(),
+        x.unwrap_or_default().to_physical(scale),
+        y.unwrap_or_default().to_physical(scale),
     ))
 }
 

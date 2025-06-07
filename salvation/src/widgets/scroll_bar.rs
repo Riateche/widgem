@@ -14,7 +14,7 @@ use {
             Alignment, SizeHints,
         },
         system::ReportError,
-        types::{Axis, Point, Rect, Size},
+        types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
     },
     anyhow::Result,
     log::warn,
@@ -33,13 +33,13 @@ use {
 pub struct ScrollBar {
     common: WidgetCommonTyped<Self>,
     axis: Axis,
-    current_grip_pos: i32,
-    max_slider_pos: i32,
+    current_grip_pos: PhysicalPixels,
+    max_slider_pos: PhysicalPixels,
     grip_size: Size,
     value_range: RangeInclusive<i32>,
     current_value: i32,
     step: i32,
-    slider_grab_pos: Option<(Point, i32)>,
+    slider_grab_pos: Option<(Point, PhysicalPixels)>,
     value_changed: Callbacks<i32>,
     pager_direction: i32,
     pager_mouse_pos_in_window: Point,
@@ -187,15 +187,16 @@ impl ScrollBar {
     }
 
     fn slider_moved(&mut self, pos_in_window: Point) -> Result<()> {
-        if let Some((start_mouse_pos, start_slider_pos)) = &self.slider_grab_pos {
+        if let Some((start_mouse_pos, start_slider_pos)) = self.slider_grab_pos {
             match self.axis {
                 Axis::X => {
                     let new_pos = start_slider_pos - start_mouse_pos.x + pos_in_window.x;
-                    self.current_grip_pos = new_pos.clamp(0, self.max_slider_pos);
-                    let new_value = if self.max_slider_pos == 0 {
+                    self.current_grip_pos = new_pos.clamp(0.ppx(), self.max_slider_pos);
+                    let new_value = if self.max_slider_pos == 0.ppx() {
                         *self.value_range.start()
                     } else {
-                        ((self.current_grip_pos as f32) / (self.max_slider_pos as f32)
+                        ((self.current_grip_pos.to_i32() as f32)
+                            / (self.max_slider_pos.to_i32() as f32)
                             * (*self.value_range.end() - *self.value_range.start()) as f32)
                             .round() as i32
                             + self.value_range.start()
@@ -205,11 +206,12 @@ impl ScrollBar {
                 Axis::Y => {
                     // TODO: deduplicate
                     let new_pos = start_slider_pos - start_mouse_pos.y + pos_in_window.y;
-                    self.current_grip_pos = new_pos.clamp(0, self.max_slider_pos);
-                    let new_value = if self.max_slider_pos == 0 {
+                    self.current_grip_pos = new_pos.clamp(0.ppx(), self.max_slider_pos);
+                    let new_value = if self.max_slider_pos == 0.ppx() {
                         *self.value_range.start()
                     } else {
-                        ((self.current_grip_pos as f32) / (self.max_slider_pos as f32)
+                        ((self.current_grip_pos.to_i32() as f32)
+                            / (self.max_slider_pos.to_i32() as f32)
                             * (*self.value_range.end() - *self.value_range.start()) as f32)
                             .round() as i32
                             + *self.value_range.start()
@@ -298,8 +300,8 @@ impl ScrollBar {
             return 1;
         };
         match self.axis {
-            Axis::X => size.x,
-            Axis::Y => size.y,
+            Axis::X => size.x.to_i32(),
+            Axis::Y => size.y.to_i32(),
         }
     }
 
@@ -394,8 +396,8 @@ impl ScrollBar {
     fn update_grip_pos(&mut self, changed_size_hints: &[WidgetAddress]) {
         self.current_grip_pos = self.value_to_slider_pos();
         let shift = match self.axis {
-            Axis::X => Point::new(self.current_grip_pos, 0),
-            Axis::Y => Point::new(0, self.current_grip_pos),
+            Axis::X => Point::new(self.current_grip_pos, 0.ppx()),
+            Axis::Y => Point::new(0.ppx(), self.current_grip_pos),
         };
         let can_scroll = self.value_range.start() != self.value_range.end();
         let rect = if can_scroll {
@@ -439,18 +441,18 @@ impl ScrollBar {
         self.current_value
     }
 
-    fn value_to_slider_pos(&self) -> i32 {
+    fn value_to_slider_pos(&self) -> PhysicalPixels {
         if *self.value_range.start() > *self.value_range.end() {
             warn!("invalid scroll bar range");
-            return 0;
+            return 0.ppx();
         }
         if *self.value_range.start() == *self.value_range.end() {
-            return 0;
+            return 0.ppx();
         }
         let pos = (self.current_value - *self.value_range.start()) as f32
             / (*self.value_range.end() - *self.value_range.start()) as f32
-            * self.max_slider_pos as f32;
-        pos.round() as i32
+            * self.max_slider_pos.to_i32() as f32;
+        PhysicalPixels::from_i32(pos.round() as i32)
     }
 
     fn update_grip_size(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
@@ -495,15 +497,17 @@ impl ScrollBar {
         // visible_ratio = viewport_size / content_size;
         // visible_ratio = viewport_size / (max_value + viewport_size);
         // we may consider adding a page_step property instead of always using size_along_axis.
-        let size_plus_range = self.value_range.end() - self.value_range.start() + size_along_axis;
-        let visible_ratio = if size_plus_range == 0 {
+        let size_plus_range =
+            PhysicalPixels::from_i32(self.value_range.end() - self.value_range.start())
+                + size_along_axis;
+        let visible_ratio = if size_plus_range == 0.ppx() {
             0.0
         } else {
-            (size_along_axis as f32) / (size_plus_range as f32)
+            (size_along_axis.to_i32() as f32) / (size_plus_range.to_i32() as f32)
         };
         let grip_len = max(
             grip_min_size_along_axis,
-            (pager_size_along_axis as f32 * visible_ratio).round() as i32,
+            pager_size_along_axis.mul_f32_round(visible_ratio),
         );
 
         match self.axis {
@@ -524,7 +528,7 @@ impl Widget for ScrollBar {
     impl_widget_common!();
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
-        let border_collapse = common.style().0.scroll_bar.border_collapse.get();
+        let border_collapse = common.style().0.scroll_bar.border_collapse;
         let mut grid_options = GridOptions::ZERO;
         grid_options.x.border_collapse = border_collapse;
         grid_options.y.border_collapse = border_collapse;
@@ -555,19 +559,19 @@ impl Widget for ScrollBar {
             .set_axis(axis);
         pager.common.set_grid_options(Some(GridOptions {
             x: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: 0,
-                preferred_padding: 0,
-                preferred_spacing: 0,
-                border_collapse: 0,
+                min_padding: 0.ppx(),
+                min_spacing: 0.ppx(),
+                preferred_padding: 0.ppx(),
+                preferred_spacing: 0.ppx(),
+                border_collapse: 0.ppx(),
                 alignment: Alignment::Start,
             },
             y: GridAxisOptions {
-                min_padding: 0,
-                min_spacing: 0,
-                preferred_padding: 0,
-                preferred_spacing: 0,
-                border_collapse: 0,
+                min_padding: 0.ppx(),
+                min_spacing: 0.ppx(),
+                preferred_padding: 0.ppx(),
+                preferred_spacing: 0.ppx(),
+                border_collapse: 0.ppx(),
                 alignment: Alignment::Start,
             },
         }));
@@ -610,8 +614,8 @@ impl Widget for ScrollBar {
         let mut this = Self {
             common,
             axis,
-            current_grip_pos: 0,
-            max_slider_pos: 0,
+            current_grip_pos: 0.ppx(),
+            max_slider_pos: 0.ppx(),
             grip_size: Size::default(),
             value_range: 0..=100,
             current_value: 0,
@@ -821,7 +825,7 @@ impl Widget for Pager {
             is_fixed: self.axis == Axis::Y,
         })
     }
-    fn handle_size_hint_y_request(&mut self, size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHints> {
         let grip_hint = self
             .common
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)

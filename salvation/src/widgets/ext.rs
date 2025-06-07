@@ -5,6 +5,7 @@ use {
         event::{Event, ScrollToRectRequest},
         layout::SizeHints,
         style::{css::MyPseudoClass, Style},
+        types::PhysicalPixels,
     },
     anyhow::Result,
     std::rc::Rc,
@@ -36,7 +37,7 @@ pub trait WidgetExt {
 
     fn update_children(&mut self);
     fn size_hint_x(&mut self) -> SizeHints;
-    fn size_hint_y(&mut self, size_x: i32) -> SizeHints;
+    fn size_hint_y(&mut self, size_x: PhysicalPixels) -> SizeHints;
 
     // TODO: private
     fn set_enabled(&mut self, enabled: bool) -> &mut Self;

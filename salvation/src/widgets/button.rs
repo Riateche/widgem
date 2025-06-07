@@ -16,7 +16,7 @@ use {
         system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
         timer::TimerId,
-        types::{Point, Rect},
+        types::{Point, PpxSuffix, Rect},
         window::SetFocusRequest,
     },
     accesskit::{Action, Role},
@@ -179,19 +179,19 @@ impl Button {
         self.common.set_grid_options(Some(GridOptions {
             x: GridAxisOptions {
                 min_padding: style.min_padding_with_border.x,
-                min_spacing: 0, // TODO: spacing between icon and image
+                min_spacing: 0.ppx(), // TODO: spacing between icon and image
                 preferred_padding: style.preferred_padding_with_border.x,
-                preferred_spacing: 0,
-                border_collapse: 0,
+                preferred_spacing: 0.ppx(),
+                border_collapse: 0.ppx(),
                 // TODO: get from style
                 alignment: Alignment::Middle,
             },
             y: GridAxisOptions {
                 min_padding: style.min_padding_with_border.y,
-                min_spacing: 0,
+                min_spacing: 0.ppx(),
                 preferred_padding: style.preferred_padding_with_border.y,
-                preferred_spacing: 0,
-                border_collapse: 0,
+                preferred_spacing: 0.ppx(),
+                border_collapse: 0.ppx(),
                 alignment: Alignment::Middle,
             },
         }));

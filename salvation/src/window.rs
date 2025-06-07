@@ -6,7 +6,7 @@ use {
         event_loop::with_active_event_loop,
         key::Key,
         system::with_system,
-        types::{Point, Rect, Size},
+        types::{PhysicalPixels, Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
         window_handler::WindowInfo,
     },
@@ -232,8 +232,8 @@ impl Window {
 
         // TODO: all attrs
         let mut attrs = WindowAttributes::default()
-            .with_inner_size(PhysicalSize::new(preferred_size.x, preferred_size.y))
-            .with_min_inner_size(PhysicalSize::new(min_size.x, min_size.y))
+            .with_inner_size(PhysicalSize::from(preferred_size))
+            .with_min_inner_size(PhysicalSize::from(min_size))
             .with_resizable(inner.attributes.resizable)
             .with_enabled_buttons(inner.attributes.enabled_buttons)
             .with_maximized(inner.attributes.maximized)
@@ -256,10 +256,10 @@ impl Window {
             attrs = attrs.with_active(active);
         }
         if let Some(position) = &inner.attributes.position {
-            attrs = attrs.with_position(PhysicalPosition::new(position.x, position.y));
+            attrs = attrs.with_position(PhysicalPosition::from(*position));
         }
-        if let Some(v) = &inner.attributes.resize_increments {
-            attrs = attrs.with_resize_increments(PhysicalSize::new(v.x, v.y));
+        if let Some(resize_increments) = &inner.attributes.resize_increments {
+            attrs = attrs.with_resize_increments(PhysicalSize::from(*resize_increments));
         }
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
@@ -397,14 +397,13 @@ impl Window {
     }
 
     pub fn inner_size(&self) -> Size {
-        let inner_size = self
-            .0
+        self.0
             .borrow()
             .winit_window
             .as_ref()
             .map(|w| w.inner_size())
-            .unwrap_or_default();
-        Size::new(inner_size.width as i32, inner_size.height as i32)
+            .unwrap_or_default()
+            .into()
     }
 
     pub fn min_inner_size(&self) -> Size {
@@ -419,7 +418,7 @@ impl Window {
         let this = &mut *self.0.borrow_mut();
         if size != this.min_inner_size {
             if let Some(w) = this.winit_window.as_ref() {
-                w.set_min_inner_size(Some(PhysicalSize::new(size.x, size.y)));
+                w.set_min_inner_size(Some(PhysicalSize::from(size)));
             }
             this.min_inner_size = size;
         }
@@ -430,14 +429,12 @@ impl Window {
     }
 
     pub fn request_inner_size(&self, size: Size) -> Option<Size> {
-        let size = PhysicalSize::new(size.x, size.y);
-        let response = self
-            .0
+        self.0
             .borrow()
             .winit_window
             .as_ref()
-            .and_then(|w| w.request_inner_size(size));
-        response.map(|size| Size::new(size.width as i32, size.height as i32))
+            .and_then(|w| w.request_inner_size(PhysicalSize::from(size)))
+            .map(Into::into)
     }
 
     pub(crate) fn clear_pending_redraw(&self) {
@@ -497,8 +494,8 @@ impl Window {
             Rect {
                 top_left: Point::default(),
                 size: Size {
-                    x: width as i32,
-                    y: height as i32,
+                    x: PhysicalPixels::from_i32(width as i32),
+                    y: PhysicalPixels::from_i32(height as i32),
                 },
             },
         );
@@ -588,11 +585,8 @@ impl Window {
         let this = &*self.0.borrow();
         if let Some(w) = this.winit_window.as_ref() {
             w.set_ime_cursor_area(
-                PhysicalPosition::new(
-                    this.ime_cursor_area.top_left.x,
-                    this.ime_cursor_area.top_left.y,
-                ),
-                PhysicalSize::new(this.ime_cursor_area.size.x, this.ime_cursor_area.size.y),
+                PhysicalPosition::from(this.ime_cursor_area.top_left),
+                PhysicalSize::from(this.ime_cursor_area.size),
             );
         }
     }
@@ -623,8 +617,8 @@ impl Window {
         if this.ime_cursor_area != rect {
             if let Some(w) = this.winit_window.as_ref() {
                 w.set_ime_cursor_area(
-                    PhysicalPosition::new(rect.top_left.x, rect.top_left.y),
-                    PhysicalSize::new(rect.size.x, rect.size.y),
+                    PhysicalPosition::from(rect.top_left),
+                    PhysicalSize::from(rect.size),
                 );
             } //TODO: actual size
             this.ime_cursor_area = rect;

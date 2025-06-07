@@ -17,7 +17,7 @@ use {
             register_address, request_children_update, unregister_address, with_system,
             ChildrenUpdateState,
         },
-        types::{Point, Rect, Size},
+        types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::WidgetExt,
         window::{Window, WindowId},
     },
@@ -189,7 +189,7 @@ pub struct WidgetCommon {
 
     pub size_hint_x_cache: Option<SizeHints>,
     // TODO: limit count
-    pub size_hint_y_cache: HashMap<i32, SizeHints>,
+    pub size_hint_y_cache: HashMap<PhysicalPixels, SizeHints>,
     pub is_accessible: bool,
 
     pub self_style: Option<ComputedStyle>,
@@ -348,34 +348,34 @@ impl WidgetCommon {
             GridOptions {
                 x: GridAxisOptions {
                     min_padding: if self.no_padding {
-                        0
+                        0.ppx()
                     } else {
                         style.0.grid.min_padding.x
                     },
                     min_spacing: style.0.grid.min_spacing.x,
                     preferred_padding: if self.no_padding {
-                        0
+                        0.ppx()
                     } else {
                         style.0.grid.preferred_padding.x
                     },
                     preferred_spacing: style.0.grid.preferred_spacing.x,
-                    border_collapse: 0,
+                    border_collapse: 0.ppx(),
                     alignment: Alignment::Start,
                 },
                 y: GridAxisOptions {
                     min_padding: if self.no_padding {
-                        0
+                        0.ppx()
                     } else {
                         style.0.grid.min_padding.y
                     },
                     min_spacing: style.0.grid.min_spacing.y,
                     preferred_padding: if self.no_padding {
-                        0
+                        0.ppx()
                     } else {
                         style.0.grid.preferred_padding.y
                     },
                     preferred_spacing: style.0.grid.preferred_spacing.y,
-                    border_collapse: 0,
+                    border_collapse: 0.ppx(),
                     alignment: Alignment::Start,
                 },
             }

@@ -3,7 +3,7 @@ use {
     crate::{
         key::Key,
         layout::{fair_split, solve_layout},
-        types::Rect,
+        types::{PhysicalPixels, PpxSuffix, Rect},
         widgets::{Widget, WidgetAddress, WidgetExt, WidgetGeometry},
     },
     itertools::Itertools,
@@ -24,19 +24,19 @@ pub struct GridOptions {
 impl GridOptions {
     pub const ZERO: Self = GridOptions {
         x: GridAxisOptions {
-            min_padding: 0,
-            min_spacing: 0,
-            preferred_padding: 0,
-            preferred_spacing: 0,
-            border_collapse: 0,
+            min_padding: PhysicalPixels::ZERO,
+            min_spacing: PhysicalPixels::ZERO,
+            preferred_padding: PhysicalPixels::ZERO,
+            preferred_spacing: PhysicalPixels::ZERO,
+            border_collapse: PhysicalPixels::ZERO,
             alignment: Alignment::Start,
         },
         y: GridAxisOptions {
-            min_padding: 0,
-            min_spacing: 0,
-            preferred_padding: 0,
-            preferred_spacing: 0,
-            border_collapse: 0,
+            min_padding: PhysicalPixels::ZERO,
+            min_spacing: PhysicalPixels::ZERO,
+            preferred_padding: PhysicalPixels::ZERO,
+            preferred_spacing: PhysicalPixels::ZERO,
+            border_collapse: PhysicalPixels::ZERO,
             alignment: Alignment::Start,
         },
     };
@@ -44,19 +44,19 @@ impl GridOptions {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GridAxisOptions {
-    pub min_padding: i32,
-    pub min_spacing: i32,
-    pub preferred_padding: i32,
-    pub preferred_spacing: i32,
-    pub border_collapse: i32,
+    pub min_padding: PhysicalPixels,
+    pub min_spacing: PhysicalPixels,
+    pub preferred_padding: PhysicalPixels,
+    pub preferred_spacing: PhysicalPixels,
+    pub border_collapse: PhysicalPixels,
     pub alignment: Alignment,
 }
 
 fn size_hint(
-    items: &[(RangeInclusive<i32>, i32)],
+    items: &[(RangeInclusive<i32>, PhysicalPixels)],
     options: &GridAxisOptions,
     mode: SizeHintMode,
-) -> i32 {
+) -> PhysicalPixels {
     let mut max_per_column = BTreeMap::new();
     let mut spanned = Vec::new();
     for (pos, hint) in items {
@@ -71,9 +71,9 @@ fn size_hint(
         }
     }
     for (range, hint) in spanned {
-        let current: i32 = range
+        let current: PhysicalPixels = range
             .clone()
-            .map(|pos| max_per_column.get(&pos).copied().unwrap_or(0))
+            .map(|pos| max_per_column.get(&pos).copied().unwrap_or(0.ppx()))
             .sum();
         if hint > current {
             let extra_per_column = fair_split(*range.end() - *range.start() + 1, hint - current);
@@ -86,7 +86,7 @@ fn size_hint(
         SizeHintMode::Min => (options.min_padding, options.min_spacing),
         SizeHintMode::Preferred => (options.preferred_padding, options.preferred_spacing),
     };
-    max_per_column.values().sum::<i32>()
+    max_per_column.values().sum::<PhysicalPixels>()
         + 2 * padding
         + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse)
 }
@@ -135,7 +135,7 @@ pub fn size_hint_x(items: &mut BTreeMap<Key, Box<dyn Widget>>, options: &GridOpt
 pub fn size_hint_y(
     items: &mut BTreeMap<Key, Box<dyn Widget>>,
     options: &GridOptions,
-    size_x: i32,
+    size_x: PhysicalPixels,
 ) -> SizeHints {
     let x_layout = x_layout(items, &options.x, size_x);
     let mut min_items = Vec::new();
@@ -182,16 +182,16 @@ pub fn size_hint_y(
 }
 
 struct XLayout {
-    padding: i32,
-    spacing: i32,
-    column_sizes: BTreeMap<i32, i32>,
-    child_sizes: HashMap<Key, i32>,
+    padding: PhysicalPixels,
+    spacing: PhysicalPixels,
+    column_sizes: BTreeMap<i32, PhysicalPixels>,
+    child_sizes: HashMap<Key, PhysicalPixels>,
 }
 
 fn x_layout(
     items: &mut BTreeMap<Key, Box<dyn Widget>>,
     options: &GridAxisOptions,
-    size_x: i32,
+    size_x: PhysicalPixels,
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
     for item in items.values_mut() {
@@ -370,14 +370,14 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
 }
 
 fn positions(
-    sizes: &BTreeMap<i32, i32>,
-    padding: i32,
-    spacing: i32,
-    total_available: i32,
+    sizes: &BTreeMap<i32, PhysicalPixels>,
+    padding: PhysicalPixels,
+    spacing: PhysicalPixels,
+    total_available: PhysicalPixels,
     alignment: Alignment,
-) -> BTreeMap<i32, i32> {
+) -> BTreeMap<i32, PhysicalPixels> {
     let mut pos = padding;
-    let total_taken: i32 = sizes.values().copied().sum();
+    let total_taken: PhysicalPixels = sizes.values().sum();
     let available_for_items =
         total_available - 2 * padding - spacing * sizes.len().saturating_sub(1) as i32;
     match alignment {

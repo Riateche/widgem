@@ -1,6 +1,12 @@
 use {
     super::{Widget, WidgetCommon, WidgetCommonTyped, WidgetExt, WidgetGeometry},
-    crate::{event::LayoutEvent, impl_widget_common, key::Key, layout::SizeHints, types::Rect},
+    crate::{
+        event::LayoutEvent,
+        impl_widget_common,
+        key::Key,
+        layout::SizeHints,
+        types::{PhysicalPixels, PpxSuffix, Rect},
+    },
     anyhow::Result,
 };
 
@@ -45,7 +51,7 @@ impl Widget for Stack {
             .filter_map(|c| c.common().rect_in_parent())
             .map(|rect| rect.bottom_right().x)
             .max()
-            .unwrap_or(0);
+            .unwrap_or(0.ppx());
         Ok(SizeHints {
             min: max,
             preferred: max,
@@ -53,7 +59,7 @@ impl Widget for Stack {
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let max = self
             .common
             .children
@@ -61,7 +67,7 @@ impl Widget for Stack {
             .filter_map(|c| c.common().rect_in_parent())
             .map(|rect| rect.bottom_right().y)
             .max()
-            .unwrap_or(0);
+            .unwrap_or(0.ppx());
         Ok(SizeHints {
             min: max,
             preferred: max,

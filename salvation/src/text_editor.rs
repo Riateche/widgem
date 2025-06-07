@@ -17,7 +17,7 @@ use {
             text_without_preedit, Metadata,
         },
         timer::TimerId,
-        types::{Point, Rect, Size},
+        types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt},
         window::{ScrollToRectRequest, SetFocusRequest},
     },
@@ -178,7 +178,10 @@ impl Text {
         // TODO: cursor width?
         let rect = Rect::from_pos_size(
             cursor_position,
-            Size::new(1, self.line_height().ceil() as i32),
+            Size::new(
+                PhysicalPixels::from_i32(1),
+                PhysicalPixels::from_i32(self.line_height().ceil() as i32),
+            ),
         );
         let needs_scroll = visible_rect.intersect(rect).is_empty();
         if !needs_scroll {
@@ -669,12 +672,10 @@ impl Text {
     pub fn pixmap(&mut self) -> &Pixmap {
         if self.pixmap.is_none() || self.needs_redraw() {
             let (buffer_width, buffer_height) = self.editor.with_buffer(|buffer| buffer.size());
-            let size = Size {
-                x: max(1, buffer_width.unwrap_or(0.).ceil() as i32),
-                y: max(1, buffer_height.unwrap_or(0.).ceil() as i32),
-            };
-            let mut pixmap =
-                Pixmap::new(size.x as u32, size.y as u32).expect("failed to create pixmap");
+            let size_x = max(1, buffer_width.unwrap_or(0.).ceil() as u32);
+            let size_y = max(1, buffer_height.unwrap_or(0.).ceil() as u32);
+
+            let mut pixmap = Pixmap::new(size_x, size_y).expect("failed to create pixmap");
             with_system(|system| {
                 self.editor.draw(
                     &mut system.font_system,
@@ -767,7 +768,9 @@ impl Text {
     }
 
     pub fn cursor_position(&self) -> Option<Point> {
-        self.editor.cursor_position().map(|(x, y)| Point { x, y })
+        self.editor
+            .cursor_position()
+            .map(|(x, y)| Point::new(PhysicalPixels::from_i32(x), PhysicalPixels::from_i32(y)))
     }
 
     pub fn line_height(&self) -> f32 {
@@ -850,8 +853,8 @@ impl Text {
                     unrestricted_text_size(&mut buffer.borrow_with(&mut system.font_system));
                 buffer.set_size(
                     &mut system.font_system,
-                    Some(new_size.x as f32),
-                    Some(new_size.y as f32),
+                    Some(new_size.x.to_i32() as f32),
+                    Some(new_size.y.to_i32() as f32),
                 );
                 new_size
             })
@@ -905,9 +908,9 @@ impl Text {
 
         let old_cursor = self.editor.cursor();
         let preedit_range = self.editor.preedit_range();
-        let click_cursor = self
-            .editor
-            .with_buffer(|buffer| buffer.hit(event.pos.x as f32, event.pos.y as f32));
+        let click_cursor = self.editor.with_buffer(|buffer| {
+            buffer.hit(event.pos.x.to_i32() as f32, event.pos.y.to_i32() as f32)
+        });
         if let Some(click_cursor) = click_cursor {
             if click_cursor.line == old_cursor.line
                 && preedit_range
@@ -921,8 +924,8 @@ impl Text {
                 // as real text and cancel IME preedit.
                 self.interrupt_preedit();
                 self.shape_as_needed();
-                let x = event.pos.x;
-                let y = event.pos.y;
+                let x = event.pos.x.to_i32();
+                let y = event.pos.y.to_i32();
                 let window = self.common.window_or_err()?;
                 match ((event.num_clicks - 1) % 3) + 1 {
                     1 => self.action(Action::Click {
@@ -1037,8 +1040,8 @@ impl Widget for Text {
         if window.is_mouse_button_pressed(MouseButton::Left) {
             let old_selection = (self.select_opt(), self.editor.cursor());
             self.action(Action::Drag {
-                x: event.pos.x,
-                y: event.pos.y,
+                x: event.pos.x.to_i32(),
+                y: event.pos.y.to_i32(),
             });
             let new_selection = (self.select_opt(), self.editor.cursor());
             if old_selection != new_selection {
@@ -1062,8 +1065,8 @@ impl Widget for Text {
                 let top_left = rect_in_window.top_left
                     + editor_cursor
                     + Point {
-                        x: 0,
-                        y: self.line_height().ceil() as i32,
+                        x: 0.ppx(),
+                        y: PhysicalPixels::from_i32(self.line_height().ceil() as i32),
                     };
                 let size = rect_in_window.size; // TODO: self_viewport_rect.size
                 window.set_ime_cursor_area(Rect { top_left, size });
@@ -1114,12 +1117,7 @@ impl Widget for Text {
         line_node.set_word_lengths(line.word_lengths);
 
         if let Some(rect_in_window) = self.common.rect_in_window() {
-            line_node.set_bounds(accesskit::Rect {
-                x0: rect_in_window.top_left.x as f64,
-                y0: rect_in_window.top_left.y as f64,
-                x1: rect_in_window.bottom_right().x as f64,
-                y1: rect_in_window.bottom_right().y as f64,
-            });
+            line_node.set_bounds(rect_in_window.into());
         }
 
         let Some(window) = self.common.window.as_ref() else {
@@ -1149,7 +1147,7 @@ impl Widget for Text {
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         // TODO: use size_x, handle multiple lines
         Ok(SizeHints {
             min: self.size().y,
@@ -1172,8 +1170,8 @@ fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Si
         .unwrap_or(0);
 
     Size {
-        x: width,
-        y: height,
+        x: PhysicalPixels::from_i32(width),
+        y: PhysicalPixels::from_i32(height),
     }
 }
 

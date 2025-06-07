@@ -12,6 +12,7 @@ use {
             grid::{self, grid_layout},
             SizeHints,
         },
+        types::PhysicalPixels,
     },
     anyhow::Result,
     log::warn,
@@ -507,7 +508,7 @@ pub trait Widget: Any {
     /// Note that [set_layout_item_options](crate::widgets::WidgetCommon::set_layout_item_options)
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
-    fn handle_size_hint_y_request(&mut self, size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHints> {
         let options = self.common().grid_options();
         Ok(grid::size_hint_y(
             &mut self.common_mut().children,

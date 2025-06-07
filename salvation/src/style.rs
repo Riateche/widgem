@@ -57,8 +57,8 @@ impl Padding {
     }
     pub fn to_physical(self, scale: f32) -> Point {
         Point {
-            x: self.x.to_physical(scale).get(),
-            y: self.y.to_physical(scale).get(),
+            x: self.x.to_physical(scale),
+            y: self.y.to_physical(scale),
         }
     }
 }
@@ -73,8 +73,8 @@ pub struct FontStyle {
 impl FontStyle {
     pub fn to_metrics(&self, scale: f32) -> cosmic_text::Metrics {
         cosmic_text::Metrics {
-            font_size: self.font_size.to_physical(scale).get() as f32,
-            line_height: self.line_height.to_physical(scale).get() as f32,
+            font_size: self.font_size.to_physical(scale).to_i32() as f32,
+            line_height: self.line_height.to_physical(scale).to_i32() as f32,
         }
     }
 }

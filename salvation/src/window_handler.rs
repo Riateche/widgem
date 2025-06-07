@@ -7,7 +7,7 @@ use {
         },
         event_loop::UserEvent,
         system::{address, with_system, ReportError},
-        types::{Point, Size},
+        types::{PhysicalPixels, Point, Size},
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
             RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
@@ -93,8 +93,8 @@ impl WindowWithWidget<'_> {
             } => {
                 let pos_in_window = Point {
                     // TODO: is round() fine?
-                    x: position.x.round() as i32,
-                    y: position.y.round() as i32,
+                    x: PhysicalPixels::from_i32(position.x.round() as i32),
+                    y: PhysicalPixels::from_i32(position.y.round() as i32),
                 };
                 if !self.window.cursor_moved(pos_in_window) {
                     return;

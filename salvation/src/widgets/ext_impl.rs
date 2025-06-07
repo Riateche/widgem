@@ -6,6 +6,7 @@ use {
         layout::{SizeHints, FALLBACK_SIZE_HINTS},
         style::{computed::ComputedStyle, css::MyPseudoClass, Style},
         system::{with_system, ReportError},
+        types::PhysicalPixels,
     },
     anyhow::Result,
     log::{error, warn},
@@ -241,12 +242,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         let rect = self.common().rect_in_window();
         let node = node.map(|mut node| {
             if let Some(rect) = rect {
-                node.set_bounds(accesskit::Rect {
-                    x0: rect.top_left.x as f64,
-                    y0: rect.top_left.y as f64,
-                    x1: rect.bottom_right().x as f64,
-                    y1: rect.bottom_right().y as f64,
-                });
+                node.set_bounds(rect.into());
             }
             node
         });
@@ -286,7 +282,7 @@ impl<W: Widget + ?Sized> WidgetExt for W {
         }
     }
 
-    fn size_hint_y(&mut self, size_x: i32) -> SizeHints {
+    fn size_hint_y(&mut self, size_x: PhysicalPixels) -> SizeHints {
         if let Some(cached) = self.common().size_hint_y_cache.get(&size_x) {
             *cached
         } else {

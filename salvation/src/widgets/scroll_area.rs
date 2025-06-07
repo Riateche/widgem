@@ -10,7 +10,7 @@ use {
             grid::{grid_layout, GridOptions},
             SizeHints,
         },
-        types::{Axis, Rect},
+        types::{Axis, PhysicalPixels, PpxSuffix, Rect},
     },
     anyhow::Result,
     salvation_macros::impl_with,
@@ -137,7 +137,12 @@ impl ScrollArea {
                 .unwrap()
                 .size_hint_y(content_size_x)
                 .preferred;
-            let content_rect = Rect::from_xywh(-value_x, -value_y, content_size_x, content_size_y);
+            let content_rect = Rect::from_xywh(
+                PhysicalPixels::from_i32(-value_x),
+                PhysicalPixels::from_i32(-value_y),
+                content_size_x,
+                content_size_y,
+            );
             self.common
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
@@ -149,16 +154,16 @@ impl ScrollArea {
                     changed_size_hints,
                 );
 
-            let max_value_x = max(0, content_size_x - viewport_rect.size.x);
-            let max_value_y = max(0, content_size_y - viewport_rect.size.y);
+            let max_value_x = max(0.ppx(), content_size_x - viewport_rect.size.x);
+            let max_value_y = max(0.ppx(), content_size_y - viewport_rect.size.y);
             self.common
                 .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)
                 .unwrap()
-                .set_value_range(0..=max_value_x);
+                .set_value_range(0..=max_value_x.to_i32());
             self.common
                 .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)
                 .unwrap()
-                .set_value_range(0..=max_value_y);
+                .set_value_range(0..=max_value_y.to_i32());
         }
         Ok(())
     }
@@ -235,15 +240,15 @@ impl Widget for Viewport {
 
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         Ok(SizeHints {
-            min: 0,
-            preferred: 0,
+            min: 0.ppx(),
+            preferred: 0.ppx(),
             is_fixed: false,
         })
     }
-    fn handle_size_hint_y_request(&mut self, _size_x: i32) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         Ok(SizeHints {
-            min: 0,
-            preferred: 0,
+            min: 0.ppx(),
+            preferred: 0.ppx(),
             is_fixed: false,
         })
     }
