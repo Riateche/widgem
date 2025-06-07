@@ -136,7 +136,7 @@ impl Style {
 
     pub fn find_rules(
         &self,
-        check_selector: impl Fn(&Selector) -> bool,
+        check_selector: impl Fn(&Selector<'static>) -> bool,
     ) -> Vec<&Property<'static>> {
         let mut results = Vec::new();
         for rule in &self.css.rules.0 {

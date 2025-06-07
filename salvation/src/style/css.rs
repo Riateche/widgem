@@ -22,7 +22,7 @@ use {
             Property,
         },
         rules::CssRule,
-        selector::{Component, PseudoClass, PseudoElement, Selector},
+        selector::{self, Component, PseudoElement, Selector},
         stylesheet::StyleSheet,
         values::{
             color::CssColor,
@@ -31,6 +31,7 @@ use {
             length::{Length, LengthPercentage, LengthPercentageOrAuto, LengthValue},
             percentage::DimensionPercentage,
             position::{HorizontalPositionKeyword, VerticalPositionKeyword},
+            string::CowArcStr,
         },
     },
     log::warn,
@@ -679,7 +680,7 @@ fn print_component(component: &Component) {
         Component::NthOf(_) => println!("NthOf"),
         Component::NonTSPseudoClass(x) => {
             println!("NonTSPseudoClass");
-            if let PseudoClass::Custom { name } = x {
+            if let selector::PseudoClass::Custom { name } = x {
                 println!("name = {name:?}");
             }
         }
@@ -724,33 +725,26 @@ pub fn is_selection(selector: &Selector) -> bool {
     })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum MyPseudoClass {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum PseudoClass {
     Hover,
     Focus,
     Active,
     Enabled,
     Disabled,
-    Min,
-    Other,
+    Custom(CowArcStr<'static>),
 }
 
-impl<'a, 'b> From<&'a PseudoClass<'b>> for MyPseudoClass {
-    fn from(value: &'a PseudoClass<'b>) -> Self {
+impl PseudoClass {
+    fn from_css(value: &selector::PseudoClass<'static>) -> Option<Self> {
         match value {
-            PseudoClass::Hover => Self::Hover,
-            PseudoClass::Focus => Self::Focus,
-            PseudoClass::Active => Self::Active,
-            PseudoClass::Enabled => Self::Enabled,
-            PseudoClass::Disabled => Self::Disabled,
-            PseudoClass::Custom { name } => {
-                if name.as_ref() == "min" {
-                    Self::Min
-                } else {
-                    Self::Other
-                }
-            }
-            _ => Self::Other,
+            selector::PseudoClass::Hover => Some(Self::Hover),
+            selector::PseudoClass::Focus => Some(Self::Focus),
+            selector::PseudoClass::Active => Some(Self::Active),
+            selector::PseudoClass::Enabled => Some(Self::Enabled),
+            selector::PseudoClass::Disabled => Some(Self::Disabled),
+            selector::PseudoClass::Custom { name } => Some(Self::Custom(name.clone())),
+            _ => None,
         }
     }
 }
@@ -760,7 +754,7 @@ pub struct Element {
     tag: &'static str,
     // TODO: small vec?
     classes: Vec<Cow<'static, str>>,
-    pseudo_classes: Vec<MyPseudoClass>,
+    pseudo_classes: Vec<PseudoClass>,
 }
 
 impl Element {
@@ -794,20 +788,20 @@ impl Element {
         }
     }
 
-    pub fn add_pseudo_class(&mut self, class: MyPseudoClass) {
+    pub fn add_pseudo_class(&mut self, class: PseudoClass) {
         self.pseudo_classes.push(class);
         self.pseudo_classes.sort_unstable();
     }
 
-    pub fn remove_pseudo_class(&mut self, class: MyPseudoClass) {
+    pub fn remove_pseudo_class(&mut self, class: PseudoClass) {
         self.pseudo_classes.retain(|c| *c != class);
     }
 
-    pub fn has_pseudo_class(&self, class: MyPseudoClass) -> bool {
+    pub fn has_pseudo_class(&self, class: PseudoClass) -> bool {
         self.pseudo_classes.contains(&class)
     }
 
-    pub fn set_pseudo_class(&mut self, class: MyPseudoClass, present: bool) {
+    pub fn set_pseudo_class(&mut self, class: PseudoClass, present: bool) {
         if present {
             self.add_pseudo_class(class);
         } else {
@@ -820,19 +814,23 @@ impl Element {
         self
     }
 
-    pub fn with_pseudo_class(mut self, class: MyPseudoClass) -> Self {
+    pub fn with_pseudo_class(mut self, class: PseudoClass) -> Self {
         self.add_pseudo_class(class);
         self
     }
 
-    pub fn matches(&self, selector: &Selector) -> bool {
+    pub fn matches(&self, selector: &Selector<'static>) -> bool {
         let Some(items) = selector_items(selector) else {
             return false;
         };
         for item in items {
             match item {
-                Component::NonTSPseudoClass(c) => {
-                    if !self.pseudo_classes.contains(&c.into()) {
+                Component::NonTSPseudoClass(item_class) => {
+                    if let Some(item_class) = PseudoClass::from_css(item_class) {
+                        if !self.pseudo_classes.contains(&item_class) {
+                            return false;
+                        }
+                    } else {
                         return false;
                     }
                 }

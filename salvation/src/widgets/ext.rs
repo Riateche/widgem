@@ -4,7 +4,7 @@ use {
         callback::{widget_callback, Callback},
         event::{Event, LayoutEvent, ScrollToRectRequest, StyleChangeEvent},
         layout::{SizeHints, FALLBACK_SIZE_HINTS},
-        style::{computed::ComputedStyle, css::MyPseudoClass, Style},
+        style::{computed::ComputedStyle, css::PseudoClass, Style},
         system::{with_system, ReportError},
         types::PhysicalPixels,
     },
@@ -123,20 +123,20 @@ pub trait WidgetExt: Widget {
                 }
             }
             Event::MouseEnter(_) => {
-                self.add_pseudo_class(MyPseudoClass::Hover);
+                self.add_pseudo_class(PseudoClass::Hover);
             }
             Event::MouseLeave(_) => {
-                self.remove_pseudo_class(MyPseudoClass::Hover);
+                self.remove_pseudo_class(PseudoClass::Hover);
             }
             Event::FocusIn(_) => {
-                self.set_pseudo_class(MyPseudoClass::Focus, self.common().is_window_focused());
+                self.set_pseudo_class(PseudoClass::Focus, self.common().is_window_focused());
             }
             Event::FocusOut(_) => {
-                self.remove_pseudo_class(MyPseudoClass::Focus);
+                self.remove_pseudo_class(PseudoClass::Focus);
             }
             Event::WindowFocusChange(event) => {
                 self.set_pseudo_class(
-                    MyPseudoClass::Focus,
+                    PseudoClass::Focus,
                     event.is_window_focused && self.common().is_focused(),
                 );
             }
@@ -354,8 +354,8 @@ pub trait WidgetExt: Widget {
         self
     }
 
-    fn add_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self {
-        if self.common().style_element.has_pseudo_class(class) {
+    fn add_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
+        if self.common().style_element.has_pseudo_class(class.clone()) {
             return self;
         }
         self.common_mut().style_element.add_pseudo_class(class);
@@ -363,8 +363,8 @@ pub trait WidgetExt: Widget {
         self
     }
 
-    fn remove_pseudo_class(&mut self, class: MyPseudoClass) -> &mut Self {
-        if !self.common().style_element.has_pseudo_class(class) {
+    fn remove_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
+        if !self.common().style_element.has_pseudo_class(class.clone()) {
             return self;
         }
         self.common_mut().style_element.remove_pseudo_class(class);
@@ -372,12 +372,12 @@ pub trait WidgetExt: Widget {
         self
     }
 
-    fn has_pseudo_class(&self, class: MyPseudoClass) -> bool {
+    fn has_pseudo_class(&self, class: PseudoClass) -> bool {
         self.common().style_element.has_pseudo_class(class)
     }
 
-    fn set_pseudo_class(&mut self, class: MyPseudoClass, present: bool) -> &mut Self {
-        if self.common().style_element.has_pseudo_class(class) == present {
+    fn set_pseudo_class(&mut self, class: PseudoClass, present: bool) -> &mut Self {
+        if self.common().style_element.has_pseudo_class(class.clone()) == present {
             return self;
         }
         self.common_mut()
@@ -389,16 +389,16 @@ pub trait WidgetExt: Widget {
 
     fn set_enabled(&mut self, enabled: bool) -> &mut Self {
         let new_enabled = enabled && self.common().is_parent_enabled();
-        self.set_pseudo_class(MyPseudoClass::Enabled, new_enabled);
-        self.set_pseudo_class(MyPseudoClass::Disabled, !new_enabled);
+        self.set_pseudo_class(PseudoClass::Enabled, new_enabled);
+        self.set_pseudo_class(PseudoClass::Disabled, !new_enabled);
         self.common_mut().self_enabled_changed(enabled);
         self
     }
 
     fn set_parent_enabled(&mut self, enabled: bool) -> &mut Self {
         let new_enabled = enabled && self.common().is_self_enabled();
-        self.set_pseudo_class(MyPseudoClass::Enabled, new_enabled);
-        self.set_pseudo_class(MyPseudoClass::Disabled, !new_enabled);
+        self.set_pseudo_class(PseudoClass::Enabled, new_enabled);
+        self.set_pseudo_class(PseudoClass::Disabled, !new_enabled);
         self.common_mut().parent_enabled_changed(enabled);
         self
     }

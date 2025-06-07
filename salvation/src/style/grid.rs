@@ -1,6 +1,6 @@
 use {
     super::{
-        css::{convert_padding, convert_spacing, Element, MyPseudoClass},
+        css::{convert_padding, convert_spacing, Element, PseudoClass},
         FontStyle, Style,
     },
     crate::types::Point,
@@ -18,7 +18,9 @@ pub struct ComputedStyle {
 impl ComputedStyle {
     pub fn new(style: &Style, scale: f32, root_font: &FontStyle) -> Result<ComputedStyle> {
         let element = Element::new("grid");
-        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
+        let element_min = element
+            .clone()
+            .with_pseudo_class(PseudoClass::Custom("min".into()));
 
         let properties = style.find_rules(|s| element.matches(s));
         let preferred_padding = convert_padding(&properties, scale, root_font.font_size);

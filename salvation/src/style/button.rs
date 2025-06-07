@@ -1,7 +1,7 @@
 use {
     super::{
         computed::{ComputedElementStyle, ComputedStyle},
-        css::{Element, MyPseudoClass},
+        css::{Element, PseudoClass},
         ElementState,
     },
     crate::style::css::{convert_content_url, convert_zoom},
@@ -40,19 +40,19 @@ impl ButtonState {
                 mouse_over,
                 pressed,
             } => {
-                element.add_pseudo_class(MyPseudoClass::Enabled);
+                element.add_pseudo_class(PseudoClass::Enabled);
                 if *focused {
-                    element.add_pseudo_class(MyPseudoClass::Focus);
+                    element.add_pseudo_class(PseudoClass::Focus);
                 }
                 if *mouse_over {
-                    element.add_pseudo_class(MyPseudoClass::Hover);
+                    element.add_pseudo_class(PseudoClass::Hover);
                 }
                 if *pressed {
-                    element.add_pseudo_class(MyPseudoClass::Active);
+                    element.add_pseudo_class(PseudoClass::Active);
                 }
             }
             Self::Disabled => {
-                element.add_pseudo_class(MyPseudoClass::Disabled);
+                element.add_pseudo_class(PseudoClass::Disabled);
             }
         }
         element

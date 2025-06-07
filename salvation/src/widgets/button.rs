@@ -12,7 +12,7 @@ use {
             grid::{GridAxisOptions, GridOptions},
             Alignment,
         },
-        style::{button::ComputedButtonStyle, css::MyPseudoClass},
+        style::{button::ComputedButtonStyle, css::PseudoClass},
         system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
         timer::TimerId,
@@ -111,7 +111,7 @@ impl Button {
             return;
         }
         self.is_pressed = value;
-        self.set_pseudo_class(MyPseudoClass::Active, self.is_pressed);
+        self.set_pseudo_class(PseudoClass::Active, self.is_pressed);
         if value {
             if self.trigger_on_press && !suppress_trigger {
                 self.trigger();

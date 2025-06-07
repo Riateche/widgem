@@ -2,7 +2,7 @@ use {
     super::{
         css::{
             convert_background, convert_background_color, convert_border, convert_font,
-            convert_main_color, convert_padding, convert_zoom, is_root, Element, MyPseudoClass,
+            convert_main_color, convert_padding, convert_zoom, is_root, Element, PseudoClass,
         },
         grid, image, scroll_bar, text_input, FontStyle, RelativeOffset, Style,
     },
@@ -85,7 +85,9 @@ impl Default for CommonComputedStyle {
 impl CommonComputedStyle {
     pub fn new(style: &ComputedStyle, element: &Element) -> Self {
         let properties = style.0.style.find_rules(|s| element.matches(s));
-        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
+        let element_min = element
+            .clone()
+            .with_pseudo_class(PseudoClass::Custom("min".into()));
         let min_properties = style.0.style.find_rules(|s| element_min.matches(s));
         let properties_with_root = style
             .0

@@ -11,7 +11,7 @@ use {
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
             computed::{CommonComputedStyle, ComputedElementStyle, ComputedStyle},
-            css::{Element, MyPseudoClass},
+            css::{Element, PseudoClass},
         },
         system::{
             register_address, request_children_update, unregister_address, with_system,
@@ -244,7 +244,7 @@ impl WidgetCommon {
 
         let type_name = T::type_name();
         let style_element =
-            Element::new(last_path_part(type_name)).with_pseudo_class(MyPseudoClass::Enabled);
+            Element::new(last_path_part(type_name)).with_pseudo_class(PseudoClass::Enabled);
         let common_style = ctx.parent_style.get_common(&style_element);
         let mut common = Self {
             id,

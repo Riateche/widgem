@@ -1,7 +1,7 @@
 use {
     super::{
         computed::{ComputedBackground, ComputedBorderStyle},
-        css::{convert_font, convert_padding, convert_width, convert_zoom, Element, MyPseudoClass},
+        css::{convert_font, convert_padding, convert_width, convert_zoom, Element, PseudoClass},
         defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
         ElementState, FontStyle, Style,
     },
@@ -44,16 +44,16 @@ impl TextInputState {
                 focused,
                 mouse_over,
             } => {
-                element.add_pseudo_class(MyPseudoClass::Enabled);
+                element.add_pseudo_class(PseudoClass::Enabled);
                 if *focused {
-                    element.add_pseudo_class(MyPseudoClass::Focus);
+                    element.add_pseudo_class(PseudoClass::Focus);
                 }
                 if *mouse_over {
-                    element.add_pseudo_class(MyPseudoClass::Hover);
+                    element.add_pseudo_class(PseudoClass::Hover);
                 }
             }
             Self::Disabled => {
-                element.add_pseudo_class(MyPseudoClass::Disabled);
+                element.add_pseudo_class(PseudoClass::Disabled);
             }
         }
         element
@@ -89,7 +89,9 @@ pub struct ComputedStyle {
 impl ComputedStyle {
     pub fn new(style: &Style, mut scale: f32, root_font: &FontStyle) -> Result<ComputedStyle> {
         let element = Element::new("text-input");
-        let element_min = element.clone().with_pseudo_class(MyPseudoClass::Min);
+        let element_min = element
+            .clone()
+            .with_pseudo_class(PseudoClass::Custom("min".into()));
 
         let properties = style.find_rules(|s| element.matches(s));
         scale *= convert_zoom(&properties);
