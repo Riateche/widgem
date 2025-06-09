@@ -1,7 +1,7 @@
 use {
     crate::{
         style::{
-            computed::{ComputedBackground, ComputedBorderStyle},
+            common::{ComputedBackground, ComputedBorderStyle},
             RelativeOffset,
         },
         types::{Point, PpxSuffix, Rect},

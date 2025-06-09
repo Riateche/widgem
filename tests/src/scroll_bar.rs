@@ -4,8 +4,8 @@ use {
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
-            label::Label, scroll_bar::ScrollBar, window::WindowWidget, Widget, WidgetCommon,
-            WidgetCommonTyped, WidgetExt,
+            label::Label, scroll_bar::ScrollBar, window::WindowWidget, Widget, WidgetCommonTyped,
+            WidgetExt,
         },
     },
     salvation_test_kit::context::Context,

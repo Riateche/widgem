@@ -1,24 +1,26 @@
 use {
-    super::{Widget, WidgetAddress, WidgetCommon, WidgetCommonTyped, WidgetExt, WidgetGeometry},
+    super::{Widget, WidgetAddress, WidgetCommonTyped, WidgetExt, WidgetGeometry},
     crate::{
-        draw::DrawEvent,
         event::{
             FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
             ScrollToRectRequest, StyleChangeEvent,
         },
         impl_widget_common,
-        layout::{
-            grid::{grid_layout, GridAxisOptions, GridOptions},
-            Alignment, SizeHints,
+        layout::{grid::grid_layout, SizeHints},
+        style::{
+            common::ComputedElementStyle,
+            css::{convert_font, convert_width, Element, PseudoClass},
+            defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
+            get_style, Style,
         },
-        style::text_input::{ComputedVariantStyle, TextInputState},
+        system::ReportError,
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
     },
     anyhow::Result,
     cosmic_text::Attrs,
     log::warn,
-    std::{cmp::max, fmt::Display},
+    std::{cmp::max, fmt::Display, rc::Rc},
     winit::window::CursorIcon,
 };
 
@@ -55,6 +57,7 @@ impl Widget for Viewport {
 
 pub struct TextInput {
     common: WidgetCommonTyped<Self>,
+    style: Rc<TextInputStyle>,
 }
 
 impl TextInput {
@@ -151,53 +154,6 @@ impl TextInput {
                 );
         }
     }
-
-    fn current_variant_style(&self) -> &ComputedVariantStyle {
-        let state = if self.common.is_enabled() {
-            TextInputState::Enabled {
-                focused: self.common.is_focused(),
-                mouse_over: self.common.is_mouse_over,
-            }
-        } else {
-            TextInputState::Disabled
-        };
-        self.common
-            .style()
-            .0
-            .text_input
-            .variants
-            .get(&state)
-            .unwrap()
-    }
-
-    fn refresh_style(&mut self) {
-        let style = self.common.style().0.text_input.clone();
-        let variant_style = self.current_variant_style().clone();
-        self.common.set_grid_options(Some(GridOptions {
-            x: GridAxisOptions {
-                min_padding: style.min_padding_with_border.x(),
-                min_spacing: 0.ppx(),
-                preferred_padding: style.preferred_padding_with_border.x(),
-                preferred_spacing: 0.ppx(),
-                border_collapse: 0.ppx(),
-                alignment: Alignment::Start,
-            },
-            y: GridAxisOptions {
-                min_padding: style.min_padding_with_border.y(),
-                min_spacing: 0.ppx(),
-                preferred_padding: style.preferred_padding_with_border.y(),
-                preferred_spacing: 0.ppx(),
-                border_collapse: 0.ppx(),
-                alignment: Alignment::Start,
-            },
-        }));
-        let text_widget = self.text_widget_mut();
-        text_widget.set_font_metrics(style.font_metrics);
-        // TODO: support color changes based on state
-        text_widget.set_text_color(variant_style.text_color);
-        text_widget.set_selected_text_color(variant_style.selected_text_color);
-        text_widget.set_selected_text_background(variant_style.selected_text_background);
-    }
 }
 
 impl Widget for TextInput {
@@ -207,6 +163,7 @@ impl Widget for TextInput {
         common.set_supports_focus(true);
         common.cursor_icon = CursorIcon::Text;
         let host_id = common.id();
+        let element = common.style_element().clone();
         let viewport = common
             .add_child_with_key::<Viewport>(0)
             .set_column(0)
@@ -218,11 +175,13 @@ impl Widget for TextInput {
             .add_child_with_key::<Text>(0)
             .set_multiline(false)
             .set_editable(true)
-            .set_host_id(host_id.into());
+            .set_host_id(host_id.into())
+            .set_host_style_element(element);
         editor.common_mut().set_receives_all_mouse_events(true);
-        let mut t = Self { common };
-        t.refresh_style();
-        t
+        Self {
+            style: get_style(common.style_element(), common.scale()),
+            common,
+        }
     }
 
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
@@ -240,42 +199,15 @@ impl Widget for TextInput {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        self.refresh_style();
-
-        Ok(())
-    }
-
-    fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
-        let rect_in_window = self.common.rect_in_window_or_err()?;
-        let style = self.current_variant_style();
-
-        // TODO: stroke and fill instead
-        event.stroke_rounded_rect(
-            Rect::from_pos_size(Point::default(), rect_in_window.size()),
-            style.border.radius.to_i32() as f32,
-            style.border.color,
-            style.border.width.to_i32() as f32,
-        );
-
+        self.style = get_style(self.common().style_element(), self.common().scale());
         Ok(())
     }
 
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
-        let style = &self.common.style().0.text_input;
         Ok(SizeHints {
-            min: style.min_width,
-            preferred: style.preferred_width,
+            min: self.style.min_width,
+            preferred: self.style.preferred_width,
             is_fixed: false,
-        })
-    }
-
-    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
-        let text_size = self.text_widget().size();
-        let style = &self.common.style().0.text_input;
-        Ok(SizeHints {
-            min: text_size.y() + 2 * style.min_padding_with_border.y(),
-            preferred: text_size.y() + 2 * style.preferred_padding_with_border.y(),
-            is_fixed: true,
         })
     }
 
@@ -296,5 +228,43 @@ impl Widget for TextInput {
         self.adjust_scroll(&[]);
 
         Ok(true)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextInputStyle {
+    pub min_width: PhysicalPixels,
+    pub preferred_width: PhysicalPixels,
+}
+
+impl ComputedElementStyle for TextInputStyle {
+    fn new(style: &Style, element: &Element, scale: f32) -> TextInputStyle {
+        let element_min = element
+            .clone()
+            .with_pseudo_class(PseudoClass::Custom("min".into()));
+
+        let properties = style.find_rules(|s| element.matches(s));
+        let font = convert_font(&properties, Some(&style.root_font_style()));
+        let preferred_width = convert_width(&properties, scale, font.font_size)
+            .or_report_err()
+            .flatten()
+            .unwrap_or_else(|| {
+                warn!("missing width in text input css");
+                (font.font_size * DEFAULT_PREFERRED_WIDTH_EM).to_physical(scale)
+            });
+
+        let min_properties = style.find_rules(|s| element_min.matches(s));
+        let min_width = convert_width(&min_properties, scale, font.font_size)
+            .or_report_err()
+            .flatten()
+            .unwrap_or_else(|| {
+                warn!("missing width in text input min css");
+                (font.font_size * DEFAULT_MIN_WIDTH_EM).to_physical(scale)
+            });
+
+        Self {
+            min_width,
+            preferred_width,
+        }
     }
 }

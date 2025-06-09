@@ -1,9 +1,7 @@
 use {
     salvation::{
         impl_widget_common,
-        widgets::{
-            label::Label, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped, WidgetExt,
-        },
+        widgets::{label::Label, window::WindowWidget, Widget, WidgetCommonTyped, WidgetExt},
     },
     salvation_test_kit::context::Context,
 };

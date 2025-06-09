@@ -2,8 +2,7 @@ use {
     salvation::{
         impl_widget_common,
         widgets::{
-            text_input::TextInput, window::WindowWidget, Widget, WidgetCommon, WidgetCommonTyped,
-            WidgetExt,
+            text_input::TextInput, window::WindowWidget, Widget, WidgetCommonTyped, WidgetExt,
         },
     },
     salvation_test_kit::context::Context,
