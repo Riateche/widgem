@@ -229,10 +229,6 @@ const DEFAULT_AUTO_REPEAT_DELAY: Duration = Duration::from_millis(500);
 const DEFAULT_AUTO_REPEAT_INTERVAL: Duration = Duration::from_millis(50);
 
 impl ApplicationHandler<UserEvent> for Handler {
-    // TODO: It's recommended that applications should only initialize their graphics context
-    // and create a window after they have received their first `Resumed` event.
-    fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
-
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -267,78 +263,88 @@ impl ApplicationHandler<UserEvent> for Handler {
         })
     }
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
-            self.before_handler();
-            if cause == StartCause::Init {
-                let mut db = fontdb::Database::new();
-                for custom_font_path in &self.app.custom_font_paths {
-                    if let Err(err) = db.load_font_file(custom_font_path) {
-                        warn!(
-                            "failed to initialize custom font from {:?}: {:?}",
-                            custom_font_path, err
-                        );
-                    }
-                }
-                if self.app.system_fonts {
-                    db.load_system_fonts();
-                }
-                let font_system =
-                    FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
-                let scale = match self.app.fixed_scale {
-                    None => default_scale(event_loop),
-                    Some(fixed_scale) => fixed_scale,
-                };
-
-                let shared_system_data = SharedSystemDataInner {
-                    config: SystemConfig {
-                        exit_after_last_window_closes: true,
-                        // TODO: should we fetch system settings instead?
-                        auto_repeat_delay: self
-                            .app
-                            .auto_repeat_delay
-                            .unwrap_or(DEFAULT_AUTO_REPEAT_DELAY),
-                        auto_repeat_interval: self
-                            .app
-                            .auto_repeat_interval
-                            .unwrap_or(DEFAULT_AUTO_REPEAT_INTERVAL),
-                    },
-                    address_book: HashMap::new(),
-                    font_system,
-                    swash_cache: SwashCache::new(),
-                    event_loop_proxy: self.event_loop_proxy.take().expect("only happens once"),
-                    // TODO: how to detect monitor scale change?
-                    style: default_style(),
-                    timers: Timers::new(),
-                    clipboard: Clipboard::new().expect("failed to initialize clipboard"),
-                    had_any_windows: false,
-                    windows: HashMap::new(),
-                    windows_by_winit_id: HashMap::new(),
-                    widget_callbacks: HashMap::new(),
-                    application_shortcuts: Vec::new(),
-                    pending_children_updates: Vec::new(),
-                    current_children_update: None,
-                };
-                SYSTEM.with(|system| {
-                    *system.0.borrow_mut() = Some(shared_system_data);
-                });
-
-                let id = RawWidgetId::new_unique();
-                let ctx = WidgetCreationContext {
-                    parent_id: None,
-                    address: WidgetAddress::root(id),
-                    window: None,
-                    // Scale doesn't matter for root widget. Window will set scale for its content.
-                    parent_scale: scale,
-                    is_parent_enabled: true,
-                    is_window_root: false,
-                };
-                let mut root_widget = RootWidget::new(WidgetCommon::new(ctx));
-                self.init.take().expect("double init")(&mut root_widget).or_report_err();
-                self.root_widget = Some(Box::new(root_widget));
-
-                self.is_initialized = true;
+            if self.is_initialized {
+                return;
             }
+
+            let mut db = fontdb::Database::new();
+            for custom_font_path in &self.app.custom_font_paths {
+                if let Err(err) = db.load_font_file(custom_font_path) {
+                    warn!(
+                        "failed to initialize custom font from {:?}: {:?}",
+                        custom_font_path, err
+                    );
+                }
+            }
+            if self.app.system_fonts {
+                db.load_system_fonts();
+            }
+            let font_system =
+                FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
+            let scale = match self.app.fixed_scale {
+                None => default_scale(event_loop),
+                Some(fixed_scale) => fixed_scale,
+            };
+
+            let shared_system_data = SharedSystemDataInner {
+                config: SystemConfig {
+                    exit_after_last_window_closes: true,
+                    // TODO: should we fetch system settings instead?
+                    auto_repeat_delay: self
+                        .app
+                        .auto_repeat_delay
+                        .unwrap_or(DEFAULT_AUTO_REPEAT_DELAY),
+                    auto_repeat_interval: self
+                        .app
+                        .auto_repeat_interval
+                        .unwrap_or(DEFAULT_AUTO_REPEAT_INTERVAL),
+                },
+                address_book: HashMap::new(),
+                font_system,
+                swash_cache: SwashCache::new(),
+                event_loop_proxy: self.event_loop_proxy.take().expect("only happens once"),
+                // TODO: how to detect monitor scale change?
+                style: default_style(),
+                timers: Timers::new(),
+                clipboard: Clipboard::new().expect("failed to initialize clipboard"),
+                had_any_windows: false,
+                windows: HashMap::new(),
+                windows_by_winit_id: HashMap::new(),
+                widget_callbacks: HashMap::new(),
+                application_shortcuts: Vec::new(),
+                pending_children_updates: Vec::new(),
+                current_children_update: None,
+            };
+            SYSTEM.with(|system| {
+                *system.0.borrow_mut() = Some(shared_system_data);
+            });
+
+            let id = RawWidgetId::new_unique();
+            let ctx = WidgetCreationContext {
+                parent_id: None,
+                address: WidgetAddress::root(id),
+                window: None,
+                // Scale doesn't matter for root widget. Window will set scale for its content.
+                parent_scale: scale,
+                is_parent_enabled: true,
+                is_window_root: false,
+            };
+            let mut root_widget = RootWidget::new(WidgetCommon::new(ctx));
+            self.init.take().expect("double init")(&mut root_widget).or_report_err();
+            self.root_widget = Some(Box::new(root_widget));
+
+            self.is_initialized = true;
+        });
+    }
+
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, _cause: StartCause) {
+        ACTIVE_EVENT_LOOP.set(event_loop, || {
+            if !self.is_initialized {
+                return;
+            }
+            self.before_handler();
             self.after_widget_activity();
         })
     }
