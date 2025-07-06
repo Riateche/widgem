@@ -17,3 +17,8 @@ fs-err = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
+
+[package.metadata.bundle.bin.salvation_tests]
+identifier = "io.github.Riateche.salvation.tests"
+name = "Salvation tests"
+icon = ["salvation/assets/32x32.png", "salvation/assets/128x128.png", "salvation/assets/128x128@2x.png"]
