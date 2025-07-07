@@ -153,6 +153,7 @@ auto_bitflags! {
         self_enabled,
         // true if this widget hasn't been explicitly hidden
         self_visible,
+        // true if this widget is a window root widget (typically a `WindowWidget`)
         window_root,
         mouse_over,
         accessible,
@@ -176,8 +177,6 @@ pub struct WidgetCommon {
 
     pub parent_scale: f32,
     pub self_scale: Option<f32>,
-
-    pub is_window_root: bool,
 
     pub is_mouse_over: bool,
 
@@ -252,6 +251,11 @@ impl WidgetCommon {
                     Flags::parent_enabled
                 } else {
                     Flags::empty()
+                }
+                | if ctx.is_window_root {
+                    Flags::window_root
+                } else {
+                    Flags::empty()
                 },
             parent_id: ctx.parent_id,
             address: ctx.address,
@@ -268,7 +272,6 @@ impl WidgetCommon {
             is_accessible: true,
             is_registered_as_focusable: false,
             event_filter: None,
-            is_window_root: ctx.is_window_root,
             shortcuts: Vec::new(),
             style_element,
             common_style,
@@ -363,6 +366,23 @@ impl WidgetCommon {
         self.flags.set(Flags::self_visible, value);
         self.size_hint_changed(); // trigger layout
         self
+    }
+
+    /// True if this widget is a root widget of an OS window.
+    ///
+    /// This is true for [crate::widgets::window::WindowWidget] and false for all other provided widget types.
+    pub fn is_window_root(&self) -> bool {
+        self.flags.contains(Flags::window_root)
+    }
+
+    /// True if this widget participates in a grid layout.
+    ///
+    /// This is true if all the following conditions hold:
+    /// - It's not a [window root](crate::widgets::window::WindowWidget).
+    /// - It hasn't been explicitly hidden with [`set_visible(false)`](Self::set_visible).
+    /// - It has the row and the column set.
+    pub(crate) fn is_in_grid(&self) -> bool {
+        self.layout_item_options.is_in_grid() && !self.is_window_root() && self.is_self_visible()
     }
 
     /// True if this widget hasn't been explicitly disabled.

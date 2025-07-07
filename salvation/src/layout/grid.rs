@@ -96,10 +96,7 @@ pub fn size_hint_x(items: &mut BTreeMap<Key, Box<dyn Widget>>, options: &GridOpt
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
     for item in items.values_mut() {
-        if !(item.common().layout_item_options.is_in_grid()
-            && !item.common().is_window_root
-            && item.common().is_self_visible())
-        {
+        if !item.common().is_in_grid() {
             continue;
         }
 
@@ -143,7 +140,7 @@ pub fn size_hint_y(
     let mut all_fixed = true;
     for (key, item) in items.iter_mut() {
         if !item.common().layout_item_options.is_in_grid()
-            || item.common().is_window_root
+            || item.common().is_window_root()
             || !item.common().is_self_visible()
         {
             continue;
@@ -195,10 +192,7 @@ fn x_layout(
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
     for item in items.values_mut() {
-        if !item.common().layout_item_options.is_in_grid()
-            || item.common().is_window_root
-            || !item.common().is_self_visible()
-        {
+        if !item.common().is_in_grid() {
             continue;
         }
         let Some(pos) = item.common().layout_item_options.x.pos_in_grid.clone() else {
@@ -225,10 +219,7 @@ fn x_layout(
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
     for (key, item) in items.iter_mut() {
-        if !item.common().layout_item_options.is_in_grid()
-            || item.common().is_window_root
-            || !item.common().is_self_visible()
-        {
+        if !item.common().is_in_grid() {
             continue;
         }
         let Some(pos) = item.common().layout_item_options.x.pos_in_grid.clone() else {
@@ -278,7 +269,8 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
     );
     let mut hints_per_row = BTreeMap::new();
     for (key, item) in &mut widget.common_mut().children {
-        if !item.common().layout_item_options.is_in_grid() || item.common().is_window_root {
+        // TODO: use item.common().is_in_grid()
+        if !item.common().layout_item_options.is_in_grid() || item.common().is_window_root() {
             //|| !item.common().is_self_visible {
             continue;
         }
