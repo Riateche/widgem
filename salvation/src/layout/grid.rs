@@ -98,7 +98,7 @@ pub fn size_hint_x(items: &mut BTreeMap<Key, Box<dyn Widget>>, options: &GridOpt
     for item in items.values_mut() {
         if !(item.common().layout_item_options.is_in_grid()
             && !item.common().is_window_root
-            && item.common().is_self_visible)
+            && item.common().is_self_visible())
         {
             continue;
         }
@@ -144,7 +144,7 @@ pub fn size_hint_y(
     for (key, item) in items.iter_mut() {
         if !item.common().layout_item_options.is_in_grid()
             || item.common().is_window_root
-            || !item.common().is_self_visible
+            || !item.common().is_self_visible()
         {
             continue;
         }
@@ -197,7 +197,7 @@ fn x_layout(
     for item in items.values_mut() {
         if !item.common().layout_item_options.is_in_grid()
             || item.common().is_window_root
-            || !item.common().is_self_visible
+            || !item.common().is_self_visible()
         {
             continue;
         }
@@ -227,7 +227,7 @@ fn x_layout(
     for (key, item) in items.iter_mut() {
         if !item.common().layout_item_options.is_in_grid()
             || item.common().is_window_root
-            || !item.common().is_self_visible
+            || !item.common().is_self_visible()
         {
             continue;
         }

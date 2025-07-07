@@ -434,6 +434,7 @@ impl WindowWithWidget<'_> {
             }
         }
 
+        // TODO: set geometry to `None` when window is hidden.
         self.root_widget
             .set_geometry(Some(WidgetGeometry::root(inner_size)), &changed_size_hints);
     }

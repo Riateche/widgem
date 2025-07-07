@@ -48,11 +48,7 @@ pub trait WidgetExt: Widget {
     }
 
     fn set_visible(&mut self, value: bool) -> &mut Self {
-        if self.common_mut().is_self_visible == value {
-            return self;
-        }
-        self.common_mut().is_self_visible = value;
-        self.common_mut().size_hint_changed(); // trigger layout
+        self.common_mut().set_visible(value);
         self
     }
 

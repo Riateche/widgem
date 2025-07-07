@@ -151,6 +151,7 @@ auto_bitflags! {
         parent_enabled,
         // true if this widget hasn't been explicitly disabled
         self_enabled,
+        // true if this widget hasn't been explicitly hidden
         self_visible,
         window_root,
         mouse_over,
@@ -175,7 +176,6 @@ pub struct WidgetCommon {
 
     pub parent_scale: f32,
     pub self_scale: Option<f32>,
-    pub is_self_visible: bool,
 
     pub is_window_root: bool,
 
@@ -258,7 +258,6 @@ impl WidgetCommon {
             window: ctx.window,
             parent_scale: ctx.parent_scale,
             self_scale: None,
-            is_self_visible: true,
             is_mouse_over: false,
             geometry: None,
             cursor_icon: CursorIcon::Default,
@@ -317,8 +316,53 @@ impl WidgetCommon {
         self.window.as_ref().map(|w| w.id())
     }
 
+    // TODO: revise behavior on hidden windows
+
+    /// True if this widget is currently visible.
+    ///
+    /// Widgets are visible by default, but can become hidden in a variety of ways:
+    /// - You can explicitly hide a widget with [`set_visible(false)`](Self::set_visible).
+    /// - A widget is not visible if its parent is not visible.
+    /// - The parent can choose to hide any of its direct children when calculating its layout.
+    ///   For example, a tab widget would hide widgets corresponding to the contents of inactive tabs.
+    /// - A widget is not visible if it's out of bounds of its direct or indirect parents.
+    ///   This commonly occurs to widgets inside a [crate::widgets::scroll_area::ScrollArea].
+    /// - A widget is not visible if it doesn't belong to a window.
+    ///
+    /// The following cases do not count as hidden widgets:
+    /// - A widget obscured by another widget positioned on top of it.
+    /// - A widget obscued by another OS window.
+    /// - A widget in a minimized or hidden window.
+    pub fn is_visible(&self) -> bool {
+        self.geometry
+            .as_ref()
+            .is_some_and(|g| !g.visible_rect_in_self().is_empty())
+    }
+
+    /// True if this widget hasn't been explicitly hidden.
+    ///
+    /// This method can be used to tell if the widget is hidden because `set_visible(false)` was called on it
+    /// or because of its parent. In most cases it's sufficient to use [is_visible](Self::is_visible) instead.
     pub fn is_self_visible(&self) -> bool {
-        self.is_self_visible
+        self.flags.contains(Flags::self_visible)
+    }
+
+    /// Hide or show a widget.
+    ///
+    /// A widget hidden with `set_visible(false)` will never be automatically shown. It can only be shown with
+    /// `set_visible(true)`.
+    ///
+    /// A widget can also be hidden because of its parent or its position within a parent
+    /// (see [is_visible](Self::is_visible)).
+    /// If this is the case, calling `set_visible` will still change the visibility flag of the widget, but
+    /// the widget will not become visible unless all conditions for its visibility are met.
+    pub fn set_visible(&mut self, value: bool) -> &mut Self {
+        if self.is_self_visible() == value {
+            return self;
+        }
+        self.flags.set(Flags::self_visible, value);
+        self.size_hint_changed(); // trigger layout
+        self
     }
 
     /// True if this widget hasn't been explicitly disabled.
