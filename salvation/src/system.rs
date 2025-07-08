@@ -2,12 +2,11 @@ use {
     crate::{
         callback::{Callback, CallbackId, WidgetCallbackData},
         event_loop::UserEvent,
+        shared_window::{WindowId, WindowInfo, WindowRequest},
         shortcut::Shortcut,
         style::Style,
         timer::{Timer, TimerId, Timers},
         widgets::{RawWidgetId, WidgetAddress},
-        window::{WindowId, WindowRequest},
-        window_handler::WindowInfo,
     },
     anyhow::Result,
     arboard::Clipboard,

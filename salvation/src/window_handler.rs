@@ -6,13 +6,13 @@ use {
             ScrollToRectRequest, WindowFocusChangeEvent,
         },
         event_loop::UserEvent,
+        shared_window::{MouseEventState, SharedWindow, WindowRequest},
         system::{address, with_system, ReportError},
         types::{PhysicalPixels, Point, Size},
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
             RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
         },
-        window::{MouseEventState, Window, WindowId, WindowRequest},
     },
     accesskit::ActionRequest,
     log::{trace, warn},
@@ -24,30 +24,19 @@ use {
     },
 };
 
-#[derive(Debug, Clone)]
-pub struct WindowInfo {
-    pub id: WindowId,
-    pub shared_window_data: Window,
-    pub root_widget_id: RawWidgetId,
-}
-
-pub struct WindowWithWidget<'a> {
-    pub id: WindowId,
-    pub window: Window,
+pub struct WindowHandler<'a> {
+    pub window: SharedWindow,
     pub root_widget: &'a mut dyn Widget,
 }
 
-impl WindowInfo {
-    pub fn with_root(self, root_widget: &mut dyn Widget) -> WindowWithWidget<'_> {
-        WindowWithWidget {
-            id: self.id,
-            window: self.shared_window_data,
+impl<'a> WindowHandler<'a> {
+    pub fn new(window: SharedWindow, root_widget: &'a mut dyn Widget) -> Self {
+        WindowHandler {
+            window,
             root_widget,
         }
     }
-}
 
-impl WindowWithWidget<'_> {
     pub(crate) fn dispatch_mouse_leave(&mut self) {
         while let Some(id) = self.window.pop_mouse_entered_widget() {
             if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {
@@ -106,8 +95,7 @@ impl WindowWithWidget<'_> {
                     if let Ok(mouse_grabber_widget) =
                         get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
                     {
-                        if let Some(rect_in_window) = mouse_grabber_widget.base().rect_in_window()
-                        {
+                        if let Some(rect_in_window) = mouse_grabber_widget.base().rect_in_window() {
                             let pos_in_widget = pos_in_window - rect_in_window.top_left();
                             mouse_grabber_widget.dispatch(
                                 MouseMoveEvent {

@@ -1,6 +1,7 @@
 use {
     crate::{
         callback::{CallbackId, InvokeCallbackEvent},
+        shared_window::{WindowId, WindowRequest},
         style::defaults::default_style,
         system::{
             address, take_pending_children_updates, with_system, ReportError,
@@ -11,7 +12,7 @@ use {
             get_widget_by_address_mut, get_widget_by_id_mut, root::RootWidget, RawWidgetId, Widget,
             WidgetAddress, WidgetBase, WidgetCreationContext, WidgetExt,
         },
-        window::{WindowId, WindowRequest},
+        window_handler::WindowHandler,
     },
     arboard::Clipboard,
     cosmic_text::{fontdb, FontSystem, SwashCache},
@@ -211,7 +212,8 @@ impl Handler {
             )
             .or_report_err()
             {
-                window.with_root(window_root_widget).after_widget_activity();
+                WindowHandler::new(window.shared_window, window_root_widget)
+                    .after_widget_activity();
             }
         }
         //println!("after widget activity1 ok");
@@ -256,7 +258,7 @@ impl ApplicationHandler<UserEvent> for Handler {
             if let Some(window_root_widget) =
                 get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id).or_report_err()
             {
-                window.with_root(window_root_widget).handle_event(event);
+                WindowHandler::new(window.shared_window, window_root_widget).handle_event(event);
             }
 
             self.after_widget_activity();
@@ -372,7 +374,8 @@ impl ApplicationHandler<UserEvent> for Handler {
                         warn!("missing root widget when dispatching WindowRequest");
                         return;
                     };
-                    window.with_root(window_root_widget).handle_request(request);
+                    WindowHandler::new(window.shared_window, window_root_widget)
+                        .handle_request(request);
                 }
                 // TODO: remove event, remove window directly
                 UserEvent::InvokeCallback(event) => {
@@ -385,13 +388,14 @@ impl ApplicationHandler<UserEvent> for Handler {
                         warn!("missing window object when dispatching Accesskit event");
                         return;
                     };
-                    let Ok(root_widget) =
+                    let Ok(window_root_widget) =
                         get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id)
                     else {
                         warn!("missing root widget when dispatching Accesskit event");
                         return;
                     };
-                    window.with_root(root_widget).handle_accesskit_event(event);
+                    WindowHandler::new(window.shared_window, window_root_widget)
+                        .handle_accesskit_event(event);
                 }
                 UserEvent::DeleteWidget(id) => {
                     if id == root_widget.base().id() {

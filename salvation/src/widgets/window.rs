@@ -1,15 +1,15 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, window::X11WindowType},
+    crate::{impl_widget_base, shared_window::X11WindowType},
     std::fmt::Display,
     winit::window::WindowLevel,
 };
 
-pub struct WindowWidget {
+pub struct Window {
     base: WidgetBaseOf<Self>,
 }
 
-impl WindowWidget {
+impl Window {
     pub fn set_title(&mut self, title: impl Display) -> &mut Self {
         self.base.window.as_ref().unwrap().set_title(title);
         self
@@ -44,7 +44,7 @@ impl WindowWidget {
     }
 }
 
-impl Widget for WindowWidget {
+impl Widget for Window {
     impl_widget_base!();
 
     fn is_window_root_type() -> bool {
@@ -56,7 +56,7 @@ impl Widget for WindowWidget {
     }
 }
 
-impl Drop for WindowWidget {
+impl Drop for Window {
     fn drop(&mut self) {
         self.base.window.as_ref().unwrap().deregister();
     }

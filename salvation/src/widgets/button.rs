@@ -15,7 +15,7 @@ use {
         system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
         timer::TimerId,
-        window::SetFocusRequest,
+        shared_window::SetFocusRequest,
     },
     accesskit::{Action, Role},
     anyhow::Result,

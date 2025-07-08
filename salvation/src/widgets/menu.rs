@@ -1,6 +1,6 @@
 use {
-    super::{label::Label, window::WindowWidget, Widget, WidgetBaseOf, WidgetExt},
-    crate::{impl_widget_base, window::X11WindowType},
+    super::{label::Label, window::Window, Widget, WidgetBaseOf, WidgetExt},
+    crate::{impl_widget_base, shared_window::X11WindowType},
     winit::window::WindowLevel,
 };
 
@@ -15,7 +15,7 @@ impl Widget for Menu {
 
     fn new(mut base: WidgetBaseOf<Self>) -> Self {
         let window = base
-            .add_child::<WindowWidget>()
+            .add_child::<Window>()
             .set_decorations(false)
             .set_window_level(WindowLevel::AlwaysOnTop)
             .set_x11_window_type(vec![X11WindowType::Menu])

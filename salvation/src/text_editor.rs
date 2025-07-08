@@ -26,7 +26,7 @@ use {
         timer::TimerId,
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetBaseOf, WidgetExt},
-        window::{ScrollToRectRequest, SetFocusRequest},
+        shared_window::{ScrollToRectRequest, SetFocusRequest},
     },
     accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
     anyhow::Result,

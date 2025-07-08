@@ -7,7 +7,7 @@ use {
         system::add_interval,
         widgets::{
             button::Button, column::Column, label::Label, scroll_area::ScrollArea,
-            text_input::TextInput, window::WindowWidget, Widget, WidgetBaseOf, WidgetExt, WidgetId,
+            text_input::TextInput, window::Window, Widget, WidgetBaseOf, WidgetExt, WidgetId,
         },
         App,
     },
@@ -40,7 +40,7 @@ impl Widget for AnotherWidget {
             println!("counter: {}", this.counter);
             let window = this
                 .base
-                .add_child_with_key::<WindowWidget>(("window", this.counter))
+                .add_child_with_key::<Window>(("window", this.counter))
                 .set_title("example");
             println!("window {:?}", window.id());
             let label = window
@@ -115,7 +115,7 @@ impl Widget for RootWidget {
     fn new(mut base: WidgetBaseOf<Self>) -> Self {
         let id = base.id();
 
-        let window = base.add_child::<WindowWidget>().set_title("example");
+        let window = base.add_child::<Window>().set_title("example");
 
         let root = window
             .base_mut()

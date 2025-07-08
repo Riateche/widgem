@@ -10,7 +10,7 @@ use {
         tiny_skia::{Pixmap, PremultipliedColorU8},
         types::Point,
         widgets::{
-            button::Button, image::Image, label::Label, row::Row, window::WindowWidget, Widget,
+            button::Button, image::Image, label::Label, row::Row, window::Window, Widget,
             WidgetBaseOf, WidgetExt, WidgetId,
         },
     },
@@ -120,7 +120,7 @@ impl Widget for ReviewWidget {
         // TODO: Grid widget
 
         let window = base
-            .add_child::<WindowWidget>()
+            .add_child::<Window>()
             .set_title("salvation test review");
 
         window

@@ -9,6 +9,7 @@ pub mod event;
 mod event_loop;
 pub mod key;
 pub mod layout;
+pub mod shared_window;
 pub mod shortcut;
 pub mod style;
 pub mod system;
@@ -17,7 +18,6 @@ pub mod text_editor;
 pub mod timer;
 pub mod types;
 pub mod widgets;
-pub mod window;
 mod window_handler;
 
 use event_loop::with_active_event_loop;

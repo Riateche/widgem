@@ -17,7 +17,7 @@ use {
         },
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::WidgetExt,
-        window::{Window, WindowId},
+        shared_window::{SharedWindow, WindowId},
     },
     anyhow::{Context, Result},
     derivative::Derivative,
@@ -38,7 +38,7 @@ use {
 pub struct WidgetCreationContext {
     pub parent_id: Option<RawWidgetId>,
     pub address: WidgetAddress,
-    pub window: Option<Window>,
+    pub window: Option<SharedWindow>,
     pub parent_scale: f32,
     pub is_parent_enabled: bool,
     pub is_window_root: bool,
@@ -180,7 +180,7 @@ pub struct WidgetBase {
 
     parent_id: Option<RawWidgetId>,
     address: WidgetAddress,
-    pub window: Option<Window>,
+    pub window: Option<SharedWindow>,
 
     pub parent_scale: f32,
     pub self_scale: Option<f32>,
@@ -466,7 +466,7 @@ impl WidgetBase {
         &self,
         new_id: RawWidgetId,
         key: Key,
-        root_of_window: Option<Window>,
+        root_of_window: Option<SharedWindow>,
     ) -> WidgetCreationContext {
         WidgetCreationContext {
             parent_id: Some(self.id),
@@ -550,7 +550,7 @@ impl WidgetBase {
 
         let new_id = new_id.unwrap_or_else(RawWidgetId::new_unique);
         let ctx = if T::is_window_root_type() {
-            let new_window = Window::new(new_id);
+            let new_window = SharedWindow::new(new_id);
             self.new_creation_context(new_id, key.clone(), Some(new_window.clone()))
         } else {
             self.new_creation_context(new_id, key.clone(), None)
@@ -681,7 +681,7 @@ impl WidgetBase {
         self.size_hint_y_cache.clear();
     }
 
-    pub fn window_or_err(&self) -> Result<&Window> {
+    pub fn window_or_err(&self) -> Result<&SharedWindow> {
         self.window.as_ref().context("no window")
     }
 

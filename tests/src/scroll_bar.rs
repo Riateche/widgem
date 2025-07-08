@@ -4,8 +4,7 @@ use {
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
-            label::Label, scroll_bar::ScrollBar, window::WindowWidget, Widget, WidgetBaseOf,
-            WidgetExt,
+            label::Label, scroll_bar::ScrollBar, window::Window, Widget, WidgetBaseOf, WidgetExt,
         },
     },
     salvation_test_kit::context::Context,
@@ -80,7 +79,7 @@ impl Widget for RootWidget {
 
         let window = self
             .base
-            .declare_child::<WindowWidget>()
+            .declare_child::<Window>()
             .set_title(module_path!());
 
         window

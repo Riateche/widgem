@@ -1,7 +1,7 @@
 use {
     salvation::{
         impl_widget_base,
-        widgets::{text_input::TextInput, window::WindowWidget, Widget, WidgetBaseOf, WidgetExt},
+        widgets::{text_input::TextInput, window::Window, Widget, WidgetBaseOf, WidgetExt},
     },
     salvation_test_kit::context::Context,
 };
@@ -14,7 +14,7 @@ impl Widget for RootWidget {
     impl_widget_base!();
 
     fn new(mut base: WidgetBaseOf<Self>) -> Self {
-        let window = base.add_child::<WindowWidget>().set_title(module_path!());
+        let window = base.add_child::<Window>().set_title(module_path!());
 
         window
             .base_mut()

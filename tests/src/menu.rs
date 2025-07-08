@@ -1,9 +1,7 @@
 use {
     salvation::{
         impl_widget_base,
-        widgets::{
-            button::Button, menu::Menu, window::WindowWidget, Widget, WidgetBaseOf, WidgetExt,
-        },
+        widgets::{button::Button, menu::Menu, window::Window, Widget, WidgetBaseOf, WidgetExt},
     },
     salvation_test_kit::context::Context,
 };
@@ -24,7 +22,7 @@ impl Widget for RootWidget {
 
     fn new(mut base: WidgetBaseOf<Self>) -> Self {
         let id = base.id();
-        let window = base.add_child::<WindowWidget>().set_title(module_path!());
+        let window = base.add_child::<Window>().set_title(module_path!());
 
         window
             .base_mut()

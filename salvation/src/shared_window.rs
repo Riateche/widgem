@@ -8,7 +8,6 @@ use {
         system::with_system,
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
-        window_handler::WindowInfo,
     },
     accesskit::NodeId,
     anyhow::{bail, Context},
@@ -58,9 +57,17 @@ impl MouseEventState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WindowId(RawWidgetId);
 
+#[derive(Debug, Clone)]
+pub struct WindowInfo {
+    pub id: WindowId,
+    pub shared_window: SharedWindow,
+    pub root_widget_id: RawWidgetId,
+}
+
+// TODO: private
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct WindowInner {
+pub struct SharedWindowInner {
     pub id: WindowId,
     pub root_widget_id: RawWidgetId,
     pub cursor_position: Option<Point>,
@@ -154,11 +161,11 @@ impl Default for Attributes {
 }
 
 #[derive(Debug, Clone)]
-pub struct Window(Rc<RefCell<WindowInner>>);
+pub struct SharedWindow(Rc<RefCell<SharedWindowInner>>);
 
-impl Window {
+impl SharedWindow {
     pub(crate) fn new(root_widget_id: RawWidgetId) -> Self {
-        let window = Window(Rc::new(RefCell::new(WindowInner {
+        let window = SharedWindow(Rc::new(RefCell::new(SharedWindowInner {
             id: WindowId(RawWidgetId::new_unique()),
             root_widget_id,
             cursor_position: None,
@@ -197,7 +204,7 @@ impl Window {
         let info = WindowInfo {
             id: window.id(),
             root_widget_id,
-            shared_window_data: window.clone(),
+            shared_window: window.clone(),
         };
         // TODO: when to remove?
         with_system(|system| {
@@ -300,7 +307,7 @@ impl Window {
         let info = WindowInfo {
             id: self.id(),
             root_widget_id: self.root_widget_id(),
-            shared_window_data: self.clone(),
+            shared_window: self.clone(),
         };
         // TODO: when to remove?
         with_system(|system| {
