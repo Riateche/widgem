@@ -1,11 +1,11 @@
 use {
-    super::{label::Label, window::WindowWidget, Widget, WidgetCommonTyped, WidgetExt},
+    super::{label::Label, window::WindowWidget, Widget, WidgetBaseOf, WidgetExt},
     crate::{impl_widget_common, window::X11WindowType},
     winit::window::WindowLevel,
 };
 
 pub struct Menu {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
 }
 
 impl Menu {}
@@ -13,7 +13,7 @@ impl Menu {}
 impl Widget for Menu {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         let window = common
             .add_child::<WindowWidget>()
             .set_decorations(false)

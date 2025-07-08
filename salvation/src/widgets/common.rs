@@ -234,7 +234,7 @@ fn last_path_part(str: &str) -> &str {
 
 impl WidgetBase {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<T: Widget>(ctx: WidgetCreationContext) -> WidgetCommonTyped<T> {
+    pub fn new<T: Widget>(ctx: WidgetCreationContext) -> WidgetBaseOf<T> {
         let id = ctx.address.widget_id();
         register_address(id, ctx.address.clone());
 
@@ -307,8 +307,8 @@ impl WidgetBase {
         common.focusable_changed();
         common.refresh_common_style();
 
-        WidgetCommonTyped {
-            common,
+        WidgetBaseOf {
+            base: common,
             _marker: PhantomData,
         }
     }
@@ -1062,14 +1062,22 @@ impl WidgetBase {
 }
 
 #[derive(Debug)]
-pub struct WidgetCommonTyped<T> {
-    pub common: WidgetBase,
+pub struct WidgetBaseOf<T> {
+    base: WidgetBase,
     _marker: PhantomData<T>,
 }
 
-impl<W> WidgetCommonTyped<W> {
+impl<W> WidgetBaseOf<W> {
+    pub fn untyped(&self) -> &WidgetBase {
+        &self.base
+    }
+
+    pub fn untyped_mut(&mut self) -> &mut WidgetBase {
+        &mut self.base
+    }
+
     pub fn id(&self) -> WidgetId<W> {
-        WidgetId::new(self.common.id)
+        WidgetId::new(self.base.id)
     }
 
     pub fn callback<E, F>(&self, func: F) -> Callback<E>
@@ -1078,14 +1086,14 @@ impl<W> WidgetCommonTyped<W> {
         F: Fn(&mut W, E) -> Result<()> + 'static,
         E: 'static,
     {
-        widget_callback(WidgetId::<W>::new(self.common.id), func)
+        widget_callback(WidgetId::<W>::new(self.base.id), func)
     }
 
     pub fn add_child<T: Widget>(&mut self) -> &mut T {
-        self.common.add_child::<T>()
+        self.base.add_child::<T>()
     }
     pub fn add_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
-        self.common.add_child_with_key::<T>(key)
+        self.base.add_child_with_key::<T>(key)
     }
 
     /// Report the widget as supporting (or not supporting) focus.
@@ -1100,12 +1108,12 @@ impl<W> WidgetCommonTyped<W> {
     /// to be focusable by default,
     /// Call `set_focusable(false)` **after** `set_supports_focus(true)`.
     pub fn set_supports_focus(&mut self, supports_focus: bool) -> &mut Self {
-        let old_flags = self.common.flags.bits();
-        self.common.flags.set(
+        let old_flags = self.base.flags.bits();
+        self.base.flags.set(
             Flags::supports_focus | Flags::self_focusable,
             supports_focus,
         );
-        if self.common.flags.bits() == old_flags {
+        if self.base.flags.bits() == old_flags {
             return self;
         }
         self.focusable_changed();
@@ -1113,22 +1121,22 @@ impl<W> WidgetCommonTyped<W> {
     }
 }
 
-impl<T> Deref for WidgetCommonTyped<T> {
+impl<T> Deref for WidgetBaseOf<T> {
     type Target = WidgetBase;
 
     fn deref(&self) -> &Self::Target {
-        &self.common
+        &self.base
     }
 }
 
-impl<T> DerefMut for WidgetCommonTyped<T> {
+impl<T> DerefMut for WidgetBaseOf<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.common
+        &mut self.base
     }
 }
 
-impl<T> From<WidgetCommonTyped<T>> for WidgetBase {
-    fn from(value: WidgetCommonTyped<T>) -> Self {
-        value.common
+impl<T> From<WidgetBaseOf<T>> for WidgetBase {
+    fn from(value: WidgetBaseOf<T>) -> Self {
+        value.base
     }
 }

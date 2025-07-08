@@ -1,6 +1,6 @@
 use {
     super::{
-        scroll_bar::ScrollBar, Widget, WidgetAddress, WidgetCommonTyped, WidgetExt, WidgetGeometry,
+        scroll_bar::ScrollBar, Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry,
     },
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
@@ -14,7 +14,7 @@ use {
 };
 
 pub struct ScrollArea {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
 }
 
 const INDEX_SCROLL_BAR_X: u64 = 0;
@@ -168,7 +168,7 @@ impl ScrollArea {
 impl Widget for ScrollArea {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         let relayout = common.callback(|this, _| this.relayout(&[]));
 
         // TODO: icons, localized name
@@ -221,7 +221,7 @@ impl Widget for ScrollArea {
 }
 
 pub struct Viewport {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
 }
 
 impl Viewport {}
@@ -229,7 +229,7 @@ impl Viewport {}
 impl Widget for Viewport {
     impl_widget_common!();
 
-    fn new(common: WidgetCommonTyped<Self>) -> Self {
+    fn new(common: WidgetBaseOf<Self>) -> Self {
         Self { common }
     }
 

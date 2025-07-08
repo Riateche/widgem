@@ -21,7 +21,7 @@ pub mod window;
 
 pub use self::{
     address::WidgetAddress,
-    common::{EventFilterFn, WidgetBase, WidgetCommonTyped, WidgetCreationContext, WidgetGeometry},
+    common::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetCreationContext, WidgetGeometry},
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId},
     widget_trait::Widget,
@@ -83,11 +83,11 @@ macro_rules! impl_widget_common {
         }
 
         fn common(&self) -> &$crate::WidgetBase {
-            &self.common.common
+            self.common.untyped()
         }
 
         fn common_mut(&mut self) -> &mut $crate::WidgetBase {
-            &mut self.common.common
+            self.common.untyped_mut()
         }
     };
 }

@@ -25,7 +25,7 @@ use {
         },
         timer::TimerId,
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
-        widgets::{RawWidgetId, Widget, WidgetCommonTyped, WidgetExt},
+        widgets::{RawWidgetId, Widget, WidgetBaseOf, WidgetExt},
         window::{ScrollToRectRequest, SetFocusRequest},
     },
     accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
@@ -106,7 +106,7 @@ impl ComputedElementStyle for TextStyle {
 }
 
 pub struct Text {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     style: Rc<TextStyle>,
     editor: Editor<'static>,
     pixmap: Option<Pixmap>,
@@ -998,7 +998,7 @@ impl Text {
 impl Widget for Text {
     impl_widget_common!();
 
-    fn new(common: WidgetCommonTyped<Self>) -> Self {
+    fn new(common: WidgetBaseOf<Self>) -> Self {
         // Host element is not known at this time.
         let style = TextStyle::default(common.scale());
         let editor = with_system(|system| {

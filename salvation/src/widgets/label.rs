@@ -1,12 +1,12 @@
 use {
-    super::{Widget, WidgetCommonTyped, WidgetExt},
+    super::{Widget, WidgetBaseOf, WidgetExt},
     crate::{impl_widget_common, text_editor::Text},
     cosmic_text::Attrs,
     std::fmt::Display,
 };
 
 pub struct Label {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
 }
 
 impl Label {
@@ -30,7 +30,7 @@ impl Label {
 impl Widget for Label {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         let id = common.id().raw();
         let element = common.style_element().clone();
         common

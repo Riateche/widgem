@@ -1,5 +1,5 @@
 use {
-    super::{WidgetBase, WidgetCommonTyped},
+    super::{WidgetBase, WidgetBaseOf},
     crate::{
         draw::DrawEvent,
         event::{
@@ -60,7 +60,7 @@ pub trait Widget: Any {
     /// When implementing this function, you should always store the `common` argument value inside your widget object.
     /// As a convention, you should store it in the widget's field named `common`.
     /// Your implementations of [common](Self::common) and [common_mut](Self::common_mut) must return a reference to that object.
-    fn new(common: WidgetCommonTyped<Self>) -> Self
+    fn new(common: WidgetBaseOf<Self>) -> Self
     where
         Self: Sized;
 

@@ -1,5 +1,5 @@
 use {
-    super::{button::Button, Widget, WidgetAddress, WidgetCommonTyped, WidgetExt, WidgetGeometry},
+    super::{button::Button, Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         callback::{Callback, Callbacks},
         event::{
@@ -25,7 +25,7 @@ use {
 };
 
 pub struct ScrollBar {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     axis: Axis,
     current_grip_pos: PhysicalPixels,
     max_slider_pos: PhysicalPixels,
@@ -521,7 +521,7 @@ impl ScrollBar {
 impl Widget for ScrollBar {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         common.set_supports_focus(true).set_focusable(false);
         // TODO: localized name
 
@@ -753,7 +753,7 @@ impl Widget for ScrollBar {
 }
 
 struct Pager {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     axis: Axis,
 }
 
@@ -770,7 +770,7 @@ const PAGER_SIZE_HINT_MULTIPLIER: i32 = 2;
 impl Widget for Pager {
     impl_widget_common!();
 
-    fn new(common: WidgetCommonTyped<Self>) -> Self {
+    fn new(common: WidgetBaseOf<Self>) -> Self {
         let mut t = Self {
             common,
             axis: Axis::X,

@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetAddress, WidgetCommonTyped, WidgetExt, WidgetGeometry},
+    super::{Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         event::{
             FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
@@ -25,13 +25,13 @@ use {
 };
 
 struct Viewport {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
 }
 
 impl Widget for Viewport {
     impl_widget_common!();
 
-    fn new(common: WidgetCommonTyped<Self>) -> Self {
+    fn new(common: WidgetBaseOf<Self>) -> Self {
         Self { common }
     }
 
@@ -56,7 +56,7 @@ impl Widget for Viewport {
 }
 
 pub struct TextInput {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     style: Rc<TextInputStyle>,
 }
 
@@ -159,7 +159,7 @@ impl TextInput {
 impl Widget for TextInput {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         common.set_supports_focus(true);
         common.set_cursor_icon(CursorIcon::Text);
         let host_id = common.id();

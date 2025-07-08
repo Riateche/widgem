@@ -7,8 +7,7 @@ use {
         system::add_interval,
         widgets::{
             button::Button, column::Column, label::Label, scroll_area::ScrollArea,
-            text_input::TextInput, window::WindowWidget, Widget, WidgetCommonTyped, WidgetExt,
-            WidgetId,
+            text_input::TextInput, window::WindowWidget, Widget, WidgetBaseOf, WidgetExt, WidgetId,
         },
         App,
     },
@@ -16,7 +15,7 @@ use {
 };
 
 struct AnotherWidget {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     counter: i32,
 }
 
@@ -34,7 +33,7 @@ struct AnotherWidget {
 impl Widget for AnotherWidget {
     impl_widget_common!();
 
-    fn new(common: WidgetCommonTyped<Self>) -> Self {
+    fn new(common: WidgetBaseOf<Self>) -> Self {
         let mut this = Self { counter: 0, common };
         let callback = this.callback(|this, _event| {
             this.counter += 1;
@@ -65,7 +64,7 @@ impl Widget for AnotherWidget {
 }
 
 struct RootWidget {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     button_id: WidgetId<Button>,
     column2_id: WidgetId<Column>,
     button21_id: WidgetId<Button>,
@@ -113,7 +112,7 @@ impl RootWidget {
 impl Widget for RootWidget {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         let id = common.id();
 
         let window = common.add_child::<WindowWidget>().set_title("example");

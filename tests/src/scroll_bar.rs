@@ -4,7 +4,7 @@ use {
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
-            label::Label, scroll_bar::ScrollBar, window::WindowWidget, Widget, WidgetCommonTyped,
+            label::Label, scroll_bar::ScrollBar, window::WindowWidget, Widget, WidgetBaseOf,
             WidgetExt,
         },
     },
@@ -13,7 +13,7 @@ use {
 };
 
 pub struct RootWidget {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     range: RangeInclusive<i32>,
     axis: Axis,
     focusable: bool,
@@ -31,7 +31,7 @@ impl RootWidget {
 impl Widget for RootWidget {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         let on_r = common.callback(|this, _| {
             this.axis = match this.axis {
                 Axis::X => Axis::Y,

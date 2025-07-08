@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommonTyped, WidgetExt, WidgetGeometry},
+    super::{Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         event::LayoutEvent,
         impl_widget_common,
@@ -11,7 +11,7 @@ use {
 };
 
 pub struct Stack {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
 }
 
 impl Stack {
@@ -35,7 +35,7 @@ impl Stack {
 impl Widget for Stack {
     impl_widget_common!();
 
-    fn new(common: WidgetCommonTyped<Self>) -> Self {
+    fn new(common: WidgetBaseOf<Self>) -> Self {
         Self { common }
     }
 

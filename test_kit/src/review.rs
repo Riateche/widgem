@@ -11,7 +11,7 @@ use {
         types::Point,
         widgets::{
             button::Button, image::Image, label::Label, row::Row, window::WindowWidget, Widget,
-            WidgetCommonTyped, WidgetExt, WidgetId,
+            WidgetBaseOf, WidgetExt, WidgetId,
         },
     },
     std::{
@@ -24,7 +24,7 @@ use {
 };
 
 pub struct ReviewWidget {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     test_name_id: WidgetId<Label>,
     snapshot_name_id: WidgetId<Label>,
     coords_id: WidgetId<Label>,
@@ -117,7 +117,7 @@ impl Widget for ReviewWidget {
     impl_widget_common!();
 
     #[allow(clippy::collapsible_if)]
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         let id = common.id();
         // TODO: Grid widget
 

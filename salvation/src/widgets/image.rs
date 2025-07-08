@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetCommonTyped},
+    super::{Widget, WidgetBaseOf},
     crate::{
         draw::DrawEvent,
         impl_widget_common,
@@ -18,7 +18,7 @@ pub struct Image {
     pixmap: Option<Rc<Pixmap>>,
     // TODO: finite f32
     scale: Option<f32>,
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     is_prescaled: bool,
 }
 
@@ -75,7 +75,7 @@ impl Image {
 impl Widget for Image {
     impl_widget_common!();
 
-    fn new(common: WidgetCommonTyped<Self>) -> Self {
+    fn new(common: WidgetBaseOf<Self>) -> Self {
         Self {
             common,
             pixmap: None,

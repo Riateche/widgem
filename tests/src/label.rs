@@ -1,19 +1,19 @@
 use {
     salvation::{
         impl_widget_common,
-        widgets::{label::Label, window::WindowWidget, Widget, WidgetCommonTyped, WidgetExt},
+        widgets::{label::Label, window::WindowWidget, Widget, WidgetBaseOf, WidgetExt},
     },
     salvation_test_kit::context::Context,
 };
 
 pub struct RootWidget {
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
 }
 
 impl Widget for RootWidget {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         let window = common.add_child::<WindowWidget>().set_title(module_path!());
 
         window

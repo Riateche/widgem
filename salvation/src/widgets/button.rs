@@ -1,5 +1,5 @@
 use {
-    super::{image::Image, Widget, WidgetCommonTyped, WidgetExt},
+    super::{image::Image, Widget, WidgetBaseOf, WidgetExt},
     crate::{
         callback::{Callback, CallbackVec},
         event::{
@@ -39,7 +39,7 @@ pub struct Button {
     was_pressed_but_moved_out: bool,
     auto_repeat_delay_timer: Option<TimerId>,
     auto_repeat_interval: Option<TimerId>,
-    common: WidgetCommonTyped<Self>,
+    common: WidgetBaseOf<Self>,
     style: Rc<ComputedButtonStyle>,
 }
 
@@ -171,7 +171,7 @@ impl Button {
 impl Widget for Button {
     impl_widget_common!();
 
-    fn new(mut common: WidgetCommonTyped<Self>) -> Self {
+    fn new(mut common: WidgetBaseOf<Self>) -> Self {
         common.set_supports_focus(true);
         common
             .add_child::<Image>()
