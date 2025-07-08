@@ -48,7 +48,7 @@ impl WindowInfo {
 }
 
 impl WindowWithWidget<'_> {
-    pub(crate) fn dispatch_cursor_leave(&mut self) {
+    pub(crate) fn dispatch_mouse_leave(&mut self) {
         while let Some(id) = self.window.pop_mouse_entered_widget() {
             if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {
                 widget.dispatch(MouseLeaveEvent {}.into());
@@ -84,7 +84,7 @@ impl WindowWithWidget<'_> {
             }
             WindowEvent::CursorLeft { .. } => {
                 self.window.cursor_left();
-                self.dispatch_cursor_leave();
+                self.dispatch_mouse_leave();
             }
             WindowEvent::CursorMoved {
                 position,
@@ -99,7 +99,7 @@ impl WindowWithWidget<'_> {
                 if !self.window.cursor_moved(pos_in_window) {
                     return;
                 }
-                self.dispatch_cursor_leave();
+                self.dispatch_mouse_leave();
 
                 self.window.init_mouse_event_state().or_report_err();
                 if let Some(mouse_grabber_widget_id) = self.window.mouse_grabber_widget() {
@@ -167,7 +167,7 @@ impl WindowWithWidget<'_> {
                         }
                         if !self.window.any_mouse_buttons_pressed() {
                             self.window.set_mouse_grabber_widget(None);
-                            self.dispatch_cursor_leave();
+                            self.dispatch_mouse_leave();
                         }
                     } else {
                         let event = MouseInputEvent {
@@ -227,7 +227,7 @@ impl WindowWithWidget<'_> {
                         }
                         if !self.window.any_mouse_buttons_pressed() {
                             self.window.set_mouse_grabber_widget(None);
-                            self.dispatch_cursor_leave();
+                            self.dispatch_mouse_leave();
                         }
                     } else {
                         let event = MouseScrollEvent {
@@ -303,7 +303,7 @@ impl WindowWithWidget<'_> {
             }
             WindowEvent::Focused(is_focused) => {
                 if self.window.focus_changed(is_focused) {
-                    self.dispatch_cursor_leave();
+                    self.dispatch_mouse_leave();
                 }
                 self.root_widget.dispatch(
                     WindowFocusChangeEvent {
@@ -340,7 +340,7 @@ impl WindowWithWidget<'_> {
             else {
                 continue;
             };
-            widget.update_accessible();
+            widget.update_accessibility_node();
         }
         self.window.push_accessible_updates();
         let pending_size_hint_invalidations = self.window.take_pending_size_hint_invalidations();

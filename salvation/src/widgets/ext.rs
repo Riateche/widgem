@@ -34,7 +34,6 @@ fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_ente
         window.set_cursor(widget.common().cursor_icon);
         if is_enter {
             window.add_mouse_entered(rect_in_window, id);
-            widget.common_mut().is_mouse_over = true;
         }
     }
 }
@@ -56,8 +55,8 @@ pub trait WidgetExt: Widget {
         self.common_mut().set_focusable(value);
         self
     }
-    fn set_accessible(&mut self, value: bool) -> &mut Self {
-        self.common_mut().set_accessible(value);
+    fn set_accessibility_node_enabled(&mut self, value: bool) -> &mut Self {
+        self.common_mut().set_accessibility_node_enabled(value);
         self
     }
 
@@ -196,7 +195,7 @@ pub trait WidgetExt: Widget {
             Event::KeyboardInput(_) | Event::InputMethod(_) | Event::AccessibilityAction(_) => {}
         }
 
-        self.update_accessible();
+        self.update_accessibility_node();
         accepted
     }
 
@@ -232,8 +231,8 @@ pub trait WidgetExt: Widget {
         false
     }
 
-    fn update_accessible(&mut self) {
-        let node = if self.common().is_accessible {
+    fn update_accessibility_node(&mut self) {
+        let node = if self.common().is_accessibility_node_enabled() {
             self.handle_accessibility_node_request()
                 .or_report_err()
                 .flatten()
@@ -252,11 +251,11 @@ pub trait WidgetExt: Widget {
             }
             node
         });
-        window.accessible_update(self.common().id().into(), node);
+        window.accessibility_node_updated(self.common().id().into(), node);
     }
 
     fn update_children(&mut self) {
-        if !self.common().has_declare_children_override {
+        if !self.common().has_declare_children_override() {
             return;
         }
         let in_progress = with_system(|system| system.current_children_update.is_some());

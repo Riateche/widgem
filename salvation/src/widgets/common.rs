@@ -133,6 +133,9 @@ macro_rules! auto_bitflags {
     }
 }
 
+// Flag values are determined by their order.
+// We don't expose these bit flags in the API, so
+// changing the order of flags or inserting new flags is fine.
 auto_bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     struct Flags: u64 {
@@ -142,6 +145,8 @@ auto_bitflags! {
         supports_focus,
         // widget currently has focus
         focused,
+        // true if the widget is currently added to the window's list of focusable widgets
+        registered_as_focusable,
         // whether IME is enabled when the widget has focus
         input_method_enabled,
         // If true, all mouse events from the parent propagate to this widget,
@@ -155,9 +160,12 @@ auto_bitflags! {
         self_visible,
         // true if this widget is a window root widget (typically a `WindowWidget`)
         window_root,
-        mouse_over,
-        accessible,
-        registered_as_focusable,
+        // true if the mouse pointer is currently over the widget
+        under_mouse,
+        // true if accessibility node hasn't been disabled for this widget
+        accessibility_node_enabled,
+        // true by default, but set to false if the widget
+        // doesn't implement `handle_declare_children_request`
         has_declare_children_override,
     }
 }
@@ -178,8 +186,6 @@ pub struct WidgetCommon {
     pub parent_scale: f32,
     pub self_scale: Option<f32>,
 
-    pub is_mouse_over: bool,
-
     // Present if the widget is not hidden, and only after layout.
     pub geometry: Option<WidgetGeometry>,
 
@@ -190,9 +196,7 @@ pub struct WidgetCommon {
     pub size_hint_x_cache: Option<SizeHints>,
     // TODO: limit count
     pub size_hint_y_cache: HashMap<PhysicalPixels, SizeHints>,
-    pub is_accessible: bool,
 
-    pub is_registered_as_focusable: bool,
     // TODO: multiple filters?
     // TODO: accept/reject event from filter; option to run filter after on_event
     #[derivative(Debug = "ignore")]
@@ -203,7 +207,6 @@ pub struct WidgetCommon {
     pub common_style: Rc<CommonComputedStyle>,
 
     pub num_added_children: u32,
-    pub has_declare_children_override: bool,
     // Direct and indirect children created by last call of this widget's
     // `handle_update_children`.
     pub declared_children: HashSet<RawWidgetId>,
@@ -245,7 +248,7 @@ impl WidgetCommon {
             type_name,
             flags: Flags::self_enabled
                 | Flags::self_visible
-                | Flags::accessible
+                | Flags::accessibility_node_enabled
                 | Flags::has_declare_children_override
                 | if ctx.is_parent_enabled {
                     Flags::parent_enabled
@@ -262,20 +265,16 @@ impl WidgetCommon {
             window: ctx.window,
             parent_scale: ctx.parent_scale,
             self_scale: None,
-            is_mouse_over: false,
             geometry: None,
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
             layout_item_options: LayoutItemOptions::default(),
             size_hint_x_cache: None,
             size_hint_y_cache: HashMap::new(),
-            is_accessible: true,
-            is_registered_as_focusable: false,
             event_filter: None,
             shortcuts: Vec::new(),
             style_element,
             common_style,
-            has_declare_children_override: true,
             num_added_children: 0,
             declared_children: Default::default(),
         };
@@ -453,6 +452,14 @@ impl WidgetCommon {
     /// Returns `true` if the widget's OS window is focused.
     pub fn is_window_focused(&self) -> bool {
         self.window.as_ref().is_some_and(|w| w.is_focused())
+    }
+
+    pub(crate) fn has_declare_children_override(&self) -> bool {
+        self.flags.contains(Flags::has_declare_children_override)
+    }
+
+    pub(crate) fn set_has_declare_children_override(&mut self, value: bool) {
+        self.flags.set(Flags::has_declare_children_override, value);
     }
 
     pub fn new_creation_context(
@@ -768,8 +775,11 @@ impl WidgetCommon {
                     }
                 }
             }
+            Event::MouseEnter(_) => {
+                self.flags.insert(Flags::under_mouse);
+            }
             Event::MouseLeave(_) => {
-                self.is_mouse_over = false;
+                self.flags.remove(Flags::under_mouse);
             }
             Event::StyleChange(_) => {
                 self.refresh_common_style();
@@ -785,8 +795,7 @@ impl WidgetCommon {
                     self.common_style.background.as_ref(),
                 );
             }
-            Event::MouseEnter(_)
-            | Event::KeyboardInput(_)
+            Event::KeyboardInput(_)
             | Event::InputMethod(_)
             | Event::Layout(_)
             | Event::AccessibilityAction(_) => {}
@@ -796,16 +805,16 @@ impl WidgetCommon {
 
     fn focusable_changed(&mut self) {
         let is_focusable = self.is_focusable();
-        if is_focusable != self.is_registered_as_focusable {
+        if is_focusable != self.flags.contains(Flags::registered_as_focusable) {
             if let Some(window) = &self.window {
                 if is_focusable {
                     window.add_focusable_widget(self.address.clone(), self.id);
                 } else {
                     window.remove_focusable_widget(self.address.clone(), self.id);
                 }
-                self.is_registered_as_focusable = is_focusable;
+                self.flags.set(Flags::registered_as_focusable, is_focusable);
             } else {
-                self.is_registered_as_focusable = false;
+                self.flags.set(Flags::registered_as_focusable, false);
             }
         }
     }
@@ -846,12 +855,18 @@ impl WidgetCommon {
     pub fn is_input_method_enabled(&self) -> bool {
         self.flags.contains(Flags::input_method_enabled)
     }
+    // TODO: fix/test: widget should receive mouseenter event and under_mouse flag
+    // even if its child obscures the area (like in html)
+
+    /// Check if the mouse is over this widget.
+    ///
+    /// If the widget becomes a *mouse grabber*, it will be considered under mouse until
+    /// all mouse buttons are released, even if the mouse moves out of the widget's boundary.
+    pub fn is_under_mouse(&self) -> bool {
+        self.flags.contains(Flags::under_mouse)
+    }
 
     fn unmount_accessible(&mut self) {
-        // println!("unmount_accessible {:?}", self.id);
-        // for child in self.children.values_mut() {
-        //     child.common_mut().unmount_accessible();
-        // }
         if let Some(window) = &self.window {
             let root_widget_id = window.root_widget_id();
             window.accessible_unmount(
@@ -914,11 +929,29 @@ impl WidgetCommon {
         self
     }
 
-    pub fn set_accessible(&mut self, value: bool) {
-        if self.is_accessible == value {
+    /// Check if the accessibility node hasn't been disabled for this widget.
+    ///
+    /// This value corresponds to the value set by [`set_accessibility_node_enabled`](Self::set_accessibility_node_enabled).
+    /// Default is true for every widget. Note that some widgets may not support accessibility nodes,
+    /// and it doesn't affect the return value of `is_accessibility_node_enabled`.
+    pub fn is_accessibility_node_enabled(&self) -> bool {
+        self.flags.contains(Flags::accessibility_node_enabled)
+    }
+
+    /// Turn the accessibility node of this widget on or off.
+    ///
+    /// Accessibility nodes allow users to interact with a widget using screen readers or other assistive technologies.
+    /// Accessibility nodes are enabled by default. They should only be disabled if the widget
+    /// is redundant and the same functionality is already available through other widgets.
+    ///
+    /// This function does nothing in widgets that don't implement an accessibility node.
+    ///
+    /// This setting doesn't propagate to child widgets.
+    pub fn set_accessibility_node_enabled(&mut self, value: bool) {
+        if self.flags.contains(Flags::accessibility_node_enabled) == value {
             return;
         }
-        self.is_accessible = value;
+        self.flags.set(Flags::accessibility_node_enabled, value);
         self.update();
     }
 

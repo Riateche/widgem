@@ -340,7 +340,7 @@ impl Window {
             .mount(parent, child, key_in_parent);
     }
 
-    pub(crate) fn accessible_update(&self, id: NodeId, node: Option<accesskit::Node>) {
+    pub(crate) fn accessibility_node_updated(&self, id: NodeId, node: Option<accesskit::Node>) {
         self.0.borrow_mut().accessible_nodes.update(id, node);
     }
 

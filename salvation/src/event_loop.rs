@@ -65,7 +65,7 @@ fn dispatch_widget_callback(
         return;
     };
     (callback.func)(widget, event).or_report_err();
-    widget.update_accessible();
+    widget.update_accessibility_node();
 }
 
 fn default_scale(event_loop: &ActiveEventLoop) -> f32 {

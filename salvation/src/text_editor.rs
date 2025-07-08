@@ -1174,7 +1174,7 @@ impl Widget for Text {
         let Some(window) = self.common.window.as_ref() else {
             return Ok(None);
         };
-        window.accessible_update(self.accessible_line_id, Some(line_node));
+        window.accessibility_node_updated(self.accessible_line_id, Some(line_node));
 
         // TODO: configurable role
         let role = if self.is_multiline {
