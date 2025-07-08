@@ -6,7 +6,7 @@ use {
             AccessibilityActionEvent, FocusReason, InputMethodEvent, KeyboardInputEvent,
             MouseInputEvent, MouseMoveEvent, StyleChangeEvent, WindowFocusChangeEvent,
         },
-        impl_widget_common,
+        impl_widget_base,
         layout::SizeHints,
         shortcut::standard_shortcuts,
         style::{
@@ -106,7 +106,7 @@ impl ComputedElementStyle for TextStyle {
 }
 
 pub struct Text {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     style: Rc<TextStyle>,
     editor: Editor<'static>,
     pixmap: Option<Pixmap>,
@@ -142,8 +142,8 @@ pub struct AccessibleLine {
 impl Text {
     pub fn set_editable(&mut self, editable: bool) -> &mut Self {
         self.is_editable = editable;
-        self.common.set_input_method_enabled(editable);
-        self.common.set_cursor_icon(if editable {
+        self.base.set_input_method_enabled(editable);
+        self.base.set_cursor_icon(if editable {
             CursorIcon::Text
         } else {
             CursorIcon::Default
@@ -177,7 +177,7 @@ impl Text {
 
     pub fn set_host_style_element(&mut self, element: Element) -> &mut Self {
         self.host_element = element;
-        self.style = get_style(&self.host_element, self.common.scale());
+        self.style = get_style(&self.host_element, self.base.scale());
         self.set_font_metrics(self.style.font_metrics);
         self
     }
@@ -233,10 +233,10 @@ impl Text {
         let Some(cursor_position) = self.cursor_position() else {
             return;
         };
-        let Some(visible_rect) = self.common.visible_rect() else {
+        let Some(visible_rect) = self.base.visible_rect() else {
             return;
         };
-        let Some(window_id) = self.common.window_id() else {
+        let Some(window_id) = self.base.window_id() else {
             return;
         };
         // TODO: cursor width?
@@ -254,7 +254,7 @@ impl Text {
         send_window_request(
             window_id,
             ScrollToRectRequest {
-                widget_id: self.common.id().into(),
+                widget_id: self.base.id().into(),
                 rect,
             },
         );
@@ -374,7 +374,7 @@ impl Text {
         }
         // TODO: notify parent?
         //self.adjust_scroll();
-        self.common.update();
+        self.base.update();
         self.reset_blink_timer();
         self.request_scroll();
         Ok(true)
@@ -401,7 +401,7 @@ impl Text {
         }
         // TODO: notify parent?
         //self.adjust_scroll();
-        self.common.update();
+        self.base.update();
         self.reset_blink_timer();
         self.request_scroll();
         Ok(true)
@@ -421,7 +421,7 @@ impl Text {
         self.adjust_size();
         self.after_change();
         self.reset_blink_timer();
-        self.common.update();
+        self.base.update();
         self.request_scroll();
     }
 
@@ -504,13 +504,13 @@ impl Text {
             );
             self.blink_timer = Some(id);
         }
-        self.common.update();
+        self.base.update();
     }
 
     fn toggle_cursor_hidden(&mut self) -> Result<()> {
         self.set_cursor_hidden(!self.is_cursor_hidden);
         if !self.editor.has_selection() {
-            self.common.update();
+            self.base.update();
         }
         Ok(())
     }
@@ -686,7 +686,7 @@ impl Text {
     pub fn insert_string(&mut self, text: &str, attrs_list: Option<AttrsList>) {
         self.editor.insert_string(text, attrs_list);
         self.adjust_size();
-        self.common.update();
+        self.base.update();
         self.request_scroll();
     }
 
@@ -836,7 +836,7 @@ impl Text {
         }
         with_system(|system| self.editor.action(&mut system.font_system, action));
         self.adjust_size();
-        self.common.update();
+        self.base.update();
         self.request_scroll();
     }
 
@@ -845,7 +845,7 @@ impl Text {
     }
     pub fn set_cursor(&mut self, cursor: Cursor) {
         self.editor.set_cursor(cursor);
-        self.common.update();
+        self.base.update();
         self.request_scroll();
     }
 
@@ -880,7 +880,7 @@ impl Text {
                 attrs: None,
             });
             self.insert_string(&text, None);
-            if let Some(window) = &self.common.window {
+            if let Some(window) = &self.base.window {
                 window.cancel_ime_preedit();
             } else {
                 warn!("no window id in text editor event handler");
@@ -911,7 +911,7 @@ impl Text {
         });
         if size != self.size {
             self.size = size;
-            self.common.size_hint_changed();
+            self.base.size_hint_changed();
             self.request_scroll();
         }
     }
@@ -919,7 +919,7 @@ impl Text {
     pub fn set_cursor_hidden(&mut self, hidden: bool) {
         self.editor.set_cursor_hidden(hidden);
         self.is_cursor_hidden = hidden;
-        self.common.update();
+        self.base.update();
     }
 
     pub fn is_cursor_hidden(&self) -> bool {
@@ -942,9 +942,9 @@ impl Text {
         if !self.is_editable {
             return Ok(());
         }
-        let window = self.common.window_or_err()?;
+        let window = self.base.window_or_err()?;
 
-        if !self.common.is_focused() {
+        if !self.base.is_focused() {
             if let Some(host_id) = self.host_id {
                 send_window_request(
                     window.id(),
@@ -976,7 +976,7 @@ impl Text {
                 self.shape_as_needed();
                 let x = event.pos.x().to_i32();
                 let y = event.pos.y().to_i32();
-                let window = self.common.window_or_err()?;
+                let window = self.base.window_or_err()?;
                 match ((event.num_clicks - 1) % 3) + 1 {
                     1 => self.action(Action::Click {
                         x,
@@ -989,18 +989,18 @@ impl Text {
                 }
             }
         }
-        self.common.update();
+        self.base.update();
         self.request_scroll();
         Ok(())
     }
 }
 
 impl Widget for Text {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>) -> Self {
         // Host element is not known at this time.
-        let style = TextStyle::default(common.scale());
+        let style = TextStyle::default(base.scale());
         let editor = with_system(|system| {
             Editor::new(Buffer::new(&mut system.font_system, style.font_metrics))
         });
@@ -1019,10 +1019,10 @@ impl Widget for Text {
             blink_timer: None,
             selected_text: String::new(),
             accessible_line_id: accessible::new_accessible_node_id(),
-            common,
+            base,
         };
-        if let Some(window) = &t.common.window {
-            window.accessible_mount(Some(t.common.id().into()), t.accessible_line_id, 0.into());
+        if let Some(window) = &t.base.window {
+            window.accessible_mount(Some(t.base.id().into()), t.accessible_line_id, 0.into());
         }
         t.editor.set_cursor_hidden(true);
         t.reset_blink_timer();
@@ -1068,7 +1068,7 @@ impl Widget for Text {
             }
         }
         let is_released = self
-            .common
+            .base
             .window
             .as_ref()
             .is_some_and(|window| !window.any_mouse_buttons_pressed());
@@ -1087,7 +1087,7 @@ impl Widget for Text {
         if !self.is_editable {
             return Ok(false);
         }
-        let window = self.common.window_or_err()?;
+        let window = self.base.window_or_err()?;
         if window.is_mouse_button_pressed(MouseButton::Left) {
             let old_selection = (self.select_opt(), self.editor.cursor());
             self.action(Action::Drag {
@@ -1098,7 +1098,7 @@ impl Widget for Text {
             if old_selection != new_selection {
                 // TODO: notify parent?
                 //self.adjust_scroll();
-                self.common.update();
+                self.base.update();
             }
         }
         self.request_scroll();
@@ -1111,8 +1111,8 @@ impl Widget for Text {
             if let Some(editor_cursor) = self.cursor_position() {
                 // We specify an area below the input because on Windows
                 // the IME window obscures the specified area.
-                let rect_in_window = self.common.rect_in_window_or_err()?;
-                let window = self.common.window_or_err()?;
+                let rect_in_window = self.base.rect_in_window_or_err()?;
+                let window = self.base.window_or_err()?;
                 let top_left = rect_in_window.top_left()
                     + editor_cursor
                     + Point::new(
@@ -1128,14 +1128,14 @@ impl Widget for Text {
     }
 
     fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
-        let window = self.common.window_or_err()?;
+        let window = self.base.window_or_err()?;
 
         match event.action {
             accesskit::Action::Click => {
                 send_window_request(
                     window.id(),
                     SetFocusRequest {
-                        widget_id: self.common.id().into(),
+                        widget_id: self.base.id().into(),
                         // TODO: separate reason?
                         reason: FocusReason::Mouse,
                     },
@@ -1149,7 +1149,7 @@ impl Widget for Text {
                 self.set_accessible_selection(data);
                 // TODO: notify parent
                 //self.adjust_scroll();
-                self.common.update();
+                self.base.update();
                 self.reset_blink_timer();
             }
             _ => {}
@@ -1167,11 +1167,11 @@ impl Widget for Text {
         line_node.set_character_widths(line.character_widths);
         line_node.set_word_lengths(line.word_lengths);
 
-        if let Some(rect_in_window) = self.common.rect_in_window() {
+        if let Some(rect_in_window) = self.base.rect_in_window() {
             line_node.set_bounds(rect_in_window.into());
         }
 
-        let Some(window) = self.common.window.as_ref() else {
+        let Some(window) = self.base.window.as_ref() else {
             return Ok(None);
         };
         window.accessibility_node_updated(self.accessible_line_id, Some(line_node));
@@ -1208,7 +1208,7 @@ impl Widget for Text {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        self.style = get_style(&self.host_element, self.common.scale());
+        self.style = get_style(&self.host_element, self.base.scale());
         Ok(())
     }
 }
@@ -1238,8 +1238,8 @@ fn convert_color(color: Color) -> cosmic_text::Color {
 
 impl Drop for Text {
     fn drop(&mut self) {
-        if let Some(window) = &self.common.window {
-            window.accessible_unmount(Some(self.common.id().into()), self.accessible_line_id);
+        if let Some(window) = &self.base.window {
+            window.accessible_unmount(Some(self.base.id().into()), self.accessible_line_id);
         }
     }
 }

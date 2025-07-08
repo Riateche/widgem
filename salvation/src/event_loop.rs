@@ -394,7 +394,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     window.with_root(root_widget).handle_accesskit_event(event);
                 }
                 UserEvent::DeleteWidget(id) => {
-                    if id == root_widget.common().id() {
+                    if id == root_widget.base().id() {
                         self.root_widget = None;
                         with_active_event_loop(|event_loop| event_loop.exit());
                     } else if let Some(address) = address(id) {
@@ -403,7 +403,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                                 get_widget_by_id_mut(root_widget.as_mut(), parent_id)
                             {
                                 match parent
-                                    .common_mut()
+                                    .base_mut()
                                     .remove_child(&address.path.last().unwrap().0)
                                 {
                                     Ok(_) => {}

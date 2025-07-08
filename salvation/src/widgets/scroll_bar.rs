@@ -5,7 +5,7 @@ use {
         event::{
             Event, FocusInEvent, FocusOutEvent, KeyboardInputEvent, LayoutEvent, MouseScrollEvent,
         },
-        impl_widget_common,
+        impl_widget_base,
         layout::{grid::grid_layout, SizeHints},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
@@ -25,7 +25,7 @@ use {
 };
 
 pub struct ScrollBar {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     axis: Axis,
     current_grip_pos: PhysicalPixels,
     max_slider_pos: PhysicalPixels,
@@ -91,72 +91,72 @@ impl ScrollBar {
         self.axis = axis;
         match axis {
             Axis::X => {
-                let decrease = self.common.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
+                let decrease = self.base.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
                 decrease.set_text(names::SCROLL_LEFT);
                 decrease.add_class("scroll_left".into());
                 decrease.remove_class("scroll_up".into());
 
-                let increase = self.common.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
+                let increase = self.base.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
                 increase.set_text(names::SCROLL_RIGHT);
                 increase.add_class("scroll_right".into());
                 increase.remove_class("scroll_down".into());
 
                 let grip = self
-                    .common
+                    .base
                     .get_dyn_child_mut(INDEX_PAGER)
                     .unwrap()
-                    .common_mut()
+                    .base_mut()
                     .get_child_mut::<Button>(INDEX_GRIP_IN_PAGER)
                     .unwrap();
                 grip.add_class("scroll_grip_x".into());
                 grip.remove_class("scroll_grip_y".into());
 
-                self.common
+                self.base
                     .get_dyn_child_mut(INDEX_PAGER)
                     .unwrap()
                     .set_column(1)
                     .set_row(0);
-                self.common
+                self.base
                     .get_dyn_child_mut(INDEX_INCREASE)
                     .unwrap()
                     .set_column(2)
                     .set_row(0);
             }
             Axis::Y => {
-                let decrease = self.common.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
+                let decrease = self.base.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
                 decrease.set_text(names::SCROLL_UP);
                 decrease.remove_class("scroll_left".into());
                 decrease.add_class("scroll_up".into());
 
-                let increase = self.common.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
+                let increase = self.base.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
                 increase.set_text(names::SCROLL_DOWN);
                 increase.remove_class("scroll_right".into());
                 increase.add_class("scroll_down".into());
 
                 let grip = self
-                    .common
+                    .base
                     .get_dyn_child_mut(INDEX_PAGER)
                     .unwrap()
-                    .common_mut()
+                    .base_mut()
                     .get_child_mut::<Button>(INDEX_GRIP_IN_PAGER)
                     .unwrap();
 
                 grip.remove_class("scroll_grip_x".into());
                 grip.add_class("scroll_grip_y".into());
 
-                self.common
+                self.base
                     .get_dyn_child_mut(INDEX_PAGER)
                     .unwrap()
                     .set_column(0)
                     .set_row(1);
-                self.common
+                self.base
                     .get_dyn_child_mut(INDEX_INCREASE)
                     .unwrap()
                     .set_column(0)
                     .set_row(2);
             }
         }
-        self.common
+        self.base
             .get_child_mut::<Pager>(INDEX_PAGER)
             .unwrap()
             .set_axis(axis);
@@ -219,13 +219,13 @@ impl ScrollBar {
 
     fn pager_pressed(&mut self, pos_in_window: Point) -> Result<()> {
         let Some(grip_rect_in_window) = self
-            .common
+            .base
             .get_dyn_child(INDEX_PAGER)
             .unwrap()
-            .common()
+            .base()
             .get_dyn_child(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .common()
+            .base()
             .rect_in_window()
         else {
             return Ok(());
@@ -257,13 +257,13 @@ impl ScrollBar {
 
     fn pager_triggered(&mut self) -> Result<()> {
         let Some(grip_rect_in_window) = self
-            .common
+            .base
             .get_dyn_child(INDEX_PAGER)
             .unwrap()
-            .common()
+            .base()
             .get_dyn_child(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .common()
+            .base()
             .rect_in_window()
         else {
             return Ok(());
@@ -290,7 +290,7 @@ impl ScrollBar {
     }
 
     fn page_step(&self) -> i32 {
-        let Some(size) = self.common.size() else {
+        let Some(size) = self.base.size() else {
             return 1;
         };
         match self.axis {
@@ -380,10 +380,10 @@ impl ScrollBar {
     }
 
     fn update_decrease_increase(&mut self) {
-        let decrease = self.common.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
+        let decrease = self.base.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
         decrease.set_enabled(self.current_value > *self.value_range.start());
 
-        let increase = self.common.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
+        let increase = self.base.get_child_mut::<Button>(INDEX_INCREASE).unwrap();
         increase.set_enabled(self.current_value < *self.value_range.end());
     }
 
@@ -401,19 +401,19 @@ impl ScrollBar {
         };
 
         let Some(pager_geometry) = self
-            .common
+            .base
             .get_dyn_child(INDEX_PAGER)
             .unwrap()
-            .common()
+            .base()
             .geometry
             .clone()
         else {
             return;
         };
-        self.common
+        self.base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .set_geometry(
@@ -422,10 +422,10 @@ impl ScrollBar {
             );
 
         let pager_button = self
-            .common
+            .base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_child_mut::<Button>(INDEX_BUTTON_IN_PAGER)
             .unwrap();
         pager_button.set_enabled(can_scroll);
@@ -450,31 +450,31 @@ impl ScrollBar {
     }
 
     fn update_grip_size(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
-        let Some(size) = self.common.size() else {
+        let Some(size) = self.base.size() else {
             return Ok(());
         };
         grid_layout(self, changed_size_hints);
         let pager_rect = self
-            .common
+            .base
             .get_dyn_child(INDEX_PAGER)
             .unwrap()
-            .common()
+            .base()
             .rect_in_parent()
             .unwrap();
         let grip_size_hint_x = self
-            .common
+            .base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .size_hint_x()
             .preferred;
         let grip_size_hint_y = self
-            .common
+            .base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .size_hint_y(grip_size_hint_x)
@@ -519,14 +519,13 @@ impl ScrollBar {
 }
 
 impl Widget for ScrollBar {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(mut common: WidgetBaseOf<Self>) -> Self {
-        common.set_supports_focus(true).set_focusable(false);
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        base.set_supports_focus(true).set_focusable(false);
         // TODO: localized name
 
-        common
-            .add_child_with_key::<Button>(INDEX_DECREASE)
+        base.add_child_with_key::<Button>(INDEX_DECREASE)
             .set_column(0)
             .set_row(0)
             .set_text(names::SCROLL_LEFT)
@@ -539,13 +538,13 @@ impl Widget for ScrollBar {
             .set_trigger_on_press(true);
 
         let axis = Axis::X;
-        let pager = common
+        let pager = base
             .add_child_with_key::<Pager>(INDEX_PAGER)
             .set_column(1)
             .set_row(0)
             .set_axis(axis);
         pager
-            .common
+            .base
             .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER)
             .set_column(0)
             .set_row(0)
@@ -559,7 +558,7 @@ impl Widget for ScrollBar {
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
         pager
-            .common
+            .base
             .add_child_with_key::<Button>(INDEX_GRIP_IN_PAGER)
             .set_text(names::SCROLL_GRIP)
             .set_accessibility_node_enabled(false)
@@ -568,8 +567,7 @@ impl Widget for ScrollBar {
             .set_text_visible(false)
             .set_mouse_leave_sensitive(false);
 
-        common
-            .add_child_with_key::<Button>(INDEX_INCREASE)
+        base.add_child_with_key::<Button>(INDEX_INCREASE)
             .set_column(2)
             .set_row(0)
             .set_text(names::SCROLL_RIGHT)
@@ -581,7 +579,7 @@ impl Widget for ScrollBar {
             .set_trigger_on_press(true);
 
         let mut this = Self {
-            common,
+            base,
             axis,
             current_grip_pos: 0.ppx(),
             max_slider_pos: 0.ppx(),
@@ -597,13 +595,13 @@ impl Widget for ScrollBar {
 
         let slider_pressed = this.callback(Self::slider_pressed);
         let slider_moved = this.callback(Self::slider_moved);
-        this.common
+        this.base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseInput(e) => {
@@ -621,7 +619,7 @@ impl Widget for ScrollBar {
             this.decrease_internal(false);
             Ok(())
         });
-        this.common
+        this.base
             .get_child_mut::<Button>(INDEX_DECREASE)
             .unwrap()
             .on_triggered(decrease_callback);
@@ -630,7 +628,7 @@ impl Widget for ScrollBar {
             this.increase_internal(false);
             Ok(())
         });
-        this.common
+        this.base
             .get_child_mut::<Button>(INDEX_INCREASE)
             .unwrap()
             .on_triggered(increase_callback);
@@ -639,14 +637,14 @@ impl Widget for ScrollBar {
         let pager_pressed = this.callback(Self::pager_pressed);
         let pager_mouse_moved = this.callback(Self::pager_mouse_move);
         let pager_button = this
-            .common
+            .base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_child_mut::<Button>(INDEX_BUTTON_IN_PAGER)
             .unwrap();
         pager_button.on_triggered(pager_triggered_callback);
-        pager_button.common_mut().event_filter = Some(Box::new(move |event| {
+        pager_button.base_mut().event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseInput(e) => {
                     if e.button == MouseButton::Left && e.state == ElementState::Pressed {
@@ -670,7 +668,7 @@ impl Widget for ScrollBar {
     }
 
     fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
-        let delta = event.unified_delta(&self.common);
+        let delta = event.unified_delta(&self.base);
         let max_delta = if NotNan::new(delta.x.abs())? > NotNan::new(delta.y.abs())? {
             delta.x
         } else {
@@ -730,10 +728,10 @@ impl Widget for ScrollBar {
     }
 
     fn handle_focus_in(&mut self, _event: FocusInEvent) -> Result<()> {
-        self.common
+        self.base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .add_class("scroll_bar_focused".into());
@@ -741,10 +739,10 @@ impl Widget for ScrollBar {
     }
 
     fn handle_focus_out(&mut self, _event: FocusOutEvent) -> Result<()> {
-        self.common
+        self.base
             .get_dyn_child_mut(INDEX_PAGER)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .remove_class("scroll_bar_focused".into());
@@ -753,14 +751,14 @@ impl Widget for ScrollBar {
 }
 
 struct Pager {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     axis: Axis,
 }
 
 impl Pager {
     pub fn set_axis(&mut self, axis: Axis) -> &mut Self {
         self.axis = axis;
-        self.common.size_hint_changed();
+        self.base.size_hint_changed();
         self
     }
 }
@@ -768,11 +766,11 @@ impl Pager {
 const PAGER_SIZE_HINT_MULTIPLIER: i32 = 2;
 
 impl Widget for Pager {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>) -> Self {
         let mut t = Self {
-            common,
+            base,
             axis: Axis::X,
         };
         t.add_class("no_padding".into());
@@ -780,7 +778,7 @@ impl Widget for Pager {
     }
 
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
-        let grip = self.common.get_dyn_child_mut(INDEX_GRIP_IN_PAGER).unwrap();
+        let grip = self.base.get_dyn_child_mut(INDEX_GRIP_IN_PAGER).unwrap();
         let grip_hint = grip.size_hint_x();
         let min_size = match self.axis {
             Axis::X => grip_hint.min * PAGER_SIZE_HINT_MULTIPLIER,
@@ -798,7 +796,7 @@ impl Widget for Pager {
     }
     fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHints> {
         let grip_hint = self
-            .common
+            .base
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .size_hint_y(size_x);

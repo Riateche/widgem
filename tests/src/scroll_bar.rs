@@ -1,6 +1,6 @@
 use {
     salvation::{
-        impl_widget_common,
+        impl_widget_base,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widgets::{
@@ -13,7 +13,7 @@ use {
 };
 
 pub struct RootWidget {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     range: RangeInclusive<i32>,
     axis: Axis,
     focusable: bool,
@@ -23,51 +23,51 @@ pub struct RootWidget {
 impl RootWidget {
     fn on_scroll_bar_value_changed(&mut self, value: i32) -> anyhow::Result<()> {
         self.value = value;
-        self.common.update();
+        self.base.update();
         Ok(())
     }
 }
 
 impl Widget for RootWidget {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(mut common: WidgetBaseOf<Self>) -> Self {
-        let on_r = common.callback(|this, _| {
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        let on_r = base.callback(|this, _| {
             this.axis = match this.axis {
                 Axis::X => Axis::Y,
                 Axis::Y => Axis::X,
             };
-            this.common.update();
+            this.base.update();
             Ok(())
         });
-        let on_1 = common.callback(|this, _| {
+        let on_1 = base.callback(|this, _| {
             this.range = 0..=10000;
-            this.common.update();
+            this.base.update();
             Ok(())
         });
-        let on_f = common.callback(|this, _| {
+        let on_f = base.callback(|this, _| {
             this.focusable = !this.focusable;
-            this.common.update();
+            this.base.update();
             Ok(())
         });
-        common.add_shortcut(Shortcut::new(
+        base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("R").unwrap(),
             ShortcutScope::Application,
             on_r,
         ));
-        common.add_shortcut(Shortcut::new(
+        base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("1").unwrap(),
             ShortcutScope::Application,
             on_1,
         ));
-        common.add_shortcut(Shortcut::new(
+        base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("f").unwrap(),
             ShortcutScope::Application,
             on_f,
         ));
 
         Self {
-            common,
+            base,
             range: 0..=100,
             axis: Axis::X,
             focusable: false,
@@ -76,15 +76,15 @@ impl Widget for RootWidget {
     }
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
-        let id = self.common.id();
+        let id = self.base.id();
 
         let window = self
-            .common
+            .base
             .declare_child::<WindowWidget>()
             .set_title(module_path!());
 
         window
-            .common_mut()
+            .base_mut()
             .declare_child::<ScrollBar>()
             .set_column(0)
             .set_row(0)
@@ -95,7 +95,7 @@ impl Widget for RootWidget {
             .on_value_changed(id.callback(Self::on_scroll_bar_value_changed));
 
         window
-            .common_mut()
+            .base_mut()
             .declare_child::<Label>()
             .set_column(0)
             .set_row(1)
@@ -108,7 +108,7 @@ impl Widget for RootWidget {
 #[salvation_test_kit::test]
 pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -124,7 +124,7 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -167,7 +167,7 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -208,7 +208,7 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -257,7 +257,7 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -301,7 +301,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     ctx.connection().mouse_move_global(0, 0)?;
@@ -330,7 +330,7 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -367,7 +367,7 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
 #[salvation_test_kit::test]
 pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.common_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>();
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;

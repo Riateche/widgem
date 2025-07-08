@@ -1,16 +1,16 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::impl_widget_common,
+    crate::impl_widget_base,
 };
 
 pub struct RootWidget {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
 }
 
 impl Widget for RootWidget {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
-        Self { common }
+    fn new(base: WidgetBaseOf<Self>) -> Self {
+        Self { base }
     }
 }

@@ -2,7 +2,7 @@ use {
     super::{Widget, WidgetBaseOf},
     crate::{
         draw::DrawEvent,
-        impl_widget_common,
+        impl_widget_base,
         layout::SizeHints,
         types::{PhysicalPixels, Point},
     },
@@ -18,7 +18,7 @@ pub struct Image {
     pixmap: Option<Rc<Pixmap>>,
     // TODO: finite f32
     scale: Option<f32>,
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     is_prescaled: bool,
 }
 
@@ -26,8 +26,8 @@ pub struct Image {
 impl Image {
     pub fn set_prescaled(&mut self, value: bool) {
         self.is_prescaled = value;
-        self.common.size_hint_changed();
-        self.common.update();
+        self.base.size_hint_changed();
+        self.base.update();
     }
 
     pub fn is_prescaled(&self) -> bool {
@@ -39,8 +39,8 @@ impl Image {
             return;
         }
         self.pixmap = pixmap;
-        self.common.size_hint_changed();
-        self.common.update();
+        self.base.size_hint_changed();
+        self.base.update();
     }
 
     pub fn load_png<P: AsRef<Path>>(&mut self, path: P) -> Result<(), DecodingError> {
@@ -53,15 +53,15 @@ impl Image {
             return;
         }
         self.scale = scale;
-        self.common.size_hint_changed();
-        self.common.update();
+        self.base.size_hint_changed();
+        self.base.update();
     }
 
     fn total_scale(&self) -> f32 {
         let extra_scale = if self.is_prescaled {
             1.0
         } else {
-            self.common.scale()
+            self.base.scale()
         };
         self.scale.unwrap_or(1.0) * extra_scale
     }
@@ -73,11 +73,11 @@ impl Image {
 }
 
 impl Widget for Image {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>) -> Self {
         Self {
-            common,
+            base,
             pixmap: None,
             is_prescaled: false,
             scale: None,

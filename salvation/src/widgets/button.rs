@@ -6,7 +6,7 @@ use {
             AccessibilityActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent,
             MouseMoveEvent, StyleChangeEvent,
         },
-        impl_widget_common,
+        impl_widget_base,
         style::{
             common::ComputedElementStyle,
             css::{convert_content_url, convert_zoom, Element, PseudoClass},
@@ -39,7 +39,7 @@ pub struct Button {
     was_pressed_but_moved_out: bool,
     auto_repeat_delay_timer: Option<TimerId>,
     auto_repeat_interval: Option<TimerId>,
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     style: Rc<ComputedButtonStyle>,
 }
 
@@ -47,32 +47,32 @@ pub struct Button {
 impl Button {
     #[allow(dead_code)]
     fn image_widget(&self) -> &Image {
-        self.common.get_child::<Image>(0).unwrap()
+        self.base.get_child::<Image>(0).unwrap()
     }
 
     fn image_widget_mut(&mut self) -> &mut Image {
-        self.common.get_child_mut::<Image>(0).unwrap()
+        self.base.get_child_mut::<Image>(0).unwrap()
     }
 
     fn text_widget(&self) -> &Text {
-        self.common.get_child::<Text>(1).unwrap()
+        self.base.get_child::<Text>(1).unwrap()
     }
 
     fn text_widget_mut(&mut self) -> &mut Text {
-        self.common.get_child_mut::<Text>(1).unwrap()
+        self.base.get_child_mut::<Text>(1).unwrap()
     }
 
     pub fn set_text(&mut self, text: impl Display) -> &mut Self {
         self.text_widget_mut().set_text(text, Attrs::new());
-        self.common.size_hint_changed();
-        self.common.update();
+        self.base.size_hint_changed();
+        self.base.update();
         self
     }
 
     pub fn set_text_visible(&mut self, value: bool) -> &mut Self {
         self.text_widget_mut().set_visible(value);
-        self.common.size_hint_changed();
-        self.common.update();
+        self.base.size_hint_changed();
+        self.base.update();
         self
     }
 
@@ -142,7 +142,7 @@ impl Button {
     }
 
     fn start_auto_repeat(&mut self) {
-        if !self.common.is_enabled() {
+        if !self.base.is_enabled() {
             return;
         }
         self.trigger();
@@ -150,7 +150,7 @@ impl Button {
         let id = add_interval(
             interval,
             self.callback(|this, _| {
-                if this.common.is_enabled() {
+                if this.base.is_enabled() {
                     this.trigger();
                 }
                 Ok(())
@@ -160,7 +160,7 @@ impl Button {
     }
 
     fn refresh_style(&mut self) {
-        self.style = get_style(self.common.style_element(), self.common.scale());
+        self.style = get_style(self.base.style_element(), self.base.scale());
         let icon = self.style.icon.clone();
         self.image_widget_mut().set_visible(icon.is_some());
         self.image_widget_mut().set_prescaled(true);
@@ -169,32 +169,32 @@ impl Button {
 }
 
 impl Widget for Button {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(mut common: WidgetBaseOf<Self>) -> Self {
-        common.set_supports_focus(true);
-        common
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        base.set_supports_focus(true);
+        base
             .add_child::<Image>()
             .set_column(0)
             .set_row(0)
             .set_visible(false);
-        let id = common.id().raw();
-        let element = common.style_element().clone();
-        common
+        let id = base.id().raw();
+        let element = base.style_element().clone();
+        base
             .add_child::<Text>()
             .set_column(1)
             .set_row(0)
             .set_host_id(id)
             .set_host_style_element(element);
         let mut b = Self {
-            style: get_style(common.style_element(), common.scale()),
+            style: get_style(base.style_element(), base.scale()),
             auto_repeat: false,
             is_mouse_leave_sensitive: true,
             trigger_on_press: false,
             on_triggered: CallbackVec::new(),
             is_pressed: false,
             was_pressed_but_moved_out: false,
-            common,
+            base,
             auto_repeat_delay_timer: None,
             auto_repeat_interval: None,
         };
@@ -204,37 +204,37 @@ impl Widget for Button {
     }
 
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
-        let rect = self.common.rect_in_self_or_err()?;
+        let rect = self.base.rect_in_self_or_err()?;
         if rect.contains(event.pos) {
             if self.was_pressed_but_moved_out {
                 self.was_pressed_but_moved_out = true;
                 self.set_pressed(true, true);
-                self.common.update();
+                self.base.update();
             }
         } else {
             if self.is_pressed && self.is_mouse_leave_sensitive {
                 self.was_pressed_but_moved_out = true;
                 self.set_pressed(false, true);
-                self.common.update();
+                self.base.update();
             }
         }
         Ok(true)
     }
 
     fn handle_mouse_input(&mut self, event: MouseInputEvent) -> Result<bool> {
-        if !self.common.is_enabled() {
+        if !self.base.is_enabled() {
             return Ok(true);
         }
         if event.button == MouseButton::Left {
             if event.state.is_pressed() {
                 self.set_pressed(true, false);
-                if !self.common.is_focused() {
-                    let window = self.common.window_or_err()?;
-                    if self.common.is_focusable() {
+                if !self.base.is_focused() {
+                    let window = self.base.window_or_err()?;
+                    if self.base.is_focusable() {
                         send_window_request(
                             window.id(),
                             SetFocusRequest {
-                                widget_id: self.common.id().into(),
+                                widget_id: self.base.id().into(),
                                 reason: FocusReason::Mouse,
                             },
                         );
@@ -244,7 +244,7 @@ impl Widget for Button {
                 self.was_pressed_but_moved_out = false;
                 self.set_pressed(false, false);
             }
-            self.common.update();
+            self.base.update();
         }
         Ok(true)
     }
@@ -271,9 +271,9 @@ impl Widget for Button {
             Action::Click => self.trigger(),
             Action::Focus => {
                 send_window_request(
-                    self.common.window_or_err()?.id(),
+                    self.base.window_or_err()?.id(),
                     SetFocusRequest {
-                        widget_id: self.common.id().into(),
+                        widget_id: self.base.id().into(),
                         // TODO: separate reason?
                         reason: FocusReason::Mouse,
                     },
@@ -293,11 +293,11 @@ impl Widget for Button {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        let element = self.common.style_element().clone();
+        let element = self.base.style_element().clone();
         self.text_widget_mut().set_host_style_element(element);
         self.refresh_style();
-        self.common.size_hint_changed();
-        self.common.update();
+        self.base.size_hint_changed();
+        self.base.update();
         Ok(())
     }
 }

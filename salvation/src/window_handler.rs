@@ -106,7 +106,7 @@ impl WindowWithWidget<'_> {
                     if let Ok(mouse_grabber_widget) =
                         get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
                     {
-                        if let Some(rect_in_window) = mouse_grabber_widget.common().rect_in_window()
+                        if let Some(rect_in_window) = mouse_grabber_widget.base().rect_in_window()
                         {
                             let pos_in_widget = pos_in_window - rect_in_window.top_left();
                             mouse_grabber_widget.dispatch(
@@ -151,7 +151,7 @@ impl WindowWithWidget<'_> {
                             get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
                         {
                             if let Some(rect_in_window) =
-                                mouse_grabber_widget.common().rect_in_window()
+                                mouse_grabber_widget.base().rect_in_window()
                             {
                                 let pos_in_widget = pos_in_window - rect_in_window.top_left();
                                 let event = MouseInputEvent {
@@ -212,7 +212,7 @@ impl WindowWithWidget<'_> {
                             get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
                         {
                             if let Some(rect_in_window) =
-                                mouse_grabber_widget.common().rect_in_window()
+                                mouse_grabber_widget.base().rect_in_window()
                             {
                                 let pos_in_widget = pos_in_window - rect_in_window.top_left();
                                 let event = MouseScrollEvent {
@@ -387,7 +387,7 @@ impl WindowWithWidget<'_> {
         reason: FocusReason,
     ) {
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
-            if !widget.common().is_focusable() {
+            if !widget.base().is_focusable() {
                 warn!("cannot focus widget that is not focusable");
                 return;
             }
@@ -404,7 +404,7 @@ impl WindowWithWidget<'_> {
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {
             widget.dispatch(FocusInEvent { reason }.into());
             self.window
-                .set_focus(widget_addr_id, widget.common().is_input_method_enabled());
+                .set_focus(widget_addr_id, widget.base().is_input_method_enabled());
         } else {
             warn!("set_focus: widget not found on second pass");
         }

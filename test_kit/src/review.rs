@@ -6,7 +6,7 @@ use {
     log::warn,
     salvation::{
         event::Event,
-        impl_widget_common,
+        impl_widget_base,
         tiny_skia::{Pixmap, PremultipliedColorU8},
         types::Point,
         widgets::{
@@ -24,7 +24,7 @@ use {
 };
 
 pub struct ReviewWidget {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     test_name_id: WidgetId<Label>,
     snapshot_name_id: WidgetId<Label>,
     coords_id: WidgetId<Label>,
@@ -62,24 +62,22 @@ impl ReviewWidget {
 
     fn update_ui(&mut self) -> anyhow::Result<()> {
         let state = self.reviewer.as_mut().unwrap().current_state();
-        self.common
+        self.base
             .widget(self.test_name_id)?
             .set_text(state.test_case_name);
-        self.common
+        self.base
             .widget(self.snapshot_name_id)?
             .set_text(state.snapshot_name);
-        self.common
-            .widget(self.image_id)?
-            .set_pixmap(state.snapshot);
+        self.base.widget(self.image_id)?.set_pixmap(state.snapshot);
         for (mode, id) in &self.mode_button_ids {
-            self.common
+            self.base
                 .widget(*id)?
                 .set_enabled(self.reviewer.as_mut().unwrap().is_mode_allowed(*mode));
         }
-        self.common
+        self.base
             .widget(self.approve_and_skip_id)?
             .set_enabled(self.reviewer.as_mut().unwrap().has_unconfirmed());
-        self.common
+        self.base
             .widget(self.unconfirmed_count_id)?
             .set_text(if state.unconfirmed_count > 0 {
                 format!(
@@ -99,14 +97,14 @@ impl ReviewWidget {
 
     fn image_mouse_move(&mut self, pos_in_widget: Option<Point>) -> anyhow::Result<()> {
         let Some(pos_in_widget) = pos_in_widget else {
-            self.common.widget(self.coords_id)?.set_text("");
+            self.base.widget(self.coords_id)?.set_text("");
             return Ok(());
         };
         let pos_in_content = self
-            .common
+            .base
             .widget(self.image_id)?
             .map_widget_pos_to_content_pos(pos_in_widget);
-        self.common
+        self.base
             .widget(self.coords_id)?
             .set_text(format!("{:?}", pos_in_content));
         Ok(())
@@ -114,37 +112,37 @@ impl ReviewWidget {
 }
 
 impl Widget for ReviewWidget {
-    impl_widget_common!();
+    impl_widget_base!();
 
     #[allow(clippy::collapsible_if)]
-    fn new(mut common: WidgetBaseOf<Self>) -> Self {
-        let id = common.id();
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        let id = base.id();
         // TODO: Grid widget
 
-        let window = common
+        let window = base
             .add_child::<WindowWidget>()
             .set_title("salvation test review");
 
         window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(1)
             .set_row(1)
             .set_text("Test:");
         let test_name_id = window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(2)
             .set_row(1)
             .id();
 
         let row = window
-            .common_mut()
+            .base_mut()
             .add_child::<Row>()
             .set_column(2)
             .set_row(2)
             .add_class("no_padding".into());
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(0)
@@ -154,7 +152,7 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
 
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(1)
             .set_row(0)
@@ -163,7 +161,7 @@ impl Widget for ReviewWidget {
                 w.reviewer.as_mut().unwrap().go_to_previous_test_case();
                 w.update_ui()
             }));
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(2)
             .set_row(0)
@@ -172,7 +170,7 @@ impl Widget for ReviewWidget {
                 w.reviewer.as_mut().unwrap().go_to_next_test_case();
                 w.update_ui()
             }));
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(3)
             .set_row(0)
@@ -190,26 +188,26 @@ impl Widget for ReviewWidget {
             }));
 
         window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(1)
             .set_row(3)
             .set_text("Snapshot:");
         let snapshot_name_id = window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(2)
             .set_row(3)
             .id();
 
         let row = window
-            .common_mut()
+            .base_mut()
             .add_child::<Row>()
             .set_column(2)
             .set_row(4)
             .add_class("no_padding".into());
 
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(0)
@@ -218,7 +216,7 @@ impl Widget for ReviewWidget {
                 w.reviewer.as_mut().unwrap().go_to_previous_snapshot();
                 w.update_ui()
             }));
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(1)
             .set_row(0)
@@ -229,7 +227,7 @@ impl Widget for ReviewWidget {
             }));
 
         window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(1)
             .set_row(5)
@@ -237,7 +235,7 @@ impl Widget for ReviewWidget {
 
         // TODO: radio buttons
         let modes_row = window
-            .common_mut()
+            .base_mut()
             .add_child::<Row>()
             .set_column(2)
             .set_row(5)
@@ -246,7 +244,7 @@ impl Widget for ReviewWidget {
         for (column, mode) in Mode::iter().enumerate() {
             // TODO: radio buttons
             let button = modes_row
-                .common_mut()
+                .base_mut()
                 .add_child::<Button>()
                 .set_column(column as i32)
                 .set_row(0)
@@ -256,50 +254,50 @@ impl Widget for ReviewWidget {
         }
 
         window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(1)
             .set_row(6)
             .set_text("Snapshot:");
 
         let row = window
-            .common_mut()
+            .base_mut()
             .add_child::<Row>()
             .set_column(2)
             .set_row(6)
             .add_class("no_padding".into());
 
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(0)
             .set_text("100%")
             .on_triggered(id.callback(move |w, _e| {
-                w.common.widget(w.image_id)?.set_scale(Some(1.0));
+                w.base.widget(w.image_id)?.set_scale(Some(1.0));
                 Ok(())
             }));
-        row.common_mut()
+        row.base_mut()
             .add_child::<Button>()
             .set_column(1)
             .set_row(0)
             .set_text("200%")
             .on_triggered(id.callback(move |w, _e| {
-                w.common.widget(w.image_id)?.set_scale(Some(2.0));
+                w.base.widget(w.image_id)?.set_scale(Some(2.0));
                 Ok(())
             }));
         let coords_id = row
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(2)
             .set_row(0)
             .id();
         let image = window
-            .common_mut()
+            .base_mut()
             .add_child::<Image>()
             .set_column(2)
             .set_row(7);
         let image_mouse_move = id.callback(Self::image_mouse_move);
-        image.common_mut().event_filter = Some(Box::new(move |event| {
+        image.base_mut().event_filter = Some(Box::new(move |event| {
             match event {
                 Event::MouseMove(event) => {
                     image_mouse_move.invoke(Some(event.pos));
@@ -314,21 +312,21 @@ impl Widget for ReviewWidget {
         let image_id = image.id();
 
         window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(1)
             .set_row(8)
             .set_text("Actions:");
 
         let approve_and_skip = window
-            .common_mut()
+            .base_mut()
             .add_child::<Row>()
             .set_column(2)
             .set_row(8)
             .add_class("no_padding".into());
 
         approve_and_skip
-            .common_mut()
+            .base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(0)
@@ -338,7 +336,7 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
         approve_and_skip
-            .common_mut()
+            .base_mut()
             .add_child::<Button>()
             .set_column(1)
             .set_row(0)
@@ -350,7 +348,7 @@ impl Widget for ReviewWidget {
                 w.update_ui()
             }));
         approve_and_skip
-            .common_mut()
+            .base_mut()
             .add_child::<Button>()
             .set_column(2)
             .set_row(0)
@@ -367,14 +365,14 @@ impl Widget for ReviewWidget {
         let approve_and_skip_id = approve_and_skip.id();
 
         let unconfirmed_count_id = window
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(2)
             .set_row(9)
             .id();
 
         Self {
-            common,
+            base,
             test_name_id,
             snapshot_name_id,
             image_id,

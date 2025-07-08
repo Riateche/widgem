@@ -3,7 +3,7 @@
 use {
     anyhow::Result,
     salvation::{
-        impl_widget_common,
+        impl_widget_base,
         system::add_interval,
         widgets::{
             button::Button, column::Column, label::Label, scroll_area::ScrollArea,
@@ -15,7 +15,7 @@ use {
 };
 
 struct AnotherWidget {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     counter: i32,
 }
 
@@ -31,20 +31,20 @@ struct AnotherWidget {
 // }
 
 impl Widget for AnotherWidget {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
-        let mut this = Self { counter: 0, common };
+    fn new(base: WidgetBaseOf<Self>) -> Self {
+        let mut this = Self { counter: 0, base };
         let callback = this.callback(|this, _event| {
             this.counter += 1;
             println!("counter: {}", this.counter);
             let window = this
-                .common
+                .base
                 .add_child_with_key::<WindowWidget>(("window", this.counter))
                 .set_title("example");
             println!("window {:?}", window.id());
             let label = window
-                .common_mut()
+                .base_mut()
                 .add_child::<Label>()
                 .set_column(0)
                 .set_row(0)
@@ -53,7 +53,7 @@ impl Widget for AnotherWidget {
             Ok(())
         });
         let button = this
-            .common_mut()
+            .base_mut()
             .add_child_with_key::<Button>("button")
             .set_column(0)
             .set_row(1);
@@ -64,7 +64,7 @@ impl Widget for AnotherWidget {
 }
 
 struct RootWidget {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     button_id: WidgetId<Button>,
     column2_id: WidgetId<Column>,
     button21_id: WidgetId<Button>,
@@ -78,7 +78,7 @@ struct RootWidget {
 impl RootWidget {
     fn inc(&mut self) -> Result<()> {
         self.i += 1;
-        if let Ok(widget) = self.common.widget(self.button21_id) {
+        if let Ok(widget) = self.base.widget(self.button21_id) {
             widget.set_text(format!("i = {}", self.i));
         }
         Ok(())
@@ -86,18 +86,18 @@ impl RootWidget {
 
     fn button_clicked(&mut self, data: (), k: u32) -> Result<()> {
         println!("callback! {:?}, {}", data, k);
-        let button = self.common.widget(self.button_id)?;
+        let button = self.base.widget(self.button_id)?;
         button.set_text(format!("ok {}", if k == 1 { "1" } else { "22222" }));
 
         if k == 1 {
             self.flag_column = !self.flag_column;
-            self.common
+            self.base
                 .widget(self.column2_id)?
                 .set_enabled(self.flag_column);
             println!("set enabled {:?} {:?}", self.column2_id, self.flag_column);
         } else {
             self.flag_button21 = !self.flag_button21;
-            self.common
+            self.base
                 .widget(self.button21_id)?
                 .set_enabled(self.flag_button21);
             println!(
@@ -110,25 +110,25 @@ impl RootWidget {
 }
 
 impl Widget for RootWidget {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(mut common: WidgetBaseOf<Self>) -> Self {
-        let id = common.id();
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        let id = base.id();
 
-        let window = common.add_child::<WindowWidget>().set_title("example");
+        let window = base.add_child::<WindowWidget>().set_title("example");
 
         let root = window
-            .common_mut()
+            .base_mut()
             .add_child::<Column>()
             .set_column(0)
             .set_row(0);
 
-        root.common_mut()
+        root.base_mut()
             .add_child::<TextInput>()
             .set_column(0)
             .set_row(0)
             .set_text("Hello, Rust! 🦀😂\n");
-        root.common_mut()
+        root.base_mut()
             .add_child::<TextInput>()
             .set_column(0)
             .set_row(1)
@@ -151,7 +151,7 @@ impl Widget for RootWidget {
         */
 
         let button_id = root
-            .common_mut()
+            .base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(2)
@@ -160,7 +160,7 @@ impl Widget for RootWidget {
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 1)))
             .id();
 
-        root.common_mut()
+        root.base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(3)
@@ -168,12 +168,12 @@ impl Widget for RootWidget {
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 2)));
 
         let column2 = root
-            .common_mut()
+            .base_mut()
             .add_child::<Column>()
             .set_column(0)
             .set_row(4);
         let button21_id = column2
-            .common_mut()
+            .base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(0)
@@ -185,7 +185,7 @@ impl Widget for RootWidget {
             .id();
 
         let button22_id = column2
-            .common_mut()
+            .base_mut()
             .add_child::<Button>()
             .set_column(0)
             .set_row(1)
@@ -193,13 +193,13 @@ impl Widget for RootWidget {
             .id();
         let column2_id = column2.id();
 
-        root.common_mut()
+        root.base_mut()
             .add_child::<AnotherWidget>()
             .set_column(0)
             .set_row(5);
 
         let label2_id = root
-            .common_mut()
+            .base_mut()
             .add_child::<Label>()
             .set_column(0)
             .set_row(6)
@@ -207,14 +207,14 @@ impl Widget for RootWidget {
             .id();
 
         let scroll_area = root
-            .common_mut()
+            .base_mut()
             .add_child::<ScrollArea>()
             .set_column(0)
             .set_row(7);
         let content = scroll_area.set_content::<Column>();
         for i in 1..=80 {
             content
-                .common_mut()
+                .base_mut()
                 .add_child::<Button>()
                 .set_column(0)
                 .set_row(i)
@@ -224,7 +224,7 @@ impl Widget for RootWidget {
         add_interval(Duration::from_secs(2), id.callback(|this, _| this.inc()));
 
         RootWidget {
-            common,
+            base,
             button_id,
             column2_id,
             button21_id,
@@ -244,7 +244,7 @@ fn main() {
     env_logger::init();
     App::new()
         .run(|r| {
-            r.common_mut().add_child::<RootWidget>();
+            r.base_mut().add_child::<RootWidget>();
             Ok(())
         })
         .unwrap();

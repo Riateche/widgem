@@ -4,7 +4,7 @@ use {
     },
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
-        impl_widget_common,
+        impl_widget_base,
         layout::{grid::grid_layout, SizeHints},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
     },
@@ -14,7 +14,7 @@ use {
 };
 
 pub struct ScrollArea {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
 }
 
 const INDEX_SCROLL_BAR_X: u64 = 0;
@@ -26,20 +26,20 @@ const KEY_CONTENT_IN_VIEWPORT: u64 = 0;
 #[impl_with]
 impl ScrollArea {
     fn has_content(&self) -> bool {
-        self.common
+        self.base
             .get_dyn_child(INDEX_VIEWPORT)
             .unwrap()
-            .common()
+            .base()
             .has_child(KEY_CONTENT_IN_VIEWPORT)
     }
 
     // TODO: naming?
     pub fn set_content<T: Widget>(&mut self) -> &mut T {
         assert!(!self.has_content());
-        self.common
+        self.base
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .add_child_with_key::<T>(KEY_CONTENT_IN_VIEWPORT)
     }
 
@@ -91,44 +91,44 @@ impl ScrollArea {
     // }
 
     fn relayout(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
-        let geometry = self.common.geometry_or_err()?.clone();
+        let geometry = self.base.geometry_or_err()?.clone();
         grid_layout(self, changed_size_hints);
 
         if self.has_content() {
             let value_x = self
-                .common
+                .base
                 .get_child::<ScrollBar>(INDEX_SCROLL_BAR_X)
                 .unwrap()
                 .value();
             let value_y = self
-                .common
+                .base
                 .get_child::<ScrollBar>(INDEX_SCROLL_BAR_Y)
                 .unwrap()
                 .value();
 
             let Some(viewport_rect) = self
-                .common
+                .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
-                .common_mut()
+                .base_mut()
                 .rect_in_parent()
             else {
                 return Ok(());
             };
             let content_size_x = self
-                .common
+                .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
-                .common_mut()
+                .base_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
                 .size_hint_x()
                 .preferred;
             let content_size_y = self
-                .common
+                .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
-                .common_mut()
+                .base_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
                 .size_hint_y(content_size_x)
@@ -139,10 +139,10 @@ impl ScrollArea {
                 content_size_x,
                 content_size_y,
             );
-            self.common
+            self.base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
-                .common_mut()
+                .base_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
                 .set_geometry(
@@ -152,11 +152,11 @@ impl ScrollArea {
 
             let max_value_x = max(0.ppx(), content_size_x - viewport_rect.size_x());
             let max_value_y = max(0.ppx(), content_size_y - viewport_rect.size_y());
-            self.common
+            self.base
                 .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)
                 .unwrap()
                 .set_value_range(0..=max_value_x.to_i32());
-            self.common
+            self.base
                 .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)
                 .unwrap()
                 .set_value_range(0..=max_value_y.to_i32());
@@ -166,28 +166,25 @@ impl ScrollArea {
 }
 
 impl Widget for ScrollArea {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(mut common: WidgetBaseOf<Self>) -> Self {
-        let relayout = common.callback(|this, _| this.relayout(&[]));
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        let relayout = base.callback(|this, _| this.relayout(&[]));
 
         // TODO: icons, localized name
-        common
-            .add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X)
+        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X)
             .set_column(0)
             .set_row(1)
             .on_value_changed(relayout.clone());
-        common
-            .add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y)
+        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y)
             .set_column(1)
             .set_row(0)
             .set_axis(Axis::Y)
             .on_value_changed(relayout);
-        common
-            .add_child_with_key::<Viewport>(INDEX_VIEWPORT)
+        base.add_child_with_key::<Viewport>(INDEX_VIEWPORT)
             .set_column(0)
             .set_row(0);
-        Self { common }
+        Self { base }
     }
 
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
@@ -195,10 +192,10 @@ impl Widget for ScrollArea {
     }
 
     fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
-        let delta = event.unified_delta(&self.common);
+        let delta = event.unified_delta(&self.base);
 
         let scroll_x = self
-            .common
+            .base
             .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)
             .unwrap();
         let new_value_x = scroll_x.value() - delta.x.round() as i32;
@@ -208,7 +205,7 @@ impl Widget for ScrollArea {
         ));
 
         let scroll_y = self
-            .common
+            .base
             .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)
             .unwrap();
         let new_value_y = scroll_y.value() - delta.y.round() as i32;
@@ -221,16 +218,16 @@ impl Widget for ScrollArea {
 }
 
 pub struct Viewport {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
 }
 
 impl Viewport {}
 
 impl Widget for Viewport {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
-        Self { common }
+    fn new(base: WidgetBaseOf<Self>) -> Self {
+        Self { base }
     }
 
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {

@@ -5,7 +5,7 @@ use {
             FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
             ScrollToRectRequest, StyleChangeEvent,
         },
-        impl_widget_common,
+        impl_widget_base,
         layout::{grid::grid_layout, SizeHints},
         style::{
             common::ComputedElementStyle,
@@ -25,14 +25,14 @@ use {
 };
 
 struct Viewport {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
 }
 
 impl Widget for Viewport {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
-        Self { common }
+    fn new(base: WidgetBaseOf<Self>) -> Self {
+        Self { base }
     }
 
     fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
@@ -44,9 +44,8 @@ impl Widget for Viewport {
     }
 
     fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
-        let size = PhysicalPixels::from_i32(
-            self.common.get_child::<Text>(0).unwrap().line_height() as i32,
-        );
+        let size =
+            PhysicalPixels::from_i32(self.base.get_child::<Text>(0).unwrap().line_height() as i32);
         Ok(SizeHints {
             min: size,
             preferred: size,
@@ -56,25 +55,25 @@ impl Widget for Viewport {
 }
 
 pub struct TextInput {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
     style: Rc<TextInputStyle>,
 }
 
 impl TextInput {
     fn text_widget(&self) -> &Text {
-        self.common
+        self.base
             .get_dyn_child(0)
             .unwrap()
-            .common()
+            .base()
             .get_child::<Text>(0)
             .unwrap()
     }
 
     fn text_widget_mut(&mut self) -> &mut Text {
-        self.common
+        self.base
             .get_dyn_child_mut(0)
             .unwrap()
-            .common_mut()
+            .base_mut()
             .get_child_mut::<Text>(0)
             .unwrap()
     }
@@ -85,11 +84,11 @@ impl TextInput {
 
     fn adjust_scroll(&mut self, changed_size_hints: &[WidgetAddress]) {
         let Some(editor_viewport_rect) = self
-            .common
+            .base
             .children
             .get(&0.into())
             .unwrap()
-            .common()
+            .base()
             .rect_in_parent()
         else {
             return;
@@ -97,14 +96,14 @@ impl TextInput {
         let text_size = self.text_widget().size();
         let cursor_position = self.text_widget().cursor_position();
         let mut scroll_x = self
-            .common
+            .base
             .get_dyn_child(0)
             .unwrap()
-            .common()
+            .base()
             .children
             .get(&0.into())
             .unwrap()
-            .common()
+            .base()
             .rect_in_parent()
             .map_or(0.ppx(), |rect| -rect.left());
         let max_scroll = max(0.ppx(), text_size.x() - editor_viewport_rect.size_x());
@@ -119,32 +118,25 @@ impl TextInput {
         scroll_x = scroll_x.clamp(0.ppx(), max_scroll);
         let new_rect = Rect::from_pos_size(Point::new(-scroll_x, 0.ppx()), text_size);
         if self
-            .common
+            .base
             .get_dyn_child(0)
             .unwrap()
-            .common()
+            .base()
             .children
             .get(&0.into())
             .unwrap()
-            .common()
+            .base()
             .rect_in_parent()
             != Some(new_rect)
         {
-            let Some(geometry) = self
-                .common
-                .get_dyn_child(0)
-                .unwrap()
-                .common()
-                .geometry
-                .clone()
-            else {
+            let Some(geometry) = self.base.get_dyn_child(0).unwrap().base().geometry.clone() else {
                 return;
             };
 
-            self.common
+            self.base
                 .get_dyn_child_mut(0)
                 .unwrap()
-                .common_mut()
+                .base_mut()
                 .children
                 .get_mut(&0.into())
                 .unwrap()
@@ -157,30 +149,30 @@ impl TextInput {
 }
 
 impl Widget for TextInput {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(mut common: WidgetBaseOf<Self>) -> Self {
-        common.set_supports_focus(true);
-        common.set_cursor_icon(CursorIcon::Text);
-        let host_id = common.id();
-        let element = common.style_element().clone();
-        let viewport = common
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        base.set_supports_focus(true);
+        base.set_cursor_icon(CursorIcon::Text);
+        let host_id = base.id();
+        let element = base.style_element().clone();
+        let viewport = base
             .add_child_with_key::<Viewport>(0)
             .set_column(0)
             .set_row(0);
-        viewport.common_mut().set_receives_all_mouse_events(true);
-        viewport.common_mut().set_cursor_icon(CursorIcon::Text);
+        viewport.base_mut().set_receives_all_mouse_events(true);
+        viewport.base_mut().set_cursor_icon(CursorIcon::Text);
         let editor = viewport
-            .common_mut()
+            .base_mut()
             .add_child_with_key::<Text>(0)
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into())
             .set_host_style_element(element);
-        editor.common_mut().set_receives_all_mouse_events(true);
+        editor.base_mut().set_receives_all_mouse_events(true);
         Self {
-            style: get_style(common.style_element(), common.scale()),
-            common,
+            style: get_style(base.style_element(), base.scale()),
+            base,
         }
     }
 
@@ -199,7 +191,7 @@ impl Widget for TextInput {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        self.style = get_style(self.common().style_element(), self.common().scale());
+        self.style = get_style(self.base().style_element(), self.base().scale());
         Ok(())
     }
 
@@ -220,7 +212,7 @@ impl Widget for TextInput {
     }
 
     fn handle_scroll_to_rect_request(&mut self, event: ScrollToRectRequest) -> Result<bool> {
-        if self.text_widget().common().id() != event.address.widget_id() {
+        if self.text_widget().base().id() != event.address.widget_id() {
             warn!("TextInput received unexpected ScrollToRectEvent");
             return Ok(false);
         }

@@ -1,17 +1,17 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::impl_widget_common,
+    crate::impl_widget_base,
 };
 
 // TODO: reimplement auto keys and auto row/column
 pub struct Row {
-    common: WidgetBaseOf<Self>,
+    base: WidgetBaseOf<Self>,
 }
 
 impl Widget for Row {
-    impl_widget_common!();
+    impl_widget_base!();
 
-    fn new(common: WidgetBaseOf<Self>) -> Self {
-        Self { common }
+    fn new(base: WidgetBaseOf<Self>) -> Self {
+        Self { base }
     }
 }

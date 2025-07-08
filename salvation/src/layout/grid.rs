@@ -96,13 +96,13 @@ pub fn size_hint_x(items: &mut BTreeMap<Key, Box<dyn Widget>>, options: &GridOpt
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
     for item in items.values_mut() {
-        if !item.common().is_in_grid() {
+        if !item.base().is_in_grid() {
             continue;
         }
 
         let hints = item.size_hint_x();
         let pos_in_grid = item
-            .common()
+            .base()
             .layout_item_options
             .x
             .pos_in_grid
@@ -112,7 +112,7 @@ pub fn size_hint_x(items: &mut BTreeMap<Key, Box<dyn Widget>>, options: &GridOpt
         preferred_items.push((pos_in_grid, hints.preferred));
 
         let is_fixed = item
-            .common()
+            .base()
             .layout_item_options
             .x
             .is_fixed
@@ -139,9 +139,9 @@ pub fn size_hint_y(
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
     for (key, item) in items.iter_mut() {
-        if !item.common().layout_item_options.is_in_grid()
-            || item.common().is_window_root()
-            || !item.common().is_self_visible()
+        if !item.base().layout_item_options.is_in_grid()
+            || item.base().is_window_root()
+            || !item.base().is_self_visible()
         {
             continue;
         }
@@ -149,7 +149,7 @@ pub fn size_hint_y(
             continue;
         };
         let pos_in_grid = item
-            .common()
+            .base()
             .layout_item_options
             .y
             .pos_in_grid
@@ -161,7 +161,7 @@ pub fn size_hint_y(
         preferred_items.push((pos_in_grid, hints.preferred));
 
         let is_fixed = item
-            .common()
+            .base()
             .layout_item_options
             .x
             .is_fixed
@@ -192,10 +192,10 @@ fn x_layout(
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
     for item in items.values_mut() {
-        if !item.common().is_in_grid() {
+        if !item.base().is_in_grid() {
             continue;
         }
-        let Some(pos) = item.common().layout_item_options.x.pos_in_grid.clone() else {
+        let Some(pos) = item.base().layout_item_options.x.pos_in_grid.clone() else {
             continue;
         };
         if pos.start() != pos.end() {
@@ -203,7 +203,7 @@ fn x_layout(
         }
         let pos = *pos.start();
         let mut hints = item.size_hint_x();
-        if let Some(is_fixed) = item.common().layout_item_options.x.is_fixed {
+        if let Some(is_fixed) = item.base().layout_item_options.x.is_fixed {
             hints.is_fixed = is_fixed;
         }
         let column_hints = hints_per_column.entry(pos).or_insert(hints);
@@ -219,10 +219,10 @@ fn x_layout(
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
     for (key, item) in items.iter_mut() {
-        if !item.common().is_in_grid() {
+        if !item.base().is_in_grid() {
             continue;
         }
-        let Some(pos) = item.common().layout_item_options.x.pos_in_grid.clone() else {
+        let Some(pos) = item.base().layout_item_options.x.pos_in_grid.clone() else {
             continue;
         };
         if pos.start() != pos.end() {
@@ -233,7 +233,7 @@ fn x_layout(
             continue;
         };
         let child_size = if item
-            .common()
+            .base()
             .layout_item_options
             .x
             .is_fixed
@@ -255,26 +255,26 @@ fn x_layout(
 }
 
 pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
-    let Some(geometry) = widget.common().geometry.clone() else {
-        for child in widget.common_mut().children.values_mut() {
+    let Some(geometry) = widget.base().geometry.clone() else {
+        for child in widget.base_mut().children.values_mut() {
             child.set_geometry(None, changed_size_hints);
         }
         return;
     };
-    let options = widget.common().common_style.grid.clone();
+    let options = widget.base().common_style.grid.clone();
     let x_layout = x_layout(
-        &mut widget.common_mut().children,
+        &mut widget.base_mut().children,
         &options.x,
         geometry.size_x(),
     );
     let mut hints_per_row = BTreeMap::new();
-    for (key, item) in &mut widget.common_mut().children {
+    for (key, item) in &mut widget.base_mut().children {
         // TODO: use item.common().is_in_grid()
-        if !item.common().layout_item_options.is_in_grid() || item.common().is_window_root() {
+        if !item.base().layout_item_options.is_in_grid() || item.base().is_window_root() {
             //|| !item.common().is_self_visible {
             continue;
         }
-        let Some(pos) = item.common().layout_item_options.y.pos_in_grid.clone() else {
+        let Some(pos) = item.base().layout_item_options.y.pos_in_grid.clone() else {
             continue;
         };
         if pos.start() != pos.end() {
@@ -285,7 +285,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         };
         let pos = *pos.start();
         let mut hints = item.size_hint_y(*item_size_x);
-        if let Some(is_fixed) = item.common().layout_item_options.y.is_fixed {
+        if let Some(is_fixed) = item.base().layout_item_options.y.is_fixed {
             hints.is_fixed = is_fixed;
         }
         let row_hints = hints_per_row.entry(pos).or_insert(hints);
@@ -314,14 +314,14 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         geometry.size_y(),
         options.y.alignment,
     );
-    for (key, item) in &mut widget.common_mut().children {
+    for (key, item) in &mut widget.base_mut().children {
         // if !item.common().is_self_visible {
         //     continue;
         // }
-        let Some(pos_x) = item.common().layout_item_options.x.pos_in_grid.clone() else {
+        let Some(pos_x) = item.base().layout_item_options.x.pos_in_grid.clone() else {
             continue;
         };
-        let Some(pos_y) = item.common().layout_item_options.y.pos_in_grid.clone() else {
+        let Some(pos_y) = item.base().layout_item_options.y.pos_in_grid.clone() else {
             continue;
         };
         let Some(cell_pos_x) = positions_x.get(pos_x.start()) else {
@@ -341,7 +341,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         };
         let size_hint_y = item.size_hint_y(*size_x);
         let size_y = if item
-            .common()
+            .base()
             .layout_item_options
             .y
             .is_fixed

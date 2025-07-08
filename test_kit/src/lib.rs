@@ -246,7 +246,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 reviewer.go_to_test_case(0);
             }
             salvation::run(move |w| {
-                w.common_mut()
+                w.base_mut()
                     .add_child::<ReviewWidget>()
                     .set_reviewer(reviewer)
             })?;

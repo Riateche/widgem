@@ -533,7 +533,7 @@ impl WidgetBase {
             {
                 with_system(|system| {
                     if let Some(state) = &mut system.current_children_update {
-                        state.declared_children.insert(old_widget.common().id);
+                        state.declared_children.insert(old_widget.base().id);
                     } else {
                         warn!("declare_child shouldn't be used outside of declare_children()");
                     }
@@ -563,7 +563,7 @@ impl WidgetBase {
         if declare {
             with_system(|system| {
                 if let Some(state) = &mut system.current_children_update {
-                    state.declared_children.insert(widget.common().id);
+                    state.declared_children.insert(widget.base().id);
                 } else {
                     warn!("declare_child shouldn't be used outside of declare_children()");
                 }
@@ -652,13 +652,13 @@ impl WidgetBase {
             return Err(WidgetNotFound);
         };
         for (key, _id) in &address.path[self.address.len() + 1..] {
-            if current_widget.common().id == parent_id {
+            if current_widget.base().id == parent_id {
                 return current_widget
-                    .common_mut()
+                    .base_mut()
                     .remove_child(&address.path.last().unwrap().0);
             }
             current_widget = current_widget
-                .common_mut()
+                .base_mut()
                 .children
                 .get_mut(key)
                 .ok_or(WidgetNotFound)?
@@ -743,11 +743,10 @@ impl WidgetBase {
             Event::WindowFocusChange(_) => {}
             Event::MouseInput(event) => {
                 for child in self.children.values_mut().rev() {
-                    if let Some(rect_in_parent) = child.common().rect_in_parent() {
-                        if let Some(child_event) = event.map_to_child(
-                            rect_in_parent,
-                            child.common().receives_all_mouse_events(),
-                        ) {
+                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
+                        if let Some(child_event) = event
+                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
+                        {
                             if child.dispatch(child_event.into()) {
                                 return true;
                             }
@@ -757,11 +756,10 @@ impl WidgetBase {
             }
             Event::MouseScroll(event) => {
                 for child in self.children.values_mut().rev() {
-                    if let Some(rect_in_parent) = child.common().rect_in_parent() {
-                        if let Some(child_event) = event.map_to_child(
-                            rect_in_parent,
-                            child.common().receives_all_mouse_events(),
-                        ) {
+                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
+                        if let Some(child_event) = event
+                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
+                        {
                             if child.dispatch(child_event.into()) {
                                 return true;
                             }
@@ -771,11 +769,10 @@ impl WidgetBase {
             }
             Event::MouseMove(event) => {
                 for child in self.children.values_mut().rev() {
-                    if let Some(rect_in_parent) = child.common().rect_in_parent() {
-                        if let Some(child_event) = event.map_to_child(
-                            rect_in_parent,
-                            child.common().receives_all_mouse_events(),
-                        ) {
+                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
+                        if let Some(child_event) = event
+                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
+                        {
                             if child.dispatch(child_event.into()) {
                                 return true;
                             }
@@ -896,10 +893,10 @@ impl WidgetBase {
     pub fn widget_raw(&mut self, id: RawWidgetId) -> Result<&mut dyn Widget, WidgetNotFound> {
         // TODO: speed up
         for child in self.children.values_mut() {
-            if child.common().id == id {
+            if child.base().id == id {
                 return Ok(child.as_mut());
             }
-            if let Ok(widget) = child.common_mut().widget_raw(id) {
+            if let Ok(widget) = child.base_mut().widget_raw(id) {
                 return Ok(widget);
             }
         }

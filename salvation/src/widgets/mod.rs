@@ -35,7 +35,7 @@ pub fn get_widget_by_address_mut<'a>(
     root_widget: &'a mut dyn Widget,
     address: &WidgetAddress,
 ) -> Result<&'a mut dyn Widget, WidgetNotFound> {
-    let root_address = root_widget.common().address();
+    let root_address = root_widget.base().address();
 
     if !address.starts_with(root_address) {
         warn!("get_widget_by_address_mut: address is not within root widget");
@@ -45,7 +45,7 @@ pub fn get_widget_by_address_mut<'a>(
     let mut current_widget = root_widget;
     for (key, _id) in &address.path[root_address_len..] {
         current_widget = current_widget
-            .common_mut()
+            .base_mut()
             .children
             .get_mut(key)
             .ok_or(WidgetNotFound)?
@@ -63,7 +63,7 @@ pub fn get_widget_by_id_mut(
 }
 
 pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddress]) {
-    let common = widget.common_mut();
+    let common = widget.base_mut();
     for pending_addr in pending {
         if pending_addr.starts_with(common.address()) {
             common.clear_size_hint_cache();
@@ -76,18 +76,18 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
 }
 
 #[macro_export]
-macro_rules! impl_widget_common {
+macro_rules! impl_widget_base {
     () => {
         fn type_name() -> &'static str {
             std::any::type_name::<Self>()
         }
 
-        fn common(&self) -> &$crate::WidgetBase {
-            self.common.untyped()
+        fn base(&self) -> &$crate::WidgetBase {
+            self.base.untyped()
         }
 
-        fn common_mut(&mut self) -> &mut $crate::WidgetBase {
-            self.common.untyped_mut()
+        fn base_mut(&mut self) -> &mut $crate::WidgetBase {
+            self.base.untyped_mut()
         }
     };
 }

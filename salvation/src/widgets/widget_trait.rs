@@ -60,19 +60,19 @@ pub trait Widget: Any {
     /// When implementing this function, you should always store the `common` argument value inside your widget object.
     /// As a convention, you should store it in the widget's field named `common`.
     /// Your implementations of [common](Self::common) and [common_mut](Self::common_mut) must return a reference to that object.
-    fn new(common: WidgetBaseOf<Self>) -> Self
+    fn new(base: WidgetBaseOf<Self>) -> Self
     where
         Self: Sized;
 
     /// Returns a non-unique, read-only reference to `WidgetCommon` object stored inside the widget.
     /// It's recommended to use [impl_widget_common!](crate::impl_widget_common) macro
     /// to automatically implement this function.
-    fn common(&self) -> &WidgetBase; // TODO: example+test for custom location of common object
+    fn base(&self) -> &WidgetBase; // TODO: example+test for custom location of common object
 
     /// Returns a unique, read-write reference to `WidgetCommon` object stored inside the widget.
     /// It's recommended to use [impl_widget_common!](crate::impl_widget_common) macro
     /// to automatically implement this function.
-    fn common_mut(&mut self) -> &mut WidgetBase;
+    fn base_mut(&mut self) -> &mut WidgetBase;
 
     /// Handles a draw event.
     ///
@@ -457,7 +457,7 @@ pub trait Widget: Any {
     /// You don't need to implement this function if your widget doesn't have any children or if you're
     /// managing its children explicitly.
     fn handle_declare_children_request(&mut self) -> Result<()> {
-        self.common_mut().set_has_declare_children_override(false);
+        self.base_mut().set_has_declare_children_override(false);
         Ok(())
     }
 
@@ -481,8 +481,8 @@ pub trait Widget: Any {
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
-        let options = self.common().common_style.grid.clone();
-        Ok(grid::size_hint_x(&mut self.common_mut().children, &options))
+        let options = self.base().common_style.grid.clone();
+        Ok(grid::size_hint_x(&mut self.base_mut().children, &options))
     }
 
     /// Calculates size hint of this widget along the Y axis, given the X size.
@@ -509,9 +509,9 @@ pub trait Widget: Any {
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHints> {
-        let options = self.common().common_style.grid.clone();
+        let options = self.base().common_style.grid.clone();
         Ok(grid::size_hint_y(
-            &mut self.common_mut().children,
+            &mut self.base_mut().children,
             &options,
             size_x,
         ))
