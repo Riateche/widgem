@@ -31,7 +31,7 @@ fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_ente
         let id = widget.common().id();
         window.accept_current_mouse_event(id).or_report_err();
 
-        window.set_cursor(widget.common().cursor_icon);
+        window.set_cursor(widget.common().cursor_icon());
         if is_enter {
             window.add_mouse_entered(rect_in_window, id);
         }
@@ -208,9 +208,9 @@ pub trait WidgetExt: Widget {
             // TODO: propagate to inner widgets anyway? how does it work with two scroll areas?
             return true;
         }
-        if request.address != self.common().address {
-            if request.address.starts_with(&self.common().address) {
-                if let Some((key, id)) = request.address.item_at(self.common().address.len()) {
+        if &request.address != self.common().address() {
+            if request.address.starts_with(self.common().address()) {
+                if let Some((key, id)) = request.address.item_at(self.common().address().len()) {
                     if let Some(child) = self.common_mut().children.get_mut(key) {
                         if &child.common().id() == id {
                             child.scroll_to_rect(request.clone());

@@ -161,7 +161,7 @@ impl Widget for TextInput {
 
     fn new(mut common: WidgetCommonTyped<Self>) -> Self {
         common.set_supports_focus(true);
-        common.cursor_icon = CursorIcon::Text;
+        common.set_cursor_icon(CursorIcon::Text);
         let host_id = common.id();
         let element = common.style_element().clone();
         let viewport = common
@@ -169,7 +169,7 @@ impl Widget for TextInput {
             .set_column(0)
             .set_row(0);
         viewport.common_mut().set_receives_all_mouse_events(true);
-        viewport.common_mut().cursor_icon = CursorIcon::Text;
+        viewport.common_mut().set_cursor_icon(CursorIcon::Text);
         let editor = viewport
             .common_mut()
             .add_child_with_key::<Text>(0)

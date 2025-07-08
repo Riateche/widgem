@@ -37,7 +37,7 @@ pub fn get_widget_by_address_mut<'a>(
     root_widget: &'a mut dyn Widget,
     address: &WidgetAddress,
 ) -> Result<&'a mut dyn Widget, WidgetNotFound> {
-    let root_address = &root_widget.common().address;
+    let root_address = root_widget.common().address();
 
     if !address.starts_with(root_address) {
         warn!("get_widget_by_address_mut: address is not within root widget");
@@ -67,7 +67,7 @@ pub fn get_widget_by_id_mut(
 pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddress]) {
     let common = widget.common_mut();
     for pending_addr in pending {
-        if pending_addr.starts_with(&common.address) {
+        if pending_addr.starts_with(common.address()) {
             common.clear_size_hint_cache();
             for child in common.children.values_mut() {
                 invalidate_size_hint_cache(child.as_mut(), pending);

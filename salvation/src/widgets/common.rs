@@ -170,17 +170,16 @@ auto_bitflags! {
     }
 }
 
-// TODO: use bitflags?
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetCommon {
     id: RawWidgetId,
     type_name: &'static str,
     flags: Flags,
-    pub cursor_icon: CursorIcon,
+    cursor_icon: CursorIcon,
 
-    pub parent_id: Option<RawWidgetId>,
-    pub address: WidgetAddress,
+    parent_id: Option<RawWidgetId>,
+    address: WidgetAddress,
     pub window: Option<Window>,
 
     pub parent_scale: f32,
@@ -458,8 +457,9 @@ impl WidgetCommon {
         self.flags.contains(Flags::has_declare_children_override)
     }
 
-    pub(crate) fn set_has_declare_children_override(&mut self, value: bool) {
+    pub(crate) fn set_has_declare_children_override(&mut self, value: bool) -> &mut Self {
         self.flags.set(Flags::has_declare_children_override, value);
+        self
     }
 
     pub fn new_creation_context(
@@ -685,6 +685,14 @@ impl WidgetCommon {
         self.window.as_ref().context("no window")
     }
 
+    /// Returns the *address* of the widget.
+    ///
+    /// The address is the path from the root widget to this widget.
+    /// The address can be used to quickly access the widget from the root widget
+    /// or from any other indirect parent of the widget.
+    ///
+    /// The address of a widget cannot change. The only way to "change" it is to
+    /// delete the widget and recreate it at another address.
     pub fn address(&self) -> &WidgetAddress {
         &self.address
     }
@@ -947,12 +955,13 @@ impl WidgetCommon {
     /// This function does nothing in widgets that don't implement an accessibility node.
     ///
     /// This setting doesn't propagate to child widgets.
-    pub fn set_accessibility_node_enabled(&mut self, value: bool) {
+    pub fn set_accessibility_node_enabled(&mut self, value: bool) -> &mut Self {
         if self.flags.contains(Flags::accessibility_node_enabled) == value {
-            return;
+            return self;
         }
         self.flags.set(Flags::accessibility_node_enabled, value);
         self.update();
+        self
     }
 
     pub fn after_declare_children(&mut self, state: ChildrenUpdateState) {
@@ -1020,6 +1029,35 @@ impl WidgetCommon {
     /// regardless of its boundaries.
     pub fn receives_all_mouse_events(&self) -> bool {
         self.flags.contains(Flags::receives_all_mouse_events)
+    }
+
+    /// Returns the shape of the mouse pointer when it's over this widget.
+    ///
+    /// Returns the value that was previously set with [`set_cursor_icon`](Self::set_cursor_icon).
+    pub fn cursor_icon(&self) -> CursorIcon {
+        self.cursor_icon
+    }
+
+    /// Configure the shape of the mouse pointer when it's over this widget.
+    ///
+    /// Default value is [CursorIcon::Default].
+    pub fn set_cursor_icon(&mut self, cursor_icon: CursorIcon) -> &mut Self {
+        self.cursor_icon = cursor_icon;
+        self
+    }
+
+    /// ID of the parent widget.
+    ///
+    /// The parent widget is the owner of its direct children.
+    /// For UI widgets, the parent widget is a container of its child widgets.
+    /// Child widgets are always positioned relative to their parent.
+    /// Children can only be visplayed in the boundary of their parent.
+    ///
+    /// The parent ID of the widget cannot be changed.
+    ///
+    /// Returns `None` for [crate::widgets::root::RootWidget].
+    pub fn parent_id(&self) -> Option<RawWidgetId> {
+        self.parent_id
     }
 }
 
