@@ -172,7 +172,7 @@ auto_bitflags! {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct WidgetCommon {
+pub struct WidgetBase {
     id: RawWidgetId,
     type_name: &'static str,
     flags: Flags,
@@ -211,7 +211,7 @@ pub struct WidgetCommon {
     pub declared_children: HashSet<RawWidgetId>,
 }
 
-impl Drop for WidgetCommon {
+impl Drop for WidgetBase {
     fn drop(&mut self) {
         unregister_address(self.id);
         // Drop and unmount children before unmounting self.
@@ -232,7 +232,7 @@ fn last_path_part(str: &str) -> &str {
         .expect("rsplit always returns at least one element")
 }
 
-impl WidgetCommon {
+impl WidgetBase {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<T: Widget>(ctx: WidgetCreationContext) -> WidgetCommonTyped<T> {
         let id = ctx.address.widget_id();
@@ -557,7 +557,7 @@ impl WidgetCommon {
         };
         // This may delete the old widget.
         self.children
-            .insert(key.clone(), Box::new(T::new(WidgetCommon::new::<T>(ctx))));
+            .insert(key.clone(), Box::new(T::new(WidgetBase::new::<T>(ctx))));
         self.size_hint_changed();
         let widget = self.children.get_mut(&key).unwrap();
         if declare {
@@ -1063,7 +1063,7 @@ impl WidgetCommon {
 
 #[derive(Debug)]
 pub struct WidgetCommonTyped<T> {
-    pub common: WidgetCommon,
+    pub common: WidgetBase,
     _marker: PhantomData<T>,
 }
 
@@ -1114,7 +1114,7 @@ impl<W> WidgetCommonTyped<W> {
 }
 
 impl<T> Deref for WidgetCommonTyped<T> {
-    type Target = WidgetCommon;
+    type Target = WidgetBase;
 
     fn deref(&self) -> &Self::Target {
         &self.common
@@ -1127,7 +1127,7 @@ impl<T> DerefMut for WidgetCommonTyped<T> {
     }
 }
 
-impl<T> From<WidgetCommonTyped<T>> for WidgetCommon {
+impl<T> From<WidgetCommonTyped<T>> for WidgetBase {
     fn from(value: WidgetCommonTyped<T>) -> Self {
         value.common
     }

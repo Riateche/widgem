@@ -5,7 +5,7 @@ use crate::widgets::WidgetGeometry;
 use {
     crate::{
         types::{Point, Rect},
-        widgets::{WidgetAddress, WidgetCommon},
+        widgets::{WidgetAddress, WidgetBase},
     },
     accesskit::{Action, ActionData},
     derive_more::From,
@@ -79,7 +79,7 @@ impl MouseScrollEvent {
         }
     }
 
-    pub fn unified_delta(&self, widget_common: &WidgetCommon) -> PhysicalPosition<f64> {
+    pub fn unified_delta(&self, widget_common: &WidgetBase) -> PhysicalPosition<f64> {
         match self.delta {
             MouseScrollDelta::LineDelta(dx, dy) => {
                 let line_height = widget_common.common_style.font_metrics.line_height;

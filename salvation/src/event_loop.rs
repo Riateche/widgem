@@ -9,7 +9,7 @@ use {
         timer::Timers,
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, root::RootWidget, RawWidgetId, Widget,
-            WidgetAddress, WidgetCommon, WidgetCreationContext, WidgetExt,
+            WidgetAddress, WidgetBase, WidgetCreationContext, WidgetExt,
         },
         window::{WindowId, WindowRequest},
     },
@@ -331,7 +331,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                 is_parent_enabled: true,
                 is_window_root: false,
             };
-            let mut root_widget = RootWidget::new(WidgetCommon::new(ctx));
+            let mut root_widget = RootWidget::new(WidgetBase::new(ctx));
             self.init.take().expect("double init")(&mut root_widget).or_report_err();
             self.root_widget = Some(Box::new(root_widget));
 

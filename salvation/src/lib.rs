@@ -28,7 +28,7 @@ pub use {
     },
     tiny_skia,
     widgets::{
-        EventFilterFn, RawWidgetId, Widget, WidgetAddress, WidgetCommon, WidgetCommonTyped,
+        EventFilterFn, RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetCommonTyped,
         WidgetCreationContext, WidgetExt, WidgetGeometry, WidgetId, WidgetNotFound,
     },
     winit::{self, window::WindowAttributes},

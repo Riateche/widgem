@@ -1,5 +1,5 @@
 use {
-    super::{WidgetCommon, WidgetCommonTyped},
+    super::{WidgetBase, WidgetCommonTyped},
     crate::{
         draw::DrawEvent,
         event::{
@@ -67,12 +67,12 @@ pub trait Widget: Any {
     /// Returns a non-unique, read-only reference to `WidgetCommon` object stored inside the widget.
     /// It's recommended to use [impl_widget_common!](crate::impl_widget_common) macro
     /// to automatically implement this function.
-    fn common(&self) -> &WidgetCommon; // TODO: example+test for custom location of common object
+    fn common(&self) -> &WidgetBase; // TODO: example+test for custom location of common object
 
     /// Returns a unique, read-write reference to `WidgetCommon` object stored inside the widget.
     /// It's recommended to use [impl_widget_common!](crate::impl_widget_common) macro
     /// to automatically implement this function.
-    fn common_mut(&mut self) -> &mut WidgetCommon;
+    fn common_mut(&mut self) -> &mut WidgetBase;
 
     /// Handles a draw event.
     ///
