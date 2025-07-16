@@ -1,9 +1,9 @@
 use {
-    salvation::{
+    widgem::{
         impl_widget_base,
         widgets::{button::Button, menu::Menu, window::Window, Widget, WidgetBaseOf, WidgetExt},
     },
-    salvation_test_kit::context::Context,
+    widgem_test_kit::context::Context,
 };
 
 pub struct RootWidget {
@@ -36,7 +36,7 @@ impl Widget for RootWidget {
     }
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 fn menu(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();

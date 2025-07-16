@@ -4,7 +4,14 @@ use {
     },
     anyhow::Context,
     log::warn,
-    salvation::{
+    std::{
+        cmp::max,
+        collections::{BTreeMap, HashMap},
+        path::{Path, PathBuf},
+        rc::Rc,
+    },
+    strum::{EnumIter, IntoEnumIterator},
+    widgem::{
         event::Event,
         impl_widget_base,
         tiny_skia::{Pixmap, PremultipliedColorU8},
@@ -14,13 +21,6 @@ use {
             WidgetBaseOf, WidgetExt, WidgetId,
         },
     },
-    std::{
-        cmp::max,
-        collections::{BTreeMap, HashMap},
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
-    strum::{EnumIter, IntoEnumIterator},
 };
 
 pub struct ReviewWidget {
@@ -119,9 +119,7 @@ impl Widget for ReviewWidget {
         let id = base.id();
         // TODO: Grid widget
 
-        let window = base
-            .add_child::<Window>()
-            .set_title("salvation test review");
+        let window = base.add_child::<Window>().set_title("widgem test review");
 
         window
             .base_mut()
@@ -343,7 +341,7 @@ impl Widget for ReviewWidget {
             .set_text("Skip snapshot")
             .on_triggered(id.callback(move |w, _e| {
                 if !w.reviewer.as_mut().unwrap().go_to_next_unconfirmed_file() {
-                    salvation::exit();
+                    widgem::exit();
                 }
                 w.update_ui()
             }));
@@ -357,7 +355,7 @@ impl Widget for ReviewWidget {
                 w.reviewer.as_mut().unwrap().go_to_next_test_case();
                 if !w.reviewer.as_mut().unwrap().has_unconfirmed() {
                     if !w.reviewer.as_mut().unwrap().go_to_next_unconfirmed_file() {
-                        salvation::exit();
+                        widgem::exit();
                     }
                 }
                 w.update_ui()

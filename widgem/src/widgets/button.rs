@@ -7,6 +7,7 @@ use {
             MouseMoveEvent, StyleChangeEvent,
         },
         impl_widget_base,
+        shared_window::SetFocusRequest,
         style::{
             common::ComputedElementStyle,
             css::{convert_content_url, convert_zoom, Element, PseudoClass},
@@ -15,15 +16,14 @@ use {
         system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
         timer::TimerId,
-        shared_window::SetFocusRequest,
     },
     accesskit::{Action, Role},
     anyhow::Result,
     cosmic_text::Attrs,
     log::warn,
-    salvation_macros::impl_with,
     std::{fmt::Display, rc::Rc},
     tiny_skia::Pixmap,
+    widgem_macros::impl_with,
     winit::{
         event::MouseButton,
         keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
@@ -173,15 +173,13 @@ impl Widget for Button {
 
     fn new(mut base: WidgetBaseOf<Self>) -> Self {
         base.set_supports_focus(true);
-        base
-            .add_child::<Image>()
+        base.add_child::<Image>()
             .set_column(0)
             .set_row(0)
             .set_visible(false);
         let id = base.id().raw();
         let element = base.style_element().clone();
-        base
-            .add_child::<Text>()
+        base.add_child::<Text>()
             .set_column(1)
             .set_row(0)
             .set_host_id(id)

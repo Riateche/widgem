@@ -3806,86 +3806,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
-name = "salvation"
-version = "0.0.1"
-dependencies = [
- "accesskit",
- "accesskit_winit",
- "anyhow",
- "arboard",
- "bitflags 2.9.1",
- "bytemuck",
- "cosmic-text",
- "derivative",
- "derive_more",
- "env_logger",
- "fs-err",
- "itertools 0.14.0",
- "lightningcss",
- "line-straddler",
- "log",
- "once_cell",
- "ordered-float 5.0.0",
- "png",
- "priority-queue",
- "range-ext",
- "resvg",
- "salvation_macros",
- "scoped-tls",
- "serde",
- "serde-value",
- "softbuffer",
- "strict-num 0.2.0",
- "stringcase",
- "thiserror 2.0.12",
- "tiny-skia",
- "unicode-segmentation",
- "usvg",
- "winit",
-]
-
-[[package]]
-name = "salvation_macros"
-version = "0.0.1"
-dependencies = [
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "salvation_test_kit"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ctor",
- "env_logger",
- "fs-err",
- "image",
- "itertools 0.14.0",
- "log",
- "salvation",
- "salvation_macros",
- "strum",
- "uitest",
-]
-
-[[package]]
-name = "salvation_tests"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "env_logger",
- "fs-err",
- "image",
- "itertools 0.14.0",
- "log",
- "salvation",
- "salvation_test_kit",
-]
-
-[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4956,6 +4876,86 @@ name = "widestring"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd7cf3379ca1aac9eea11fba24fd7e315d621f8dfe35c8d7d2be8b793726e07d"
+
+[[package]]
+name = "widgem"
+version = "0.0.1"
+dependencies = [
+ "accesskit",
+ "accesskit_winit",
+ "anyhow",
+ "arboard",
+ "bitflags 2.9.1",
+ "bytemuck",
+ "cosmic-text",
+ "derivative",
+ "derive_more",
+ "env_logger",
+ "fs-err",
+ "itertools 0.14.0",
+ "lightningcss",
+ "line-straddler",
+ "log",
+ "once_cell",
+ "ordered-float 5.0.0",
+ "png",
+ "priority-queue",
+ "range-ext",
+ "resvg",
+ "scoped-tls",
+ "serde",
+ "serde-value",
+ "softbuffer",
+ "strict-num 0.2.0",
+ "stringcase",
+ "thiserror 2.0.12",
+ "tiny-skia",
+ "unicode-segmentation",
+ "usvg",
+ "widgem_macros",
+ "winit",
+]
+
+[[package]]
+name = "widgem_macros"
+version = "0.0.1"
+dependencies = [
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
+name = "widgem_test_kit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "ctor",
+ "env_logger",
+ "fs-err",
+ "image",
+ "itertools 0.14.0",
+ "log",
+ "strum",
+ "uitest",
+ "widgem",
+ "widgem_macros",
+]
+
+[[package]]
+name = "widgem_tests"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger",
+ "fs-err",
+ "image",
+ "itertools 0.14.0",
+ "log",
+ "widgem",
+ "widgem_test_kit",
+]
 
 [[package]]
 name = "winapi"

@@ -8,10 +8,10 @@ use {
     },
     anyhow::Result,
     png::DecodingError,
-    salvation_macros::impl_with,
     std::{path::Path, rc::Rc},
     tiny_skia::Pixmap,
     usvg::Transform,
+    widgem_macros::impl_with,
 };
 
 pub struct Image {

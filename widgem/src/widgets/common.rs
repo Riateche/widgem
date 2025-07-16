@@ -5,6 +5,7 @@ use {
         event::Event,
         key::Key,
         layout::{LayoutItemOptions, SizeHints},
+        shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
             common::CommonComputedStyle,
@@ -17,7 +18,6 @@ use {
         },
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::WidgetExt,
-        shared_window::{SharedWindow, WindowId},
     },
     anyhow::{Context, Result},
     derivative::Derivative,

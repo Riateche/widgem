@@ -1,8 +1,8 @@
-# salvation
+# widgem
 
-**salvation is a work in progress. It's not ready for use.**
+**widgem is a work in progress. It's not ready for use.**
 
-salvation is a lightweight cross-platform desktop widget toolkit. It aims to provide standard UI elements for desktop applications (buttons, text inputs, menus, etc.) with consistent look and feel across Linux, Windows, and macOS.
+widgem is a lightweight cross-platform desktop widget toolkit. It aims to provide standard UI elements for desktop applications (buttons, text inputs, menus, etc.) with consistent look and feel across Linux, Windows, and macOS.
 
 ## Main goals
 

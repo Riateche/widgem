@@ -1,13 +1,13 @@
 [workspace]
 
-members = ["salvation", "macros", "tests", "uitest", "test_kit"]
+members = ["widgem", "macros", "tests", "uitest", "test_kit"]
 resolver = "2"
 
 [workspace.dependencies]
-salvation = { path = "salvation" }
-salvation_macros = { path = "macros", version = "0.0.1" }
+widgem = { path = "widgem" }
+widgem_macros = { path = "macros", version = "0.0.1" }
 uitest = { path = "uitest" }
-salvation_test_kit = { path = "test_kit" }
+widgem_test_kit = { path = "test_kit" }
 
 accesskit = "0.19.0"
 accesskit_winit = "0.27.0"

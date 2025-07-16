@@ -4,7 +4,6 @@ use {
     fs_err::create_dir_all,
     image::{ImageReader, RgbaImage},
     itertools::Itertools,
-    salvation::{widgets::root::RootWidget, App},
     std::{
         collections::BTreeMap,
         ffi::OsString,
@@ -16,6 +15,7 @@ use {
         time::{Duration, Instant},
     },
     uitest::{Connection, Window},
+    widgem::{widgets::root::RootWidget, App},
 };
 
 const CAPTURE_INTERVAL: Duration = Duration::from_millis(30);

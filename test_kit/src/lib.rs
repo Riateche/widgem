@@ -10,7 +10,6 @@ use {
     clap::Parser,
     fs_err::read_dir,
     itertools::Itertools,
-    salvation::{widgets::Widget, App},
     std::{
         collections::BTreeMap,
         env,
@@ -20,12 +19,13 @@ use {
         thread::sleep,
         time::{Duration, Instant},
     },
+    widgem::{widgets::Widget, App},
 };
 
 #[doc(hidden)]
 pub use ctor as __ctor;
 
-pub use {salvation_macros::test, uitest::*};
+pub use {uitest::*, widgem_macros::test};
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
 
@@ -74,7 +74,7 @@ pub fn add_test(name: &str, f: impl FnOnce(&mut Context) -> anyhow::Result<()> +
 
 // TODO: lazy
 fn assets_dir() -> PathBuf {
-    if let Ok(var) = env::var("SALVATION_REPO_DIR") {
+    if let Ok(var) = env::var("WIDGEM_REPO_DIR") {
         PathBuf::from(var).join("test_kit/assets")
     } else {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
@@ -245,7 +245,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             if !reviewer.go_to_next_unconfirmed_file() {
                 reviewer.go_to_test_case(0);
             }
-            salvation::run(move |w| {
+            widgem::run(move |w| {
                 w.base_mut()
                     .add_child::<ReviewWidget>()
                     .set_reviewer(reviewer)

@@ -2,7 +2,8 @@
 
 use {
     anyhow::Result,
-    salvation::{
+    std::time::Duration,
+    widgem::{
         impl_widget_base,
         system::add_interval,
         widgets::{
@@ -11,7 +12,6 @@ use {
         },
         App,
     },
-    std::time::Duration,
 };
 
 struct AnotherWidget {

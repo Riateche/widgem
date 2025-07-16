@@ -1,10 +1,10 @@
 [package]
-name = "salvation_macros"
+name = "widgem_macros"
 version = "0.0.1"
 edition = "2021"
-description = "Macros for salvation widget toolkit"
+description = "Macros for widgem widget toolkit"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Riateche/salvation"
+repository = "https://github.com/Riateche/widgem"
 
 [lib]
 proc-macro = true

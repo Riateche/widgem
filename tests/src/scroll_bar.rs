@@ -1,5 +1,6 @@
 use {
-    salvation::{
+    std::ops::RangeInclusive,
+    widgem::{
         impl_widget_base,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
@@ -7,8 +8,7 @@ use {
             label::Label, scroll_bar::ScrollBar, window::Window, Widget, WidgetBaseOf, WidgetExt,
         },
     },
-    salvation_test_kit::context::Context,
-    std::ops::RangeInclusive,
+    widgem_test_kit::context::Context,
 };
 
 pub struct RootWidget {
@@ -104,7 +104,7 @@ impl Widget for RootWidget {
     }
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();
@@ -120,7 +120,7 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();
@@ -163,7 +163,7 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();
@@ -204,7 +204,7 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();
@@ -253,7 +253,7 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();
@@ -297,7 +297,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();
@@ -326,7 +326,7 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();
@@ -363,7 +363,7 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[salvation_test_kit::test]
+#[widgem_test_kit::test]
 pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>();

@@ -1,14 +1,14 @@
 [package]
-name = "salvation_tests"
+name = "widgem_tests"
 version = "0.1.0"
 edition = "2021"
-description = "Tests for salvation widget toolkit"
+description = "Tests for widgem widget toolkit"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Riateche/salvation"
+repository = "https://github.com/Riateche/widgem"
 
 [dependencies]
-salvation = { workspace = true }
-salvation_test_kit = { workspace = true }
+widgem = { workspace = true }
+widgem_test_kit = { workspace = true }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
@@ -18,7 +18,7 @@ image = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
 
-[package.metadata.bundle.bin.salvation_tests]
-identifier = "io.github.Riateche.salvation.tests"
-name = "Salvation tests"
-icon = ["salvation/assets/32x32.png", "salvation/assets/128x128.png", "salvation/assets/128x128@2x.png"]
+[package.metadata.bundle.bin.widgem_tests]
+identifier = "io.github.Riateche.widgem.tests"
+name = "Widgem tests"
+icon = ["widgem/assets/32x32.png", "widgem/assets/128x128.png", "widgem/assets/128x128@2x.png"]

@@ -1,13 +1,13 @@
 [package]
-name = "salvation"
+name = "widgem"
 version = "0.0.1"
 edition = "2021"
 description = "A lightweight cross-platform desktop widget toolkit"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Riateche/salvation"
+repository = "https://github.com/Riateche/widgem"
 
 [dependencies]
-salvation_macros = { workspace = true }
+widgem_macros = { workspace = true }
 
 accesskit = { workspace = true }
 accesskit_winit = { workspace = true }

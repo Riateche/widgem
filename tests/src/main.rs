@@ -10,7 +10,7 @@ use std::{
 };
 
 fn repo_dir() -> PathBuf {
-    if let Ok(var) = env::var("SALVATION_REPO_DIR") {
+    if let Ok(var) = env::var("WIDGEM_REPO_DIR") {
         PathBuf::from(var)
     } else {
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -21,5 +21,5 @@ fn repo_dir() -> PathBuf {
 }
 
 fn main() -> anyhow::Result<()> {
-    salvation_test_kit::run(repo_dir().join("tests/snapshots"))
+    widgem_test_kit::run(repo_dir().join("tests/snapshots"))
 }

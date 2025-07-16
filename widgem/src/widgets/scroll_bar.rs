@@ -13,11 +13,11 @@ use {
     anyhow::Result,
     log::warn,
     ordered_float::NotNan,
-    salvation_macros::impl_with,
     std::{
         cmp::{max, min},
         ops::RangeInclusive,
     },
+    widgem_macros::impl_with,
     winit::{
         event::{ElementState, MouseButton},
         keyboard::{Key, NamedKey},

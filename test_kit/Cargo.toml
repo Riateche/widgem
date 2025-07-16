@@ -1,14 +1,14 @@
 [package]
-name = "salvation_test_kit"
+name = "widgem_test_kit"
 version = "0.1.0"
 edition = "2021"
-description = "Test framework for salvation widget toolkit"
+description = "Test framework for widgem widget toolkit"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Riateche/salvation"
+repository = "https://github.com/Riateche/widgem"
 
 [dependencies]
-salvation = { workspace = true }
-salvation_macros = { workspace = true }
+widgem = { workspace = true }
+widgem_macros = { workspace = true }
 uitest = { workspace = true }
 
 anyhow = { workspace = true }

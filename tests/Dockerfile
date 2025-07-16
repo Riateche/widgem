@@ -10,13 +10,13 @@ ENV CARGO_TERM_COLOR=always
 
 FROM chef AS planner
 COPY Cargo.toml Cargo.lock ./
-COPY salvation/Cargo.toml salvation/Cargo.toml
+COPY widgem/Cargo.toml widgem/Cargo.toml
 COPY macros/Cargo.toml macros/Cargo.toml
 COPY tests/Cargo.toml tests/Cargo.toml
 COPY uitest/Cargo.toml uitest/Cargo.toml
 COPY test_kit/Cargo.toml test_kit/Cargo.toml
-RUN mkdir macros/src uitest/src test_kit/src salvation/src tests/src && \
-    touch macros/src/lib.rs uitest/src/lib.rs test_kit/src/lib.rs salvation/src/lib.rs tests/src/main.rs
+RUN mkdir macros/src uitest/src test_kit/src widgem/src tests/src && \
+    touch macros/src/lib.rs uitest/src/lib.rs test_kit/src/lib.rs widgem/src/lib.rs tests/src/main.rs
 RUN cargo chef prepare
 
 FROM chef AS builder
@@ -37,13 +37,13 @@ RUN apt-get update && apt-get install -y \
     libgbm-dev
 RUN cargo chef cook $(cat cargo_args)
 COPY Cargo.toml Cargo.lock ./
-COPY salvation salvation
+COPY widgem widgem
 COPY macros macros
 COPY uitest uitest
 COPY test_kit test_kit
 COPY tests/src tests/src
 COPY tests/Cargo.toml tests/
-RUN cargo build --package salvation_tests --locked $(cat cargo_args)
+RUN cargo build --package widgem_tests --locked $(cat cargo_args)
 
 FROM docker.io/ubuntu:noble-20250415.1 AS xfce
 ENV USER=root
@@ -67,5 +67,5 @@ ENTRYPOINT ["/entrypoint"]
 FROM xfce AS runtime
 ARG BUILD_MODE
 ENV RUST_BACKTRACE=1
-ENV SALVATION_REPO_DIR=/salvation
-COPY --from=builder /app/target/$BUILD_MODE/salvation_tests /usr/local/bin/
+ENV WIDGEM_REPO_DIR=/widgem
+COPY --from=builder /app/target/$BUILD_MODE/widgem_tests /usr/local/bin/

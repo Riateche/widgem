@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 description = "Desktop UI test library"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Riateche/salvation"
+repository = "https://github.com/Riateche/widgem"
 
 [dependencies]
 xcap = { workspace = true }
