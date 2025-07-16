@@ -18,7 +18,6 @@ COPY xfce_entrypoint.sh /entrypoint
 ENTRYPOINT ["/entrypoint"]
 
 FROM xfce AS test
-ARG BUILD_MODE
 ENV RUST_BACKTRACE=1 \
     WIDGEM_REPO_DIR=/app
 COPY widgem_tests /usr/local/bin/

@@ -3,49 +3,51 @@ on: [push, pull_request]
 name: Continuous integration
 
 jobs:
-  test:
-    name: Test Suite
-    runs-on: ubuntu-latest
+  build-deps:
+    name: Install build dependencies
+    runs-on: ubuntu-24.04
     steps:
-      - run: |
-          sudo apt-get install -y libxcb1-dev libxrandr-dev \
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libxcb1-dev libxrandr-dev \
             libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
             libgbm-dev
       - uses: actions/checkout@v2
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy,rustfmt
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-24.04
+    needs: build-deps
+    steps:
       - run: cargo test
 
   ui-tests:
     name: UI tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    needs: build-deps
     steps:
-      - uses: actions/checkout@v2
-      - uses: docker/setup-buildx-action@v3
-      - name: "Prepare docker build: builder"
-        run: mkdir -p target/.empty
-      - name: "Build docker image: builder"
+      - name: Build tests
+        run: |
+          cargo build --package widgem_tests --release --locked
+          mkdir -p target/bin
+          cp target/release/widgem_tests target/bin/
+      - name: "Build docker image"
         uses: docker/build-push-action@v6
         with:
-          context: target/.empty
-          tags: widgem_builder
-          file: tests/builder.Dockerfile
-          load: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: "Prepare docker build: tests"
-        run: STAGE=2 tests/run.sh
-      - name: "Build docker image: tests"
-        uses: docker/build-push-action@v6
-        with:
-          context: target/docker/bin
+          context: target/bin
           tags: widgem_tests
           file: tests/tests.Dockerfile
           load: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
       - name: Run UI tests
-        run: STAGE=4 tests/run.sh
-      - name: Upload test snapshots
+        run: |
+          docker run --name widgem_tests \
+            --mount "type=bind,source=$PWD,target=/app" \
+            widgem_tests widgem_tests test
+      - name: Upload test snapshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -54,24 +56,14 @@ jobs:
 
   fmt:
     name: Rustfmt
-    runs-on: ubuntu-latest
+    needs: build-deps
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: rustfmt
       - uses: actions-rust-lang/rustfmt@v1
 
   clippy:
     name: Clippy
-    runs-on: ubuntu-latest
+    needs: build-deps
+    runs-on: ubuntu-24.04
     steps:
-      - run: |
-          sudo apt-get install -y libxcb1-dev libxrandr-dev \
-            libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
-            libgbm-dev
-      - uses: actions/checkout@v2
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: clippy
-      - run: cargo clippy -- --deny warnings
+      - run: cargo clippy --all-targets --all-features -- --deny warnings
