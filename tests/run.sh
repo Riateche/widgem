@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -ex -o pipefail
 
 cd "$(dirname "$0")/.."
 
@@ -9,39 +9,50 @@ if [ "$1" == "--help" ]; then
     exit 0
 fi
 
-if [[ -z "${GITHUB_ACTIONS}" ]]; then
-    docker build \
-        --tag widgem_tests \
-        --file tests/Dockerfile \
-        --build-arg BUILD_MODE \
-        --progress plain \
-        .
+if [ "$BUILD_MODE" = "release" ]; then
+    CARGO_ARGS="--release"
 else
-    echo "Skipping docker build in Github Actions"
+    BUILD_MODE="debug"
+    CARGO_ARGS=""
 fi
 
-docker rm --force widgem_tests || true
-docker run --name widgem_tests \
-    --mount "type=bind,source=$PWD,target=/widgem" \
-    --publish 25901:5901 --publish 26901:6901 \
-    widgem_tests \
-    widgem_tests test "$1"
+stage1() {
+    mkdir -p target/.empty
+    docker build --file tests/builder.Dockerfile --tag widgem_builder target/.empty
+}
 
-# for i in {1..20}; do
-#     sleep 0.3
-#     echo Testing container status
-#     docker exec widgem_tests xdotool click 1 || true
-#     if docker exec widgem_tests xdotool getactivewindow; then
-#        echo Container is ready
-#        break
-#     fi
-#     if ! docker exec widgem_tests pidof xfwm4; then
-#         echo xfwm4 is not running, starting xfwm4
-#         docker exec --detach widgem_tests xfwm4
-#     fi
-# done
-# if [ "$i" == "20" ]; then
-#     2>&1 echo "Container check failed"
-#     exit 1
-# fi
-# docker exec widgem_tests widgem_tests test "$1"
+stage2() {
+    docker run \
+        --mount "type=bind,src=$PWD,dst=/app" \
+        widgem_builder \
+        "command -v rustup || \
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+                sh -s -- --default-toolchain 1.87.0 --profile minimal -y
+            cargo build --package widgem_tests --locked $CARGO_ARGS"
+    mkdir -p target/docker/bin
+    cp target/docker/target/$BUILD_MODE/widgem_tests tests/xfce_entrypoint.sh target/docker/bin/
+}
+
+stage3() {
+    docker build --file tests/tests.Dockerfile --tag widgem_tests target/docker/bin
+}
+
+stage4() {
+    docker rm --force widgem_tests || true
+    docker run --name widgem_tests \
+        --mount "type=bind,source=$PWD,target=/app" \
+        --publish 25901:5901 --publish 26901:6901 \
+        widgem_tests \
+        widgem_tests test "$1"
+}
+
+if [ "$STAGE" = "2" ]; then
+    stage2
+elif [ "$STAGE" = "4" ]; then
+    stage4
+else
+    stage1
+    stage2
+    stage3
+    stage4
+fi

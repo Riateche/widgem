@@ -21,17 +21,30 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: docker/setup-buildx-action@v3
-      - name: Build docker image
+      - name: "Prepare docker build: builder"
+        run: mkdir -p target/.empty
+      - name: "Build docker image: builder"
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: target/.empty
+          tags: widgem_builder
+          file: tests/builder.Dockerfile
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: "Prepare docker build: tests"
+        run: STAGE=2 tests/run.sh
+      - name: "Build docker image: tests"
+        uses: docker/build-push-action@v6
+        with:
+          context: target/docker/bin
           tags: widgem_tests
-          file: tests/Dockerfile
+          file: tests/tests.Dockerfile
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Run UI tests
-        run: TEST_ARG=--check tests/run.sh
+        run: STAGE=4 tests/run.sh
       - name: Upload test snapshots
         if: failure()
         uses: actions/upload-artifact@v4
