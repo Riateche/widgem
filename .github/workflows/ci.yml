@@ -35,7 +35,7 @@ jobs:
       - name: Build Docker image
         run: |
           mkdir -p target/bin
-          cp target/release/widgem_tests target/bin/
+          cp target/release/widgem_tests tests/scripts/xfce_entrypoint.sh target/bin/
           docker build --tag widgem_tests --file tests/tests.Dockerfile target/bin
       - name: Run UI tests
         run: |
