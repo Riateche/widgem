@@ -2,7 +2,7 @@
 
 set -ex -o pipefail
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 if [ "$1" == "--help" ]; then
     echo "Usage: run.sh [test_name]"
@@ -17,7 +17,7 @@ else
 fi
 
 mkdir -p target/.empty
-docker build --file tests/builder.Dockerfile --tag widgem_builder target/.empty
+docker build --file tests/scripts/builder.Dockerfile --tag widgem_builder target/.empty
 
 docker run \
     --mount "type=bind,src=$PWD,dst=/app" \
@@ -26,11 +26,10 @@ docker run \
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
             sh -s -- --default-toolchain 1.87.0 --profile minimal -y
         cargo build --package widgem_tests --locked $CARGO_ARGS"
-
 mkdir -p target/docker/bin
-cp target/docker/target/$BUILD_MODE/widgem_tests tests/xfce_entrypoint.sh target/docker/bin/
+cp target/docker/target/$BUILD_MODE/widgem_tests tests/scripts/xfce_entrypoint.sh target/docker/bin/
 
-docker build --file tests/tests.Dockerfile --tag widgem_tests target/docker/bin
+docker build --file tests/scripts/tests.Dockerfile --tag widgem_tests target/docker/bin
 
 docker rm --force widgem_tests || true
 docker run --name widgem_tests \
