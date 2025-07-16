@@ -3,8 +3,8 @@ on: [push, pull_request]
 name: Continuous integration
 
 jobs:
-  build-deps:
-    name: Install build dependencies
+  test:
+    name: Test Suite
     runs-on: ubuntu-24.04
     steps:
       - name: Install build dependencies
@@ -15,33 +15,28 @@ jobs:
             libgbm-dev
       - uses: actions/checkout@v2
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: clippy,rustfmt
-
-  test:
-    name: Test Suite
-    runs-on: ubuntu-24.04
-    needs: build-deps
-    steps:
       - run: cargo test
 
   ui-tests:
     name: UI tests
     runs-on: ubuntu-24.04
-    needs: build-deps
     steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libxcb1-dev libxrandr-dev \
+            libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
+            libgbm-dev
       - name: Build tests
         run: |
           cargo build --package widgem_tests --release --locked
+      - name: Build Docker image
+        run: |
           mkdir -p target/bin
           cp target/release/widgem_tests target/bin/
-      - name: "Build docker image"
-        uses: docker/build-push-action@v6
-        with:
-          context: target/bin
-          tags: widgem_tests
-          file: tests/tests.Dockerfile
-          load: true
+          docker build --tag widgem_tests --file tests/tests.Dockerfile target/bin
       - name: Run UI tests
         run: |
           docker run --name widgem_tests \
@@ -56,14 +51,26 @@ jobs:
 
   fmt:
     name: Rustfmt
-    needs: build-deps
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
       - uses: actions-rust-lang/rustfmt@v1
 
   clippy:
     name: Clippy
-    needs: build-deps
     runs-on: ubuntu-24.04
     steps:
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y \
+            libxcb1-dev libxrandr-dev \
+            libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
+            libgbm-dev
+      - uses: actions/checkout@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
       - run: cargo clippy --all-targets --all-features -- --deny warnings
