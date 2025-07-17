@@ -4,9 +4,7 @@ use {
         impl_widget_base,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
-        widgets::{
-            label::Label, scroll_bar::ScrollBar, window::Window, Widget, WidgetBaseOf, WidgetExt,
-        },
+        widgets::{Label, ScrollBar, Widget, WidgetBaseOf, WidgetExt, Window},
     },
     widgem_test_kit::context::Context,
 };

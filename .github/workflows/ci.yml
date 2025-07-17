@@ -4,7 +4,7 @@ name: Continuous integration
 
 jobs:
   test:
-    name: Test Suite
+    name: Unit tests (cargo test)
     runs-on: ubuntu-24.04
     steps:
       - name: Install build dependencies
@@ -50,7 +50,7 @@ jobs:
           path: tests/snapshots
 
   fmt:
-    name: Rustfmt
+    name: Check formatting (rustfmt)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v2
@@ -60,7 +60,7 @@ jobs:
       - uses: actions-rust-lang/rustfmt@v1
 
   clippy:
-    name: Clippy
+    name: Check lints (clippy)
     runs-on: ubuntu-24.04
     steps:
       - name: Install build dependencies
@@ -74,3 +74,14 @@ jobs:
         with:
           components: clippy
       - run: cargo clippy --all-targets --all-features -- --deny warnings
+
+  doc:
+    name: Check documentation warnings (rustdoc)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+      - run: RUSTDOCFLAGS="--deny warnings" cargo doc
+

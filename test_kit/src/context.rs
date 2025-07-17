@@ -15,7 +15,7 @@ use {
         time::{Duration, Instant},
     },
     uitest::{Connection, Window},
-    widgem::{widgets::root::RootWidget, App},
+    widgem::{widgets::RootWidget, App},
 };
 
 const CAPTURE_INTERVAL: Duration = Duration::from_millis(30);

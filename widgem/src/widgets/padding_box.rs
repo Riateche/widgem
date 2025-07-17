@@ -3,6 +3,7 @@ use {
     crate::impl_widget_base,
 };
 
+// TODO: remove
 pub struct PaddingBox {
     base: WidgetBaseOf<Self>,
 }

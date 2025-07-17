@@ -16,10 +16,7 @@ use {
         impl_widget_base,
         tiny_skia::{Pixmap, PremultipliedColorU8},
         types::Point,
-        widgets::{
-            button::Button, image::Image, label::Label, row::Row, window::Window, Widget,
-            WidgetBaseOf, WidgetExt, WidgetId,
-        },
+        widgets::{Button, Image, Label, Row, Widget, WidgetBaseOf, WidgetExt, WidgetId, Window},
     },
 };
 

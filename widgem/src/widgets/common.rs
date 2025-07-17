@@ -297,7 +297,7 @@ impl WidgetBase {
                     .last()
                     .map(|(key, _id)| key.clone())
                     .unwrap_or_else(|| {
-                        warn!("WidgetCommon::new: empty address encountered");
+                        warn!("WidgetBase::new: empty address encountered");
                         "".into()
                     }),
             );
@@ -368,7 +368,7 @@ impl WidgetBase {
 
     /// True if this widget is a root widget of an OS window.
     ///
-    /// This is true for [crate::widgets::window::WindowWidget] and false for all other provided widget types.
+    /// This is true for [crate::widgets::Window] and false for all other provided widget types.
     pub fn is_window_root(&self) -> bool {
         self.flags.contains(Flags::window_root)
     }
@@ -376,7 +376,7 @@ impl WidgetBase {
     /// True if this widget participates in a grid layout.
     ///
     /// This is true if all the following conditions hold:
-    /// - It's not a [window root](crate::widgets::window::WindowWidget).
+    /// - It's not a [window root](crate::widgets::Window).
     /// - It hasn't been explicitly hidden with [`set_visible(false)`](Self::set_visible).
     /// - It has the row and the column set.
     pub(crate) fn is_in_grid(&self) -> bool {
@@ -398,7 +398,7 @@ impl WidgetBase {
     /// True if this widget is enabled.
     ///
     /// Disabled widgets do not receive input events and have an alternate (usually grayed out) appearance.
-    /// Use [set_enabled](Self::set_enabled) to enable or disable a widget. If a widget is disabled,
+    /// Use [set_enabled](WidgetExt::set_enabled) to enable or disable a widget. If a widget is disabled,
     /// all its children are disabled as well.
     pub fn is_enabled(&self) -> bool {
         self.flags
@@ -1096,7 +1096,7 @@ impl<W> WidgetBaseOf<W> {
     /// Report the widget as supporting (or not supporting) focus.
     ///
     /// This function should only be called by the widget itself and should never be called by other widgets.
-    /// To control focusability of other widgets, use [set_focusable](WidgetCommon::set_focusable) instead.
+    /// To control focusability of other widgets, use [set_focusable](WidgetBase::set_focusable) instead.
     ///
     /// Call `set_supports_focus(true)` from the `new` function of your widget if it supports being focusable.
     /// In most cases it's not needed to ever call it again.

@@ -1,7 +1,7 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{label::Label, window::Window, Widget, WidgetBaseOf, WidgetExt},
+        widgets::{Label, Widget, WidgetBaseOf, WidgetExt, Window},
     },
     widgem_test_kit::context::Context,
 };

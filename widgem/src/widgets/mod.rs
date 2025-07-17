@@ -1,24 +1,29 @@
-use {crate::system::address, anyhow::Result, log::warn, std::fmt::Debug, thiserror::Error};
-
 mod address;
-pub mod button;
-pub mod column;
+mod button;
+mod column;
 mod common;
 mod ext;
 mod id;
-pub mod image;
-pub mod label;
-pub mod menu;
-pub mod padding_box;
-pub mod root;
-pub mod row;
-pub mod scroll_area;
-pub mod scroll_bar;
-pub mod stack;
-pub mod text_input;
+mod image;
+mod label;
+mod menu;
+mod padding_box;
+mod root;
+mod row;
+mod scroll_area;
+mod scroll_bar;
+mod stack;
+mod text_input;
 mod widget_trait;
-pub mod window;
+mod window;
 
+pub use self::{
+    button::Button, column::Column, image::Image, label::Label, menu::Menu,
+    padding_box::PaddingBox, root::RootWidget, row::Row, scroll_area::ScrollArea,
+    scroll_bar::ScrollBar, stack::Stack, text_input::TextInput, window::Window,
+};
+
+// TODO: move out of this module?
 pub use self::{
     address::WidgetAddress,
     common::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetCreationContext, WidgetGeometry},
@@ -26,6 +31,8 @@ pub use self::{
     id::{RawWidgetId, WidgetId},
     widget_trait::Widget,
 };
+
+use {crate::system::address, anyhow::Result, log::warn, std::fmt::Debug, thiserror::Error};
 
 #[derive(Debug, Error)]
 #[error("widget not found")]

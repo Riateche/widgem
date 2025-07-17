@@ -9,7 +9,7 @@ use {
         },
         timer::Timers,
         widgets::{
-            get_widget_by_address_mut, get_widget_by_id_mut, root::RootWidget, RawWidgetId, Widget,
+            get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, RootWidget, Widget,
             WidgetAddress, WidgetBase, WidgetCreationContext, WidgetExt,
         },
         window_handler::WindowHandler,
