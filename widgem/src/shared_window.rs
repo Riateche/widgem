@@ -1,6 +1,6 @@
 use {
     crate::{
-        accessible::AccessibleNodes,
+        accessibility::AccessibilityNodes,
         draw::DrawEvent,
         event::FocusReason,
         event_loop::with_active_event_loop,
@@ -75,7 +75,7 @@ pub struct SharedWindowInner {
     pub modifiers_state: ModifiersState,
     pub pressed_mouse_buttons: HashSet<MouseButton>,
     pub is_window_focused: bool,
-    pub accessible_nodes: AccessibleNodes,
+    pub accessibility_nodes: AccessibilityNodes,
     pub mouse_entered_widgets: Vec<(Rect, RawWidgetId)>,
     pub current_mouse_event_state: Option<MouseEventState>,
     pub pixmap: Rc<RefCell<Pixmap>>,
@@ -96,7 +96,7 @@ pub struct SharedWindowInner {
 
     pub pending_size_hint_invalidations: Vec<WidgetAddress>,
     pub pending_redraw: bool,
-    pub pending_accessible_updates: Vec<WidgetAddress>,
+    pub pending_accessibility_updates: Vec<WidgetAddress>,
 
     // TODO: refactor as struct
     pub focusable_widgets: Vec<(Vec<(Key, RawWidgetId)>, RawWidgetId)>,
@@ -173,7 +173,7 @@ impl SharedWindow {
             modifiers_state: ModifiersState::default(),
             pressed_mouse_buttons: HashSet::new(),
             is_window_focused: false,
-            accessible_nodes: AccessibleNodes::new(),
+            accessibility_nodes: AccessibilityNodes::new(),
             mouse_entered_widgets: Vec::new(),
             current_mouse_event_state: None,
             pixmap: Rc::new(RefCell::new(Pixmap::new(1, 1).unwrap())),
@@ -185,7 +185,7 @@ impl SharedWindow {
             ime_cursor_area: Rect::default(),
             pending_size_hint_invalidations: Vec::new(),
             pending_redraw: false,
-            pending_accessible_updates: Vec::new(),
+            pending_accessibility_updates: Vec::new(),
             focusable_widgets: Vec::new(),
             focusable_widgets_changed: false,
             focused_widget: None,
@@ -327,15 +327,18 @@ impl SharedWindow {
         self.0.borrow().root_widget_id
     }
 
-    pub(crate) fn accessible_root(&self) -> NodeId {
-        self.0.borrow().accessible_nodes.root()
+    pub(crate) fn root_accessibility_node_id(&self) -> NodeId {
+        self.0.borrow().accessibility_nodes.root()
     }
 
-    pub(crate) fn accessible_unmount(&self, parent: Option<NodeId>, child: NodeId) {
-        self.0.borrow_mut().accessible_nodes.unmount(parent, child);
+    pub(crate) fn update_accessibility_node(&self, parent: Option<NodeId>, child: NodeId) {
+        self.0
+            .borrow_mut()
+            .accessibility_nodes
+            .update_node(parent, child);
     }
 
-    pub(crate) fn accessible_mount(
+    pub(crate) fn remove_accessibility_node(
         &self,
         parent: Option<NodeId>,
         child: NodeId,
@@ -343,12 +346,12 @@ impl SharedWindow {
     ) {
         self.0
             .borrow_mut()
-            .accessible_nodes
-            .mount(parent, child, key_in_parent);
+            .accessibility_nodes
+            .remove_node(parent, child, key_in_parent);
     }
 
     pub(crate) fn accessibility_node_updated(&self, id: NodeId, node: Option<accesskit::Node>) {
-        self.0.borrow_mut().accessible_nodes.update(id, node);
+        self.0.borrow_mut().accessibility_nodes.update(id, node);
     }
 
     pub fn mouse_grabber_widget(&self) -> Option<RawWidgetId> {
@@ -714,10 +717,10 @@ impl SharedWindow {
         }
     }
 
-    pub(crate) fn push_accessible_updates(&mut self) {
+    pub(crate) fn push_accessibility_updates(&mut self) {
         let this = &mut *self.0.borrow_mut();
         if let Some(adapter) = this.accesskit_adapter.as_ref() {
-            let update = this.accessible_nodes.take_update();
+            let update = this.accessibility_nodes.take_update();
             let r = catch_unwind(|| {
                 adapter
                     .lock()
@@ -745,13 +748,13 @@ impl SharedWindow {
         mem::take(&mut self.0.borrow_mut().pending_size_hint_invalidations)
     }
 
-    pub(crate) fn request_accessible_update(&self, addr: WidgetAddress) {
+    pub(crate) fn request_accessibility_update(&self, addr: WidgetAddress) {
         let this = &mut *self.0.borrow_mut();
-        this.pending_accessible_updates.push(addr);
+        this.pending_accessibility_updates.push(addr);
     }
 
-    pub(crate) fn take_pending_accessible_updates(&self) -> Vec<WidgetAddress> {
-        mem::take(&mut self.0.borrow_mut().pending_accessible_updates)
+    pub(crate) fn take_pending_accessibility_updates(&self) -> Vec<WidgetAddress> {
+        mem::take(&mut self.0.borrow_mut().pending_accessibility_updates)
     }
 
     pub(crate) fn unset_focus(&self) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
@@ -761,7 +764,7 @@ impl SharedWindow {
             w.set_ime_allowed(false);
         }
         this.input_method_enabled = false;
-        this.accessible_nodes.set_focus(None);
+        this.accessibility_nodes.set_focus(None);
         old
     }
 
@@ -771,7 +774,7 @@ impl SharedWindow {
         input_method_enabled: bool,
     ) {
         let mut this = self.0.borrow_mut();
-        this.accessible_nodes.set_focus(Some(addr_id.1.into()));
+        this.accessibility_nodes.set_focus(Some(addr_id.1.into()));
         this.focused_widget = Some(addr_id);
         if let Some(w) = this.winit_window.as_ref() {
             w.set_ime_allowed(input_method_enabled);

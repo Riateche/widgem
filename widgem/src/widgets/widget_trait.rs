@@ -354,14 +354,14 @@ pub trait Widget: Any {
     /// Handles an accessibility action.
     ///
     /// This event can be triggered by screen readers and other assistive technologies.
-    /// It can only be triggered for widgets that implement [handle_accessible_node_request](Self::handle_accessible_node_request)
+    /// It can only be triggered for widgets that implement [handle_accessibility_node_request](Self::handle_accessibility_node_request)
     /// to return an accessibility node that supports actions.
     ///
     /// You should not call this function directly.
     ///
     /// Implement this function if you're implementing a custom widget that handles user input
     /// (e.g. keyboard or mouse input). You should also implement
-    /// [handle_accessible_node_request](Self::handle_accessible_node_request) accordingly to be able to
+    /// [handle_accessibility_node_request](Self::handle_accessibility_node_request) accordingly to be able to
     /// receive these events.
     ///
     /// You don't need to implement this function if your widget is non-interactive. You also don't need to implement it

@@ -2,7 +2,7 @@
 #![allow(clippy::collapsible_else_if)]
 #![allow(clippy::comparison_chain)]
 
-mod accessible;
+mod accessibility;
 mod callback;
 mod draw;
 pub mod event;
@@ -23,7 +23,7 @@ mod window_handler;
 use event_loop::with_active_event_loop;
 pub use {
     crate::{
-        accessible::new_accessible_node_id,
+        accessibility::new_accessibility_node_id,
         event_loop::{run, App},
     },
     tiny_skia,

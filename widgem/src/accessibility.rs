@@ -11,7 +11,7 @@ use {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct AccessibleNodes {
+pub struct AccessibilityNodes {
     nodes: HashMap<NodeId, Node>,
     // TODO: BTreeMap? sort by visible row+column?
     direct_children: HashMap<NodeId, Vec<(Key, NodeId)>>,
@@ -22,10 +22,10 @@ pub struct AccessibleNodes {
     focus: NodeId,
 }
 
-impl AccessibleNodes {
+impl AccessibilityNodes {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let root = new_accessible_node_id();
+        let root = new_accessibility_node_id();
         let mut this = Self {
             nodes: Default::default(),
             direct_children: Default::default(),
@@ -50,7 +50,7 @@ impl AccessibleNodes {
         self.update(self.root, Some(root_node));
     }
 
-    pub fn mount(&mut self, parent: Option<NodeId>, child: NodeId, key_in_parent: Key) {
+    pub fn remove_node(&mut self, parent: Option<NodeId>, child: NodeId, key_in_parent: Key) {
         // TODO: stricter checks and warnings
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.insert(child, parent);
@@ -62,17 +62,7 @@ impl AccessibleNodes {
         self.mark_parent_as_pending(parent);
     }
 
-    // pub fn update_key_in_parent(
-    //     &mut self,
-    //     parent: Option<NodeId>,
-    //     child: NodeId,
-    //     key_in_parent: Key,
-    // ) {
-    //     self.unmount(parent, child);
-    //     self.mount(parent, child, key_in_parent);
-    // }
-
-    pub fn unmount(&mut self, parent: Option<NodeId>, child: NodeId) {
+    pub fn update_node(&mut self, parent: Option<NodeId>, child: NodeId) {
         // TODO: stricter checks and warnings
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.remove(&child);
@@ -163,6 +153,6 @@ fn find_children(
     }
 }
 
-pub fn new_accessible_node_id() -> NodeId {
+pub fn new_accessibility_node_id() -> NodeId {
     RawWidgetId::new_unique().into()
 }

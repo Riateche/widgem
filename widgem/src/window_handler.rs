@@ -308,11 +308,11 @@ impl<'a> WindowHandler<'a> {
     pub fn handle_accesskit_event(&mut self, event: accesskit_winit::Event) {
         match event.window_event {
             accesskit_winit::WindowEvent::InitialTreeRequested => {
-                self.window.push_accessible_updates();
+                self.window.push_accessibility_updates();
             }
             accesskit_winit::WindowEvent::ActionRequested(request) => {
                 trace!("accesskit request: {:?}", request);
-                self.handle_accessible_request(request);
+                self.handle_accessibility_request(request);
             }
             accesskit_winit::WindowEvent::AccessibilityDeactivated => {}
         }
@@ -322,15 +322,15 @@ impl<'a> WindowHandler<'a> {
         if !self.window.has_winit_window() {
             self.window.init_winit_window(self.root_widget);
         }
-        let accessible_updates = self.window.take_pending_accessible_updates();
-        for addr in accessible_updates {
+        let accessibility_updates = self.window.take_pending_accessibility_updates();
+        for addr in accessibility_updates {
             let Some(widget) = get_widget_by_address_mut(self.root_widget, &addr).or_report_err()
             else {
                 continue;
             };
             widget.update_accessibility_node();
         }
-        self.window.push_accessible_updates();
+        self.window.push_accessibility_updates();
         let pending_size_hint_invalidations = self.window.take_pending_size_hint_invalidations();
         if !pending_size_hint_invalidations.is_empty() {
             invalidate_size_hint_cache(self.root_widget, &pending_size_hint_invalidations);
@@ -456,12 +456,12 @@ impl<'a> WindowHandler<'a> {
                 }
             }
         }
-        self.window.push_accessible_updates();
+        self.window.push_accessibility_updates();
     }
 
-    pub fn handle_accessible_request(&mut self, request: ActionRequest) {
-        if request.target == self.window.accessible_root() {
-            warn!("cannot dispatch accessible event to virtual root: {request:?}");
+    pub fn handle_accessibility_request(&mut self, request: ActionRequest) {
+        if request.target == self.window.root_accessibility_node_id() {
+            warn!("cannot dispatch accessibility request to virtual root: {request:?}");
             return;
         }
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, request.target.into()) {
@@ -473,7 +473,7 @@ impl<'a> WindowHandler<'a> {
                 .into(),
             );
         } else {
-            warn!("cannot dispatch accessible event (no such widget): {request:?}");
+            warn!("cannot dispatch accessibility request (no such widget): {request:?}");
         }
     }
 }

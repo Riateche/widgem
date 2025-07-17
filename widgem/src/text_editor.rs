@@ -1,6 +1,6 @@
 use {
     crate::{
-        accessible,
+        accessibility::new_accessibility_node_id,
         draw::DrawEvent,
         event::{
             AccessibilityActionEvent, FocusReason, InputMethodEvent, KeyboardInputEvent,
@@ -120,14 +120,14 @@ pub struct Text {
     forbid_mouse_interaction: bool,
     blink_timer: Option<TimerId>,
     selected_text: String,
-    accessible_line_id: NodeId,
+    line_accessibility_node_id: NodeId,
 }
 
 // TODO: get system setting
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Debug)]
-pub struct AccessibleLine {
+pub struct AccessibilityLine {
     pub text: String,
     pub text_direction: TextDirection,
     pub character_lengths: Vec<u8>,
@@ -515,7 +515,7 @@ impl Text {
         Ok(())
     }
 
-    fn accessible_line(&mut self) -> AccessibleLine {
+    fn accessibility_line(&mut self) -> AccessibilityLine {
         #[derive(Debug)]
         struct CharStats {
             bytes: Range<usize>,
@@ -594,7 +594,7 @@ impl Text {
             }
         });
 
-        AccessibleLine {
+        AccessibilityLine {
             text_direction,
             // line_top: run.line_top,
             // line_bottom: run.line_top + self.editor.buffer().metrics().line_height,
@@ -629,7 +629,7 @@ impl Text {
         }
     }
 
-    pub fn set_accessible_selection(&mut self, data: TextSelection) {
+    pub fn handle_accessibility_set_selection_action(&mut self, data: TextSelection) {
         let text = self
             .editor
             .with_buffer(|buffer| buffer.lines[0].text().to_string());
@@ -659,7 +659,7 @@ impl Text {
         });
     }
 
-    fn accessible_selection(&mut self, id: NodeId) -> TextSelection {
+    fn selection_accessibility_info(&mut self, id: NodeId) -> TextSelection {
         let text = self
             .editor
             .with_buffer(|buffer| buffer.lines[0].text().to_string());
@@ -1018,11 +1018,15 @@ impl Widget for Text {
             forbid_mouse_interaction: false,
             blink_timer: None,
             selected_text: String::new(),
-            accessible_line_id: accessible::new_accessible_node_id(),
+            line_accessibility_node_id: new_accessibility_node_id(),
             base,
         };
         if let Some(window) = &t.base.window {
-            window.accessible_mount(Some(t.base.id().into()), t.accessible_line_id, 0.into());
+            window.remove_accessibility_node(
+                Some(t.base.id().into()),
+                t.line_accessibility_node_id,
+                0.into(),
+            );
         }
         t.editor.set_cursor_hidden(true);
         t.reset_blink_timer();
@@ -1146,7 +1150,7 @@ impl Widget for Text {
                     warn!("expected SetTextSelection in data, got {:?}", event.data);
                     return Ok(());
                 };
-                self.set_accessible_selection(data);
+                self.handle_accessibility_set_selection_action(data);
                 // TODO: notify parent
                 //self.adjust_scroll();
                 self.base.update();
@@ -1159,7 +1163,7 @@ impl Widget for Text {
 
     fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
         let mut line_node = accesskit::Node::new(Role::TextInput);
-        let line = self.accessible_line();
+        let line = self.accessibility_line();
         line_node.set_text_direction(line.text_direction);
         line_node.set_value(line.text);
         line_node.set_character_lengths(line.character_lengths);
@@ -1174,7 +1178,7 @@ impl Widget for Text {
         let Some(window) = self.base.window.as_ref() else {
             return Ok(None);
         };
-        window.accessibility_node_updated(self.accessible_line_id, Some(line_node));
+        window.accessibility_node_updated(self.line_accessibility_node_id, Some(line_node));
 
         // TODO: configurable role
         let role = if self.is_multiline {
@@ -1186,7 +1190,7 @@ impl Widget for Text {
         // TODO: use label widget and `Node::set_labeled_by`
         node.set_label("some input");
         node.add_action(accesskit::Action::Click);
-        node.set_text_selection(self.accessible_selection(self.accessible_line_id));
+        node.set_text_selection(self.selection_accessibility_info(self.line_accessibility_node_id));
         Ok(Some(node))
     }
 
@@ -1239,7 +1243,10 @@ fn convert_color(color: Color) -> cosmic_text::Color {
 impl Drop for Text {
     fn drop(&mut self) {
         if let Some(window) = &self.base.window {
-            window.accessible_unmount(Some(self.base.id().into()), self.accessible_line_id);
+            window.update_accessibility_node(
+                Some(self.base.id().into()),
+                self.line_accessibility_node_id,
+            );
         }
     }
 }

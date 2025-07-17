@@ -216,7 +216,7 @@ impl Drop for WidgetBase {
         unregister_address(self.id);
         // Drop and unmount children before unmounting self.
         self.children.clear();
-        self.unmount_accessible();
+        self.remove_accessibility_node();
         for shortcut in &self.shortcuts {
             // TODO: deregister widget/window shortcuts
             if shortcut.scope == ShortcutScope::Application {
@@ -280,7 +280,7 @@ impl WidgetBase {
 
         if let Some(window) = &common.window {
             let root_widget_id = window.root_widget_id();
-            window.accessible_mount(
+            window.remove_accessibility_node(
                 if common.id == root_widget_id {
                     None
                 } else if let Some(parent_id) = common.parent_id {
@@ -478,11 +478,11 @@ impl WidgetBase {
         }
     }
 
-    // Request redraw and accessible update
+    // Request redraw and accessibility update
     pub fn update(&mut self) {
         if let Some(window) = &self.window {
             window.request_redraw();
-            window.request_accessible_update(self.address.clone());
+            window.request_accessibility_update(self.address.clone());
         };
         request_children_update(self.address.clone());
     }
@@ -871,10 +871,10 @@ impl WidgetBase {
         self.flags.contains(Flags::under_mouse)
     }
 
-    fn unmount_accessible(&mut self) {
+    fn remove_accessibility_node(&mut self) {
         if let Some(window) = &self.window {
             let root_widget_id = window.root_widget_id();
-            window.accessible_unmount(
+            window.update_accessibility_node(
                 if self.id == root_widget_id {
                     None
                 } else {
