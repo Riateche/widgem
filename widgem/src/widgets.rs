@@ -1,7 +1,7 @@
 mod address;
+mod base;
 mod button;
 mod column;
-mod common;
 mod ext;
 mod id;
 mod image;
@@ -26,7 +26,7 @@ pub use self::{
 // TODO: move out of this module?
 pub use self::{
     address::WidgetAddress,
-    common::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetCreationContext, WidgetGeometry},
+    base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetCreationContext, WidgetGeometry},
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId},
     widget_trait::Widget,

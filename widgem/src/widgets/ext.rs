@@ -1,5 +1,5 @@
 use {
-    super::{common::WidgetGeometry, Widget, WidgetAddress, WidgetId},
+    super::{base::WidgetGeometry, Widget, WidgetAddress, WidgetId},
     crate::{
         callback::{widget_callback, Callback},
         event::{Event, LayoutEvent, ScrollToRectRequest, StyleChangeEvent},
