@@ -240,7 +240,7 @@ pub trait WidgetExt: Widget {
             None
         };
 
-        let Some(window) = self.base().window.as_ref() else {
+        let Some(window) = self.base().window() else {
             return;
         };
         // TODO: refresh after layout event

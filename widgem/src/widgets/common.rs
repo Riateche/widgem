@@ -170,6 +170,14 @@ auto_bitflags! {
     }
 }
 
+/// The first building block of a widget.
+///
+/// Any widget contains a `WidgetBase` object. You can obtain it by calling [base()](crate::widgets::Widget::base)
+/// or [base_mut()](crate::widgets::Widget::base_mut). As a convention, any widget has a private field
+/// `base: WidgetBaseOf<Self>` which dereferences to a `WidgetBase`.
+///
+/// `WidgetBase` stores some of the widget's state and handles some of the events dispatched to the widget.
+/// It can be used to query or modify some common properties of a widget.
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetBase {
@@ -180,7 +188,7 @@ pub struct WidgetBase {
 
     parent_id: Option<RawWidgetId>,
     address: WidgetAddress,
-    pub window: Option<SharedWindow>,
+    window: Option<SharedWindow>,
 
     pub parent_scale: f32,
     pub self_scale: Option<f32>,
@@ -311,10 +319,6 @@ impl WidgetBase {
             base: common,
             _marker: PhantomData,
         }
-    }
-
-    pub fn window_id(&self) -> Option<WindowId> {
-        self.window.as_ref().map(|w| w.id())
     }
 
     // TODO: revise behavior on hidden windows
@@ -681,8 +685,33 @@ impl WidgetBase {
         self.size_hint_y_cache.clear();
     }
 
+    /// Returns a shared handle to a window that contains this widget.
+    ///
+    /// A widget is considered to be in a window if it's a [`Window`](crate::widgets::Window)
+    /// or any of its direct or indirect parts is a `Window`. [`RootWidget`](crate::widgets::RootWidget)
+    /// and its direct non-`Window` children are not associated with any window.
+    ///
+    /// See also: [`window_or_err`](Self::window_or_err), [`window_id`](Self::window_id).
+    pub fn window(&self) -> Option<&SharedWindow> {
+        self.window.as_ref()
+    }
+
+    /// Returns a shared handle to a window that contains this widget, or an error if it's not associated with a window.
+    ///
+    /// See [`window`](Self::window) for more information.
+    ///
+    /// Use this function for a more convenient early exit with `?`. There are many cases when it makes sense
+    /// to assume that there is a window, for example, when handling window events or if the widget is
+    /// intended to be used in a window (which is true for most visual widgets).
     pub fn window_or_err(&self) -> Result<&SharedWindow> {
         self.window.as_ref().context("no window")
+    }
+
+    /// Returns ID of the window associated with this widget.
+    ///
+    /// See [`window`](Self::window) for more information.
+    pub fn window_id(&self) -> Option<WindowId> {
+        self.window.as_ref().map(|w| w.id())
     }
 
     /// Returns the *address* of the widget.

@@ -880,7 +880,7 @@ impl Text {
                 attrs: None,
             });
             self.insert_string(&text, None);
-            if let Some(window) = &self.base.window {
+            if let Some(window) = self.base.window() {
                 window.cancel_ime_preedit();
             } else {
                 warn!("no window id in text editor event handler");
@@ -1021,7 +1021,7 @@ impl Widget for Text {
             line_accessibility_node_id: new_accessibility_node_id(),
             base,
         };
-        if let Some(window) = &t.base.window {
+        if let Some(window) = t.base.window() {
             window.remove_accessibility_node(
                 Some(t.base.id().into()),
                 t.line_accessibility_node_id,
@@ -1073,8 +1073,7 @@ impl Widget for Text {
         }
         let is_released = self
             .base
-            .window
-            .as_ref()
+            .window()
             .is_some_and(|window| !window.any_mouse_buttons_pressed());
         if is_released {
             self.forbid_mouse_interaction = false;
@@ -1175,7 +1174,7 @@ impl Widget for Text {
             line_node.set_bounds(rect_in_window.into());
         }
 
-        let Some(window) = self.base.window.as_ref() else {
+        let Some(window) = self.base.window() else {
             return Ok(None);
         };
         window.accessibility_node_updated(self.line_accessibility_node_id, Some(line_node));
@@ -1242,7 +1241,7 @@ fn convert_color(color: Color) -> cosmic_text::Color {
 
 impl Drop for Text {
     fn drop(&mut self) {
-        if let Some(window) = &self.base.window {
+        if let Some(window) = self.base.window() {
             window.update_accessibility_node(
                 Some(self.base.id().into()),
                 self.line_accessibility_node_id,
