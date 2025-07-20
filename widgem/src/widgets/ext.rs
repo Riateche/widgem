@@ -381,7 +381,7 @@ pub trait WidgetExt: Widget {
     }
 
     fn set_scale(&mut self, scale: Option<f32>) -> &mut Self {
-        if self.base().self_scale == scale {
+        if self.base().self_scale() == scale {
             return self;
         }
         self.base_mut().set_scale(scale);
@@ -421,8 +421,8 @@ pub trait WidgetExt: Widget {
         geometry: Option<WidgetGeometry>,
         changed_size_hints: &[WidgetAddress],
     ) {
-        let geometry_changed = self.base().geometry != geometry;
-        self.base_mut().geometry = geometry;
+        let geometry_changed = self.base().geometry() != geometry.as_ref();
+        self.base_mut().set_geometry(geometry);
         if geometry_changed
             || changed_size_hints
                 .iter()

@@ -255,7 +255,7 @@ fn x_layout(
 }
 
 pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
-    let Some(geometry) = widget.base().geometry.clone() else {
+    let Some(geometry) = widget.base().geometry().cloned() else {
         for child in widget.base_mut().children.values_mut() {
             child.set_geometry(None, changed_size_hints);
         }

@@ -129,7 +129,14 @@ impl TextInput {
             .rect_in_parent()
             != Some(new_rect)
         {
-            let Some(geometry) = self.base.get_dyn_child(0).unwrap().base().geometry.clone() else {
+            let Some(geometry) = self
+                .base
+                .get_dyn_child(0)
+                .unwrap()
+                .base()
+                .geometry()
+                .cloned()
+            else {
                 return;
             };
 

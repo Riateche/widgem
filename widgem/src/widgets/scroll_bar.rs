@@ -405,8 +405,8 @@ impl ScrollBar {
             .get_dyn_child(INDEX_PAGER)
             .unwrap()
             .base()
-            .geometry
-            .clone()
+            .geometry()
+            .cloned()
         else {
             return;
         };

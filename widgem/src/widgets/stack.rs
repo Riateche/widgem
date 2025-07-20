@@ -17,7 +17,7 @@ pub struct Stack {
 impl Stack {
     // TODO: impl explicit rect setting for universal grid layout?
     pub fn add<T: Widget>(&mut self, key: Key, rect: Rect) -> &mut T {
-        let geometry = self.base.geometry.clone();
+        let geometry = self.base.geometry().cloned();
         let widget = self.base.add_child_with_key::<T>(key.clone());
         if let Some(geometry) = geometry {
             widget.set_geometry(Some(WidgetGeometry::new(&geometry, rect)), &[]);

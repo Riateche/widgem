@@ -190,11 +190,11 @@ pub struct WidgetBase {
     address: WidgetAddress,
     window: Option<SharedWindow>,
 
-    pub parent_scale: f32,
-    pub self_scale: Option<f32>,
+    parent_scale: f32,
+    self_scale: Option<f32>,
 
     // Present if the widget is not hidden, and only after layout.
-    pub geometry: Option<WidgetGeometry>,
+    geometry: Option<WidgetGeometry>,
 
     #[derivative(Debug = "ignore")]
     pub children: BTreeMap<Key, Box<dyn Widget>>,
@@ -726,34 +726,98 @@ impl WidgetBase {
         &self.address
     }
 
-    pub fn size(&self) -> Option<Size> {
-        self.geometry.as_ref().map(|g| g.size())
+    // private: we need to use `WidgetExt::set_geometry` to dispatch the event.
+    pub(crate) fn set_geometry(&mut self, value: Option<WidgetGeometry>) {
+        self.geometry = value;
     }
 
-    pub fn rect_in_window(&self) -> Option<Rect> {
-        self.geometry.as_ref().map(|g| g.rect_in_window())
+    /// Returns information about current position, size and visible rect of a widget.
+    ///
+    /// Geometry is `None` if the widget is hidden, if it's positioned completely out of bounds
+    /// of its parent, or if the parent widget hasn't updated its layout yet.
+    pub fn geometry(&self) -> Option<&WidgetGeometry> {
+        self.geometry.as_ref()
     }
 
-    pub fn rect_in_parent(&self) -> Option<Rect> {
-        self.geometry.as_ref().map(|g| g.rect_in_parent)
-    }
-
-    pub fn visible_rect(&self) -> Option<Rect> {
-        self.geometry.as_ref().map(|g| g.visible_rect_in_self())
-    }
-
+    /// Returns information about current position, size and visible rect of a widget,
+    /// or an error if there is no geometry.
+    ///
+    /// See also: [geometry](Self::geometry).
     pub fn geometry_or_err(&self) -> Result<&WidgetGeometry> {
         self.geometry.as_ref().context("no geometry")
     }
 
-    pub fn rect_in_window_or_err(&self) -> Result<Rect> {
-        Ok(self.geometry_or_err()?.rect_in_window())
+    /// Returns current size of the widget.
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn size(&self) -> Option<Size> {
+        self.geometry.as_ref().map(|g| g.size())
     }
 
+    /// Returns current size of the widget,
+    /// or an error if there is no geometry.
+    ///
+    /// See also: [geometry](Self::geometry).
     pub fn size_or_err(&self) -> Result<Size> {
         Ok(self.geometry_or_err()?.size())
     }
 
+    /// Returns current boundary of the widget in the window coordinates.
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn rect_in_window(&self) -> Option<Rect> {
+        self.geometry.as_ref().map(|g| g.rect_in_window())
+    }
+
+    /// Returns current boundary of the widget in the window coordinates,
+    /// or an error if there is no geometry.
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn rect_in_window_or_err(&self) -> Result<Rect> {
+        Ok(self.geometry_or_err()?.rect_in_window())
+    }
+
+    /// Returns current boundary of the widget in the parent widget's coordinates.
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn rect_in_parent(&self) -> Option<Rect> {
+        self.geometry.as_ref().map(|g| g.rect_in_parent)
+    }
+
+    /// Returns current boundary of the widget in the parent widget's coordinates,
+    /// or an error if there is no geometry.
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn rect_in_parent_or_err(&self) -> Result<Rect> {
+        self.geometry_or_err().map(|g| g.rect_in_parent)
+    }
+
+    /// Returns current visible rectangle of the widget in the widget's coordinates.
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn visible_rect_in_self(&self) -> Option<Rect> {
+        self.geometry.as_ref().map(|g| g.visible_rect_in_self())
+    }
+
+    /// Returns current visible rectangle of the widget in the widget's coordinates,
+    /// or an error if there is no geometry.
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn visible_rect_in_self_or_err(&self) -> Result<Rect> {
+        self.geometry_or_err().map(|g| g.visible_rect_in_self())
+    }
+
+    /// Returns the boundary of the widget in the widget's coordinates (top left is always zero).
+    ///
+    /// See also: [geometry](Self::geometry).
+    pub fn rect_in_self(&self) -> Option<Rect> {
+        self.geometry.as_ref().map(|g| g.rect_in_self())
+    }
+
+    /// Returns the boundary of the widget in the widget's coordinates (top left is always zero),
+    /// or an error if there is no geometry.
+    ///
+    /// See also: [geometry](Self::geometry).
     pub fn rect_in_self_or_err(&self) -> Result<Rect> {
         Ok(self.geometry_or_err()?.rect_in_self())
     }
@@ -954,13 +1018,44 @@ impl WidgetBase {
         &self.style_element
     }
 
+    /// Scale of the widget.
+    ///
+    /// Scale is the multiplication factor that's used when measurements in style definitions
+    /// ([crate::types::LogicalPixels]) are converted to pixel measurements used for
+    /// layout, drawing, and event processing ([crate::types::PhysicalPixels]).
+    ///
+    /// By default, scale is determined by the scale factor reported by the OS for the OS window
+    /// that contains the widget. Scale may be overriden with [`App::set_scale`](crate::App::with_scale),
+    /// in which case the OS scale is ignored.
+    ///
+    /// Scale can be changed manually for any widget
+    /// with [`WidgetExt::set_scale`](crate::widgets::WidgetExt::set_scale).
+    /// This value propagates to all child widgets.
     pub fn scale(&self) -> f32 {
         self.self_scale.unwrap_or(self.parent_scale)
     }
 
+    // Intentionally private: we need to use `WidgetExt::set_scale` to dispatch the event properly.
     pub(crate) fn set_scale(&mut self, scale: Option<f32>) -> &mut Self {
         self.self_scale = scale;
         self
+    }
+
+    /// Scale of the parent widget.
+    ///
+    /// For the root widget, it returns the default scale.
+    pub fn parent_scale(&self) -> f32 {
+        self.parent_scale
+    }
+
+    /// Returns the value set with
+    /// [`WidgetExt::set_scale`](crate::widgets::WidgetExt::set_scale), if any.
+    ///
+    /// It returns `None` if `set_scale` hasn't been called for this widget.
+    /// This value doesn't depend on the parent scale. In most cases, [scale](Self::scale) is more suitable,
+    /// as that one always returns the current effective scale of the widget.
+    pub fn self_scale(&self) -> Option<f32> {
+        self.self_scale
     }
 
     /// Check if the accessibility node hasn't been disabled for this widget.

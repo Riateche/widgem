@@ -233,7 +233,7 @@ impl Text {
         let Some(cursor_position) = self.cursor_position() else {
             return;
         };
-        let Some(visible_rect) = self.base.visible_rect() else {
+        let Some(visible_rect) = self.base.visible_rect_in_self() else {
             return;
         };
         let Some(window_id) = self.base.window_id() else {
