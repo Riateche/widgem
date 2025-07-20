@@ -9,6 +9,7 @@ use {
         layout::{grid::grid_layout, SizeHints},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
+        widgets::widget_trait::NewWidget,
     },
     anyhow::Result,
     log::warn,
@@ -518,17 +519,16 @@ impl ScrollBar {
     }
 }
 
-impl Widget for ScrollBar {
-    impl_widget_base!();
+impl NewWidget for ScrollBar {
+    type Arg = Axis;
 
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         base.set_supports_focus(true).set_focusable(false);
         // TODO: localized name
 
-        base.add_child_with_key::<Button>(INDEX_DECREASE)
+        base.add_child_with_key::<Button>(INDEX_DECREASE, names::SCROLL_LEFT.into())
             .set_column(0)
             .set_row(0)
-            .set_text(names::SCROLL_LEFT)
             // TODO: implement accessibility for scroll bar itself
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
@@ -539,13 +539,13 @@ impl Widget for ScrollBar {
 
         let axis = Axis::X;
         let pager = base
-            .add_child_with_key::<Pager>(INDEX_PAGER)
+            .add_child_with_key::<Pager>(INDEX_PAGER, ())
             .set_column(1)
             .set_row(0)
             .set_axis(axis);
         pager
             .base
-            .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER)
+            .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER, names::SCROLL_PAGER.into())
             .set_column(0)
             .set_row(0)
             .set_size_x_fixed(false)
@@ -553,24 +553,21 @@ impl Widget for ScrollBar {
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_pager".into())
-            .set_text(names::SCROLL_PAGER)
             .set_text_visible(false)
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
         pager
             .base
-            .add_child_with_key::<Button>(INDEX_GRIP_IN_PAGER)
-            .set_text(names::SCROLL_GRIP)
+            .add_child_with_key::<Button>(INDEX_GRIP_IN_PAGER, names::SCROLL_GRIP.into())
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_grip_x".into())
             .set_text_visible(false)
             .set_mouse_leave_sensitive(false);
 
-        base.add_child_with_key::<Button>(INDEX_INCREASE)
+        base.add_child_with_key::<Button>(INDEX_INCREASE, names::SCROLL_RIGHT.into())
             .set_column(2)
             .set_row(0)
-            .set_text(names::SCROLL_RIGHT)
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_right".into())
@@ -657,9 +654,18 @@ impl Widget for ScrollBar {
             Ok(false)
         }));
 
+        this.set_axis(arg);
         this.update_decrease_increase();
         this
     }
+
+    fn handle_declared(&mut self, arg: Self::Arg) {
+        self.set_axis(arg);
+    }
+}
+
+impl Widget for ScrollBar {
+    impl_widget_base!();
 
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
         self.update_grip_size(&event.changed_size_hints)?;
@@ -765,10 +771,10 @@ impl Pager {
 
 const PAGER_SIZE_HINT_MULTIPLIER: i32 = 2;
 
-impl Widget for Pager {
-    impl_widget_base!();
+impl NewWidget for Pager {
+    type Arg = ();
 
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         let mut t = Self {
             base,
             axis: Axis::X,
@@ -776,6 +782,11 @@ impl Widget for Pager {
         t.add_class("no_padding".into());
         t
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for Pager {
+    impl_widget_base!();
 
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         let grip = self.base.get_dyn_child_mut(INDEX_GRIP_IN_PAGER).unwrap();

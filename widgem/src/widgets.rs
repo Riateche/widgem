@@ -29,7 +29,7 @@ pub use self::{
     base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetCreationContext, WidgetGeometry},
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId},
-    widget_trait::Widget,
+    widget_trait::{NewWidget, Widget},
 };
 
 use {crate::system::address, anyhow::Result, log::warn, std::fmt::Debug, thiserror::Error};

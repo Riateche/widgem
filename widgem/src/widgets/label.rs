@@ -1,6 +1,6 @@
 use {
     super::{Widget, WidgetBaseOf, WidgetExt},
-    crate::{impl_widget_base, text_editor::Text},
+    crate::{impl_widget_base, text_editor::Text, widgets::widget_trait::NewWidget},
     cosmic_text::Attrs,
     std::fmt::Display,
 };
@@ -27,17 +27,25 @@ impl Label {
     }
 }
 
-impl Widget for Label {
-    impl_widget_base!();
+impl NewWidget for Label {
+    type Arg = String;
 
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         let id = base.id().raw();
         let element = base.style_element().clone();
-        base.add_child::<Text>()
+        base.add_child::<Text>(arg)
             .set_column(0)
             .set_row(0)
             .set_host_id(id)
             .set_host_style_element(element);
         Self { base }
     }
+
+    fn handle_declared(&mut self, arg: Self::Arg) {
+        self.set_text(arg);
+    }
+}
+
+impl Widget for Label {
+    impl_widget_base!();
 }

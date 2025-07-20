@@ -5,6 +5,7 @@ use {
         impl_widget_base,
         layout::SizeHints,
         types::{PhysicalPixels, Point},
+        widgets::widget_trait::NewWidget,
     },
     anyhow::Result,
     png::DecodingError,
@@ -72,17 +73,25 @@ impl Image {
     }
 }
 
-impl Widget for Image {
-    impl_widget_base!();
+impl NewWidget for Image {
+    type Arg = Option<Rc<Pixmap>>;
 
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         Self {
             base,
-            pixmap: None,
+            pixmap: arg,
             is_prescaled: false,
             scale: None,
         }
     }
+
+    fn handle_declared(&mut self, arg: Self::Arg) {
+        self.set_pixmap(arg);
+    }
+}
+
+impl Widget for Image {
+    impl_widget_base!();
 
     fn handle_draw(&mut self, event: DrawEvent) -> Result<()> {
         let scale = self.total_scale();

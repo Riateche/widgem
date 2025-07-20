@@ -1,6 +1,6 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, shared_window::X11WindowType},
+    crate::{impl_widget_base, shared_window::X11WindowType, widgets::widget_trait::NewWidget},
     std::fmt::Display,
     winit::window::WindowLevel,
 };
@@ -36,15 +36,25 @@ impl Window {
     }
 }
 
+impl NewWidget for Window {
+    type Arg = String;
+
+    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
+        let mut w = Self { base };
+        w.set_title(arg);
+        w
+    }
+
+    fn handle_declared(&mut self, arg: Self::Arg) {
+        self.set_title(arg);
+    }
+}
+
 impl Widget for Window {
     impl_widget_base!();
 
     fn is_window_root_type() -> bool {
         true
-    }
-
-    fn new(base: WidgetBaseOf<Self>) -> Self {
-        Self { base }
     }
 }
 

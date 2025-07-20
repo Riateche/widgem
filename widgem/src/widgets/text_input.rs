@@ -16,6 +16,7 @@ use {
         system::ReportError,
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
+        widgets::NewWidget,
     },
     anyhow::Result,
     cosmic_text::Attrs,
@@ -28,12 +29,17 @@ struct Viewport {
     base: WidgetBaseOf<Self>,
 }
 
-impl Widget for Viewport {
-    impl_widget_base!();
+impl NewWidget for Viewport {
+    type Arg = ();
 
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         Self { base }
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for Viewport {
+    impl_widget_base!();
 
     fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
         Ok(SizeHints {
@@ -155,23 +161,24 @@ impl TextInput {
     }
 }
 
-impl Widget for TextInput {
-    impl_widget_base!();
+impl NewWidget for TextInput {
+    // TODO: name or label ref?
+    type Arg = ();
 
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         base.set_supports_focus(true);
         base.set_cursor_icon(CursorIcon::Text);
         let host_id = base.id();
         let element = base.style_element().clone();
         let viewport = base
-            .add_child_with_key::<Viewport>(0)
+            .add_child_with_key::<Viewport>(0, ())
             .set_column(0)
             .set_row(0);
         viewport.base_mut().set_receives_all_mouse_events(true);
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
         let editor = viewport
             .base_mut()
-            .add_child_with_key::<Text>(0)
+            .add_child_with_key::<Text>(0, String::new())
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into())
@@ -182,6 +189,11 @@ impl Widget for TextInput {
             base,
         }
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for TextInput {
+    impl_widget_base!();
 
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         self.text_widget_mut().handle_host_focus_in(event.reason)

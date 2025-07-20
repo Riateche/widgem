@@ -7,10 +7,12 @@ pub struct RootWidget {
     base: WidgetBaseOf<Self>,
 }
 
-impl Widget for RootWidget {
-    impl_widget_base!();
-
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+impl RootWidget {
+    pub fn new(base: WidgetBaseOf<Self>) -> Self {
         Self { base }
     }
+}
+
+impl Widget for RootWidget {
+    impl_widget_base!();
 }

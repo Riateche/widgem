@@ -7,8 +7,8 @@ use {
         impl_widget_base,
         system::add_interval,
         widgets::{
-            Button, Column, Label, ScrollArea, TextInput, Widget, WidgetBaseOf, WidgetExt,
-            WidgetId, Window,
+            Button, Column, Label, NewWidget, ScrollArea, TextInput, Widget, WidgetBaseOf,
+            WidgetExt, WidgetId, Window,
         },
         App,
     },
@@ -30,37 +30,39 @@ struct AnotherWidget {
 //     }
 // }
 
-impl Widget for AnotherWidget {
-    impl_widget_base!();
+impl NewWidget for AnotherWidget {
+    type Arg = ();
 
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         let mut this = Self { counter: 0, base };
         let callback = this.callback(|this, _event| {
             this.counter += 1;
             println!("counter: {}", this.counter);
             let window = this
                 .base
-                .add_child_with_key::<Window>(("window", this.counter))
-                .set_title("example");
+                .add_child_with_key::<Window>(("window", this.counter), "example".into());
             println!("window {:?}", window.id());
             let label = window
                 .base_mut()
-                .add_child::<Label>()
+                .add_child::<Label>(format!("counter: {}", this.counter))
                 .set_column(0)
-                .set_row(0)
-                .set_text(format!("counter: {}", this.counter));
+                .set_row(0);
             println!("label {:?}", label.id());
             Ok(())
         });
         let button = this
             .base_mut()
-            .add_child_with_key::<Button>("button")
+            .add_child_with_key::<Button>("button", "another button".into())
             .set_column(0)
             .set_row(1);
-        button.set_text("another button");
         button.on_triggered(callback);
         this
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for AnotherWidget {
+    impl_widget_base!();
 }
 
 struct RootWidget {
@@ -109,27 +111,27 @@ impl RootWidget {
     }
 }
 
-impl Widget for RootWidget {
-    impl_widget_base!();
+impl NewWidget for RootWidget {
+    type Arg = ();
 
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         let id = base.id();
 
-        let window = base.add_child::<Window>().set_title("example");
+        let window = base.add_child::<Window>("example".into());
 
         let root = window
             .base_mut()
-            .add_child::<Column>()
+            .add_child::<Column>(())
             .set_column(0)
             .set_row(0);
 
         root.base_mut()
-            .add_child::<TextInput>()
+            .add_child::<TextInput>(())
             .set_column(0)
             .set_row(0)
             .set_text("Hello, Rust! 🦀😂\n");
         root.base_mut()
-            .add_child::<TextInput>()
+            .add_child::<TextInput>(())
             .set_column(0)
             .set_row(1)
             .set_text("Hebrew name Sarah: שרה.");
@@ -152,32 +154,29 @@ impl Widget for RootWidget {
 
         let button_id = root
             .base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("btn1".into())
             .set_column(0)
             .set_row(2)
-            .set_text("btn1")
             .set_auto_repeat(true)
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 1)))
             .id();
 
         root.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("btn2".into())
             .set_column(0)
             .set_row(3)
-            .set_text("btn2")
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 2)));
 
         let column2 = root
             .base_mut()
-            .add_child::<Column>()
+            .add_child::<Column>(())
             .set_column(0)
             .set_row(4);
         let button21_id = column2
             .base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("btn21".into())
             .set_column(0)
             .set_row(0)
-            .set_text("btn21")
             .on_triggered(id.callback(|_, _| {
                 println!("click!");
                 Ok(())
@@ -186,39 +185,36 @@ impl Widget for RootWidget {
 
         let button22_id = column2
             .base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("btn22".into())
             .set_column(0)
             .set_row(1)
-            .set_text("btn22")
             .id();
         let column2_id = column2.id();
 
         root.base_mut()
-            .add_child::<AnotherWidget>()
+            .add_child::<AnotherWidget>(())
             .set_column(0)
             .set_row(5);
 
         let label2_id = root
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("ok".into())
             .set_column(0)
             .set_row(6)
-            .set_text("ok")
             .id();
 
         let scroll_area = root
             .base_mut()
-            .add_child::<ScrollArea>()
+            .add_child::<ScrollArea>(())
             .set_column(0)
             .set_row(7);
-        let content = scroll_area.set_content::<Column>();
+        let content = scroll_area.set_content::<Column>(());
         for i in 1..=80 {
             content
                 .base_mut()
-                .add_child::<Button>()
+                .add_child::<Button>(format!("btn btn btn btn btn btn btn btn btn btn{i}"))
                 .set_column(0)
-                .set_row(i)
-                .set_text(format!("btn btn btn btn btn btn btn btn btn btn{i}"));
+                .set_row(i);
         }
 
         add_interval(Duration::from_secs(2), id.callback(|this, _| this.inc()));
@@ -235,6 +231,11 @@ impl Widget for RootWidget {
             label2_id,
         }
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for RootWidget {
+    impl_widget_base!();
 }
 
 fn main() {
@@ -244,7 +245,7 @@ fn main() {
     env_logger::init();
     App::new()
         .run(|r| {
-            r.base_mut().add_child::<RootWidget>();
+            r.base_mut().add_child::<RootWidget>(());
             Ok(())
         })
         .unwrap();

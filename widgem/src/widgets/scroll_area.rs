@@ -7,6 +7,7 @@ use {
         impl_widget_base,
         layout::{grid::grid_layout, SizeHints},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
+        widgets::widget_trait::NewWidget,
     },
     anyhow::Result,
     std::cmp::max,
@@ -34,13 +35,13 @@ impl ScrollArea {
     }
 
     // TODO: naming?
-    pub fn set_content<T: Widget>(&mut self) -> &mut T {
+    pub fn set_content<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
         assert!(!self.has_content());
         self.base
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
             .base_mut()
-            .add_child_with_key::<T>(KEY_CONTENT_IN_VIEWPORT)
+            .add_child_with_key::<T>(KEY_CONTENT_IN_VIEWPORT, arg)
     }
 
     // pub fn set_content(&mut self, content: Box<dyn Widget>) {
@@ -165,27 +166,31 @@ impl ScrollArea {
     }
 }
 
-impl Widget for ScrollArea {
-    impl_widget_base!();
+impl NewWidget for ScrollArea {
+    type Arg = ();
 
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         let relayout = base.callback(|this, _| this.relayout(&[]));
 
         // TODO: icons, localized name
-        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X)
+        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X, Axis::X)
             .set_column(0)
             .set_row(1)
             .on_value_changed(relayout.clone());
-        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y)
+        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y, Axis::Y)
             .set_column(1)
             .set_row(0)
-            .set_axis(Axis::Y)
             .on_value_changed(relayout);
-        base.add_child_with_key::<Viewport>(INDEX_VIEWPORT)
+        base.add_child_with_key::<Viewport>(INDEX_VIEWPORT, ())
             .set_column(0)
             .set_row(0);
         Self { base }
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for ScrollArea {
+    impl_widget_base!();
 
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
         self.relayout(&event.changed_size_hints)
@@ -221,14 +226,17 @@ pub struct Viewport {
     base: WidgetBaseOf<Self>,
 }
 
-impl Viewport {}
+impl NewWidget for Viewport {
+    type Arg = ();
+
+    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
+        Self { base }
+    }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
 
 impl Widget for Viewport {
     impl_widget_base!();
-
-    fn new(base: WidgetBaseOf<Self>) -> Self {
-        Self { base }
-    }
 
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         Ok(SizeHints {

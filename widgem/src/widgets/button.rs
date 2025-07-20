@@ -16,6 +16,7 @@ use {
         system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
         timer::TimerId,
+        widgets::widget_trait::NewWidget,
     },
     accesskit::{Action, Role},
     anyhow::Result,
@@ -168,18 +169,18 @@ impl Button {
     }
 }
 
-impl Widget for Button {
-    impl_widget_base!();
+impl NewWidget for Button {
+    type Arg = String;
 
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         base.set_supports_focus(true);
-        base.add_child::<Image>()
+        base.add_child::<Image>(None)
             .set_column(0)
             .set_row(0)
             .set_visible(false);
         let id = base.id().raw();
         let element = base.style_element().clone();
-        base.add_child::<Text>()
+        base.add_child::<Text>(arg)
             .set_column(1)
             .set_row(0)
             .set_host_id(id)
@@ -200,6 +201,14 @@ impl Widget for Button {
         b.refresh_style();
         b
     }
+
+    fn handle_declared(&mut self, arg: Self::Arg) {
+        self.set_text(arg);
+    }
+}
+
+impl Widget for Button {
+    impl_widget_base!();
 
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
         let rect = self.base.rect_in_self_or_err()?;

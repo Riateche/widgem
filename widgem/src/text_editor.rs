@@ -26,7 +26,7 @@ use {
         },
         timer::TimerId,
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
-        widgets::{RawWidgetId, Widget, WidgetBaseOf, WidgetExt},
+        widgets::{NewWidget, RawWidgetId, Widget, WidgetBaseOf, WidgetExt},
     },
     accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
     anyhow::Result,
@@ -995,10 +995,10 @@ impl Text {
     }
 }
 
-impl Widget for Text {
-    impl_widget_base!();
+impl NewWidget for Text {
+    type Arg = String;
 
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         // Host element is not known at this time.
         let style = TextStyle::default(base.scale());
         let editor = with_system(|system| {
@@ -1029,10 +1029,19 @@ impl Widget for Text {
             );
         }
         t.editor.set_cursor_hidden(true);
+        t.set_text(arg, Attrs::new());
         t.reset_blink_timer();
         t.request_scroll();
         t
     }
+
+    fn handle_declared(&mut self, arg: Self::Arg) {
+        self.set_text(arg, Attrs::new());
+    }
+}
+
+impl Widget for Text {
+    impl_widget_base!();
 
     fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
         if !event.is_window_focused {

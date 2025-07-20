@@ -246,9 +246,8 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 reviewer.go_to_test_case(0);
             }
             widgem::run(move |w| {
-                w.base_mut()
-                    .add_child::<ReviewWidget>()
-                    .set_reviewer(reviewer)
+                w.base_mut().add_child::<ReviewWidget>(reviewer);
+                Ok(())
             })?;
         }
         Args::Approve { screenshot_path } => {

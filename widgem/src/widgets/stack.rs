@@ -6,6 +6,7 @@ use {
         key::Key,
         layout::SizeHints,
         types::{PhysicalPixels, PpxSuffix, Rect},
+        widgets::NewWidget,
     },
     anyhow::Result,
 };
@@ -16,9 +17,9 @@ pub struct Stack {
 
 impl Stack {
     // TODO: impl explicit rect setting for universal grid layout?
-    pub fn add<T: Widget>(&mut self, key: Key, rect: Rect) -> &mut T {
+    pub fn add<T: NewWidget>(&mut self, key: Key, rect: Rect, arg: T::Arg) -> &mut T {
         let geometry = self.base.geometry().cloned();
-        let widget = self.base.add_child_with_key::<T>(key.clone());
+        let widget = self.base.add_child_with_key::<T>(key.clone(), arg);
         if let Some(geometry) = geometry {
             widget.set_geometry(Some(WidgetGeometry::new(&geometry, rect)), &[]);
         }
@@ -32,12 +33,17 @@ impl Stack {
     }
 }
 
-impl Widget for Stack {
-    impl_widget_base!();
+impl NewWidget for Stack {
+    type Arg = ();
 
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         Self { base }
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for Stack {
+    impl_widget_base!();
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
         Ok(())

@@ -19,6 +19,27 @@ use {
     std::any::Any,
 };
 
+pub trait NewWidget: Widget + Sized {
+    type Arg;
+
+    /// Creates a new widget. The `common` argument provides all available information about the context in which
+    /// the widget is being created.
+    ///
+    /// You don't need to call this function directly. It's automatically invoked when you create a widget using
+    /// one of the following functions on `WidgetCommon` of the parent widget:
+    /// - [add_child](crate::widgets::WidgetBase::add_child)
+    /// - [add_child_with_key](crate::widgets::WidgetBase::add_child_with_key)
+    /// - [declare_child](crate::widgets::WidgetBase::declare_child)
+    /// - [declare_child_with_key](crate::widgets::WidgetBase::declare_child_with_key)
+    ///
+    /// When implementing this function, you should always store the `common` argument value inside your widget object.
+    /// As a convention, you should store it in the widget's field named `common`.
+    /// Your implementations of [base](Self::base) and [base_mut](Self::base_mut) must return a reference to that object.
+    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self;
+
+    fn handle_declared(&mut self, arg: Self::Arg);
+}
+
 pub trait Widget: Any {
     /// Returns full path to the widget type as a string.
     ///
@@ -46,23 +67,6 @@ pub trait Widget: Any {
     {
         false
     }
-
-    /// Creates a new widget. The `common` argument provides all available information about the context in which
-    /// the widget is being created.
-    ///
-    /// You don't need to call this function directly. It's automatically invoked when you create a widget using
-    /// one of the following functions on `WidgetCommon` of the parent widget:
-    /// - [add_child](crate::widgets::WidgetBase::add_child)
-    /// - [add_child_with_key](crate::widgets::WidgetBase::add_child_with_key)
-    /// - [declare_child](crate::widgets::WidgetBase::declare_child)
-    /// - [declare_child_with_key](crate::widgets::WidgetBase::declare_child_with_key)
-    ///
-    /// When implementing this function, you should always store the `common` argument value inside your widget object.
-    /// As a convention, you should store it in the widget's field named `common`.
-    /// Your implementations of [base](Self::base) and [base_mut](Self::base_mut) must return a reference to that object.
-    fn new(base: WidgetBaseOf<Self>) -> Self
-    where
-        Self: Sized;
 
     /// Returns a non-unique, read-only reference to `WidgetCommon` object stored inside the widget.
     /// It's recommended to use [impl_widget_base!](crate::impl_widget_base) macro

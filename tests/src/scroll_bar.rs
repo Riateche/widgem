@@ -4,7 +4,7 @@ use {
         impl_widget_base,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
-        widgets::{Label, ScrollBar, Widget, WidgetBaseOf, WidgetExt, Window},
+        widgets::{Label, NewWidget, ScrollBar, Widget, WidgetBaseOf, WidgetExt, Window},
     },
     widgem_test_kit::context::Context,
 };
@@ -25,10 +25,10 @@ impl RootWidget {
     }
 }
 
-impl Widget for RootWidget {
-    impl_widget_base!();
+impl NewWidget for RootWidget {
+    type Arg = ();
 
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         let on_r = base.callback(|this, _| {
             this.axis = match this.axis {
                 Axis::X => Axis::Y,
@@ -71,21 +71,22 @@ impl Widget for RootWidget {
             value: 0,
         }
     }
+    fn handle_declared(&mut self, (): Self::Arg) {}
+}
+
+impl Widget for RootWidget {
+    impl_widget_base!();
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
         let id = self.base.id();
 
-        let window = self
-            .base
-            .declare_child::<Window>()
-            .set_title(module_path!());
+        let window = self.base.declare_child::<Window>(module_path!().into());
 
         window
             .base_mut()
-            .declare_child::<ScrollBar>()
+            .declare_child::<ScrollBar>(self.axis)
             .set_column(0)
             .set_row(0)
-            .set_axis(self.axis)
             .set_value_range(self.range.clone())
             .set_focusable(self.focusable)
             .set_value(self.value)
@@ -93,10 +94,9 @@ impl Widget for RootWidget {
 
         window
             .base_mut()
-            .declare_child::<Label>()
+            .declare_child::<Label>(self.value.to_string())
             .set_column(0)
-            .set_row(1)
-            .set_text(self.value.to_string());
+            .set_row(1);
 
         Ok(())
     }
@@ -105,7 +105,7 @@ impl Widget for RootWidget {
 #[widgem_test_kit::test]
 pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -121,7 +121,7 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_test_kit::test]
 pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -164,7 +164,7 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_test_kit::test]
 pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -205,7 +205,7 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_test_kit::test]
 pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -254,7 +254,7 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_test_kit::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -298,7 +298,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_test_kit::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     ctx.connection().mouse_move_global(0, 0)?;
@@ -327,7 +327,7 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_test_kit::test]
 pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;
@@ -364,7 +364,7 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_test_kit::test]
 pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>();
+        r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
     let mut window = ctx.wait_for_window_by_pid()?;

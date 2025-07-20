@@ -17,7 +17,7 @@ use {
             ChildrenUpdateState, ReportError,
         },
         types::{PhysicalPixels, Point, Rect, Size},
-        widgets::WidgetExt,
+        widgets::{widget_trait::NewWidget, WidgetExt},
     },
     anyhow::{Context, Result},
     derivative::Derivative,
@@ -495,17 +495,17 @@ impl WidgetBase {
         self.children.contains_key(&key.into())
     }
 
-    pub fn add_child<T: Widget>(&mut self) -> &mut T {
+    pub fn add_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
         let key = self.num_added_children;
         self.num_added_children += 1;
-        self.add_child_common(key.into(), false, None)
+        self.add_child_common(key.into(), false, None, arg)
     }
 
-    pub fn add_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
-        self.add_child_common(key.into(), false, None)
+    pub fn add_child_with_key<T: NewWidget>(&mut self, key: impl Into<Key>, arg: T::Arg) -> &mut T {
+        self.add_child_common(key.into(), false, None, arg)
     }
 
-    pub fn declare_child<T: Widget>(&mut self) -> &mut T {
+    pub fn declare_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
         let key = with_system(|system| {
             let Some(state) = system.current_children_update.as_mut() else {
                 warn!("declare_child called outside of handle_update_children");
@@ -516,18 +516,23 @@ impl WidgetBase {
             *num += 1;
             key
         });
-        self.add_child_common(key.into(), true, None)
+        self.add_child_common(key.into(), true, None, arg)
     }
 
-    pub fn declare_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
-        self.add_child_common(key.into(), true, None)
+    pub fn declare_child_with_key<T: NewWidget>(
+        &mut self,
+        key: impl Into<Key>,
+        arg: T::Arg,
+    ) -> &mut T {
+        self.add_child_common(key.into(), true, None, arg)
     }
 
-    fn add_child_common<T: Widget>(
+    fn add_child_common<T: NewWidget>(
         &mut self,
         key: Key,
         declare: bool,
         new_id: Option<RawWidgetId>,
+        arg: T::Arg,
     ) -> &mut T {
         if declare {
             if let Some(old_widget) = self
@@ -535,6 +540,7 @@ impl WidgetBase {
                 .get_mut(&key)
                 .and_then(|c| c.downcast_mut::<T>())
             {
+                old_widget.handle_declared(arg);
                 with_system(|system| {
                     if let Some(state) = &mut system.current_children_update {
                         state.declared_children.insert(old_widget.base().id);
@@ -560,8 +566,10 @@ impl WidgetBase {
             self.new_creation_context(new_id, key.clone(), None)
         };
         // This may delete the old widget.
-        self.children
-            .insert(key.clone(), Box::new(T::new(WidgetBase::new::<T>(ctx))));
+        self.children.insert(
+            key.clone(),
+            Box::new(T::new(WidgetBase::new::<T>(ctx), arg)),
+        );
         self.size_hint_changed();
         let widget = self.children.get_mut(&key).unwrap();
         if declare {
@@ -1210,11 +1218,12 @@ impl<W> WidgetBaseOf<W> {
         widget_callback(WidgetId::<W>::new(self.base.id), func)
     }
 
-    pub fn add_child<T: Widget>(&mut self) -> &mut T {
-        self.base.add_child::<T>()
+    // TODO: remove or extend
+    pub fn add_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
+        self.base.add_child::<T>(arg)
     }
-    pub fn add_child_with_key<T: Widget>(&mut self, key: impl Into<Key>) -> &mut T {
-        self.base.add_child_with_key::<T>(key)
+    pub fn add_child_with_key<T: NewWidget>(&mut self, key: impl Into<Key>, arg: T::Arg) -> &mut T {
+        self.base.add_child_with_key::<T>(key, arg)
     }
 
     /// Report the widget as supporting (or not supporting) focus.

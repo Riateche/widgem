@@ -14,9 +14,12 @@ use {
     widgem::{
         event::Event,
         impl_widget_base,
+        system::ReportError,
         tiny_skia::{Pixmap, PremultipliedColorU8},
         types::Point,
-        widgets::{Button, Image, Label, Row, Widget, WidgetBaseOf, WidgetExt, WidgetId, Window},
+        widgets::{
+            Button, Image, Label, NewWidget, Row, Widget, WidgetBaseOf, WidgetExt, WidgetId, Window,
+        },
     },
 };
 
@@ -28,6 +31,7 @@ pub struct ReviewWidget {
     image_id: WidgetId<Image>,
     approve_and_skip_id: WidgetId<Row>,
     unconfirmed_count_id: WidgetId<Label>,
+    // TODO: remove Option
     reviewer: Option<Reviewer>,
     mode_button_ids: HashMap<Mode, WidgetId<Button>>,
 }
@@ -108,68 +112,63 @@ impl ReviewWidget {
     }
 }
 
-impl Widget for ReviewWidget {
-    impl_widget_base!();
+impl NewWidget for ReviewWidget {
+    type Arg = Reviewer;
 
     #[allow(clippy::collapsible_if)]
-    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         let id = base.id();
         // TODO: Grid widget
 
-        let window = base.add_child::<Window>().set_title("widgem test review");
+        let window = base.add_child::<Window>("widgem test review".into());
 
         window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("Test:".into())
             .set_column(1)
-            .set_row(1)
-            .set_text("Test:");
+            .set_row(1);
         let test_name_id = window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("".into())
             .set_column(2)
             .set_row(1)
             .id();
 
         let row = window
             .base_mut()
-            .add_child::<Row>()
+            .add_child::<Row>(())
             .set_column(2)
             .set_row(2)
             .add_class("no_padding".into());
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("First test".into())
             .set_column(0)
             .set_row(0)
-            .set_text("First test")
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_test_case(0);
                 w.update_ui()
             }));
 
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Previous test".into())
             .set_column(1)
             .set_row(0)
-            .set_text("Previous test")
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_previous_test_case();
                 w.update_ui()
             }));
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Next test".into())
             .set_column(2)
             .set_row(0)
-            .set_text("Next test")
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_next_test_case();
                 w.update_ui()
             }));
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Last test".into())
             .set_column(3)
             .set_row(0)
-            .set_text("Last test")
             .on_triggered(id.callback(move |w, _e| {
                 let index = w
                     .reviewer
@@ -184,38 +183,35 @@ impl Widget for ReviewWidget {
 
         window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("Snapshot:".into())
             .set_column(1)
-            .set_row(3)
-            .set_text("Snapshot:");
+            .set_row(3);
         let snapshot_name_id = window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("".into())
             .set_column(2)
             .set_row(3)
             .id();
 
         let row = window
             .base_mut()
-            .add_child::<Row>()
+            .add_child::<Row>(())
             .set_column(2)
             .set_row(4)
             .add_class("no_padding".into());
 
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Previous snapshot".into())
             .set_column(0)
             .set_row(0)
-            .set_text("Previous snapshot")
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_previous_snapshot();
                 w.update_ui()
             }));
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Next snapshot".into())
             .set_column(1)
             .set_row(0)
-            .set_text("Next snapshot")
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_next_snapshot();
                 w.update_ui()
@@ -223,15 +219,14 @@ impl Widget for ReviewWidget {
 
         window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("Display mode:".into())
             .set_column(1)
-            .set_row(5)
-            .set_text("Display mode:");
+            .set_row(5);
 
         // TODO: radio buttons
         let modes_row = window
             .base_mut()
-            .add_child::<Row>()
+            .add_child::<Row>(())
             .set_column(2)
             .set_row(5)
             .add_class("no_padding".into());
@@ -240,55 +235,51 @@ impl Widget for ReviewWidget {
             // TODO: radio buttons
             let button = modes_row
                 .base_mut()
-                .add_child::<Button>()
+                .add_child::<Button>(mode.ui_name().into())
                 .set_column(column as i32)
                 .set_row(0)
-                .set_text(mode.ui_name())
                 .on_triggered(id.callback(move |w, _e| w.set_mode(mode)));
             mode_button_ids.insert(mode, button.id());
         }
 
         window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("Snapshot:".into())
             .set_column(1)
-            .set_row(6)
-            .set_text("Snapshot:");
+            .set_row(6);
 
         let row = window
             .base_mut()
-            .add_child::<Row>()
+            .add_child::<Row>(())
             .set_column(2)
             .set_row(6)
             .add_class("no_padding".into());
 
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("100%".into())
             .set_column(0)
             .set_row(0)
-            .set_text("100%")
             .on_triggered(id.callback(move |w, _e| {
                 w.base.widget(w.image_id)?.set_scale(Some(1.0));
                 Ok(())
             }));
         row.base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("200%".into())
             .set_column(1)
             .set_row(0)
-            .set_text("200%")
             .on_triggered(id.callback(move |w, _e| {
                 w.base.widget(w.image_id)?.set_scale(Some(2.0));
                 Ok(())
             }));
         let coords_id = row
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("".into())
             .set_column(2)
             .set_row(0)
             .id();
         let image = window
             .base_mut()
-            .add_child::<Image>()
+            .add_child::<Image>(None)
             .set_column(2)
             .set_row(7);
         let image_mouse_move = id.callback(Self::image_mouse_move);
@@ -308,34 +299,31 @@ impl Widget for ReviewWidget {
 
         window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("Actions:".into())
             .set_column(1)
-            .set_row(8)
-            .set_text("Actions:");
+            .set_row(8);
 
         let approve_and_skip = window
             .base_mut()
-            .add_child::<Row>()
+            .add_child::<Row>(())
             .set_column(2)
             .set_row(8)
             .add_class("no_padding".into());
 
         approve_and_skip
             .base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Approve".into())
             .set_column(0)
             .set_row(0)
-            .set_text("Approve")
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().approve()?;
                 w.update_ui()
             }));
         approve_and_skip
             .base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Skip snapshot".into())
             .set_column(1)
             .set_row(0)
-            .set_text("Skip snapshot")
             .on_triggered(id.callback(move |w, _e| {
                 if !w.reviewer.as_mut().unwrap().go_to_next_unconfirmed_file() {
                     widgem::exit();
@@ -344,10 +332,9 @@ impl Widget for ReviewWidget {
             }));
         approve_and_skip
             .base_mut()
-            .add_child::<Button>()
+            .add_child::<Button>("Skip test".into())
             .set_column(2)
             .set_row(0)
-            .set_text("Skip test")
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_next_test_case();
                 if !w.reviewer.as_mut().unwrap().has_unconfirmed() {
@@ -361,12 +348,12 @@ impl Widget for ReviewWidget {
 
         let unconfirmed_count_id = window
             .base_mut()
-            .add_child::<Label>()
+            .add_child::<Label>("".into())
             .set_column(2)
             .set_row(9)
             .id();
 
-        Self {
+        let mut w = Self {
             base,
             test_name_id,
             snapshot_name_id,
@@ -376,8 +363,18 @@ impl Widget for ReviewWidget {
             unconfirmed_count_id,
             mode_button_ids,
             reviewer: None,
-        }
+        };
+        w.set_reviewer(arg).or_report_err();
+        w
     }
+
+    fn handle_declared(&mut self, arg: Self::Arg) {
+        self.set_reviewer(arg).or_report_err();
+    }
+}
+
+impl Widget for ReviewWidget {
+    impl_widget_base!();
 }
 
 pub struct Reviewer {
