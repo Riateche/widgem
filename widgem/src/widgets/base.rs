@@ -4,7 +4,7 @@ use {
         callback::{widget_callback, Callback},
         event::Event,
         key::Key,
-        layout::{LayoutItemOptions, SizeHints},
+        layout::{Layout, LayoutItemOptions, SizeHints},
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
@@ -196,6 +196,8 @@ pub struct WidgetBase {
     // Present if the widget is not hidden, and only after layout.
     geometry: Option<WidgetGeometry>,
 
+    layout: Layout,
+
     #[derivative(Debug = "ignore")]
     pub children: BTreeMap<Key, Box<dyn Widget>>,
     pub layout_item_options: LayoutItemOptions,
@@ -284,6 +286,7 @@ impl WidgetBase {
             common_style,
             num_added_children: 0,
             declared_children: Default::default(),
+            layout: Layout::default(),
         };
 
         if let Some(window) = &common.window {
@@ -375,16 +378,6 @@ impl WidgetBase {
     /// This is true for [crate::widgets::Window] and false for all other provided widget types.
     pub fn is_window_root(&self) -> bool {
         self.flags.contains(Flags::window_root)
-    }
-
-    /// True if this widget participates in a grid layout.
-    ///
-    /// This is true if all the following conditions hold:
-    /// - It's not a [window root](crate::widgets::Window).
-    /// - It hasn't been explicitly hidden with [`set_visible(false)`](Self::set_visible).
-    /// - It has the row and the column set.
-    pub(crate) fn is_in_grid(&self) -> bool {
-        self.layout_item_options.is_in_grid() && !self.is_window_root() && self.is_self_visible()
     }
 
     /// True if this widget hasn't been explicitly disabled.
@@ -1187,6 +1180,15 @@ impl WidgetBase {
     /// Returns `None` for [crate::widgets::root::RootWidget].
     pub fn parent_id(&self) -> Option<RawWidgetId> {
         self.parent_id
+    }
+
+    pub fn layout(&self) -> Layout {
+        self.layout
+    }
+
+    pub fn set_layout(&mut self, layout: Layout) -> &mut Self {
+        self.layout = layout;
+        self
     }
 }
 

@@ -5,12 +5,13 @@ use {
         layout::{fair_split, solve_layout},
         types::{PhysicalPixels, PpxSuffix, Rect},
         widgets::{Widget, WidgetAddress, WidgetExt, WidgetGeometry},
+        RawWidgetId,
     },
     itertools::Itertools,
     log::warn,
     std::{
         cmp::{max, min},
-        collections::{BTreeMap, HashMap},
+        collections::{hash_map, BTreeMap, HashMap},
         ops::RangeInclusive,
     },
 };
@@ -91,23 +92,19 @@ fn size_hint(
         + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse)
 }
 
-pub fn size_hint_x(items: &mut BTreeMap<Key, Box<dyn Widget>>, options: &GridOptions) -> SizeHints {
+pub fn size_hint_x(
+    items: &mut BTreeMap<Key, Box<dyn Widget>>,
+    options: &GridOptions,
+    rows_and_columns: &RowsAndColumns,
+) -> SizeHints {
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
     for item in items.values_mut() {
-        if !item.base().is_in_grid() {
+        let Some(pos_in_grid) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
-        }
-
+        };
         let hints = item.size_hint_x();
-        let pos_in_grid = item
-            .base()
-            .layout_item_options
-            .x
-            .pos_in_grid
-            .clone()
-            .unwrap();
         min_items.push((pos_in_grid.clone(), hints.min));
         preferred_items.push((pos_in_grid, hints.preferred));
 
@@ -133,28 +130,19 @@ pub fn size_hint_y(
     items: &mut BTreeMap<Key, Box<dyn Widget>>,
     options: &GridOptions,
     size_x: PhysicalPixels,
+    rows_and_columns: &RowsAndColumns,
 ) -> SizeHints {
-    let x_layout = x_layout(items, &options.x, size_x);
+    let x_layout = x_layout(items, rows_and_columns, &options.x, size_x);
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
     for (key, item) in items.iter_mut() {
-        if !item.base().layout_item_options.is_in_grid()
-            || item.base().is_window_root()
-            || !item.base().is_self_visible()
-        {
-            continue;
-        }
         let Some(item_size_x) = x_layout.child_sizes.get(key) else {
             continue;
         };
-        let pos_in_grid = item
-            .base()
-            .layout_item_options
-            .y
-            .pos_in_grid
-            .clone()
-            .unwrap();
+        let Some(pos_in_grid) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
+            continue;
+        };
         let hints = item.size_hint_y(*item_size_x);
 
         min_items.push((pos_in_grid.clone(), hints.min));
@@ -187,21 +175,20 @@ struct XLayout {
 
 fn x_layout(
     items: &mut BTreeMap<Key, Box<dyn Widget>>,
+    rows_and_columns: &RowsAndColumns,
     options: &GridAxisOptions,
     size_x: PhysicalPixels,
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
     for item in items.values_mut() {
-        if !item.base().is_in_grid() {
-            continue;
-        }
-        let Some(pos) = item.base().layout_item_options.x.pos_in_grid.clone() else {
+        let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
         if pos.start() != pos.end() {
             warn!("spanned items are not supported yet");
         }
         let pos = *pos.start();
+
         let mut hints = item.size_hint_x();
         if let Some(is_fixed) = item.base().layout_item_options.x.is_fixed {
             hints.is_fixed = is_fixed;
@@ -219,10 +206,7 @@ fn x_layout(
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
     for (key, item) in items.iter_mut() {
-        if !item.base().is_in_grid() {
-            continue;
-        }
-        let Some(pos) = item.base().layout_item_options.x.pos_in_grid.clone() else {
+        let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
         if pos.start() != pos.end() {
@@ -254,6 +238,87 @@ fn x_layout(
     }
 }
 
+#[derive(Default)]
+pub struct RowsAndColumns {
+    id_to_x: HashMap<RawWidgetId, RangeInclusive<i32>>,
+    id_to_y: HashMap<RawWidgetId, RangeInclusive<i32>>,
+    x_y_to_id: HashMap<(i32, i32), RawWidgetId>,
+}
+
+// TODO: refresh only when relevant things have changed
+pub fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &mut W) -> RowsAndColumns {
+    let mut output = RowsAndColumns::default();
+    let mut current_x = 0;
+    let mut current_y = 0;
+    let layout = widget.base().layout();
+    // TODO: impl sorting key and sort by (sorting_key, key) here.
+    for child in widget.base().children.values() {
+        if child.base().is_window_root() || !child.base().is_self_visible() {
+            continue;
+        }
+        let id = child.base().id();
+        let options = child.base().layout_item_options();
+        let x;
+        let y;
+        match layout {
+            // TODO: implement "next row" / "next column" API
+            super::Layout::VerticalFirst => {
+                if options.x.pos_in_grid.is_some() || options.y.pos_in_grid.is_some() {
+                    warn!("pos_in_grid is set but ignored because Layout::VerticalFirst is in use");
+                }
+                x = current_x..=current_x;
+                y = current_y..=current_y;
+                current_y += 1;
+            }
+            super::Layout::HorizontalFirst => {
+                if options.x.pos_in_grid.is_some() || options.y.pos_in_grid.is_some() {
+                    warn!(
+                        "pos_in_grid is set but ignored because Layout::HorizontalFirst is in use"
+                    );
+                }
+                x = current_x..=current_x;
+                y = current_y..=current_y;
+                current_x += 1;
+            }
+            super::Layout::ExplicitGrid => {
+                match (options.x.pos_in_grid.clone(), options.y.pos_in_grid.clone()) {
+                    (None, None) => continue,
+                    (None, Some(_)) => {
+                        warn!("column is set but row is unset, ignoring column");
+                        continue;
+                    }
+                    (Some(_), None) => {
+                        warn!("row is set but column is unset, ignoring row");
+                        continue;
+                    }
+                    (Some(x_conf), Some(y_conf)) => {
+                        x = x_conf;
+                        y = y_conf;
+                    }
+                }
+            }
+        }
+        match output.x_y_to_id.entry((*x.start(), *y.start())) {
+            hash_map::Entry::Occupied(_) => {
+                warn!(
+                    "assigned same grid pos ({}, {}) to multiple widgets, ignoring duplicate",
+                    x.start(),
+                    y.start()
+                );
+                continue;
+            }
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(id);
+            }
+        }
+
+        output.id_to_x.insert(id, x);
+        output.id_to_y.insert(id, y);
+    }
+
+    output
+}
+
 pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
     let Some(geometry) = widget.base().geometry().cloned() else {
         for child in widget.base_mut().children.values_mut() {
@@ -262,21 +327,20 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         return;
     };
     let options = widget.base().common_style.grid.clone();
+    let rows_and_columns = assign_rows_and_columns(widget);
     let x_layout = x_layout(
         &mut widget.base_mut().children,
+        &rows_and_columns,
         &options.x,
         geometry.size_x(),
     );
     let mut hints_per_row = BTreeMap::new();
     for (key, item) in &mut widget.base_mut().children {
-        // TODO: use item.common().is_in_grid()
-        if !item.base().layout_item_options.is_in_grid() || item.base().is_window_root() {
-            //|| !item.common().is_self_visible {
-            continue;
-        }
-        let Some(pos) = item.base().layout_item_options.y.pos_in_grid.clone() else {
+        // TODO: problem with is_self_visible
+        let Some(pos) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
             continue;
         };
+
         if pos.start() != pos.end() {
             warn!("spanned items are not supported yet");
         }
@@ -318,10 +382,11 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         // if !item.common().is_self_visible {
         //     continue;
         // }
-        let Some(pos_x) = item.base().layout_item_options.x.pos_in_grid.clone() else {
+
+        let Some(pos_x) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
-        let Some(pos_y) = item.base().layout_item_options.y.pos_in_grid.clone() else {
+        let Some(pos_y) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
             continue;
         };
         let Some(cell_pos_x) = positions_x.get(pos_x.start()) else {

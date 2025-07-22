@@ -9,7 +9,7 @@ use {
             WindowFocusChangeEvent,
         },
         layout::{
-            grid::{self, grid_layout},
+            grid::{self, assign_rows_and_columns, grid_layout},
             SizeHints,
         },
         types::PhysicalPixels,
@@ -487,7 +487,12 @@ pub trait Widget: Any {
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
         let options = self.base().common_style.grid.clone();
-        Ok(grid::size_hint_x(&mut self.base_mut().children, &options))
+        let rows_and_columns = assign_rows_and_columns(self);
+        Ok(grid::size_hint_x(
+            &mut self.base_mut().children,
+            &options,
+            &rows_and_columns,
+        ))
     }
 
     /// Calculates size hint of this widget along the Y axis, given the X size.
@@ -515,10 +520,12 @@ pub trait Widget: Any {
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHints> {
         let options = self.base().common_style.grid.clone();
+        let rows_and_columns = assign_rows_and_columns(self);
         Ok(grid::size_hint_y(
             &mut self.base_mut().children,
             &options,
             size_x,
+            &rows_and_columns,
         ))
     }
 

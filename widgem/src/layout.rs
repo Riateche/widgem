@@ -9,6 +9,15 @@ use {
 
 pub mod grid;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Layout {
+    #[default]
+    VerticalFirst,
+    HorizontalFirst,
+    ExplicitGrid,
+    // TODO: other layout types? disabled variant?
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SizeHints {
     pub min: PhysicalPixels,
@@ -51,10 +60,6 @@ impl LayoutItemOptions {
             x: LayoutItemAxisOptions::new(pos_x),
             y: LayoutItemAxisOptions::new(pos_y),
         }
-    }
-
-    pub fn is_in_grid(&self) -> bool {
-        self.x.pos_in_grid.is_some() && self.y.pos_in_grid.is_some()
     }
 }
 

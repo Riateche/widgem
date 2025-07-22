@@ -85,8 +85,6 @@ impl Widget for RootWidget {
         window
             .base_mut()
             .declare_child::<ScrollBar>(self.axis)
-            .set_column(0)
-            .set_row(0)
             .set_value_range(self.range.clone())
             .set_focusable(self.focusable)
             .set_value(self.value)
@@ -94,9 +92,7 @@ impl Widget for RootWidget {
 
         window
             .base_mut()
-            .declare_child::<Label>(self.value.to_string())
-            .set_column(0)
-            .set_row(1);
+            .declare_child::<Label>(self.value.to_string());
 
         Ok(())
     }

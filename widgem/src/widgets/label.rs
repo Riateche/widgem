@@ -1,5 +1,5 @@
 use {
-    super::{Widget, WidgetBaseOf, WidgetExt},
+    super::{Widget, WidgetBaseOf},
     crate::{impl_widget_base, text_editor::Text, widgets::widget_trait::NewWidget},
     cosmic_text::Attrs,
     std::fmt::Display,
@@ -34,8 +34,6 @@ impl NewWidget for Label {
         let id = base.id().raw();
         let element = base.style_element().clone();
         base.add_child::<Text>(arg)
-            .set_column(0)
-            .set_row(0)
             .set_host_id(id)
             .set_host_style_element(element);
         Self { base }

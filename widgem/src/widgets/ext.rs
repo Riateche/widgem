@@ -3,7 +3,7 @@ use {
     crate::{
         callback::{widget_callback, Callback},
         event::{Event, LayoutEvent, ScrollToRectRequest, StyleChangeEvent},
-        layout::{SizeHints, FALLBACK_SIZE_HINTS},
+        layout::{Layout, SizeHints, FALLBACK_SIZE_HINTS},
         style::css::PseudoClass,
         system::{with_system, ReportError},
         types::PhysicalPixels,
@@ -436,6 +436,11 @@ pub trait WidgetExt: Widget {
                 .into(),
             );
         }
+    }
+
+    fn set_layout(&mut self, layout: Layout) -> &mut Self {
+        self.base_mut().set_layout(layout);
+        self
     }
 
     fn boxed(self) -> Box<dyn Widget>

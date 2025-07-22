@@ -7,6 +7,7 @@ use {
             MouseMoveEvent, StyleChangeEvent,
         },
         impl_widget_base,
+        layout::Layout,
         shared_window::SetFocusRequest,
         style::{
             common::ComputedElementStyle,
@@ -174,15 +175,11 @@ impl NewWidget for Button {
 
     fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         base.set_supports_focus(true);
-        base.add_child::<Image>(None)
-            .set_column(0)
-            .set_row(0)
-            .set_visible(false);
+        base.set_layout(Layout::HorizontalFirst);
+        base.add_child::<Image>(None).set_visible(false);
         let id = base.id().raw();
         let element = base.style_element().clone();
         base.add_child::<Text>(arg)
-            .set_column(1)
-            .set_row(0)
             .set_host_id(id)
             .set_host_style_element(element);
         let mut b = Self {

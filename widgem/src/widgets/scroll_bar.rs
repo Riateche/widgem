@@ -6,7 +6,7 @@ use {
             Event, FocusInEvent, FocusOutEvent, KeyboardInputEvent, LayoutEvent, MouseScrollEvent,
         },
         impl_widget_base,
-        layout::{grid::grid_layout, SizeHints},
+        layout::{grid::grid_layout, Layout, SizeHints},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::widget_trait::NewWidget,
@@ -90,6 +90,10 @@ impl ScrollBar {
             return self;
         }
         self.axis = axis;
+        self.set_layout(match axis {
+            Axis::X => Layout::HorizontalFirst,
+            Axis::Y => Layout::VerticalFirst,
+        });
         match axis {
             Axis::X => {
                 let decrease = self.base.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
@@ -111,17 +115,6 @@ impl ScrollBar {
                     .unwrap();
                 grip.add_class("scroll_grip_x".into());
                 grip.remove_class("scroll_grip_y".into());
-
-                self.base
-                    .get_dyn_child_mut(INDEX_PAGER)
-                    .unwrap()
-                    .set_column(1)
-                    .set_row(0);
-                self.base
-                    .get_dyn_child_mut(INDEX_INCREASE)
-                    .unwrap()
-                    .set_column(2)
-                    .set_row(0);
             }
             Axis::Y => {
                 let decrease = self.base.get_child_mut::<Button>(INDEX_DECREASE).unwrap();
@@ -144,17 +137,6 @@ impl ScrollBar {
 
                 grip.remove_class("scroll_grip_x".into());
                 grip.add_class("scroll_grip_y".into());
-
-                self.base
-                    .get_dyn_child_mut(INDEX_PAGER)
-                    .unwrap()
-                    .set_column(0)
-                    .set_row(1);
-                self.base
-                    .get_dyn_child_mut(INDEX_INCREASE)
-                    .unwrap()
-                    .set_column(0)
-                    .set_row(2);
             }
         }
         self.base
@@ -527,8 +509,6 @@ impl NewWidget for ScrollBar {
         // TODO: localized name
 
         base.add_child_with_key::<Button>(INDEX_DECREASE, names::SCROLL_LEFT.into())
-            .set_column(0)
-            .set_row(0)
             // TODO: implement accessibility for scroll bar itself
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
@@ -540,9 +520,8 @@ impl NewWidget for ScrollBar {
         let axis = Axis::X;
         let pager = base
             .add_child_with_key::<Pager>(INDEX_PAGER, ())
-            .set_column(1)
-            .set_row(0)
-            .set_axis(axis);
+            .set_axis(axis)
+            .set_layout(Layout::ExplicitGrid);
         pager
             .base
             .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER, names::SCROLL_PAGER.into())
@@ -566,14 +545,17 @@ impl NewWidget for ScrollBar {
             .set_mouse_leave_sensitive(false);
 
         base.add_child_with_key::<Button>(INDEX_INCREASE, names::SCROLL_RIGHT.into())
-            .set_column(2)
-            .set_row(0)
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_right".into())
             .set_text_visible(false)
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
+
+        base.set_layout(match axis {
+            Axis::X => Layout::HorizontalFirst,
+            Axis::Y => Layout::VerticalFirst,
+        });
 
         let mut this = Self {
             base,
