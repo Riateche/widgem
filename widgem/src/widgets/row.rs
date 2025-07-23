@@ -1,6 +1,6 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, widgets::widget_trait::NewWidget},
+    crate::{impl_widget_base, layout::Layout, widgets::widget_trait::NewWidget},
 };
 
 // TODO: reimplement auto keys and auto row/column
@@ -11,7 +11,8 @@ pub struct Row {
 impl NewWidget for Row {
     type Arg = ();
 
-    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
+        base.set_layout(Layout::HorizontalFirst);
         Self { base }
     }
     fn handle_declared(&mut self, (): Self::Arg) {}

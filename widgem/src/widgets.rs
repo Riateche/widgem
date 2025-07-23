@@ -7,7 +7,6 @@ mod id;
 mod image;
 mod label;
 mod menu;
-mod padding_box;
 mod root;
 mod row;
 mod scroll_area;
@@ -18,9 +17,9 @@ mod widget_trait;
 mod window;
 
 pub use self::{
-    button::Button, column::Column, image::Image, label::Label, menu::Menu,
-    padding_box::PaddingBox, root::RootWidget, row::Row, scroll_area::ScrollArea,
-    scroll_bar::ScrollBar, stack::Stack, text_input::TextInput, window::Window,
+    button::Button, column::Column, image::Image, label::Label, menu::Menu, root::RootWidget,
+    row::Row, scroll_area::ScrollArea, scroll_bar::ScrollBar, stack::Stack, text_input::TextInput,
+    window::Window,
 };
 
 // TODO: move out of this module?
