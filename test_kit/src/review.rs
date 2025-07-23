@@ -14,6 +14,7 @@ use {
     widgem::{
         event::Event,
         impl_widget_base,
+        layout::Layout,
         system::ReportError,
         tiny_skia::{Pixmap, PremultipliedColorU8},
         types::Point,
@@ -121,29 +122,33 @@ impl NewWidget for ReviewWidget {
         // TODO: Grid widget
 
         let window = base.add_child::<Window>("widgem test review".into());
-
+        // TODO: replace with implicit layout
+        window.set_layout(Layout::ExplicitGrid);
+        let mut current_row = 1;
         window
             .base_mut()
             .add_child::<Label>("Test:".into())
             .set_column(1)
-            .set_row(1);
+            .set_row(current_row);
         let test_name_id = window
             .base_mut()
             .add_child::<Label>("".into())
             .set_column(2)
-            .set_row(1)
+            .set_row(current_row)
             .id();
+        current_row += 1;
 
         let row = window
             .base_mut()
             .add_child::<Row>(())
             .set_column(2)
-            .set_row(2)
-            .add_class("no_padding".into());
+            .set_row(current_row)
+            .add_class("no_padding".into())
+            .set_layout(Layout::HorizontalFirst);
+        current_row += 1;
+
         row.base_mut()
             .add_child::<Button>("First test".into())
-            .set_column(0)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_test_case(0);
                 w.update_ui()
@@ -151,24 +156,18 @@ impl NewWidget for ReviewWidget {
 
         row.base_mut()
             .add_child::<Button>("Previous test".into())
-            .set_column(1)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_previous_test_case();
                 w.update_ui()
             }));
         row.base_mut()
             .add_child::<Button>("Next test".into())
-            .set_column(2)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_next_test_case();
                 w.update_ui()
             }));
         row.base_mut()
             .add_child::<Button>("Last test".into())
-            .set_column(3)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 let index = w
                     .reviewer
@@ -185,33 +184,32 @@ impl NewWidget for ReviewWidget {
             .base_mut()
             .add_child::<Label>("Snapshot:".into())
             .set_column(1)
-            .set_row(3);
+            .set_row(current_row);
         let snapshot_name_id = window
             .base_mut()
             .add_child::<Label>("".into())
             .set_column(2)
-            .set_row(3)
+            .set_row(current_row)
             .id();
+        current_row += 1;
 
         let row = window
             .base_mut()
             .add_child::<Row>(())
             .set_column(2)
-            .set_row(4)
-            .add_class("no_padding".into());
+            .set_row(current_row)
+            .add_class("no_padding".into())
+            .set_layout(Layout::HorizontalFirst);
+        current_row += 1;
 
         row.base_mut()
             .add_child::<Button>("Previous snapshot".into())
-            .set_column(0)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_previous_snapshot();
                 w.update_ui()
             }));
         row.base_mut()
             .add_child::<Button>("Next snapshot".into())
-            .set_column(1)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_next_snapshot();
                 w.update_ui()
@@ -221,23 +219,25 @@ impl NewWidget for ReviewWidget {
             .base_mut()
             .add_child::<Label>("Display mode:".into())
             .set_column(1)
-            .set_row(5);
+            .set_row(current_row);
+        current_row += 1;
 
         // TODO: radio buttons
         let modes_row = window
             .base_mut()
             .add_child::<Row>(())
             .set_column(2)
-            .set_row(5)
-            .add_class("no_padding".into());
+            .set_row(current_row)
+            .add_class("no_padding".into())
+            .set_layout(Layout::HorizontalFirst);
+        current_row += 1;
+
         let mut mode_button_ids = HashMap::new();
-        for (column, mode) in Mode::iter().enumerate() {
+        for mode in Mode::iter() {
             // TODO: radio buttons
             let button = modes_row
                 .base_mut()
                 .add_child::<Button>(mode.ui_name().into())
-                .set_column(column as i32)
-                .set_row(0)
                 .on_triggered(id.callback(move |w, _e| w.set_mode(mode)));
             mode_button_ids.insert(mode, button.id());
         }
@@ -246,42 +246,37 @@ impl NewWidget for ReviewWidget {
             .base_mut()
             .add_child::<Label>("Snapshot:".into())
             .set_column(1)
-            .set_row(6);
+            .set_row(current_row);
 
         let row = window
             .base_mut()
             .add_child::<Row>(())
             .set_column(2)
-            .set_row(6)
-            .add_class("no_padding".into());
+            .set_row(current_row)
+            .add_class("no_padding".into())
+            .set_layout(Layout::HorizontalFirst);
+        current_row += 1;
 
         row.base_mut()
             .add_child::<Button>("100%".into())
-            .set_column(0)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.base.widget(w.image_id)?.set_scale(Some(1.0));
                 Ok(())
             }));
         row.base_mut()
             .add_child::<Button>("200%".into())
-            .set_column(1)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.base.widget(w.image_id)?.set_scale(Some(2.0));
                 Ok(())
             }));
-        let coords_id = row
-            .base_mut()
-            .add_child::<Label>("".into())
-            .set_column(2)
-            .set_row(0)
-            .id();
+        let coords_id = row.base_mut().add_child::<Label>("".into()).id();
         let image = window
             .base_mut()
             .add_child::<Image>(None)
             .set_column(2)
-            .set_row(7);
+            .set_row(current_row);
+        current_row += 1;
+
         let image_mouse_move = id.callback(Self::image_mouse_move);
         image.base_mut().event_filter = Some(Box::new(move |event| {
             match event {
@@ -301,20 +296,20 @@ impl NewWidget for ReviewWidget {
             .base_mut()
             .add_child::<Label>("Actions:".into())
             .set_column(1)
-            .set_row(8);
+            .set_row(current_row);
 
         let approve_and_skip = window
             .base_mut()
             .add_child::<Row>(())
             .set_column(2)
-            .set_row(8)
-            .add_class("no_padding".into());
+            .set_row(current_row)
+            .add_class("no_padding".into())
+            .set_layout(Layout::HorizontalFirst);
+        current_row += 1;
 
         approve_and_skip
             .base_mut()
             .add_child::<Button>("Approve".into())
-            .set_column(0)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().approve()?;
                 w.update_ui()
@@ -322,8 +317,6 @@ impl NewWidget for ReviewWidget {
         approve_and_skip
             .base_mut()
             .add_child::<Button>("Skip snapshot".into())
-            .set_column(1)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 if !w.reviewer.as_mut().unwrap().go_to_next_unconfirmed_file() {
                     widgem::exit();
@@ -333,8 +326,6 @@ impl NewWidget for ReviewWidget {
         approve_and_skip
             .base_mut()
             .add_child::<Button>("Skip test".into())
-            .set_column(2)
-            .set_row(0)
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.as_mut().unwrap().go_to_next_test_case();
                 if !w.reviewer.as_mut().unwrap().has_unconfirmed() {
@@ -350,7 +341,7 @@ impl NewWidget for ReviewWidget {
             .base_mut()
             .add_child::<Label>("".into())
             .set_column(2)
-            .set_row(9)
+            .set_row(current_row)
             .id();
 
         let mut w = Self {

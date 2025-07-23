@@ -170,10 +170,7 @@ impl NewWidget for TextInput {
         base.set_cursor_icon(CursorIcon::Text);
         let host_id = base.id();
         let element = base.style_element().clone();
-        let viewport = base
-            .add_child_with_key::<Viewport>(0, ())
-            .set_column(0)
-            .set_row(0);
+        let viewport = base.add_child_with_key::<Viewport>(0, ());
         viewport.base_mut().set_receives_all_mouse_events(true);
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
         let editor = viewport

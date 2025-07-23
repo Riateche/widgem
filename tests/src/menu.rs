@@ -1,7 +1,7 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{Button, Menu, NewWidget, Widget, WidgetBaseOf, WidgetExt, Window},
+        widgets::{Button, Menu, NewWidget, Widget, WidgetBaseOf, Window},
     },
     widgem_test_kit::context::Context,
 };
@@ -27,8 +27,6 @@ impl NewWidget for RootWidget {
         window
             .base_mut()
             .add_child::<Button>("test".into())
-            .set_column(0)
-            .set_row(0)
             .on_triggered(id.callback(Self::on_triggered));
 
         Self { base }

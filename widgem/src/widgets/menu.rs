@@ -1,5 +1,5 @@
 use {
-    super::{label::Label, window::Window, Widget, WidgetBaseOf, WidgetExt},
+    super::{label::Label, window::Window, Widget, WidgetBaseOf},
     crate::{impl_widget_base, shared_window::X11WindowType, widgets::widget_trait::NewWidget},
     winit::window::WindowLevel,
 };
@@ -22,13 +22,10 @@ impl NewWidget for Menu {
             .set_skip_windows_taskbar(true);
         window
             .base_mut()
-            .add_child::<Label>("menu content 1\nmenu content 2\nmenu content 3".into())
-            .set_column(0)
-            .set_row(0);
+            .add_child::<Label>("menu content 1\nmenu content 2\nmenu content 3".into());
         Self { base }
     }
-        fn handle_declared(&mut self, (): Self::Arg) {}
-
+    fn handle_declared(&mut self, (): Self::Arg) {}
 }
 impl Widget for Menu {
     impl_widget_base!();

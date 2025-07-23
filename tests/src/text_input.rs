@@ -1,7 +1,7 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{NewWidget, TextInput, Widget, WidgetBaseOf, WidgetExt, Window},
+        widgets::{NewWidget, TextInput, Widget, WidgetBaseOf, Window},
     },
     widgem_test_kit::context::Context,
 };
@@ -19,8 +19,6 @@ impl NewWidget for RootWidget {
         window
             .base_mut()
             .add_child::<TextInput>(())
-            .set_column(0)
-            .set_row(0)
             .set_text("Hello world");
 
         Self { base }

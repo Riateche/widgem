@@ -1,7 +1,7 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{Label, NewWidget, Widget, WidgetBaseOf, WidgetExt, Window},
+        widgets::{Label, NewWidget, Widget, WidgetBaseOf, Window},
     },
     widgem_test_kit::context::Context,
 };
@@ -16,11 +16,7 @@ impl NewWidget for RootWidget {
     fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         let window = base.add_child::<Window>(module_path!().into());
 
-        window
-            .base_mut()
-            .add_child::<Label>("Test".into())
-            .set_column(0)
-            .set_row(0);
+        window.base_mut().add_child::<Label>("Test".into());
 
         Self { base }
     }

@@ -5,7 +5,7 @@ use {
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_base,
-        layout::{grid::grid_layout, SizeHints},
+        layout::{grid::grid_layout, Layout, SizeHints},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
         widgets::widget_trait::NewWidget,
     },
@@ -171,6 +171,7 @@ impl NewWidget for ScrollArea {
 
     fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
         let relayout = base.callback(|this, _| this.relayout(&[]));
+        base.set_layout(Layout::ExplicitGrid);
 
         // TODO: icons, localized name
         base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X, Axis::X)

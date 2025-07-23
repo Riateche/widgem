@@ -44,17 +44,13 @@ impl NewWidget for AnotherWidget {
             println!("window {:?}", window.id());
             let label = window
                 .base_mut()
-                .add_child::<Label>(format!("counter: {}", this.counter))
-                .set_column(0)
-                .set_row(0);
+                .add_child::<Label>(format!("counter: {}", this.counter));
             println!("label {:?}", label.id());
             Ok(())
         });
         let button = this
             .base_mut()
-            .add_child_with_key::<Button>("button", "another button".into())
-            .set_column(0)
-            .set_row(1);
+            .add_child_with_key::<Button>("button", "another button".into());
         button.on_triggered(callback);
         this
     }
@@ -119,21 +115,13 @@ impl NewWidget for RootWidget {
 
         let window = base.add_child::<Window>("example".into());
 
-        let root = window
-            .base_mut()
-            .add_child::<Column>(())
-            .set_column(0)
-            .set_row(0);
+        let root = window.base_mut().add_child::<Column>(());
 
         root.base_mut()
             .add_child::<TextInput>(())
-            .set_column(0)
-            .set_row(0)
             .set_text("Hello, Rust! 🦀😂\n");
         root.base_mut()
             .add_child::<TextInput>(())
-            .set_column(0)
-            .set_row(1)
             .set_text("Hebrew name Sarah: שרה.");
 
         /*
@@ -155,66 +143,37 @@ impl NewWidget for RootWidget {
         let button_id = root
             .base_mut()
             .add_child::<Button>("btn1".into())
-            .set_column(0)
-            .set_row(2)
             .set_auto_repeat(true)
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 1)))
             .id();
 
         root.base_mut()
             .add_child::<Button>("btn2".into())
-            .set_column(0)
-            .set_row(3)
             .on_triggered(id.callback(|this, event| this.button_clicked(event, 2)));
 
-        let column2 = root
-            .base_mut()
-            .add_child::<Column>(())
-            .set_column(0)
-            .set_row(4);
+        let column2 = root.base_mut().add_child::<Column>(());
         let button21_id = column2
             .base_mut()
             .add_child::<Button>("btn21".into())
-            .set_column(0)
-            .set_row(0)
             .on_triggered(id.callback(|_, _| {
                 println!("click!");
                 Ok(())
             }))
             .id();
 
-        let button22_id = column2
-            .base_mut()
-            .add_child::<Button>("btn22".into())
-            .set_column(0)
-            .set_row(1)
-            .id();
+        let button22_id = column2.base_mut().add_child::<Button>("btn22".into()).id();
         let column2_id = column2.id();
 
-        root.base_mut()
-            .add_child::<AnotherWidget>(())
-            .set_column(0)
-            .set_row(5);
+        root.base_mut().add_child::<AnotherWidget>(());
 
-        let label2_id = root
-            .base_mut()
-            .add_child::<Label>("ok".into())
-            .set_column(0)
-            .set_row(6)
-            .id();
+        let label2_id = root.base_mut().add_child::<Label>("ok".into()).id();
 
-        let scroll_area = root
-            .base_mut()
-            .add_child::<ScrollArea>(())
-            .set_column(0)
-            .set_row(7);
+        let scroll_area = root.base_mut().add_child::<ScrollArea>(());
         let content = scroll_area.set_content::<Column>(());
         for i in 1..=80 {
             content
                 .base_mut()
-                .add_child::<Button>(format!("btn btn btn btn btn btn btn btn btn btn{i}"))
-                .set_column(0)
-                .set_row(i);
+                .add_child::<Button>(format!("btn btn btn btn btn btn btn btn btn btn{i}"));
         }
 
         add_interval(Duration::from_secs(2), id.callback(|this, _| this.inc()));
