@@ -22,21 +22,30 @@ use {
 pub trait NewWidget: Widget + Sized {
     type Arg;
 
-    /// Creates a new widget. The `common` argument provides all available information about the context in which
-    /// the widget is being created.
+    /// Creates a new widget. The `base` argument provides all available information about the context in which
+    /// the widget is being created. `arg` may provide additional configuration, depending on the widget type.
     ///
     /// You don't need to call this function directly. It's automatically invoked when you create a widget using
-    /// one of the following functions on `WidgetCommon` of the parent widget:
-    /// - [add_child](crate::widgets::WidgetBase::add_child)
-    /// - [add_child_with_key](crate::widgets::WidgetBase::add_child_with_key)
-    /// - [declare_child](crate::widgets::WidgetBase::declare_child)
-    /// - [declare_child_with_key](crate::widgets::WidgetBase::declare_child_with_key)
+    /// one of the following functions on [WidgetBase] of the parent widget:
+    /// - [add_child](WidgetBase::add_child)
+    /// - [add_child_with_key](WidgetBase::add_child_with_key)
+    /// - [declare_child](WidgetBase::declare_child)
+    /// - [declare_child_with_key](WidgetBase::declare_child_with_key)
     ///
     /// When implementing this function, you should always store the `common` argument value inside your widget object.
     /// As a convention, you should store it in the widget's field named `common`.
-    /// Your implementations of [base](Self::base) and [base_mut](Self::base_mut) must return a reference to that object.
+    /// Your implementations of [base](Widget::base) and [base_mut](Widget::base_mut) must return a reference to that object.
+    ///
     fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self;
 
+    /// Handles a repeated declaration of the widget.
+    ///
+    /// This function is called when [declare_child](WidgetBase::declare_child) or
+    /// [declare_child_with_key](WidgetBase::declare_child_with_key) is called and `self`
+    /// is an existing widget corresponding to that declaration. When implementing this function,
+    /// use `arg` to update the state of the widget in the same way as it would be used in [NewWidget::new].
+    /// For example, if the argument of [NewWidget::new] sets the displayed text then `handle_declared`
+    /// should also set the displayed text.
     fn handle_declared(&mut self, arg: Self::Arg);
 }
 

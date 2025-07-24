@@ -143,8 +143,7 @@ impl NewWidget for ReviewWidget {
             .add_child::<Row>(())
             .set_column(2)
             .set_row(current_row)
-            .add_class("no_padding".into())
-            .set_layout(Layout::HorizontalFirst);
+            .add_class("no_padding".into());
         current_row += 1;
 
         row.base_mut()
@@ -198,8 +197,7 @@ impl NewWidget for ReviewWidget {
             .add_child::<Row>(())
             .set_column(2)
             .set_row(current_row)
-            .add_class("no_padding".into())
-            .set_layout(Layout::HorizontalFirst);
+            .add_class("no_padding".into());
         current_row += 1;
 
         row.base_mut()
@@ -228,8 +226,7 @@ impl NewWidget for ReviewWidget {
             .add_child::<Row>(())
             .set_column(2)
             .set_row(current_row)
-            .add_class("no_padding".into())
-            .set_layout(Layout::HorizontalFirst);
+            .add_class("no_padding".into());
         current_row += 1;
 
         let mut mode_button_ids = HashMap::new();
@@ -253,8 +250,7 @@ impl NewWidget for ReviewWidget {
             .add_child::<Row>(())
             .set_column(2)
             .set_row(current_row)
-            .add_class("no_padding".into())
-            .set_layout(Layout::HorizontalFirst);
+            .add_class("no_padding".into());
         current_row += 1;
 
         row.base_mut()
@@ -303,8 +299,7 @@ impl NewWidget for ReviewWidget {
             .add_child::<Row>(())
             .set_column(2)
             .set_row(current_row)
-            .add_class("no_padding".into())
-            .set_layout(Layout::HorizontalFirst);
+            .add_class("no_padding".into());
         current_row += 1;
 
         approve_and_skip
