@@ -274,28 +274,28 @@ pub trait WidgetExt: Widget {
         self.base_mut().after_declare_children(state);
     }
 
-    fn size_hint_x(&mut self) -> SizeHints {
-        if let Some(cached) = &self.base().size_hint_x_cache {
-            *cached
+    fn size_hint_x(&self) -> SizeHints {
+        if let Some(cached) = self.base().size_hint_x_cache() {
+            cached
         } else {
             let r = self
                 .handle_size_hint_x_request()
                 .or_report_err()
                 .unwrap_or(FALLBACK_SIZE_HINTS);
-            self.base_mut().size_hint_x_cache = Some(r);
+            self.base().set_size_hint_x_cache(r);
             r
         }
     }
 
-    fn size_hint_y(&mut self, size_x: PhysicalPixels) -> SizeHints {
-        if let Some(cached) = self.base().size_hint_y_cache.get(&size_x) {
-            *cached
+    fn size_hint_y(&self, size_x: PhysicalPixels) -> SizeHints {
+        if let Some(cached) = self.base().size_hint_y_cache(size_x) {
+            cached
         } else {
             let r = self
                 .handle_size_hint_y_request(size_x)
                 .or_report_err()
                 .unwrap_or(FALLBACK_SIZE_HINTS);
-            self.base_mut().size_hint_y_cache.insert(size_x, r);
+            self.base().set_size_hint_y_cache(size_x, r);
             r
         }
     }

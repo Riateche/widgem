@@ -236,14 +236,14 @@ impl NewWidget for Viewport {
 impl Widget for Viewport {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
         Ok(SizeHints {
             min: 0.ppx(),
             preferred: 0.ppx(),
             is_fixed: false,
         })
     }
-    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         Ok(SizeHints {
             min: 0.ppx(),
             preferred: 0.ppx(),

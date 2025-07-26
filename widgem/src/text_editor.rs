@@ -1202,7 +1202,7 @@ impl Widget for Text {
         Ok(Some(node))
     }
 
-    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
         Ok(SizeHints {
             min: self.size_x(),
             preferred: self.size_x(),
@@ -1210,7 +1210,7 @@ impl Widget for Text {
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         // TODO: use size_x, handle multiple lines
         Ok(SizeHints {
             min: self.size_y(),

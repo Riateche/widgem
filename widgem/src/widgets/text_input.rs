@@ -41,7 +41,7 @@ impl NewWidget for Viewport {
 impl Widget for Viewport {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<crate::layout::SizeHints> {
         Ok(SizeHints {
             min: 0.ppx(),
             preferred: 0.ppx(),
@@ -49,7 +49,7 @@ impl Widget for Viewport {
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let size =
             PhysicalPixels::from_i32(self.base.get_child::<Text>(0).unwrap().line_height() as i32);
         Ok(SizeHints {
@@ -203,7 +203,7 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&mut self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
         Ok(SizeHints {
             min: self.style.min_width,
             preferred: self.style.preferred_width,

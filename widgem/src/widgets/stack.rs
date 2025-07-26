@@ -44,7 +44,7 @@ impl Widget for Stack {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<crate::layout::SizeHints> {
         let max = self
             .base
             .children()
@@ -59,7 +59,7 @@ impl Widget for Stack {
         })
     }
 
-    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let max = self
             .base
             .children()

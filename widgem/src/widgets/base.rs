@@ -23,6 +23,7 @@ use {
     derivative::Derivative,
     log::{error, warn},
     std::{
+        cell::RefCell,
         collections::{BTreeMap, HashMap, HashSet},
         fmt::Debug,
         marker::PhantomData,
@@ -170,6 +171,13 @@ auto_bitflags! {
     }
 }
 
+#[derive(Debug, Default)]
+struct Cache {
+    size_hint_x: Option<SizeHints>,
+    // TODO: limit count
+    size_hint_y: HashMap<PhysicalPixels, SizeHints>,
+}
+
 /// The first building block of a widget.
 ///
 /// Any widget contains a `WidgetBase` object. You can obtain it by calling [base()](crate::widgets::Widget::base)
@@ -202,10 +210,6 @@ pub struct WidgetBase {
     children: BTreeMap<Key, Box<dyn Widget>>,
     layout_item_options: LayoutItemOptions,
 
-    pub size_hint_x_cache: Option<SizeHints>,
-    // TODO: limit count
-    pub size_hint_y_cache: HashMap<PhysicalPixels, SizeHints>,
-
     // TODO: multiple filters?
     // TODO: accept/reject event from filter; option to run filter after on_event
     #[derivative(Debug = "ignore")]
@@ -219,6 +223,7 @@ pub struct WidgetBase {
     // Direct and indirect children created by last call of this widget's
     // `handle_update_children`.
     pub declared_children: HashSet<RawWidgetId>,
+    cache: RefCell<Cache>,
 }
 
 impl Drop for WidgetBase {
@@ -278,8 +283,6 @@ impl WidgetBase {
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
             layout_item_options: LayoutItemOptions::default(),
-            size_hint_x_cache: None,
-            size_hint_y_cache: HashMap::new(),
             event_filter: None,
             shortcuts: Vec::new(),
             style_element,
@@ -287,6 +290,7 @@ impl WidgetBase {
             num_added_children: 0,
             declared_children: Default::default(),
             layout: Layout::default(),
+            cache: RefCell::new(Cache::default()),
         };
 
         if let Some(window) = &common.window {
@@ -708,9 +712,26 @@ impl WidgetBase {
         window.invalidate_size_hint(self.address.clone());
     }
 
-    pub fn clear_size_hint_cache(&mut self) {
-        self.size_hint_x_cache = None;
-        self.size_hint_y_cache.clear();
+    pub(crate) fn clear_size_hint_cache(&mut self) {
+        let mut cache = self.cache.borrow_mut();
+        cache.size_hint_x = None;
+        cache.size_hint_y.clear();
+    }
+
+    pub(crate) fn size_hint_x_cache(&self) -> Option<SizeHints> {
+        self.cache.borrow().size_hint_x
+    }
+
+    pub(crate) fn set_size_hint_x_cache(&self, value: SizeHints) {
+        self.cache.borrow_mut().size_hint_x = Some(value);
+    }
+
+    pub(crate) fn size_hint_y_cache(&self, size_x: PhysicalPixels) -> Option<SizeHints> {
+        self.cache.borrow().size_hint_y.get(&size_x).cloned()
+    }
+
+    pub(crate) fn set_size_hint_y_cache(&self, size_x: PhysicalPixels, value: SizeHints) {
+        self.cache.borrow_mut().size_hint_y.insert(size_x, value);
     }
 
     /// Returns a shared handle to a window that contains this widget.

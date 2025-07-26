@@ -91,18 +91,15 @@ fn size_hint(
         + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse)
 }
 
-pub fn size_hint_x<'a, I>(
-    items: I,
+pub fn size_hint_x(
+    widget: &(impl Widget + ?Sized),
     options: &GridOptions,
     rows_and_columns: &RowsAndColumns,
-) -> SizeHints
-where
-    I: Iterator<Item = &'a mut dyn Widget>,
-{
+) -> SizeHints {
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
-    for item in items {
+    for item in widget.base().children() {
         let Some(pos_in_grid) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -129,7 +126,7 @@ where
 }
 
 pub fn size_hint_y(
-    widget: &mut (impl Widget + ?Sized),
+    widget: &(impl Widget + ?Sized),
     options: &GridOptions,
     size_x: PhysicalPixels,
     rows_and_columns: &RowsAndColumns,
@@ -138,7 +135,7 @@ pub fn size_hint_y(
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
-    for item in widget.base_mut().children_mut() {
+    for item in widget.base().children() {
         let Some(item_size_x) = x_layout.child_sizes.get(&item.base().id()) else {
             continue;
         };
@@ -176,13 +173,13 @@ struct XLayout {
 }
 
 fn x_layout(
-    widget: &mut (impl Widget + ?Sized),
+    widget: &(impl Widget + ?Sized),
     rows_and_columns: &RowsAndColumns,
     options: &GridAxisOptions,
     size_x: PhysicalPixels,
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
-    for item in widget.base_mut().children_mut() {
+    for item in widget.base().children() {
         let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -207,7 +204,7 @@ fn x_layout(
     let output = solve_layout(&layout_items, size_x, options);
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
-    for item in widget.base_mut().children_mut() {
+    for item in widget.base().children() {
         let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -248,7 +245,7 @@ pub struct RowsAndColumns {
 }
 
 // TODO: refresh only when relevant things have changed
-pub fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &mut W) -> RowsAndColumns {
+pub fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &W) -> RowsAndColumns {
     let mut output = RowsAndColumns::default();
     let mut current_x = 0;
     let mut current_y = 0;
