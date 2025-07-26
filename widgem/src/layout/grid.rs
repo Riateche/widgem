@@ -1,7 +1,6 @@
 use {
     super::{Alignment, SizeHintMode, SizeHints},
     crate::{
-        key::Key,
         layout::{fair_split, solve_layout},
         types::{PhysicalPixels, PpxSuffix, Rect},
         widgets::{Widget, WidgetAddress, WidgetExt, WidgetGeometry},
@@ -92,15 +91,18 @@ fn size_hint(
         + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse)
 }
 
-pub fn size_hint_x(
-    items: &mut BTreeMap<Key, Box<dyn Widget>>,
+pub fn size_hint_x<'a, I>(
+    items: I,
     options: &GridOptions,
     rows_and_columns: &RowsAndColumns,
-) -> SizeHints {
+) -> SizeHints
+where
+    I: Iterator<Item = &'a mut dyn Widget>,
+{
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
-    for item in items.values_mut() {
+    for item in items {
         let Some(pos_in_grid) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -127,17 +129,17 @@ pub fn size_hint_x(
 }
 
 pub fn size_hint_y(
-    items: &mut BTreeMap<Key, Box<dyn Widget>>,
+    widget: &mut (impl Widget + ?Sized),
     options: &GridOptions,
     size_x: PhysicalPixels,
     rows_and_columns: &RowsAndColumns,
 ) -> SizeHints {
-    let x_layout = x_layout(items, rows_and_columns, &options.x, size_x);
+    let x_layout = x_layout(widget, rows_and_columns, &options.x, size_x);
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
-    for (key, item) in items.iter_mut() {
-        let Some(item_size_x) = x_layout.child_sizes.get(key) else {
+    for item in widget.base_mut().children_mut() {
+        let Some(item_size_x) = x_layout.child_sizes.get(&item.base().id()) else {
             continue;
         };
         let Some(pos_in_grid) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
@@ -170,17 +172,17 @@ struct XLayout {
     padding: PhysicalPixels,
     spacing: PhysicalPixels,
     column_sizes: BTreeMap<i32, PhysicalPixels>,
-    child_sizes: HashMap<Key, PhysicalPixels>,
+    child_sizes: HashMap<RawWidgetId, PhysicalPixels>,
 }
 
 fn x_layout(
-    items: &mut BTreeMap<Key, Box<dyn Widget>>,
+    widget: &mut (impl Widget + ?Sized),
     rows_and_columns: &RowsAndColumns,
     options: &GridAxisOptions,
     size_x: PhysicalPixels,
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
-    for item in items.values_mut() {
+    for item in widget.base_mut().children_mut() {
         let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -205,7 +207,7 @@ fn x_layout(
     let output = solve_layout(&layout_items, size_x, options);
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
-    for (key, item) in items.iter_mut() {
+    for item in widget.base_mut().children_mut() {
         let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -228,7 +230,7 @@ fn x_layout(
         } else {
             *column_size
         };
-        child_sizes.insert(key.clone(), child_size);
+        child_sizes.insert(item.base().id(), child_size);
     }
     XLayout {
         padding: output.padding,
@@ -252,7 +254,7 @@ pub fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &mut W) -> RowsAndCol
     let mut current_y = 0;
     let layout = widget.base().layout();
     // TODO: impl sorting key and sort by (sorting_key, key) here.
-    for child in widget.base().children.values() {
+    for child in widget.base().children() {
         if child.base().is_window_root() || !child.base().is_self_visible() {
             continue;
         }
@@ -321,21 +323,16 @@ pub fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &mut W) -> RowsAndCol
 
 pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
     let Some(geometry) = widget.base().geometry().cloned() else {
-        for child in widget.base_mut().children.values_mut() {
+        for child in widget.base_mut().children_mut() {
             child.set_geometry(None, changed_size_hints);
         }
         return;
     };
     let options = widget.base().common_style.grid.clone();
     let rows_and_columns = assign_rows_and_columns(widget);
-    let x_layout = x_layout(
-        &mut widget.base_mut().children,
-        &rows_and_columns,
-        &options.x,
-        geometry.size_x(),
-    );
+    let x_layout = x_layout(widget, &rows_and_columns, &options.x, geometry.size_x());
     let mut hints_per_row = BTreeMap::new();
-    for (key, item) in &mut widget.base_mut().children {
+    for item in widget.base_mut().children_mut() {
         // TODO: problem with is_self_visible
         let Some(pos) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
             continue;
@@ -344,7 +341,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         if pos.start() != pos.end() {
             warn!("spanned items are not supported yet");
         }
-        let Some(item_size_x) = x_layout.child_sizes.get(key) else {
+        let Some(item_size_x) = x_layout.child_sizes.get(&item.base().id()) else {
             continue;
         };
         let pos = *pos.start();
@@ -378,7 +375,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         geometry.size_y(),
         options.y.alignment,
     );
-    for (key, item) in &mut widget.base_mut().children {
+    for item in widget.base_mut().children_mut() {
         // if !item.common().is_self_visible {
         //     continue;
         // }
@@ -396,7 +393,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
             warn!("missing item in positions_y");
             continue;
         };
-        let Some(size_x) = x_layout.child_sizes.get(key) else {
+        let Some(size_x) = x_layout.child_sizes.get(&item.base().id()) else {
             warn!("missing item in x_layout.child_sizes");
             continue;
         };

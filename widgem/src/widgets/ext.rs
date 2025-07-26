@@ -167,7 +167,7 @@ pub trait WidgetExt: Widget {
                 accept_mouse_move_or_enter_event(self, false);
             }
             Event::Draw(event) => {
-                for child in self.base_mut().children.values_mut() {
+                for child in self.base_mut().children_mut() {
                     if let Some(rect_in_parent) = child.base().rect_in_parent() {
                         if let Some(child_event) = event.map_to_child(rect_in_parent) {
                             child.dispatch(child_event.into());
@@ -176,7 +176,7 @@ pub trait WidgetExt: Widget {
                 }
             }
             Event::WindowFocusChange(event) => {
-                for child in self.base_mut().children.values_mut() {
+                for child in self.base_mut().children_mut() {
                     child.dispatch(event.clone().into());
                 }
             }
@@ -187,7 +187,7 @@ pub trait WidgetExt: Widget {
                 self.base_mut().update();
             }
             Event::StyleChange(event) => {
-                for child in self.base_mut().children.values_mut() {
+                for child in self.base_mut().children_mut() {
                     // TODO: only if really changed
                     child.dispatch(event.clone().into());
                 }
@@ -211,7 +211,7 @@ pub trait WidgetExt: Widget {
         if &request.address != self.base().address() {
             if request.address.starts_with(self.base().address()) {
                 if let Some((key, id)) = request.address.item_at(self.base().address().len()) {
-                    if let Some(child) = self.base_mut().children.get_mut(key) {
+                    if let Ok(child) = self.base_mut().get_dyn_child_mut(key) {
                         if &child.base().id() == id {
                             child.scroll_to_rect(request.clone());
                         } else {

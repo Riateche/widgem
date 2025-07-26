@@ -199,7 +199,7 @@ pub struct WidgetBase {
     layout: Layout,
 
     #[derivative(Debug = "ignore")]
-    pub children: BTreeMap<Key, Box<dyn Widget>>,
+    children: BTreeMap<Key, Box<dyn Widget>>,
     pub layout_item_options: LayoutItemOptions,
 
     pub size_hint_x_cache: Option<SizeHints>,
@@ -1182,13 +1182,44 @@ impl WidgetBase {
         self.parent_id
     }
 
+    /// Returns current layout strategy of the widget.
+    ///
+    /// Layout strategy determines how child widgets are positioned within the widget.
     pub fn layout(&self) -> Layout {
         self.layout
     }
 
+    /// Set the layout strategy for the widget.
+    ///
+    /// Layout strategy determines how child widgets are positioned within the widget.
     pub fn set_layout(&mut self, layout: Layout) -> &mut Self {
         self.layout = layout;
         self
+    }
+
+    /// Returns an iterator over the widget's children.
+    pub fn children(&self) -> impl Iterator<Item = &dyn Widget> {
+        self.children.values().map(|v| &**v)
+    }
+
+    /// Returns an iterator over the widget's children.
+    pub fn children_mut(&mut self) -> impl Iterator<Item = &mut dyn Widget> {
+        self.children.values_mut().map(|v| &mut **v)
+    }
+
+    /// Returns an iterator over the widget's children and associated keys.
+    pub fn children_with_keys(&self) -> impl Iterator<Item = (&Key, &dyn Widget)> {
+        self.children.iter().map(|(k, v)| (k, &**v))
+    }
+
+    /// Returns an iterator over the widget's children and associated keys.
+    pub fn children_mut_with_keys(&mut self) -> impl Iterator<Item = (&Key, &mut dyn Widget)> {
+        self.children.iter_mut().map(|(k, v)| (k, &mut **v))
+    }
+
+    /// Returns an iterator over the keys of the widget's children.
+    pub fn child_keys(&self) -> impl Iterator<Item = &Key> {
+        self.children.keys()
     }
 }
 

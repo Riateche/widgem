@@ -52,10 +52,8 @@ pub fn get_widget_by_address_mut<'a>(
     for (key, _id) in &address.path[root_address_len..] {
         current_widget = current_widget
             .base_mut()
-            .children
-            .get_mut(key)
-            .ok_or(WidgetNotFound)?
-            .as_mut();
+            .get_dyn_child_mut(key)
+            .map_err(|_| WidgetNotFound)?;
     }
     Ok(current_widget)
 }
@@ -73,8 +71,8 @@ pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddr
     for pending_addr in pending {
         if pending_addr.starts_with(common.address()) {
             common.clear_size_hint_cache();
-            for child in common.children.values_mut() {
-                invalidate_size_hint_cache(child.as_mut(), pending);
+            for child in common.children_mut() {
+                invalidate_size_hint_cache(child, pending);
             }
             return;
         }

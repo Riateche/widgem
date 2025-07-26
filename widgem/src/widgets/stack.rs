@@ -24,12 +24,7 @@ impl Stack {
             widget.set_geometry(Some(WidgetGeometry::new(&geometry, rect)), &[]);
         }
         self.base.update();
-        self.base
-            .children
-            .get_mut(&key)
-            .unwrap()
-            .downcast_mut::<T>()
-            .unwrap()
+        self.base.get_child_mut::<T>(&key).unwrap()
     }
 }
 
@@ -52,8 +47,7 @@ impl Widget for Stack {
     fn handle_size_hint_x_request(&mut self) -> Result<crate::layout::SizeHints> {
         let max = self
             .base
-            .children
-            .values()
+            .children()
             .filter_map(|c| c.base().rect_in_parent())
             .map(|rect| rect.bottom_right().x())
             .max()
@@ -68,8 +62,7 @@ impl Widget for Stack {
     fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let max = self
             .base
-            .children
-            .values()
+            .children()
             .filter_map(|c| c.base().rect_in_parent())
             .map(|rect| rect.bottom_right().y())
             .max()

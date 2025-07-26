@@ -9,11 +9,22 @@ use {
 
 pub mod grid;
 
+/// Layout strategy.
+///
+/// Set the layout strategy for a widget using [WidgetBase::set_layout](crate::WidgetBase::set_layout)
+/// or [WidgetExt::set_layout](crate::WidgetExt::set_layout).
+///
+/// Layout strategy determines how child widgets are positioned within the widget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Layout {
+    /// Child widgets are layed out from top to bottom. This is the default for most widgets.
     #[default]
     VerticalFirst,
+    // TODO: it should depend on writing direction
+    /// Child widgets are layed out from left to right.
     HorizontalFirst,
+    /// Child widgets are positioned in a grid according to the row and column settings
+    /// of each child.
     ExplicitGrid,
     // TODO: other layout types? disabled variant?
 }

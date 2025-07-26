@@ -89,13 +89,8 @@ impl TextInput {
     }
 
     fn adjust_scroll(&mut self, changed_size_hints: &[WidgetAddress]) {
-        let Some(editor_viewport_rect) = self
-            .base
-            .children
-            .get(&0.into())
-            .unwrap()
-            .base()
-            .rect_in_parent()
+        let Some(editor_viewport_rect) =
+            self.base.get_dyn_child(0).unwrap().base().rect_in_parent()
         else {
             return;
         };
@@ -106,8 +101,7 @@ impl TextInput {
             .get_dyn_child(0)
             .unwrap()
             .base()
-            .children
-            .get(&0.into())
+            .get_dyn_child(0)
             .unwrap()
             .base()
             .rect_in_parent()
@@ -128,8 +122,7 @@ impl TextInput {
             .get_dyn_child(0)
             .unwrap()
             .base()
-            .children
-            .get(&0.into())
+            .get_dyn_child(0)
             .unwrap()
             .base()
             .rect_in_parent()
@@ -150,8 +143,7 @@ impl TextInput {
                 .get_dyn_child_mut(0)
                 .unwrap()
                 .base_mut()
-                .children
-                .get_mut(&0.into())
+                .get_dyn_child_mut(0)
                 .unwrap()
                 .set_geometry(
                     Some(WidgetGeometry::new(&geometry, new_rect)),

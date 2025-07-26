@@ -498,7 +498,7 @@ pub trait Widget: Any {
         let options = self.base().common_style.grid.clone();
         let rows_and_columns = assign_rows_and_columns(self);
         Ok(grid::size_hint_x(
-            &mut self.base_mut().children,
+            self.base_mut().children_mut(),
             &options,
             &rows_and_columns,
         ))
@@ -530,12 +530,7 @@ pub trait Widget: Any {
     fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHints> {
         let options = self.base().common_style.grid.clone();
         let rows_and_columns = assign_rows_and_columns(self);
-        Ok(grid::size_hint_y(
-            &mut self.base_mut().children,
-            &options,
-            size_x,
-            &rows_and_columns,
-        ))
+        Ok(grid::size_hint_y(self, &options, size_x, &rows_and_columns))
     }
 
     // TODO: track accesskit state and don't update nodes if it's disabled
