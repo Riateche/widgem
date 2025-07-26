@@ -45,7 +45,7 @@ pub struct WidgetCreationContext {
     pub is_window_root: bool,
 }
 
-pub type EventFilterFn = dyn Fn(Event) -> Result<bool>;
+pub type EventFilterFn = dyn FnMut(Event) -> Result<bool>;
 
 /// Information about position, size and clipping of a widget.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -210,10 +210,12 @@ pub struct WidgetBase {
     children: BTreeMap<Key, Box<dyn Widget>>,
     layout_item_options: LayoutItemOptions,
 
-    // TODO: multiple filters?
-    // TODO: accept/reject event from filter; option to run filter after on_event
+    // TODO: option to run event filter after on_event
+    // TODO: index map for deterministic order?
+
+    // key is the widget that registered the event filter
     #[derivative(Debug = "ignore")]
-    pub event_filter: Option<Box<EventFilterFn>>,
+    event_filters: HashMap<RawWidgetId, Box<EventFilterFn>>,
 
     pub shortcuts: Vec<Shortcut>,
     pub style_element: Element,
@@ -283,7 +285,7 @@ impl WidgetBase {
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),
             layout_item_options: LayoutItemOptions::default(),
-            event_filter: None,
+            event_filters: HashMap::new(),
             shortcuts: Vec::new(),
             style_element,
             common_style,
@@ -947,7 +949,48 @@ impl WidgetBase {
             | Event::Layout(_)
             | Event::AccessibilityAction(_) => {}
         }
+
+        for event_filter in self.event_filters.values_mut() {
+            let accepted = event_filter(event.clone()).or_report_err().unwrap_or(false);
+            if accepted {
+                return true;
+            }
+        }
+
         false
+    }
+
+    /// Add an event filter to this widget.
+    ///
+    /// Event filter is a function that runs for every event dispatched to the widget.
+    /// It runs *before* event handlers of the widget itself.
+    /// If the filter function returns `Ok(true)`, the event will be accepted (if applicable)
+    /// and will not be dispatched to the widget itself or other event filters (if any).
+    ///
+    /// It's possible to set multiple event filters for the same widget. Event filter is identified
+    /// by the `owner_id` argument. As a convention, `owner_id` should be set to
+    /// the ID of the widget that calls `install_event_filter`. If `install_event_filter`
+    /// is called again with the same `owner_id`, the new event filter will replace the previous one.
+    ///
+    /// If multiple event filters are installed, the event will be passed to each of them in
+    /// an unspecified order. If any event filter returns `Ok(true)`,
+    /// that event will not be dispatched to the remaining event filters.
+    pub fn install_event_filter(
+        &mut self,
+        owner_id: RawWidgetId,
+        filter: impl FnMut(Event) -> Result<bool> + 'static,
+    ) {
+        // TODO: deregister when owner is deleted
+        self.event_filters.insert(owner_id, Box::new(filter));
+    }
+
+    /// Removes an event filter previously set with [install_event_filter](Self::install_event_filter).
+    ///
+    /// It removes only the event filter with the corresponding `owner_id`, leaving other
+    /// event filters (if any) unchanged. If there is no matching event filter,
+    /// `remove_event_filter` has no effect.
+    pub fn remove_event_filter(&mut self, owner_id: RawWidgetId) {
+        self.event_filters.remove(&owner_id);
     }
 
     fn focusable_changed(&mut self) {

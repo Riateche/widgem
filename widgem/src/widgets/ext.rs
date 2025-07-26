@@ -132,15 +132,10 @@ pub trait WidgetExt: Widget {
             _ => (),
         }
         if !accepted && should_dispatch {
-            if let Some(event_filter) = &mut self.base_mut().event_filter {
-                accepted = event_filter(event.clone()).or_report_err().unwrap_or(false);
-            }
-            if !accepted {
-                accepted = self
-                    .handle_event(event.clone())
-                    .or_report_err()
-                    .unwrap_or(false);
-            }
+            accepted = self
+                .handle_event(event.clone())
+                .or_report_err()
+                .unwrap_or(false);
         }
         match event {
             Event::MouseInput(_) | Event::MouseScroll(_) => {

@@ -556,6 +556,7 @@ impl NewWidget for ScrollBar {
             Axis::Y => Layout::VerticalFirst,
         });
 
+        let id = base.id();
         let mut this = Self {
             base,
             axis,
@@ -580,18 +581,18 @@ impl NewWidget for ScrollBar {
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .base_mut()
-            .event_filter = Some(Box::new(move |event| {
-            match event {
-                Event::MouseInput(e) => {
-                    if e.button == MouseButton::Left {
-                        slider_pressed.invoke((e.pos_in_window, e.state));
+            .install_event_filter(id.raw(), move |event| {
+                match event {
+                    Event::MouseInput(e) => {
+                        if e.button == MouseButton::Left {
+                            slider_pressed.invoke((e.pos_in_window, e.state));
+                        }
                     }
+                    Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window),
+                    _ => {}
                 }
-                Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window),
-                _ => {}
-            }
-            Ok(false)
-        }));
+                Ok(false)
+            });
 
         let decrease_callback = this.callback(|this, _| {
             this.decrease_internal(false);
@@ -622,18 +623,20 @@ impl NewWidget for ScrollBar {
             .get_child_mut::<Button>(INDEX_BUTTON_IN_PAGER)
             .unwrap();
         pager_button.on_triggered(pager_triggered_callback);
-        pager_button.base_mut().event_filter = Some(Box::new(move |event| {
-            match event {
-                Event::MouseInput(e) => {
-                    if e.button == MouseButton::Left && e.state == ElementState::Pressed {
-                        pager_pressed.invoke(e.pos_in_window);
+        pager_button
+            .base_mut()
+            .install_event_filter(id.raw(), move |event| {
+                match event {
+                    Event::MouseInput(e) => {
+                        if e.button == MouseButton::Left && e.state == ElementState::Pressed {
+                            pager_pressed.invoke(e.pos_in_window);
+                        }
                     }
+                    Event::MouseMove(e) => pager_mouse_moved.invoke(e.pos_in_window),
+                    _ => {}
                 }
-                Event::MouseMove(e) => pager_mouse_moved.invoke(e.pos_in_window),
-                _ => {}
-            }
-            Ok(false)
-        }));
+                Ok(false)
+            });
 
         this.set_axis(arg);
         this.update_decrease_increase();

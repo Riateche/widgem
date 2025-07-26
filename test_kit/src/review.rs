@@ -263,18 +263,20 @@ impl NewWidget for ReviewWidget {
         current_row += 1;
 
         let image_mouse_move = id.callback(Self::image_mouse_move);
-        image.base_mut().event_filter = Some(Box::new(move |event| {
-            match event {
-                Event::MouseMove(event) => {
-                    image_mouse_move.invoke(Some(event.pos));
+        image
+            .base_mut()
+            .install_event_filter(id.raw(), move |event| {
+                match event {
+                    Event::MouseMove(event) => {
+                        image_mouse_move.invoke(Some(event.pos));
+                    }
+                    Event::MouseLeave(_) => {
+                        image_mouse_move.invoke(None);
+                    }
+                    _ => (),
                 }
-                Event::MouseLeave(_) => {
-                    image_mouse_move.invoke(None);
-                }
-                _ => (),
-            }
-            Ok(false)
-        }));
+                Ok(false)
+            });
         let image_id = image.id();
 
         window
