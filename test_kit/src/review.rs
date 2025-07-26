@@ -128,21 +128,18 @@ impl NewWidget for ReviewWidget {
         window
             .base_mut()
             .add_child::<Label>("Test:".into())
-            .set_column(1)
-            .set_row(current_row);
+            .set_grid_cell(1, current_row);
         let test_name_id = window
             .base_mut()
             .add_child::<Label>("".into())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .id();
         current_row += 1;
 
         let row = window
             .base_mut()
             .add_child::<Row>(())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .add_class("no_padding".into());
         current_row += 1;
 
@@ -182,21 +179,18 @@ impl NewWidget for ReviewWidget {
         window
             .base_mut()
             .add_child::<Label>("Snapshot:".into())
-            .set_column(1)
-            .set_row(current_row);
+            .set_grid_cell(1, current_row);
         let snapshot_name_id = window
             .base_mut()
             .add_child::<Label>("".into())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .id();
         current_row += 1;
 
         let row = window
             .base_mut()
             .add_child::<Row>(())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .add_class("no_padding".into());
         current_row += 1;
 
@@ -216,16 +210,14 @@ impl NewWidget for ReviewWidget {
         window
             .base_mut()
             .add_child::<Label>("Display mode:".into())
-            .set_column(1)
-            .set_row(current_row);
+            .set_grid_cell(1, current_row);
         current_row += 1;
 
         // TODO: radio buttons
         let modes_row = window
             .base_mut()
             .add_child::<Row>(())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .add_class("no_padding".into());
         current_row += 1;
 
@@ -242,14 +234,12 @@ impl NewWidget for ReviewWidget {
         window
             .base_mut()
             .add_child::<Label>("Snapshot:".into())
-            .set_column(1)
-            .set_row(current_row);
+            .set_grid_cell(1, current_row);
 
         let row = window
             .base_mut()
             .add_child::<Row>(())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .add_class("no_padding".into());
         current_row += 1;
 
@@ -269,8 +259,7 @@ impl NewWidget for ReviewWidget {
         let image = window
             .base_mut()
             .add_child::<Image>(None)
-            .set_column(2)
-            .set_row(current_row);
+            .set_grid_cell(2, current_row);
         current_row += 1;
 
         let image_mouse_move = id.callback(Self::image_mouse_move);
@@ -291,14 +280,12 @@ impl NewWidget for ReviewWidget {
         window
             .base_mut()
             .add_child::<Label>("Actions:".into())
-            .set_column(1)
-            .set_row(current_row);
+            .set_grid_cell(1, current_row);
 
         let approve_and_skip = window
             .base_mut()
             .add_child::<Row>(())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .add_class("no_padding".into());
         current_row += 1;
 
@@ -335,8 +322,7 @@ impl NewWidget for ReviewWidget {
         let unconfirmed_count_id = window
             .base_mut()
             .add_child::<Label>("".into())
-            .set_column(2)
-            .set_row(current_row)
+            .set_grid_cell(2, current_row)
             .id();
 
         let mut w = Self {

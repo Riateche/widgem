@@ -175,16 +175,13 @@ impl NewWidget for ScrollArea {
 
         // TODO: icons, localized name
         base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X, Axis::X)
-            .set_column(0)
-            .set_row(1)
+            .set_grid_cell(0, 1)
             .on_value_changed(relayout.clone());
         base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y, Axis::Y)
-            .set_column(1)
-            .set_row(0)
+            .set_grid_cell(1, 0)
             .on_value_changed(relayout);
         base.add_child_with_key::<Viewport>(INDEX_VIEWPORT, ())
-            .set_column(0)
-            .set_row(0);
+            .set_grid_cell(0, 0);
         Self { base }
     }
     fn handle_declared(&mut self, (): Self::Arg) {}

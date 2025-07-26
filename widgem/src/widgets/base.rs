@@ -200,7 +200,7 @@ pub struct WidgetBase {
 
     #[derivative(Debug = "ignore")]
     children: BTreeMap<Key, Box<dyn Widget>>,
-    pub layout_item_options: LayoutItemOptions,
+    layout_item_options: LayoutItemOptions,
 
     pub size_hint_x_cache: Option<SizeHints>,
     // TODO: limit count
@@ -609,10 +609,20 @@ impl WidgetBase {
             .context("child type mismatch")
     }
 
+    /// Returns current layout item configuration of this widget.
+    ///
+    /// This configuration influences size and position of the widget within its parent
+    /// widget's layout.
     pub fn layout_item_options(&self) -> &LayoutItemOptions {
         &self.layout_item_options
     }
 
+    /// Set layout item configuration of this widget.
+    ///
+    /// This will override any previously set options.
+    ///
+    /// This configuration influences size and position of the widget within its parent
+    /// widget's layout.
     pub fn set_layout_item_options(&mut self, options: LayoutItemOptions) -> &mut Self {
         if self.layout_item_options == options {
             return self;
@@ -621,6 +631,23 @@ impl WidgetBase {
         self.size_hint_changed();
         self
     }
+
+    /// Assign column `x` and row `y` to this widget in the parent widget's grid.
+    ///
+    /// This setting only takes effect if the parent's layout is [Layout::ExplicitGrid].
+    /// In other layout modes, column and row are assigned automatically.
+    pub fn set_grid_cell(&mut self, x: i32, y: i32) -> &mut Self {
+        if self.layout_item_options.x.pos_in_grid == Some(x..=x)
+            && self.layout_item_options.y.pos_in_grid == Some(y..=y)
+        {
+            return self;
+        }
+        self.layout_item_options.x.pos_in_grid = Some(x..=x);
+        self.layout_item_options.y.pos_in_grid = Some(y..=y);
+        self.size_hint_changed();
+        self
+    }
+    // TODO: setters for other layout item options (alignment, is_fixed)?
 
     pub fn remove_child(&mut self, key: impl Into<Key>) -> Result<(), WidgetNotFound> {
         self.children.remove(&key.into()).ok_or(WidgetNotFound)?;

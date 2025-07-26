@@ -389,17 +389,11 @@ pub trait WidgetExt: Widget {
         self
     }
 
-    // TODO: check for row/column conflict
-    fn set_row(&mut self, row: i32) -> &mut Self {
-        let mut options = self.base().layout_item_options().clone();
-        options.y.pos_in_grid = Some(row..=row);
-        self.base_mut().set_layout_item_options(options);
-        self
-    }
-    fn set_column(&mut self, column: i32) -> &mut Self {
-        let mut options = self.base().layout_item_options().clone();
-        options.x.pos_in_grid = Some(column..=column);
-        self.base_mut().set_layout_item_options(options);
+    /// Assign column `x` and row `y` to this widget in the parent widget's grid.
+    ///
+    /// Same as [WidgetBase::set_grid_cell](crate::WidgetBase::set_grid_cell).
+    fn set_grid_cell(&mut self, x: i32, y: i32) -> &mut Self {
+        self.base_mut().set_grid_cell(x, y);
         self
     }
 

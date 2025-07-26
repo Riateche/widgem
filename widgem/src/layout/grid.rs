@@ -112,7 +112,7 @@ where
 
         let is_fixed = item
             .base()
-            .layout_item_options
+            .layout_item_options()
             .x
             .is_fixed
             .unwrap_or(hints.is_fixed);
@@ -152,7 +152,7 @@ pub fn size_hint_y(
 
         let is_fixed = item
             .base()
-            .layout_item_options
+            .layout_item_options()
             .x
             .is_fixed
             .unwrap_or(hints.is_fixed);
@@ -192,7 +192,7 @@ fn x_layout(
         let pos = *pos.start();
 
         let mut hints = item.size_hint_x();
-        if let Some(is_fixed) = item.base().layout_item_options.x.is_fixed {
+        if let Some(is_fixed) = item.base().layout_item_options().x.is_fixed {
             hints.is_fixed = is_fixed;
         }
         let column_hints = hints_per_column.entry(pos).or_insert(hints);
@@ -220,7 +220,7 @@ fn x_layout(
         };
         let child_size = if item
             .base()
-            .layout_item_options
+            .layout_item_options()
             .x
             .is_fixed
             .unwrap_or_else(|| item.size_hint_x().is_fixed)
@@ -346,7 +346,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         };
         let pos = *pos.start();
         let mut hints = item.size_hint_y(*item_size_x);
-        if let Some(is_fixed) = item.base().layout_item_options.y.is_fixed {
+        if let Some(is_fixed) = item.base().layout_item_options().y.is_fixed {
             hints.is_fixed = is_fixed;
         }
         let row_hints = hints_per_row.entry(pos).or_insert(hints);
@@ -404,7 +404,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         let size_hint_y = item.size_hint_y(*size_x);
         let size_y = if item
             .base()
-            .layout_item_options
+            .layout_item_options()
             .y
             .is_fixed
             .unwrap_or(size_hint_y.is_fixed)

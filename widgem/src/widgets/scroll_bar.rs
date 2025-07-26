@@ -525,8 +525,7 @@ impl NewWidget for ScrollBar {
         pager
             .base
             .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER, names::SCROLL_PAGER.into())
-            .set_column(0)
-            .set_row(0)
+            .set_grid_cell(0, 0)
             .set_size_x_fixed(false)
             .set_size_y_fixed(false)
             .set_accessibility_node_enabled(false)
