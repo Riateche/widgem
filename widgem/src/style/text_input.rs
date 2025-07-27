@@ -1,6 +1,6 @@
 use {
     super::{
-        css::{convert_font, convert_width, StyleSelector, PseudoClass},
+        css::{convert_font, convert_width, PseudoClass, StyleSelector},
         defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
         Style,
     },

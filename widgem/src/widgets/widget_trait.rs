@@ -7,7 +7,7 @@ use {
             KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
             MouseMoveEvent, MouseScrollEvent, StyleChangeEvent, WindowFocusChangeEvent,
         },
-        layout::{self, assign_rows_and_columns, default_layout, default_size_hint_y, SizeHint},
+        layout::{self, default_layout, default_size_hint_y, SizeHint},
         types::PhysicalPixels,
         ScrollToRectRequest,
     },
@@ -264,7 +264,7 @@ pub trait Widget: Any {
     /// to position the direct children of this widget. Note that this will immediately trigger a layout event
     /// for the child widget if the conditions listed above are met.
     ///
-    /// The default implementation calls [`grid_layout`](grid_layout)`(self, &event.changed_size_hints)`.
+    /// The default implementation calls [`default_layout`](crate::layout::default_layout)`(self)`.
     /// This default layout logic will re-position all direct children that are not explicitly excluded from the grid.
     /// If you want to retain this behavior and do something extra, you can call `grid_layout` from
     /// your `handle_layout` implementation.
@@ -482,7 +482,7 @@ pub trait Widget: Any {
     /// [size_hint_x](crate::widgets::WidgetExt::size_hint_x) to get the current size hint
     /// (it can trigger a call to `handle_size_hint_x_request` internally if it hasn't been cached yet).
     ///
-    /// Default implementation returns the size hint provided by the default grid layout.
+    /// The default implementation calls [`default_size_hint_x`](crate::layout::default_size_hint_x)`(self)`.
     ///
     /// Implement this function if your widget uses a custom layout to position its children; if
     /// your widget doesn't have any children but needs to have non-zero size; or if you want it
@@ -509,7 +509,7 @@ pub trait Widget: Any {
     /// [size_hint_y](crate::widgets::WidgetExt::size_hint_y) to get the current size hint
     /// (it can trigger a call to `handle_size_hint_y_request` internally if it hasn't been cached yet).
     ///
-    /// Default implementation returns the size hint provided by the default grid layout.
+    /// The default implementation calls [`default_size_hint_y`](crate::layout::default_size_hint_y)`(self, size_x)`.
     ///
     /// Implement this function if your widget uses a custom layout to position its children; if
     /// your widget doesn't have any children but needs to have non-zero size; or if you want it

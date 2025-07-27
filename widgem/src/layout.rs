@@ -16,7 +16,7 @@ use {
 /// Layout strategy.
 ///
 /// Set the layout strategy for a widget using [WidgetBase::set_layout](crate::WidgetBase::set_layout)
-/// or [WidgetExt::set_layout](crate::WidgetExt::set_layout).
+/// or [WidgetExt::set_layout].
 ///
 /// Layout strategy determines how child widgets are positioned within the widget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
