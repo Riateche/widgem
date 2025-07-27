@@ -41,7 +41,7 @@ impl<'a> WindowHandler<'a> {
     pub(crate) fn dispatch_mouse_leave(&mut self) {
         while let Some(id) = self.window.pop_mouse_entered_widget() {
             if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {
-                widget.dispatch(MouseLeaveEvent {}.into());
+                widget.dispatch(MouseLeaveEvent { _empty: () }.into());
             }
         }
     }
@@ -350,7 +350,7 @@ impl<'a> WindowHandler<'a> {
     fn unset_focus(&mut self) {
         if let Some(old_widget_id) = self.window.unset_focus() {
             if let Ok(old_widget) = get_widget_by_id_mut(self.root_widget, old_widget_id.1) {
-                old_widget.dispatch(FocusOutEvent {}.into());
+                old_widget.dispatch(FocusOutEvent { _empty: () }.into());
             }
         }
     }
@@ -386,7 +386,7 @@ impl<'a> WindowHandler<'a> {
 
         if let Some(old_widget_id) = self.window.unset_focus() {
             if let Ok(old_widget) = get_widget_by_id_mut(self.root_widget, old_widget_id.1) {
-                old_widget.dispatch(FocusOutEvent {}.into());
+                old_widget.dispatch(FocusOutEvent { _empty: () }.into());
             }
         }
 

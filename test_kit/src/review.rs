@@ -270,7 +270,7 @@ impl NewWidget for ReviewWidget {
             .install_event_filter(id.raw(), move |event| {
                 match event {
                     Event::MouseMove(event) => {
-                        image_mouse_move.invoke(Some(event.pos));
+                        image_mouse_move.invoke(Some(event.pos()));
                     }
                     Event::MouseLeave(_) => {
                         image_mouse_move.invoke(None);

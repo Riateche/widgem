@@ -37,13 +37,13 @@ pub enum Event {
 
 #[derive(Debug, Clone)]
 pub struct MouseInputEvent {
-    pub device_id: DeviceId,
-    pub state: ElementState,
-    pub button: MouseButton,
-    pub num_clicks: u32,
+    pub(crate) device_id: DeviceId,
+    pub(crate) state: ElementState,
+    pub(crate) button: MouseButton,
+    pub(crate) num_clicks: u32,
     /// Position in widget coordinates
-    pub pos: Point,
-    pub pos_in_window: Point,
+    pub(crate) pos: Point,
+    pub(crate) pos_in_window: Point,
 }
 
 impl MouseInputEvent {
@@ -56,16 +56,40 @@ impl MouseInputEvent {
             None
         }
     }
+
+    pub fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
+
+    pub fn state(&self) -> ElementState {
+        self.state
+    }
+
+    pub fn button(&self) -> MouseButton {
+        self.button
+    }
+
+    pub fn num_clicks(&self) -> u32 {
+        self.num_clicks
+    }
+
+    pub fn pos(&self) -> Point {
+        self.pos
+    }
+
+    pub fn pos_in_window(&self) -> Point {
+        self.pos_in_window
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MouseScrollEvent {
-    pub device_id: DeviceId,
-    pub delta: MouseScrollDelta,
-    pub touch_phase: TouchPhase,
+    pub(crate) device_id: DeviceId,
+    pub(crate) delta: MouseScrollDelta,
+    pub(crate) touch_phase: TouchPhase,
     /// Position in widget coordinates
-    pub pos: Point,
-    pub pos_in_window: Point,
+    pub(crate) pos: Point,
+    pub(crate) pos_in_window: Point,
 }
 
 impl MouseScrollEvent {
@@ -88,14 +112,34 @@ impl MouseScrollEvent {
             MouseScrollDelta::PixelDelta(delta) => delta,
         }
     }
+
+    pub fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
+
+    pub fn delta(&self) -> MouseScrollDelta {
+        self.delta
+    }
+
+    pub fn touch_phase(&self) -> TouchPhase {
+        self.touch_phase
+    }
+
+    pub fn pos(&self) -> Point {
+        self.pos
+    }
+
+    pub fn pos_in_window(&self) -> Point {
+        self.pos_in_window
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MouseMoveEvent {
-    pub device_id: DeviceId,
+    pub(crate) device_id: DeviceId,
     /// Position in widget coordinates
-    pub pos: Point,
-    pub pos_in_window: Point,
+    pub(crate) pos: Point,
+    pub(crate) pos_in_window: Point,
 }
 
 impl MouseMoveEvent {
@@ -115,36 +159,84 @@ impl MouseMoveEvent {
             pos: self.pos,
         }
     }
+
+    pub fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
+
+    pub fn pos(&self) -> Point {
+        self.pos
+    }
+
+    pub fn pos_in_window(&self) -> Point {
+        self.pos_in_window
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct MouseEnterEvent {
-    pub device_id: DeviceId,
-    pub pos: Point,
+    pub(crate) device_id: DeviceId,
+    pub(crate) pos: Point,
+}
+
+impl MouseEnterEvent {
+    pub fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
+
+    pub fn pos(&self) -> Point {
+        self.pos
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct MouseLeaveEvent {}
+pub struct MouseLeaveEvent {
+    pub(crate) _empty: (),
+}
 
 #[derive(Debug, Clone)]
 pub struct KeyboardInputEvent {
-    pub device_id: DeviceId,
-    pub info: KeyEvent,
-    pub is_synthetic: bool,
-    pub modifiers: ModifiersState,
+    pub(crate) device_id: DeviceId,
+    pub(crate) info: KeyEvent,
+    pub(crate) is_synthetic: bool,
+    pub(crate) modifiers: ModifiersState,
+}
+
+impl KeyboardInputEvent {
+    pub fn device_id(&self) -> DeviceId {
+        self.device_id
+    }
+
+    pub fn info(&self) -> &KeyEvent {
+        &self.info
+    }
+
+    pub fn is_synthetic(&self) -> bool {
+        self.is_synthetic
+    }
+
+    pub fn modifiers(&self) -> ModifiersState {
+        self.modifiers
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct InputMethodEvent {
-    pub info: Ime,
+    pub(crate) info: Ime,
+}
+
+impl InputMethodEvent {
+    pub fn info(&self) -> &Ime {
+        &self.info
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct LayoutEvent {
     // None means widget is hidden
-    pub new_geometry: Option<WidgetGeometry>,
+    pub(crate) new_geometry: Option<WidgetGeometry>,
     // TODO: Rc?
-    pub changed_size_hints: Vec<WidgetAddress>,
+    pub(crate) changed_size_hints: Vec<WidgetAddress>,
 }
 
 impl LayoutEvent {
@@ -153,9 +245,14 @@ impl LayoutEvent {
             .iter()
             .any(|changed| changed.starts_with(addr))
     }
+
+    pub fn new_geometry(&self) -> Option<&WidgetGeometry> {
+        self.new_geometry.as_ref()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FocusReason {
     Mouse,
     Tab,
@@ -165,22 +262,48 @@ pub enum FocusReason {
 
 #[derive(Debug, Clone)]
 pub struct FocusInEvent {
-    pub reason: FocusReason,
+    pub(crate) reason: FocusReason,
+}
+
+impl FocusInEvent {
+    pub fn reason(&self) -> FocusReason {
+        self.reason
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct FocusOutEvent {}
+pub struct FocusOutEvent {
+    pub(crate) _empty: (),
+}
 
 #[derive(Debug, Clone)]
 pub struct WindowFocusChangeEvent {
-    pub is_window_focused: bool,
+    pub(crate) is_window_focused: bool,
+}
+
+impl WindowFocusChangeEvent {
+    pub fn is_window_focused(&self) -> bool {
+        self.is_window_focused
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct AccessibilityActionEvent {
-    pub action: Action,
-    pub data: Option<ActionData>,
+    pub(crate) action: Action,
+    pub(crate) data: Option<ActionData>,
+}
+
+impl AccessibilityActionEvent {
+    pub fn action(&self) -> Action {
+        self.action
+    }
+
+    pub fn data(&self) -> Option<&ActionData> {
+        self.data.as_ref()
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct StyleChangeEvent {}
+pub struct StyleChangeEvent {
+    pub(crate) _empty: (),
+}

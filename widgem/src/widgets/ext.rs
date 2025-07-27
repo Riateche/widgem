@@ -301,7 +301,7 @@ pub trait WidgetExt: Widget {
             return self;
         }
         self.base_mut().style_selector_mut().add_class(class);
-        self.dispatch(StyleChangeEvent {}.into());
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
@@ -314,7 +314,7 @@ pub trait WidgetExt: Widget {
             return self;
         }
         self.base_mut().style_selector_mut().remove_class(class);
-        self.dispatch(StyleChangeEvent {}.into());
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
@@ -329,7 +329,7 @@ pub trait WidgetExt: Widget {
         self.base_mut()
             .style_selector_mut()
             .set_class(class, present);
-        self.dispatch(StyleChangeEvent {}.into());
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
@@ -338,7 +338,7 @@ pub trait WidgetExt: Widget {
             return self;
         }
         self.base_mut().style_selector_mut().add_pseudo_class(class);
-        self.dispatch(StyleChangeEvent {}.into());
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
@@ -349,7 +349,7 @@ pub trait WidgetExt: Widget {
         self.base_mut()
             .style_selector_mut()
             .remove_pseudo_class(class);
-        self.dispatch(StyleChangeEvent {}.into());
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
@@ -364,7 +364,7 @@ pub trait WidgetExt: Widget {
         self.base_mut()
             .style_selector_mut()
             .set_pseudo_class(class, present);
-        self.dispatch(StyleChangeEvent {}.into());
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
@@ -389,7 +389,7 @@ pub trait WidgetExt: Widget {
             return self;
         }
         self.base_mut().set_scale(scale);
-        self.dispatch(StyleChangeEvent {}.into());
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
