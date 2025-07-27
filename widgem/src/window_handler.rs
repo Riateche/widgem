@@ -372,7 +372,7 @@ impl<'a> WindowHandler<'a> {
 
     fn set_focus(
         &mut self,
-        widget_addr_id: (Vec<(crate::key::Key, RawWidgetId)>, RawWidgetId),
+        widget_addr_id: (Vec<(crate::child_key::ChildKey, RawWidgetId)>, RawWidgetId),
         reason: FocusReason,
     ) {
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, widget_addr_id.1) {

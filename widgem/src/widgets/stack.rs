@@ -3,7 +3,7 @@ use {
     crate::{
         event::LayoutEvent,
         impl_widget_base,
-        key::Key,
+        child_key::ChildKey,
         layout::SizeHints,
         types::{PhysicalPixels, PpxSuffix, Rect},
         widgets::NewWidget,
@@ -17,7 +17,7 @@ pub struct Stack {
 
 impl Stack {
     // TODO: impl explicit rect setting for universal grid layout?
-    pub fn add<T: NewWidget>(&mut self, key: Key, rect: Rect, arg: T::Arg) -> &mut T {
+    pub fn add<T: NewWidget>(&mut self, key: ChildKey, rect: Rect, arg: T::Arg) -> &mut T {
         let geometry = self.base.geometry().cloned();
         let widget = self.base.add_child_with_key::<T>(key.clone(), arg);
         if let Some(geometry) = geometry {

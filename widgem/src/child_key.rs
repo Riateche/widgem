@@ -8,15 +8,15 @@ use std::{
 
 // TODO: smallvec optimization?
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Key(Box<str>);
+pub struct ChildKey(Box<str>);
 
-impl Debug for Key {
+impl Debug for ChildKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-pub trait FormatKey {
+pub trait FormatChildKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result;
 }
 
@@ -24,43 +24,41 @@ struct KeyFormatter<T>(T);
 
 impl<T> Display for KeyFormatter<&T>
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        <T as FormatKey>::fmt(self.0, f)
+        <T as FormatChildKey>::fmt(self.0, f)
     }
 }
 
-impl<T> From<T> for Key
+impl<T> From<T> for ChildKey
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
-    fn from(value: T) -> Key {
+    fn from(value: T) -> ChildKey {
         Self(KeyFormatter(&value).to_string().into())
     }
 }
-impl From<&Key> for Key {
-    fn from(value: &Key) -> Self {
+impl From<&ChildKey> for ChildKey {
+    fn from(value: &ChildKey) -> Self {
         value.clone()
     }
 }
 
-impl From<Box<str>> for Key {
-    fn from(value: Box<str>) -> Key {
+impl From<Box<str>> for ChildKey {
+    fn from(value: Box<str>) -> ChildKey {
         Self(value)
     }
 }
 
-pub fn test_key(_k: impl Into<Key>) {}
-
 macro_rules! impl_from_debug {
     ($t:ty) => {
-        impl FormatKey for $t {
+        impl FormatChildKey for $t {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{:?}", self)
             }
         }
-        impl FormatKey for &$t {
+        impl FormatChildKey for &$t {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 write!(f, "{:?}", self)
             }
@@ -106,20 +104,20 @@ impl_from_debug!(&str);
 //         Key(value.as_str().into())
 //     }
 // }
-impl<T0, T1> FormatKey for (T0, T1)
+impl<T0, T1> FormatChildKey for (T0, T1)
 where
-    T0: FormatKey,
-    T1: FormatKey,
+    T0: FormatChildKey,
+    T1: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
     }
 }
-impl<T0, T1, T2> FormatKey for (T0, T1, T2)
+impl<T0, T1, T2> FormatChildKey for (T0, T1, T2)
 where
-    T0: FormatKey,
-    T1: FormatKey,
-    T2: FormatKey,
+    T0: FormatChildKey,
+    T1: FormatChildKey,
+    T2: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -131,12 +129,12 @@ where
         )
     }
 }
-impl<T0, T1, T2, T3> FormatKey for (T0, T1, T2, T3)
+impl<T0, T1, T2, T3> FormatChildKey for (T0, T1, T2, T3)
 where
-    T0: FormatKey,
-    T1: FormatKey,
-    T2: FormatKey,
-    T3: FormatKey,
+    T0: FormatChildKey,
+    T1: FormatChildKey,
+    T2: FormatChildKey,
+    T3: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -149,20 +147,20 @@ where
         )
     }
 }
-impl<T0, T1> FormatKey for &(T0, T1)
+impl<T0, T1> FormatChildKey for &(T0, T1)
 where
-    T0: FormatKey,
-    T1: FormatKey,
+    T0: FormatChildKey,
+    T1: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
     }
 }
-impl<T0, T1, T2> FormatKey for &(T0, T1, T2)
+impl<T0, T1, T2> FormatChildKey for &(T0, T1, T2)
 where
-    T0: FormatKey,
-    T1: FormatKey,
-    T2: FormatKey,
+    T0: FormatChildKey,
+    T1: FormatChildKey,
+    T2: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -174,12 +172,12 @@ where
         )
     }
 }
-impl<T0, T1, T2, T3> FormatKey for &(T0, T1, T2, T3)
+impl<T0, T1, T2, T3> FormatChildKey for &(T0, T1, T2, T3)
 where
-    T0: FormatKey,
-    T1: FormatKey,
-    T2: FormatKey,
-    T3: FormatKey,
+    T0: FormatChildKey,
+    T1: FormatChildKey,
+    T2: FormatChildKey,
+    T3: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -193,9 +191,9 @@ where
     }
 }
 
-impl<T, const N: usize> FormatKey for [T; N]
+impl<T, const N: usize> FormatChildKey for [T; N]
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[")?;
@@ -210,9 +208,9 @@ where
         write!(f, "]")
     }
 }
-impl<T, const N: usize> FormatKey for &[T; N]
+impl<T, const N: usize> FormatChildKey for &[T; N]
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[")?;
@@ -227,9 +225,9 @@ where
         write!(f, "]")
     }
 }
-impl<T> FormatKey for [T]
+impl<T> FormatChildKey for [T]
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[")?;
@@ -244,9 +242,9 @@ where
         write!(f, "]")
     }
 }
-impl<T> FormatKey for &[T]
+impl<T> FormatChildKey for &[T]
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[")?;
@@ -262,9 +260,9 @@ where
     }
 }
 
-impl<T> FormatKey for Option<T>
+impl<T> FormatChildKey for Option<T>
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(value) = self {
@@ -274,9 +272,9 @@ where
         }
     }
 }
-impl<T> FormatKey for &Option<T>
+impl<T> FormatChildKey for &Option<T>
 where
-    T: FormatKey,
+    T: FormatChildKey,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(value) = self {
@@ -288,10 +286,10 @@ where
 }
 
 struct X {
-    data: BTreeMap<Key, String>,
+    data: BTreeMap<ChildKey, String>,
 }
 impl X {
-    fn get(&self, key: impl Into<Key>) {
+    fn get(&self, key: impl Into<ChildKey>) {
         let _ = self.data.get(&key.into());
     }
 }

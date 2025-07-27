@@ -4,10 +4,10 @@
 
 mod accessibility;
 mod callback;
+mod child_key;
 mod draw;
 pub mod event;
 mod event_loop;
-pub mod key;
 pub mod layout;
 mod pixmap;
 pub mod shared_window;
@@ -27,6 +27,7 @@ use event_loop::with_active_event_loop;
 pub use {
     crate::{
         accessibility::new_accessibility_node_id,
+        child_key::{ChildKey, FormatChildKey},
         event_loop::{run, App},
         pixmap::Pixmap,
     },

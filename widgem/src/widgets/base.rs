@@ -3,7 +3,7 @@ use {
     crate::{
         callback::{widget_callback, Callback},
         event::Event,
-        key::Key,
+        child_key::ChildKey,
         layout::{Layout, LayoutItemOptions, SizeHints},
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
@@ -208,7 +208,7 @@ pub struct WidgetBase {
     layout: Layout,
 
     #[derivative(Debug = "ignore")]
-    children: BTreeMap<Key, Box<dyn Widget>>,
+    children: BTreeMap<ChildKey, Box<dyn Widget>>,
     layout_item_options: LayoutItemOptions,
 
     // TODO: option to run event filter after on_event
@@ -360,7 +360,7 @@ impl WidgetBase {
     fn new_creation_context(
         &self,
         new_id: RawWidgetId,
-        key: Key,
+        key: ChildKey,
         root_of_window: Option<SharedWindow>,
     ) -> WidgetCreationContext {
         WidgetCreationContext {
@@ -910,7 +910,7 @@ impl WidgetBase {
 impl WidgetBase {
     // TODO: link to doc about keys
     /// Returns true if the widget contains a direct child identified by `key`.
-    pub fn has_child(&self, key: impl Into<Key>) -> bool {
+    pub fn has_child(&self, key: impl Into<ChildKey>) -> bool {
         self.children.contains_key(&key.into())
     }
     // TODO: auto add sorting key as well, or create a key that sorts correctly.
@@ -930,7 +930,11 @@ impl WidgetBase {
     /// If a child with the same key already exists, it will be immediately deleted. If this is undesirable,
     /// use [has_child](Self::has_child) to check before calling this function.
     /// In any case, it returns a mutable reference to the new child widget.
-    pub fn add_child_with_key<T: NewWidget>(&mut self, key: impl Into<Key>, arg: T::Arg) -> &mut T {
+    pub fn add_child_with_key<T: NewWidget>(
+        &mut self,
+        key: impl Into<ChildKey>,
+        arg: T::Arg,
+    ) -> &mut T {
         self.add_child_common(key.into(), false, None, arg)
     }
 
@@ -963,7 +967,7 @@ impl WidgetBase {
     /// In any case, it returns a mutable reference to the child widget.
     pub fn declare_child_with_key<T: NewWidget>(
         &mut self,
-        key: impl Into<Key>,
+        key: impl Into<ChildKey>,
         arg: T::Arg,
     ) -> &mut T {
         self.add_child_common(key.into(), true, None, arg)
@@ -971,7 +975,7 @@ impl WidgetBase {
 
     fn add_child_common<T: NewWidget>(
         &mut self,
-        key: Key,
+        key: ChildKey,
         declare: bool,
         new_id: Option<RawWidgetId>,
         arg: T::Arg,
@@ -1029,7 +1033,7 @@ impl WidgetBase {
     /// Get a dyn reference to the direct child associated with `key`.
     ///
     /// Returns an error if there is no such child.
-    pub fn get_dyn_child(&self, key: impl Into<Key>) -> anyhow::Result<&dyn Widget> {
+    pub fn get_dyn_child(&self, key: impl Into<ChildKey>) -> anyhow::Result<&dyn Widget> {
         Ok(self
             .children
             .get(&key.into())
@@ -1040,7 +1044,10 @@ impl WidgetBase {
     /// Get a mutable dyn reference to the direct child associated with `key`.
     ///
     /// Returns an error if there is no such child.
-    pub fn get_dyn_child_mut(&mut self, key: impl Into<Key>) -> anyhow::Result<&mut dyn Widget> {
+    pub fn get_dyn_child_mut(
+        &mut self,
+        key: impl Into<ChildKey>,
+    ) -> anyhow::Result<&mut dyn Widget> {
         Ok(self
             .children
             .get_mut(&key.into())
@@ -1051,7 +1058,7 @@ impl WidgetBase {
     /// Get a reference to the direct child of type `T` associated with `key`.
     ///
     /// Returns an error if there is no such child or if the child has a type other than `T`.
-    pub fn get_child<T: Widget>(&self, key: impl Into<Key>) -> anyhow::Result<&T> {
+    pub fn get_child<T: Widget>(&self, key: impl Into<ChildKey>) -> anyhow::Result<&T> {
         self.children
             .get(&key.into())
             .context("no such key")?
@@ -1062,7 +1069,7 @@ impl WidgetBase {
     /// Get a mutable reference to the direct child of type `T` associated with `key`.
     ///
     /// Returns an error if there is no such child or if the child has a type other than `T`.
-    pub fn get_child_mut<T: Widget>(&mut self, key: impl Into<Key>) -> anyhow::Result<&mut T> {
+    pub fn get_child_mut<T: Widget>(&mut self, key: impl Into<ChildKey>) -> anyhow::Result<&mut T> {
         self.children
             .get_mut(&key.into())
             .context("no such key")?
@@ -1108,24 +1115,24 @@ impl WidgetBase {
     }
 
     /// Returns an iterator over the widget's children and associated keys.
-    pub fn children_with_keys(&self) -> impl Iterator<Item = (&Key, &dyn Widget)> {
+    pub fn children_with_keys(&self) -> impl Iterator<Item = (&ChildKey, &dyn Widget)> {
         self.children.iter().map(|(k, v)| (k, &**v))
     }
 
     /// Returns an iterator over the widget's children and associated keys.
-    pub fn children_mut_with_keys(&mut self) -> impl Iterator<Item = (&Key, &mut dyn Widget)> {
+    pub fn children_mut_with_keys(&mut self) -> impl Iterator<Item = (&ChildKey, &mut dyn Widget)> {
         self.children.iter_mut().map(|(k, v)| (k, &mut **v))
     }
 
     /// Returns an iterator over the keys of the widget's children.
-    pub fn child_keys(&self) -> impl Iterator<Item = &Key> {
+    pub fn child_keys(&self) -> impl Iterator<Item = &ChildKey> {
         self.children.keys()
     }
 
     /// Removes a direct child associated with `key`.
     ///
     /// Returns an error if there is no such child.
-    pub fn remove_child(&mut self, key: impl Into<Key>) -> Result<(), WidgetNotFound> {
+    pub fn remove_child(&mut self, key: impl Into<ChildKey>) -> Result<(), WidgetNotFound> {
         self.children.remove(&key.into()).ok_or(WidgetNotFound)?;
         self.size_hint_changed();
         Ok(())
@@ -1467,7 +1474,11 @@ impl<W> WidgetBaseOf<W> {
     pub fn add_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
         self.base.add_child::<T>(arg)
     }
-    pub fn add_child_with_key<T: NewWidget>(&mut self, key: impl Into<Key>, arg: T::Arg) -> &mut T {
+    pub fn add_child_with_key<T: NewWidget>(
+        &mut self,
+        key: impl Into<ChildKey>,
+        arg: T::Arg,
+    ) -> &mut T {
         self.base.add_child_with_key::<T>(key, arg)
     }
 

@@ -1,10 +1,10 @@
 use {
     crate::{
         accessibility::AccessibilityNodes,
+        child_key::ChildKey,
         draw::DrawEvent,
         event::FocusReason,
         event_loop::with_active_event_loop,
-        key::Key,
         system::with_system,
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
@@ -99,10 +99,10 @@ pub struct SharedWindowInner {
     pub pending_accessibility_updates: Vec<WidgetAddress>,
 
     // TODO: refactor as struct
-    pub focusable_widgets: Vec<(Vec<(Key, RawWidgetId)>, RawWidgetId)>,
+    pub focusable_widgets: Vec<(Vec<(ChildKey, RawWidgetId)>, RawWidgetId)>,
     pub focusable_widgets_changed: bool,
 
-    pub focused_widget: Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)>,
+    pub focused_widget: Option<(Vec<(ChildKey, RawWidgetId)>, RawWidgetId)>,
     pub mouse_grabber_widget: Option<RawWidgetId>,
     pub num_clicks: u32,
     pub last_click_button: Option<MouseButton>,
@@ -354,7 +354,7 @@ impl SharedWindow {
         &self,
         parent: Option<NodeId>,
         child: NodeId,
-        key_in_parent: Key,
+        key_in_parent: ChildKey,
     ) {
         self.0
             .borrow_mut()
@@ -705,7 +705,7 @@ impl SharedWindow {
     pub(crate) fn move_keyboard_focus(
         &self,
         direction: i32,
-    ) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
+    ) -> Option<(Vec<(ChildKey, RawWidgetId)>, RawWidgetId)> {
         let this = self.0.borrow();
         let focused_widget = this.focused_widget.as_ref()?;
         if this.focusable_widgets.is_empty() {
@@ -720,7 +720,7 @@ impl SharedWindow {
         }
     }
 
-    pub(crate) fn pending_auto_focus(&self) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
+    pub(crate) fn pending_auto_focus(&self) -> Option<(Vec<(ChildKey, RawWidgetId)>, RawWidgetId)> {
         let this = &*self.0.borrow();
         if this.focused_widget.is_none() {
             this.focusable_widgets.first().cloned()
@@ -769,7 +769,7 @@ impl SharedWindow {
         mem::take(&mut self.0.borrow_mut().pending_accessibility_updates)
     }
 
-    pub(crate) fn unset_focus(&self) -> Option<(Vec<(Key, RawWidgetId)>, RawWidgetId)> {
+    pub(crate) fn unset_focus(&self) -> Option<(Vec<(ChildKey, RawWidgetId)>, RawWidgetId)> {
         let mut this = self.0.borrow_mut();
         let old = this.focused_widget.take();
         if let Some(w) = this.winit_window.as_ref() {
@@ -782,7 +782,7 @@ impl SharedWindow {
 
     pub(crate) fn set_focus(
         &self,
-        addr_id: (Vec<(Key, RawWidgetId)>, RawWidgetId),
+        addr_id: (Vec<(ChildKey, RawWidgetId)>, RawWidgetId),
         input_method_enabled: bool,
     ) {
         let mut this = self.0.borrow_mut();
@@ -796,7 +796,7 @@ impl SharedWindow {
 
     pub(crate) fn is_registered_as_focusable(
         &self,
-        addr_id: &(Vec<(Key, RawWidgetId)>, RawWidgetId),
+        addr_id: &(Vec<(ChildKey, RawWidgetId)>, RawWidgetId),
     ) -> bool {
         let this = &*self.0.borrow();
         this.focusable_widgets.binary_search(addr_id).is_ok()

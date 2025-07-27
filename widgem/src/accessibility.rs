@@ -1,5 +1,5 @@
 use {
-    crate::{key::Key, widgets::RawWidgetId},
+    crate::{child_key::ChildKey, widgets::RawWidgetId},
     accesskit::{Node, NodeId, Role, Tree, TreeUpdate},
     derivative::Derivative,
     log::warn,
@@ -14,7 +14,7 @@ use {
 pub struct AccessibilityNodes {
     nodes: HashMap<NodeId, Node>,
     // TODO: BTreeMap? sort by visible row+column?
-    direct_children: HashMap<NodeId, Vec<(Key, NodeId)>>,
+    direct_children: HashMap<NodeId, Vec<(ChildKey, NodeId)>>,
     direct_parents: HashMap<NodeId, NodeId>,
 
     pending_updates: HashSet<NodeId>,
@@ -50,7 +50,7 @@ impl AccessibilityNodes {
         self.update(self.root, Some(root_node));
     }
 
-    pub fn remove_node(&mut self, parent: Option<NodeId>, child: NodeId, key_in_parent: Key) {
+    pub fn remove_node(&mut self, parent: Option<NodeId>, child: NodeId, key_in_parent: ChildKey) {
         // TODO: stricter checks and warnings
         let parent = parent.unwrap_or(self.root);
         self.direct_parents.insert(child, parent);
@@ -138,7 +138,7 @@ impl AccessibilityNodes {
 
 fn find_children(
     parent: NodeId,
-    direct_children: &HashMap<NodeId, Vec<(Key, NodeId)>>,
+    direct_children: &HashMap<NodeId, Vec<(ChildKey, NodeId)>>,
     nodes: &HashMap<NodeId, Node>,
     out: &mut Vec<NodeId>,
 ) {

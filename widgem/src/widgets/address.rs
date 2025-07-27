@@ -1,9 +1,9 @@
-use {super::RawWidgetId, crate::key::Key, std::fmt::Debug};
+use {super::RawWidgetId, crate::child_key::ChildKey, std::fmt::Debug};
 
 // TODO: store only keys?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WidgetAddress {
-    pub path: Vec<(Key, RawWidgetId)>,
+    pub path: Vec<(ChildKey, RawWidgetId)>,
 }
 
 impl WidgetAddress {
@@ -12,7 +12,7 @@ impl WidgetAddress {
             path: vec![("".into(), id)],
         }
     }
-    pub fn join(mut self, key: Key, id: RawWidgetId) -> Self {
+    pub fn join(mut self, key: ChildKey, id: RawWidgetId) -> Self {
         self.path.push((key, id));
         self
     }
@@ -29,7 +29,7 @@ impl WidgetAddress {
             None
         }
     }
-    pub fn strip_prefix(&self, parent: RawWidgetId) -> Option<&[(Key, RawWidgetId)]> {
+    pub fn strip_prefix(&self, parent: RawWidgetId) -> Option<&[(ChildKey, RawWidgetId)]> {
         if let Some(index) = self.path.iter().position(|(_index, id)| *id == parent) {
             Some(&self.path[index + 1..])
         } else {
@@ -40,7 +40,7 @@ impl WidgetAddress {
     pub fn len(&self) -> usize {
         self.path.len()
     }
-    pub fn item_at(&self, pos: usize) -> Option<(&Key, &RawWidgetId)> {
+    pub fn item_at(&self, pos: usize) -> Option<(&ChildKey, &RawWidgetId)> {
         self.path.get(pos).map(|(x, y)| (x, y))
     }
 }
