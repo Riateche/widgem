@@ -13,7 +13,7 @@ use {
     anyhow::{bail, Context},
     derivative::Derivative,
     derive_more::From,
-    log::warn,
+    log::{info, warn},
     std::{
         cell::RefCell,
         collections::HashSet,
@@ -298,21 +298,33 @@ impl SharedWindow {
         });
         winit_window.set_visible(inner.attributes.visible);
         let winit_id = winit_window.id();
-        inner.winit_window = Some(winit_window);
+        inner.winit_window = Some(winit_window.clone());
         inner.softbuffer_context = Some(softbuffer_context);
         inner.surface = Some(surface);
         inner.accesskit_adapter = Some(Mutex::new(accesskit_adapter));
         drop(inner_guard);
 
-        let info = WindowInfo {
+        let window_info = WindowInfo {
             id: self.id(),
             root_widget_id: self.root_widget_id(),
             shared_window: self.clone(),
         };
         // TODO: when to remove?
         with_system(|system| {
-            system.windows_by_winit_id.insert(winit_id, info);
+            system.windows_by_winit_id.insert(winit_id, window_info);
         });
+        if with_system(|system| system.config.fixed_scale).is_none() {
+            if root_widget.base().self_scale().is_some_and(|widget_scale| {
+                (widget_scale - winit_window.scale_factor() as f32).abs() >= 0.1
+            }) {
+                info!(
+                    "rescaling widget after creating window: {:?} -> {}",
+                    root_widget.base().self_scale(),
+                    winit_window.scale_factor(),
+                );
+                root_widget.set_scale(Some(winit_window.scale_factor() as f32));
+            }
+        }
         self.set_visible(true);
         // For some reason it's necessary to request redraw again after initializing accesskit on Windows.
         self.clear_pending_redraw();

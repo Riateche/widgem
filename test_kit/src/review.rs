@@ -65,22 +65,24 @@ impl ReviewWidget {
     fn update_ui(&mut self) -> anyhow::Result<()> {
         let state = self.reviewer.as_mut().unwrap().current_state();
         self.base
-            .widget(self.test_name_id)?
+            .find_child_mut(self.test_name_id)?
             .set_text(state.test_case_name);
         self.base
-            .widget(self.snapshot_name_id)?
+            .find_child_mut(self.snapshot_name_id)?
             .set_text(state.snapshot_name);
-        self.base.widget(self.image_id)?.set_pixmap(state.snapshot);
+        self.base
+            .find_child_mut(self.image_id)?
+            .set_pixmap(state.snapshot);
         for (mode, id) in &self.mode_button_ids {
             self.base
-                .widget(*id)?
+                .find_child_mut(*id)?
                 .set_enabled(self.reviewer.as_mut().unwrap().is_mode_allowed(*mode));
         }
         self.base
-            .widget(self.approve_and_skip_id)?
+            .find_child_mut(self.approve_and_skip_id)?
             .set_enabled(self.reviewer.as_mut().unwrap().has_unconfirmed());
         self.base
-            .widget(self.unconfirmed_count_id)?
+            .find_child_mut(self.unconfirmed_count_id)?
             .set_text(if state.unconfirmed_count > 0 {
                 format!(
                     "Unconfirmed snapshots remaining: {}",
@@ -99,15 +101,15 @@ impl ReviewWidget {
 
     fn image_mouse_move(&mut self, pos_in_widget: Option<Point>) -> anyhow::Result<()> {
         let Some(pos_in_widget) = pos_in_widget else {
-            self.base.widget(self.coords_id)?.set_text("");
+            self.base.find_child_mut(self.coords_id)?.set_text("");
             return Ok(());
         };
         let pos_in_content = self
             .base
-            .widget(self.image_id)?
+            .find_child_mut(self.image_id)?
             .map_widget_pos_to_content_pos(pos_in_widget);
         self.base
-            .widget(self.coords_id)?
+            .find_child_mut(self.coords_id)?
             .set_text(format!("{:?}", pos_in_content));
         Ok(())
     }
@@ -246,13 +248,13 @@ impl NewWidget for ReviewWidget {
         row.base_mut()
             .add_child::<Button>("100%".into())
             .on_triggered(id.callback(move |w, _e| {
-                w.base.widget(w.image_id)?.set_scale(Some(1.0));
+                w.base.find_child_mut(w.image_id)?.set_scale(Some(1.0));
                 Ok(())
             }));
         row.base_mut()
             .add_child::<Button>("200%".into())
             .on_triggered(id.callback(move |w, _e| {
-                w.base.widget(w.image_id)?.set_scale(Some(2.0));
+                w.base.find_child_mut(w.image_id)?.set_scale(Some(2.0));
                 Ok(())
             }));
         let coords_id = row.base_mut().add_child::<Label>("".into()).id();

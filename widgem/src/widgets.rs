@@ -25,7 +25,7 @@ pub use self::{
 // TODO: move out of this module?
 pub use self::{
     address::WidgetAddress,
-    base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetCreationContext, WidgetGeometry},
+    base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetGeometry},
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId},
     widget_trait::{NewWidget, Widget},

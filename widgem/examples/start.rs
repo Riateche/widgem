@@ -76,7 +76,7 @@ struct RootWidget {
 impl RootWidget {
     fn inc(&mut self) -> Result<()> {
         self.i += 1;
-        if let Ok(widget) = self.base.widget(self.button21_id) {
+        if let Ok(widget) = self.base.find_child_mut(self.button21_id) {
             widget.set_text(format!("i = {}", self.i));
         }
         Ok(())
@@ -84,19 +84,19 @@ impl RootWidget {
 
     fn button_clicked(&mut self, data: (), k: u32) -> Result<()> {
         println!("callback! {:?}, {}", data, k);
-        let button = self.base.widget(self.button_id)?;
+        let button = self.base.find_child_mut(self.button_id)?;
         button.set_text(format!("ok {}", if k == 1 { "1" } else { "22222" }));
 
         if k == 1 {
             self.flag_column = !self.flag_column;
             self.base
-                .widget(self.column2_id)?
+                .find_child_mut(self.column2_id)?
                 .set_enabled(self.flag_column);
             println!("set enabled {:?} {:?}", self.column2_id, self.flag_column);
         } else {
             self.flag_button21 = !self.flag_button21;
             self.base
-                .widget(self.button21_id)?
+                .find_child_mut(self.button21_id)?
                 .set_enabled(self.flag_button21);
             println!(
                 "set enabled {:?} {:?}",

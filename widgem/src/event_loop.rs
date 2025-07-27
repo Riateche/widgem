@@ -10,7 +10,7 @@ use {
         timer::Timers,
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, RootWidget, Widget,
-            WidgetAddress, WidgetBase, WidgetCreationContext, WidgetExt,
+            WidgetBase, WidgetExt,
         },
         window_handler::WindowHandler,
     },
@@ -67,18 +67,6 @@ fn dispatch_widget_callback(
     };
     (callback.func)(widget, event).or_report_err();
     widget.update_accessibility_node();
-}
-
-fn default_scale(event_loop: &ActiveEventLoop) -> f32 {
-    let monitor = event_loop
-        .primary_monitor()
-        .or_else(|| event_loop.available_monitors().next());
-    if let Some(monitor) = monitor {
-        monitor.scale_factor() as f32
-    } else {
-        warn!("unable to find any monitors");
-        1.0
-    }
 }
 
 pub struct App {
@@ -285,10 +273,6 @@ impl ApplicationHandler<UserEvent> for Handler {
             }
             let font_system =
                 FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
-            let scale = match self.app.fixed_scale {
-                None => default_scale(event_loop),
-                Some(fixed_scale) => fixed_scale,
-            };
 
             let shared_system_data = SharedSystemDataInner {
                 config: SystemConfig {
@@ -302,6 +286,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                         .app
                         .auto_repeat_interval
                         .unwrap_or(DEFAULT_AUTO_REPEAT_INTERVAL),
+                    fixed_scale: self.app.fixed_scale,
                 },
                 address_book: HashMap::new(),
                 font_system,
@@ -323,17 +308,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                 *system.0.borrow_mut() = Some(shared_system_data);
             });
 
-            let id = RawWidgetId::new_unique();
-            let ctx = WidgetCreationContext {
-                parent_id: None,
-                address: WidgetAddress::root(id),
-                window: None,
-                // Scale doesn't matter for root widget. Window will set scale for its content.
-                parent_scale: scale,
-                is_parent_enabled: true,
-                is_window_root: false,
-            };
-            let mut root_widget = RootWidget::new(WidgetBase::new(ctx));
+            let mut root_widget = RootWidget::new(WidgetBase::new_root());
             self.init.take().expect("double init")(&mut root_widget).or_report_err();
             self.root_widget = Some(Box::new(root_widget));
 

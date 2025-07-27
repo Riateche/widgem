@@ -35,13 +35,13 @@ use {
 };
 
 #[derive(Debug, Clone)]
-pub struct WidgetCreationContext {
-    pub parent_id: Option<RawWidgetId>,
-    pub address: WidgetAddress,
-    pub window: Option<SharedWindow>,
-    pub parent_scale: f32,
-    pub is_parent_enabled: bool,
-    pub is_window_root: bool,
+struct WidgetCreationContext {
+    parent_id: Option<RawWidgetId>,
+    address: WidgetAddress,
+    window: Option<SharedWindow>,
+    parent_scale: f32,
+    is_parent_enabled: bool,
+    is_window_root: bool,
 }
 
 pub type EventFilterFn = dyn FnMut(Event) -> Result<bool>;
@@ -181,10 +181,12 @@ struct Cache {
 ///
 /// Any widget contains a `WidgetBase` object. You can obtain it by calling [base()](crate::widgets::Widget::base)
 /// or [base_mut()](crate::widgets::Widget::base_mut). As a convention, any widget has a private field
-/// `base: WidgetBaseOf<Self>` which dereferences to a `WidgetBase`.
+/// <code>base: [WidgetBaseOf]&lt;Self&gt;</code> which dereferences to a `WidgetBase`.
 ///
 /// `WidgetBase` stores some of the widget's state and handles some of the events dispatched to the widget.
 /// It can be used to query or modify some common properties of a widget.
+///
+/// See also: [WidgetExt] trait that provides more actions on any widget.
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct WidgetBase {
@@ -220,10 +222,13 @@ pub struct WidgetBase {
     style_selector: StyleSelector,
     base_style: Rc<BaseComputedStyle>,
 
-    pub num_added_children: u32,
+    // Counter used for assigning auto keys in `add_child`.
+    // It never resets.
+    num_added_children: u32,
     // Direct and indirect children created by last call of this widget's
-    // `handle_update_children`.
-    pub declared_children: HashSet<RawWidgetId>,
+    // `handle_declare_children_request`.
+    declared_children: HashSet<RawWidgetId>,
+
     cache: RefCell<Cache>,
 }
 
@@ -248,9 +253,23 @@ fn last_path_part(str: &str) -> &str {
         .expect("rsplit always returns at least one element")
 }
 
+// Various private impls.
 impl WidgetBase {
+    pub(crate) fn new_root<T: Widget>() -> WidgetBaseOf<T> {
+        let id = RawWidgetId::new_unique();
+        Self::new(WidgetCreationContext {
+            parent_id: None,
+            address: WidgetAddress::root(id),
+            window: None,
+            // Scale doesn't matter for root widget. Window will set scale for its content.
+            parent_scale: 1.0,
+            is_parent_enabled: true,
+            is_window_root: false,
+        })
+    }
+
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<T: Widget>(ctx: WidgetCreationContext) -> WidgetBaseOf<T> {
+    fn new<T: Widget>(ctx: WidgetCreationContext) -> WidgetBaseOf<T> {
         let id = ctx.address.widget_id();
         register_address(id, ctx.address.clone());
 
@@ -329,6 +348,196 @@ impl WidgetBase {
         }
     }
 
+    pub(crate) fn has_declare_children_override(&self) -> bool {
+        self.flags.contains(Flags::has_declare_children_override)
+    }
+
+    pub(crate) fn set_has_declare_children_override(&mut self, value: bool) -> &mut Self {
+        self.flags.set(Flags::has_declare_children_override, value);
+        self
+    }
+
+    fn new_creation_context(
+        &self,
+        new_id: RawWidgetId,
+        key: Key,
+        root_of_window: Option<SharedWindow>,
+    ) -> WidgetCreationContext {
+        WidgetCreationContext {
+            parent_id: Some(self.id),
+            address: self.address.clone().join(key, new_id),
+            is_window_root: root_of_window.is_some(),
+            window: root_of_window.or_else(|| self.window.clone()),
+            parent_scale: self.scale(),
+            is_parent_enabled: self.is_enabled(),
+        }
+    }
+
+    /// Processes the event before it's dispatched to the widget.
+    ///
+    /// Returns `true` if the event is consumed and shouldn't be dispatched to the widget.
+    pub(crate) fn before_event(&mut self, event: &Event) -> bool {
+        match &event {
+            Event::FocusIn(_) => {
+                self.flags.insert(Flags::focused);
+            }
+            Event::FocusOut(_) => {
+                self.flags.remove(Flags::focused);
+            }
+            Event::WindowFocusChange(_) => {}
+            Event::MouseInput(event) => {
+                for child in self.children.values_mut().rev() {
+                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
+                        if let Some(child_event) = event
+                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
+                        {
+                            if child.dispatch(child_event.into()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::MouseScroll(event) => {
+                for child in self.children.values_mut().rev() {
+                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
+                        if let Some(child_event) = event
+                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
+                        {
+                            if child.dispatch(child_event.into()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::MouseMove(event) => {
+                for child in self.children.values_mut().rev() {
+                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
+                        if let Some(child_event) = event
+                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
+                        {
+                            if child.dispatch(child_event.into()) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::MouseEnter(_) => {
+                self.flags.insert(Flags::under_mouse);
+            }
+            Event::MouseLeave(_) => {
+                self.flags.remove(Flags::under_mouse);
+            }
+            Event::StyleChange(_) => {
+                self.refresh_common_style();
+            }
+            Event::Draw(event) => {
+                let Some(size) = self.size_or_err().or_report_err() else {
+                    return false;
+                };
+
+                event.stroke_and_fill_rounded_rect(
+                    Rect::from_pos_size(Point::default(), size),
+                    &self.base_style.border,
+                    self.base_style.background.as_ref(),
+                );
+            }
+            Event::KeyboardInput(_)
+            | Event::InputMethod(_)
+            | Event::Layout(_)
+            | Event::AccessibilityAction(_) => {}
+        }
+
+        for event_filter in self.event_filters.values_mut() {
+            let accepted = event_filter(event.clone()).or_report_err().unwrap_or(false);
+            if accepted {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Returns information about the widget's common style properties.
+    pub(crate) fn base_style(&self) -> &BaseComputedStyle {
+        &self.base_style
+    }
+}
+
+/// <h2>Widget properties</h2>
+impl WidgetBase {
+    /// Returns untyped ID of this widget.
+    ///
+    /// To obtain a typed ID of the widget, use [WidgetExt::id] externally
+    /// or `self.base.id()` internally.
+    pub fn id(&self) -> RawWidgetId {
+        self.id
+    }
+
+    /// Returns full path to the widget type as a string.
+    ///
+    /// Returns the same value as [Widget::type_name].
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// Returns the address of the widget.
+    ///
+    /// The address is the path from the root widget to this widget.
+    /// The address can be used to quickly access the widget from the root widget
+    /// or from any other indirect parent of the widget.
+    ///
+    /// The address of a widget cannot change. The only way to "change" it is to
+    /// delete the widget and recreate it at another address.
+    pub fn address(&self) -> &WidgetAddress {
+        &self.address
+    }
+
+    /// ID of the parent widget.
+    ///
+    /// The parent widget is the owner of its direct children.
+    /// For UI widgets, the parent widget is a container of its child widgets.
+    /// Child widgets are always positioned relative to their parent.
+    /// Children can only be visplayed in the boundary of their parent.
+    ///
+    /// The parent ID of the widget cannot be changed.
+    ///
+    /// Returns `None` for [crate::widgets::root::RootWidget].
+    pub fn parent_id(&self) -> Option<RawWidgetId> {
+        self.parent_id
+    }
+
+    /// Returns a shared handle to a window that contains this widget.
+    ///
+    /// A widget is considered to be in a window if it's a [Window](crate::Window)
+    /// or any of its direct or indirect parts is a `Window`. [RootWidget](crate::widgets::RootWidget)
+    /// and its direct non-`Window` children are not associated with any window.
+    ///
+    /// See also: [window_or_err](Self::window_or_err), [window_id](Self::window_id).
+    pub fn window(&self) -> Option<&SharedWindow> {
+        self.window.as_ref()
+    }
+
+    /// Returns a shared handle to a window that contains this widget, or an error if it's not associated with a window.
+    ///
+    /// See [window](Self::window) for more information.
+    ///
+    /// Use this function for a more convenient early exit with `?`. There are many cases when it makes sense
+    /// to assume that there is a window, for example, when handling window events or if the widget is
+    /// intended to be used in a window (which is true for most visual widgets).
+    pub fn window_or_err(&self) -> Result<&SharedWindow> {
+        self.window.as_ref().context("no window")
+    }
+
+    /// Returns ID of the window associated with this widget.
+    ///
+    /// See [window](Self::window) for more information.
+    pub fn window_id(&self) -> Option<WindowId> {
+        self.window.as_ref().map(|w| w.id())
+    }
+
     // TODO: revise behavior on hidden windows
 
     /// True if this widget is currently visible.
@@ -354,7 +563,8 @@ impl WidgetBase {
 
     /// True if this widget hasn't been explicitly hidden.
     ///
-    /// This method can be used to tell if the widget is hidden because `set_visible(false)` was called on it
+    /// This method can be used to tell if the widget is hidden because [`set_visible(false)`](Self::set_visible)
+    /// was called on it
     /// or because of its parent. In most cases it's sufficient to use [is_visible](Self::is_visible) instead.
     pub fn is_self_visible(&self) -> bool {
         self.flags.contains(Flags::self_visible)
@@ -380,7 +590,7 @@ impl WidgetBase {
 
     /// True if this widget is a root widget of an OS window.
     ///
-    /// This is true for [crate::widgets::Window] and false for all other provided widget types.
+    /// This is true for [Window](crate::Window) and false for all other provided widget types.
     pub fn is_window_root(&self) -> bool {
         self.flags.contains(Flags::window_root)
     }
@@ -455,32 +665,238 @@ impl WidgetBase {
         self.window.as_ref().is_some_and(|w| w.is_focused())
     }
 
-    pub(crate) fn has_declare_children_override(&self) -> bool {
-        self.flags.contains(Flags::has_declare_children_override)
-    }
-
-    pub(crate) fn set_has_declare_children_override(&mut self, value: bool) -> &mut Self {
-        self.flags.set(Flags::has_declare_children_override, value);
-        self
-    }
-
-    pub fn new_creation_context(
-        &self,
-        new_id: RawWidgetId,
-        key: Key,
-        root_of_window: Option<SharedWindow>,
-    ) -> WidgetCreationContext {
-        WidgetCreationContext {
-            parent_id: Some(self.id),
-            address: self.address.clone().join(key, new_id),
-            is_window_root: root_of_window.is_some(),
-            window: root_of_window.or_else(|| self.window.clone()),
-            parent_scale: self.scale(),
-            is_parent_enabled: self.is_enabled(),
+    fn focusable_changed(&mut self) {
+        let is_focusable = self.is_focusable();
+        if is_focusable != self.flags.contains(Flags::registered_as_focusable) {
+            if let Some(window) = &self.window {
+                if is_focusable {
+                    window.add_focusable_widget(self.address.clone(), self.id);
+                } else {
+                    window.remove_focusable_widget(self.address.clone(), self.id);
+                }
+                self.flags.set(Flags::registered_as_focusable, is_focusable);
+            } else {
+                self.flags.set(Flags::registered_as_focusable, false);
+            }
         }
     }
 
-    // Request redraw and accessibility update
+    fn enabled_changed(&mut self) {
+        self.focusable_changed();
+        // TODO: widget should receive MouseLeave even if it's disabled
+        let is_enabled = self.is_enabled();
+        for child in self.children.values_mut() {
+            child.set_parent_enabled(is_enabled);
+        }
+    }
+
+    /// Enable or disable input method for this widget.
+    ///
+    /// IME will be enabled for the window if the currently focused widget has input method enabled.
+    /// Default value is false.
+    ///
+    /// Call this function with `true` in your widget's `new` function if your widget receives text input
+    /// (as opposed to e.g. hotkeys). Implement [handle_input_method](Widget::handle_input_method) to
+    /// handle events from the input method.
+    pub fn set_input_method_enabled(&mut self, enabled: bool) -> &mut Self {
+        if self.flags.contains(Flags::input_method_enabled) == enabled {
+            return self;
+        }
+        self.flags.set(Flags::input_method_enabled, enabled);
+        if self.is_focused() {
+            if let Some(window) = &self.window {
+                window.set_ime_allowed(enabled);
+            }
+        }
+        self
+    }
+
+    /// Returns true if input method is enabled for this widget.
+    ///
+    /// See also [set_input_method_enabled](Self::set_input_method_enabled).
+    pub fn is_input_method_enabled(&self) -> bool {
+        self.flags.contains(Flags::input_method_enabled)
+    }
+    // TODO: fix/test: widget should receive mouseenter event and under_mouse flag
+    // even if its child obscures the area (like in html)
+
+    /// Check if the mouse is over this widget.
+    ///
+    /// If the widget becomes a *mouse grabber*, it will be considered under mouse until
+    /// all mouse buttons are released, even if the mouse moves out of the widget's boundary.
+    pub fn is_under_mouse(&self) -> bool {
+        self.flags.contains(Flags::under_mouse)
+    }
+
+    fn refresh_common_style(&mut self) {
+        self.base_style = get_style(&self.style_selector, self.scale());
+        self.size_hint_changed();
+        self.update();
+    }
+
+    // TODO: more straightforward API to query computed style in one call
+
+    /// Returns a CSS-like selector for querying style properties.
+    ///
+    /// `StyleSelector` includes the tag name (widget type name) as well as
+    /// current classes and pseudoclasses.
+    pub fn style_selector(&self) -> &StyleSelector {
+        &self.style_selector
+    }
+
+    pub(crate) fn style_selector_mut(&mut self) -> &mut StyleSelector {
+        &mut self.style_selector
+    }
+
+    /// Scale of the widget.
+    ///
+    /// Scale is the multiplication factor that's used when measurements in style definitions
+    /// ([crate::types::LogicalPixels]) are converted to pixel measurements used for
+    /// layout, drawing, and event processing ([crate::types::PhysicalPixels]).
+    ///
+    /// By default, scale is determined by the scale factor reported by the OS for the OS window
+    /// that contains the widget. Scale may be overriden with [App::set_scale](crate::App::with_scale),
+    /// in which case the OS scale is ignored.
+    ///
+    /// Scale can be changed manually for any widget
+    /// with [WidgetExt::set_scale](crate::widgets::WidgetExt::set_scale).
+    /// This value propagates to all child widgets.
+    pub fn scale(&self) -> f32 {
+        self.self_scale.unwrap_or(self.parent_scale)
+    }
+
+    // Intentionally private: we need to use `WidgetExt::set_scale` to dispatch the event properly.
+    pub(crate) fn set_scale(&mut self, scale: Option<f32>) -> &mut Self {
+        self.self_scale = scale;
+        self
+    }
+
+    /// Scale of the parent widget.
+    ///
+    /// For the root widget, it returns the default scale.
+    pub fn parent_scale(&self) -> f32 {
+        self.parent_scale
+    }
+
+    /// Returns the value set with
+    /// [WidgetExt::set_scale](crate::widgets::WidgetExt::set_scale), if any.
+    ///
+    /// It returns `None` if `set_scale` hasn't been called for this widget.
+    /// This value doesn't depend on the parent scale. In most cases, [scale](Self::scale) is more suitable,
+    /// as that one always returns the current effective scale of the widget.
+    pub fn self_scale(&self) -> Option<f32> {
+        self.self_scale
+    }
+
+    /// Check if the accessibility node hasn't been disabled for this widget.
+    ///
+    /// This value corresponds to the value set by [set_accessibility_node_enabled](Self::set_accessibility_node_enabled).
+    /// Default is true for every widget. Note that some widgets may not support accessibility nodes,
+    /// and it doesn't affect the return value of `is_accessibility_node_enabled`.
+    pub fn is_accessibility_node_enabled(&self) -> bool {
+        self.flags.contains(Flags::accessibility_node_enabled)
+    }
+
+    /// Turn the accessibility node of this widget on or off.
+    ///
+    /// Accessibility nodes allow users to interact with a widget using screen readers or other assistive technologies.
+    /// Accessibility nodes are enabled by default. They should only be disabled if the widget
+    /// is redundant and the same functionality is already available through other widgets.
+    ///
+    /// This function does nothing in widgets that don't implement an accessibility node.
+    ///
+    /// This setting doesn't propagate to child widgets.
+    pub fn set_accessibility_node_enabled(&mut self, value: bool) -> &mut Self {
+        if self.flags.contains(Flags::accessibility_node_enabled) == value {
+            return self;
+        }
+        self.flags.set(Flags::accessibility_node_enabled, value);
+        self.update();
+        self
+    }
+
+    fn remove_accessibility_node(&mut self) {
+        if let Some(window) = &self.window {
+            let root_widget_id = window.root_widget_id();
+            window.update_accessibility_node(
+                if self.id == root_widget_id {
+                    None
+                } else {
+                    self.parent_id.map(|id| id.into())
+                },
+                self.id.into(),
+            );
+        }
+    }
+
+    /// Returns `true` if this widget's implementation is able to receive focus.
+    ///
+    /// This value is set by the widget's implementation. Widgets cannot be focusable if they don't support focus.
+    /// Most widgets that support focus are focusable by default, but can be made unfocusable using [set_focusable](Self::set_focusable).
+    pub fn supports_focus(&self) -> bool {
+        self.flags.contains(Flags::supports_focus)
+    }
+
+    /// Set focusability of the widget.
+    ///
+    /// Widgets that support focus are usually focusable by default, so usually you shouldn't use this function.
+    /// Disabling focus can make your interface less accessible.
+    pub fn set_focusable(&mut self, focusable: bool) -> &mut Self {
+        if focusable == self.flags.contains(Flags::self_focusable) {
+            return self;
+        }
+        if focusable && !self.supports_focus() {
+            warn!("cannot do `set_focusable(true)` on a widget that doesn't support focus");
+            return self;
+        }
+        self.flags.set(Flags::self_focusable, focusable);
+        self.focusable_changed();
+        self
+    }
+
+    /// If true, all mouse events from the parent propagate to this widget,
+    /// regardless of its boundaries.
+    pub fn set_receives_all_mouse_events(&mut self, enabled: bool) -> &mut Self {
+        if self.flags.contains(Flags::receives_all_mouse_events) == enabled {
+            return self;
+        }
+        self.flags.set(Flags::receives_all_mouse_events, enabled);
+        self
+    }
+
+    /// If true, all mouse events from the parent propagate to this widget,
+    /// regardless of its boundaries.
+    pub fn receives_all_mouse_events(&self) -> bool {
+        self.flags.contains(Flags::receives_all_mouse_events)
+    }
+
+    /// Returns the shape of the mouse pointer when it's over this widget.
+    ///
+    /// Returns the value that was previously set with [set_cursor_icon](Self::set_cursor_icon).
+    pub fn cursor_icon(&self) -> CursorIcon {
+        self.cursor_icon
+    }
+
+    /// Configure the shape of the mouse pointer when it's over this widget.
+    ///
+    /// Default value is [CursorIcon::Default].
+    pub fn set_cursor_icon(&mut self, cursor_icon: CursorIcon) -> &mut Self {
+        self.cursor_icon = cursor_icon;
+        self
+    }
+}
+
+/// <h2>Actions</h2>
+impl WidgetBase {
+    // TODO: automate updating everything including size hint; add flags to disable it
+
+    /// Request redraw, accessibility node update and children update of a widget.
+    ///
+    /// The widget will receive [handle_declare_children_request](Widget::handle_declare_children_request),
+    /// [handle_accessibility_node_request](Widget::handle_accessibility_node_request) and
+    /// [handle_draw](Widget::handle_draw) shortly.
+    ///
+    /// Note that this function is called automatically in many cases.
     pub fn update(&mut self) {
         if let Some(window) = &self.window {
             window.request_redraw();
@@ -488,21 +904,45 @@ impl WidgetBase {
         };
         request_children_update(self.address.clone());
     }
+}
 
+/// <h2>Child widgets management</h2>
+impl WidgetBase {
+    // TODO: link to doc about keys
+    /// Returns true if the widget contains a direct child identified by `key`.
     pub fn has_child(&self, key: impl Into<Key>) -> bool {
         self.children.contains_key(&key.into())
     }
+    // TODO: auto add sorting key as well, or create a key that sorts correctly.
 
+    /// Adds a child widget of type `T`. `arg` is passed to the child widget's constructor.
+    ///
+    /// `add_child` automatically assigns a unique key to each widget. To assign a key explicitly,
+    /// use [add_child_with_key](Self::add_child_with_key).
     pub fn add_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
         let key = self.num_added_children;
         self.num_added_children += 1;
-        self.add_child_common(key.into(), false, None, arg)
+        self.add_child_common(format!("__a{key}").into(), false, None, arg)
     }
 
+    /// Adds or replaces a child widget of type `T` associated with `key`. `arg` is passed to the child widget's constructor.
+    ///
+    /// If a child with the same key already exists, it will be immediately deleted. If this is undesirable,
+    /// use [has_child](Self::has_child) to check before calling this function.
+    /// In any case, it returns a mutable reference to the new child widget.
     pub fn add_child_with_key<T: NewWidget>(&mut self, key: impl Into<Key>, arg: T::Arg) -> &mut T {
         self.add_child_common(key.into(), false, None, arg)
     }
 
+    // TODO: link to declaring doc page
+
+    /// Declares a child widget of type `T`.
+    ///
+    /// If the child widget doesn't already exist, a new child widget will be created, and `arg` will be passed to the child widget's constructor.
+    /// In any case, it returns a mutable reference to the child widget.
+    ///
+    /// `declare_child` automatically assigns a unique key to each widget based on the order of `declare_child` calls. To assign a key explicitly,
+    /// use [declare_child_with_key](Self::declare_child_with_key).
     pub fn declare_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
         let key = with_system(|system| {
             let Some(state) = system.current_children_update.as_mut() else {
@@ -514,9 +954,13 @@ impl WidgetBase {
             *num += 1;
             key
         });
-        self.add_child_common(key.into(), true, None, arg)
+        self.add_child_common(format!("__d{key}").into(), true, None, arg)
     }
 
+    /// Declares a child widget of type `T` associated with `key`.
+    ///
+    /// If the child widget doesn't already exist, a new child widget will be created, and `arg` will be passed to the child widget's constructor.
+    /// In any case, it returns a mutable reference to the child widget.
     pub fn declare_child_with_key<T: NewWidget>(
         &mut self,
         key: impl Into<Key>,
@@ -582,6 +1026,9 @@ impl WidgetBase {
         widget.downcast_mut().unwrap()
     }
 
+    /// Get a dyn reference to the direct child associated with `key`.
+    ///
+    /// Returns an error if there is no such child.
     pub fn get_dyn_child(&self, key: impl Into<Key>) -> anyhow::Result<&dyn Widget> {
         Ok(self
             .children
@@ -590,6 +1037,9 @@ impl WidgetBase {
             .as_ref())
     }
 
+    /// Get a mutable dyn reference to the direct child associated with `key`.
+    ///
+    /// Returns an error if there is no such child.
     pub fn get_dyn_child_mut(&mut self, key: impl Into<Key>) -> anyhow::Result<&mut dyn Widget> {
         Ok(self
             .children
@@ -598,6 +1048,9 @@ impl WidgetBase {
             .as_mut())
     }
 
+    /// Get a reference to the direct child of type `T` associated with `key`.
+    ///
+    /// Returns an error if there is no such child or if the child has a type other than `T`.
     pub fn get_child<T: Widget>(&self, key: impl Into<Key>) -> anyhow::Result<&T> {
         self.children
             .get(&key.into())
@@ -606,6 +1059,9 @@ impl WidgetBase {
             .context("child type mismatch")
     }
 
+    /// Get a mutable reference to the direct child of type `T` associated with `key`.
+    ///
+    /// Returns an error if there is no such child or if the child has a type other than `T`.
     pub fn get_child_mut<T: Widget>(&mut self, key: impl Into<Key>) -> anyhow::Result<&mut T> {
         self.children
             .get_mut(&key.into())
@@ -614,52 +1070,70 @@ impl WidgetBase {
             .context("child type mismatch")
     }
 
-    /// Returns current layout item configuration of this widget.
+    /// Get a mutable reference to the direct or indirect child of type `T` identified by `id`.
     ///
-    /// This configuration influences size and position of the widget within its parent
-    /// widget's layout.
-    pub fn layout_item_options(&self) -> &LayoutItemOptions {
-        &self.layout_item_options
+    /// Returns an error if there is no such child or if the child has a type other than `T`.
+    pub fn find_child_mut<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
+        let w = self.find_dyn_child_mut(id.raw())?;
+        Ok(w.downcast_mut::<W>().expect("child type mismatch"))
     }
 
-    /// Set layout item configuration of this widget.
+    /// Get a mutable dyn reference to the direct or indirect child identified by `id`.
     ///
-    /// This will override any previously set options.
-    ///
-    /// This configuration influences size and position of the widget within its parent
-    /// widget's layout.
-    pub fn set_layout_item_options(&mut self, options: LayoutItemOptions) -> &mut Self {
-        if self.layout_item_options == options {
-            return self;
+    /// Returns an error if there is no such child.
+    pub fn find_dyn_child_mut(
+        &mut self,
+        id: RawWidgetId,
+    ) -> Result<&mut dyn Widget, WidgetNotFound> {
+        // TODO: speed up
+        for child in self.children.values_mut() {
+            if child.base().id == id {
+                return Ok(child.as_mut());
+            }
+            if let Ok(widget) = child.base_mut().find_dyn_child_mut(id) {
+                return Ok(widget);
+            }
         }
-        self.layout_item_options = options;
-        self.size_hint_changed();
-        self
+        Err(WidgetNotFound)
     }
 
-    /// Assign column `x` and row `y` to this widget in the parent widget's grid.
+    /// Returns an iterator over the widget's children.
+    pub fn children(&self) -> impl Iterator<Item = &dyn Widget> {
+        self.children.values().map(|v| &**v)
+    }
+
+    /// Returns an iterator over the widget's children.
+    pub fn children_mut(&mut self) -> impl Iterator<Item = &mut dyn Widget> {
+        self.children.values_mut().map(|v| &mut **v)
+    }
+
+    /// Returns an iterator over the widget's children and associated keys.
+    pub fn children_with_keys(&self) -> impl Iterator<Item = (&Key, &dyn Widget)> {
+        self.children.iter().map(|(k, v)| (k, &**v))
+    }
+
+    /// Returns an iterator over the widget's children and associated keys.
+    pub fn children_mut_with_keys(&mut self) -> impl Iterator<Item = (&Key, &mut dyn Widget)> {
+        self.children.iter_mut().map(|(k, v)| (k, &mut **v))
+    }
+
+    /// Returns an iterator over the keys of the widget's children.
+    pub fn child_keys(&self) -> impl Iterator<Item = &Key> {
+        self.children.keys()
+    }
+
+    /// Removes a direct child associated with `key`.
     ///
-    /// This setting only takes effect if the parent's layout is [Layout::ExplicitGrid].
-    /// In other layout modes, column and row are assigned automatically.
-    pub fn set_grid_cell(&mut self, x: i32, y: i32) -> &mut Self {
-        if self.layout_item_options.x.pos_in_grid == Some(x..=x)
-            && self.layout_item_options.y.pos_in_grid == Some(y..=y)
-        {
-            return self;
-        }
-        self.layout_item_options.x.pos_in_grid = Some(x..=x);
-        self.layout_item_options.y.pos_in_grid = Some(y..=y);
-        self.size_hint_changed();
-        self
-    }
-    // TODO: setters for other layout item options (alignment, is_fixed)?
-
+    /// Returns an error if there is no such child.
     pub fn remove_child(&mut self, key: impl Into<Key>) -> Result<(), WidgetNotFound> {
         self.children.remove(&key.into()).ok_or(WidgetNotFound)?;
         self.size_hint_changed();
         Ok(())
     }
 
+    /// Removes a direct or indirect child identified by `id`.
+    ///
+    /// Returns an error if there is no such child.
     pub fn remove_child_by_id(&mut self, id: RawWidgetId) -> Result<(), WidgetNotFound> {
         if id == self.id {
             warn!("remove_child_by_id: cannot delete self");
@@ -704,78 +1178,10 @@ impl WidgetBase {
         error!("remove_child_by_id: did not reach parent widget");
         Err(WidgetNotFound)
     }
+}
 
-    pub fn size_hint_changed(&mut self) {
-        self.clear_size_hint_cache();
-        let Some(window) = &self.window else {
-            return;
-        };
-        window.invalidate_size_hint(self.address.clone());
-    }
-
-    pub(crate) fn clear_size_hint_cache(&mut self) {
-        let mut cache = self.cache.borrow_mut();
-        cache.size_hint_x = None;
-        cache.size_hint_y.clear();
-    }
-
-    pub(crate) fn size_hint_x_cache(&self) -> Option<SizeHints> {
-        self.cache.borrow().size_hint_x
-    }
-
-    pub(crate) fn set_size_hint_x_cache(&self, value: SizeHints) {
-        self.cache.borrow_mut().size_hint_x = Some(value);
-    }
-
-    pub(crate) fn size_hint_y_cache(&self, size_x: PhysicalPixels) -> Option<SizeHints> {
-        self.cache.borrow().size_hint_y.get(&size_x).cloned()
-    }
-
-    pub(crate) fn set_size_hint_y_cache(&self, size_x: PhysicalPixels, value: SizeHints) {
-        self.cache.borrow_mut().size_hint_y.insert(size_x, value);
-    }
-
-    /// Returns a shared handle to a window that contains this widget.
-    ///
-    /// A widget is considered to be in a window if it's a [`Window`](crate::widgets::Window)
-    /// or any of its direct or indirect parts is a `Window`. [`RootWidget`](crate::widgets::RootWidget)
-    /// and its direct non-`Window` children are not associated with any window.
-    ///
-    /// See also: [`window_or_err`](Self::window_or_err), [`window_id`](Self::window_id).
-    pub fn window(&self) -> Option<&SharedWindow> {
-        self.window.as_ref()
-    }
-
-    /// Returns a shared handle to a window that contains this widget, or an error if it's not associated with a window.
-    ///
-    /// See [`window`](Self::window) for more information.
-    ///
-    /// Use this function for a more convenient early exit with `?`. There are many cases when it makes sense
-    /// to assume that there is a window, for example, when handling window events or if the widget is
-    /// intended to be used in a window (which is true for most visual widgets).
-    pub fn window_or_err(&self) -> Result<&SharedWindow> {
-        self.window.as_ref().context("no window")
-    }
-
-    /// Returns ID of the window associated with this widget.
-    ///
-    /// See [`window`](Self::window) for more information.
-    pub fn window_id(&self) -> Option<WindowId> {
-        self.window.as_ref().map(|w| w.id())
-    }
-
-    /// Returns the *address* of the widget.
-    ///
-    /// The address is the path from the root widget to this widget.
-    /// The address can be used to quickly access the widget from the root widget
-    /// or from any other indirect parent of the widget.
-    ///
-    /// The address of a widget cannot change. The only way to "change" it is to
-    /// delete the widget and recreate it at another address.
-    pub fn address(&self) -> &WidgetAddress {
-        &self.address
-    }
-
+/// <h2>Size and position</h2>
+impl WidgetBase {
     // private: we need to use `WidgetExt::set_geometry` to dispatch the event.
     pub(crate) fn set_geometry(&mut self, value: Option<WidgetGeometry>) {
         self.geometry = value;
@@ -871,94 +1277,118 @@ impl WidgetBase {
     pub fn rect_in_self_or_err(&self) -> Result<Rect> {
         Ok(self.geometry_or_err()?.rect_in_self())
     }
+}
 
-    /// Processes the event before it's dispatched to the widget.
+/// <h2>Layout configuration</h2>
+impl WidgetBase {
+    /// Returns current layout strategy of the widget.
     ///
-    /// Returns `true` if the event is consumed and shouldn't be dispatched to the widget.
-    pub(crate) fn before_event(&mut self, event: &Event) -> bool {
-        match &event {
-            Event::FocusIn(_) => {
-                self.flags.insert(Flags::focused);
-            }
-            Event::FocusOut(_) => {
-                self.flags.remove(Flags::focused);
-            }
-            Event::WindowFocusChange(_) => {}
-            Event::MouseInput(event) => {
-                for child in self.children.values_mut().rev() {
-                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
-                        if let Some(child_event) = event
-                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
-                        {
-                            if child.dispatch(child_event.into()) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-            Event::MouseScroll(event) => {
-                for child in self.children.values_mut().rev() {
-                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
-                        if let Some(child_event) = event
-                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
-                        {
-                            if child.dispatch(child_event.into()) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-            Event::MouseMove(event) => {
-                for child in self.children.values_mut().rev() {
-                    if let Some(rect_in_parent) = child.base().rect_in_parent() {
-                        if let Some(child_event) = event
-                            .map_to_child(rect_in_parent, child.base().receives_all_mouse_events())
-                        {
-                            if child.dispatch(child_event.into()) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-            Event::MouseEnter(_) => {
-                self.flags.insert(Flags::under_mouse);
-            }
-            Event::MouseLeave(_) => {
-                self.flags.remove(Flags::under_mouse);
-            }
-            Event::StyleChange(_) => {
-                self.refresh_common_style();
-            }
-            Event::Draw(event) => {
-                let Some(size) = self.size_or_err().or_report_err() else {
-                    return false;
-                };
-
-                event.stroke_and_fill_rounded_rect(
-                    Rect::from_pos_size(Point::default(), size),
-                    &self.base_style.border,
-                    self.base_style.background.as_ref(),
-                );
-            }
-            Event::KeyboardInput(_)
-            | Event::InputMethod(_)
-            | Event::Layout(_)
-            | Event::AccessibilityAction(_) => {}
-        }
-
-        for event_filter in self.event_filters.values_mut() {
-            let accepted = event_filter(event.clone()).or_report_err().unwrap_or(false);
-            if accepted {
-                return true;
-            }
-        }
-
-        false
+    /// Layout strategy determines how child widgets are positioned within the widget.
+    pub fn layout(&self) -> Layout {
+        self.layout
     }
 
+    /// Set the layout strategy for the widget.
+    ///
+    /// Layout strategy determines how child widgets are positioned within the widget.
+    pub fn set_layout(&mut self, layout: Layout) -> &mut Self {
+        self.layout = layout;
+        self
+    }
+
+    /// Returns current layout item configuration of this widget.
+    ///
+    /// This configuration influences size and position of the widget within its parent
+    /// widget's layout.
+    pub fn layout_item_options(&self) -> &LayoutItemOptions {
+        &self.layout_item_options
+    }
+
+    /// Set layout item configuration of this widget.
+    ///
+    /// This will override any previously set options.
+    ///
+    /// This configuration influences size and position of the widget within its parent
+    /// widget's layout.
+    pub fn set_layout_item_options(&mut self, options: LayoutItemOptions) -> &mut Self {
+        if self.layout_item_options == options {
+            return self;
+        }
+        self.layout_item_options = options;
+        self.size_hint_changed();
+        self
+    }
+
+    /// Assign column `x` and row `y` to this widget in the parent widget's grid.
+    ///
+    /// This setting only takes effect if the parent's layout is [Layout::ExplicitGrid].
+    /// In other layout modes, column and row are assigned automatically.
+    pub fn set_grid_cell(&mut self, x: i32, y: i32) -> &mut Self {
+        if self.layout_item_options.x.pos_in_grid == Some(x..=x)
+            && self.layout_item_options.y.pos_in_grid == Some(y..=y)
+        {
+            return self;
+        }
+        self.layout_item_options.x.pos_in_grid = Some(x..=x);
+        self.layout_item_options.y.pos_in_grid = Some(y..=y);
+        self.size_hint_changed();
+        self
+    }
+    // TODO: setters for other layout item options (alignment, is_fixed)?
+
+    // TODO: automate size_hint_changed?
+    // TODO: add link to layout docs
+
+    /// Request size hint re-evaluation and layout of the widget.
+    ///
+    /// In most cases it's not necessary to call this function.
+    ///
+    /// When implementing a custom layout for your widget, call this function when
+    /// values of [Widget::handle_size_hint_x_request] and/or
+    /// [Widget::handle_size_hint_y_request] have changed or when a layout should
+    /// be performed on the widget. This may trigger a layout of other widgets.
+    pub fn size_hint_changed(&mut self) {
+        self.clear_size_hint_cache();
+        let Some(window) = &self.window else {
+            return;
+        };
+        window.invalidate_size_hint(self.address.clone());
+    }
+
+    pub(crate) fn clear_size_hint_cache(&mut self) {
+        let mut cache = self.cache.borrow_mut();
+        cache.size_hint_x = None;
+        cache.size_hint_y.clear();
+    }
+
+    pub(crate) fn size_hint_x_cache(&self) -> Option<SizeHints> {
+        self.cache.borrow().size_hint_x
+    }
+
+    pub(crate) fn set_size_hint_x_cache(&self, value: SizeHints) {
+        self.cache.borrow_mut().size_hint_x = Some(value);
+    }
+
+    pub(crate) fn size_hint_y_cache(&self, size_x: PhysicalPixels) -> Option<SizeHints> {
+        self.cache.borrow().size_hint_y.get(&size_x).cloned()
+    }
+
+    pub(crate) fn set_size_hint_y_cache(&self, size_x: PhysicalPixels, value: SizeHints) {
+        self.cache.borrow_mut().size_hint_y.insert(size_x, value);
+    }
+
+    pub(crate) fn after_declare_children(&mut self, state: ChildrenUpdateState) {
+        let previous = mem::take(&mut self.declared_children);
+        let to_delete = previous.difference(&state.declared_children);
+        for id in to_delete {
+            let _ = self.remove_child_by_id(*id);
+        }
+        self.declared_children = state.declared_children;
+    }
+}
+
+/// <h2>Shortcuts and event filters</h2>
+impl WidgetBase {
     /// Add an event filter to this widget.
     ///
     /// Event filter is a function that runs for every event dispatched to the widget.
@@ -992,101 +1422,6 @@ impl WidgetBase {
         self.event_filters.remove(&owner_id);
     }
 
-    fn focusable_changed(&mut self) {
-        let is_focusable = self.is_focusable();
-        if is_focusable != self.flags.contains(Flags::registered_as_focusable) {
-            if let Some(window) = &self.window {
-                if is_focusable {
-                    window.add_focusable_widget(self.address.clone(), self.id);
-                } else {
-                    window.remove_focusable_widget(self.address.clone(), self.id);
-                }
-                self.flags.set(Flags::registered_as_focusable, is_focusable);
-            } else {
-                self.flags.set(Flags::registered_as_focusable, false);
-            }
-        }
-    }
-
-    fn enabled_changed(&mut self) {
-        self.focusable_changed();
-        // TODO: widget should receive MouseLeave even if it's disabled
-        let is_enabled = self.is_enabled();
-        for child in self.children.values_mut() {
-            child.set_parent_enabled(is_enabled);
-        }
-    }
-
-    /// Enable or disable input method for this widget.
-    ///
-    /// IME will be enabled for the window if the currently focused widget has input method enabled.
-    /// Default value is false.
-    ///
-    /// Call this function with `true` in your widget's `new` function if your widget receives text input
-    /// (as opposed to e.g. hotkeys). Implement [handle_input_method](Widget::handle_input_method) to
-    /// handle events from the input method.
-    pub fn set_input_method_enabled(&mut self, enabled: bool) -> &mut Self {
-        if self.flags.contains(Flags::input_method_enabled) == enabled {
-            return self;
-        }
-        self.flags.set(Flags::input_method_enabled, enabled);
-        if self.is_focused() {
-            if let Some(window) = &self.window {
-                window.set_ime_allowed(enabled);
-            }
-        }
-        self
-    }
-
-    /// Returns true if input method is enabled for this widget.
-    ///
-    /// See also [set_input_method_enabled](Self::set_input_method_enabled).
-    pub fn is_input_method_enabled(&self) -> bool {
-        self.flags.contains(Flags::input_method_enabled)
-    }
-    // TODO: fix/test: widget should receive mouseenter event and under_mouse flag
-    // even if its child obscures the area (like in html)
-
-    /// Check if the mouse is over this widget.
-    ///
-    /// If the widget becomes a *mouse grabber*, it will be considered under mouse until
-    /// all mouse buttons are released, even if the mouse moves out of the widget's boundary.
-    pub fn is_under_mouse(&self) -> bool {
-        self.flags.contains(Flags::under_mouse)
-    }
-
-    fn remove_accessibility_node(&mut self) {
-        if let Some(window) = &self.window {
-            let root_widget_id = window.root_widget_id();
-            window.update_accessibility_node(
-                if self.id == root_widget_id {
-                    None
-                } else {
-                    self.parent_id.map(|id| id.into())
-                },
-                self.id.into(),
-            );
-        }
-    }
-
-    pub fn widget<W: Widget>(&mut self, id: WidgetId<W>) -> Result<&mut W, WidgetNotFound> {
-        let w = self.widget_raw(id.raw())?;
-        Ok(w.downcast_mut::<W>().expect("widget downcast failed"))
-    }
-
-    pub fn widget_raw(&mut self, id: RawWidgetId) -> Result<&mut dyn Widget, WidgetNotFound> {
-        // TODO: speed up
-        for child in self.children.values_mut() {
-            if child.base().id == id {
-                return Ok(child.as_mut());
-            }
-            if let Ok(widget) = child.base_mut().widget_raw(id) {
-                return Ok(widget);
-            }
-        }
-        Err(WidgetNotFound)
-    }
-
     // TODO: declare-compatible shortcut API
     pub fn add_shortcut(&mut self, shortcut: Shortcut) -> ShortcutId {
         let id = shortcut.id;
@@ -1098,228 +1433,6 @@ impl WidgetBase {
         id
     }
     // TODO: remove_shortcut
-
-    pub fn refresh_common_style(&mut self) {
-        self.base_style = get_style(&self.style_selector, self.scale());
-        self.size_hint_changed();
-        self.update();
-    }
-
-    pub fn style_selector(&self) -> &StyleSelector {
-        &self.style_selector
-    }
-
-    pub(crate) fn style_selector_mut(&mut self) -> &mut StyleSelector {
-        &mut self.style_selector
-    }
-
-    /// Scale of the widget.
-    ///
-    /// Scale is the multiplication factor that's used when measurements in style definitions
-    /// ([crate::types::LogicalPixels]) are converted to pixel measurements used for
-    /// layout, drawing, and event processing ([crate::types::PhysicalPixels]).
-    ///
-    /// By default, scale is determined by the scale factor reported by the OS for the OS window
-    /// that contains the widget. Scale may be overriden with [`App::set_scale`](crate::App::with_scale),
-    /// in which case the OS scale is ignored.
-    ///
-    /// Scale can be changed manually for any widget
-    /// with [`WidgetExt::set_scale`](crate::widgets::WidgetExt::set_scale).
-    /// This value propagates to all child widgets.
-    pub fn scale(&self) -> f32 {
-        self.self_scale.unwrap_or(self.parent_scale)
-    }
-
-    // Intentionally private: we need to use `WidgetExt::set_scale` to dispatch the event properly.
-    pub(crate) fn set_scale(&mut self, scale: Option<f32>) -> &mut Self {
-        self.self_scale = scale;
-        self
-    }
-
-    /// Scale of the parent widget.
-    ///
-    /// For the root widget, it returns the default scale.
-    pub fn parent_scale(&self) -> f32 {
-        self.parent_scale
-    }
-
-    /// Returns the value set with
-    /// [`WidgetExt::set_scale`](crate::widgets::WidgetExt::set_scale), if any.
-    ///
-    /// It returns `None` if `set_scale` hasn't been called for this widget.
-    /// This value doesn't depend on the parent scale. In most cases, [scale](Self::scale) is more suitable,
-    /// as that one always returns the current effective scale of the widget.
-    pub fn self_scale(&self) -> Option<f32> {
-        self.self_scale
-    }
-
-    /// Check if the accessibility node hasn't been disabled for this widget.
-    ///
-    /// This value corresponds to the value set by [`set_accessibility_node_enabled`](Self::set_accessibility_node_enabled).
-    /// Default is true for every widget. Note that some widgets may not support accessibility nodes,
-    /// and it doesn't affect the return value of `is_accessibility_node_enabled`.
-    pub fn is_accessibility_node_enabled(&self) -> bool {
-        self.flags.contains(Flags::accessibility_node_enabled)
-    }
-
-    /// Turn the accessibility node of this widget on or off.
-    ///
-    /// Accessibility nodes allow users to interact with a widget using screen readers or other assistive technologies.
-    /// Accessibility nodes are enabled by default. They should only be disabled if the widget
-    /// is redundant and the same functionality is already available through other widgets.
-    ///
-    /// This function does nothing in widgets that don't implement an accessibility node.
-    ///
-    /// This setting doesn't propagate to child widgets.
-    pub fn set_accessibility_node_enabled(&mut self, value: bool) -> &mut Self {
-        if self.flags.contains(Flags::accessibility_node_enabled) == value {
-            return self;
-        }
-        self.flags.set(Flags::accessibility_node_enabled, value);
-        self.update();
-        self
-    }
-
-    pub fn after_declare_children(&mut self, state: ChildrenUpdateState) {
-        let previous = mem::take(&mut self.declared_children);
-        let to_delete = previous.difference(&state.declared_children);
-        for id in to_delete {
-            if self.remove_child_by_id(*id).is_ok() {
-                //                println!("deleted {:?}", id);
-            }
-        }
-        self.declared_children = state.declared_children;
-    }
-
-    /// Returns untyped ID of this widget.
-    ///
-    /// To obtain a typed ID of the widget, use [WidgetExt::id] externally
-    /// or `self.common.id()` internally.
-    pub fn id(&self) -> RawWidgetId {
-        self.id
-    }
-
-    /// Returns full path to the widget type as a string.
-    ///
-    /// Returns the same value as [Widget::type_name].
-    pub fn type_name(&self) -> &'static str {
-        self.type_name
-    }
-
-    /// Returns `true` if this widget's implementation is able to receive focus.
-    ///
-    /// This value is set by the widget's implementation. Widgets cannot be focusable if they don't support focus.
-    /// Most widgets that support focus are focusable by default, but can be made unfocusable using [set_focusable](Self::set_focusable).
-    pub fn supports_focus(&self) -> bool {
-        self.flags.contains(Flags::supports_focus)
-    }
-
-    /// Set focusability of the widget.
-    ///
-    /// Widgets that support focus are usually focusable by default, so usually you shouldn't use this function.
-    /// Disabling focus can make your interface less accessible.
-    pub fn set_focusable(&mut self, focusable: bool) -> &mut Self {
-        if focusable == self.flags.contains(Flags::self_focusable) {
-            return self;
-        }
-        if focusable && !self.supports_focus() {
-            warn!("cannot do `set_focusable(true)` on a widget that doesn't support focus");
-            return self;
-        }
-        self.flags.set(Flags::self_focusable, focusable);
-        self.focusable_changed();
-        self
-    }
-
-    /// If true, all mouse events from the parent propagate to this widget,
-    /// regardless of its boundaries.
-    pub fn set_receives_all_mouse_events(&mut self, enabled: bool) -> &mut Self {
-        if self.flags.contains(Flags::receives_all_mouse_events) == enabled {
-            return self;
-        }
-        self.flags.set(Flags::receives_all_mouse_events, enabled);
-        self
-    }
-
-    /// If true, all mouse events from the parent propagate to this widget,
-    /// regardless of its boundaries.
-    pub fn receives_all_mouse_events(&self) -> bool {
-        self.flags.contains(Flags::receives_all_mouse_events)
-    }
-
-    /// Returns the shape of the mouse pointer when it's over this widget.
-    ///
-    /// Returns the value that was previously set with [`set_cursor_icon`](Self::set_cursor_icon).
-    pub fn cursor_icon(&self) -> CursorIcon {
-        self.cursor_icon
-    }
-
-    /// Configure the shape of the mouse pointer when it's over this widget.
-    ///
-    /// Default value is [CursorIcon::Default].
-    pub fn set_cursor_icon(&mut self, cursor_icon: CursorIcon) -> &mut Self {
-        self.cursor_icon = cursor_icon;
-        self
-    }
-
-    /// ID of the parent widget.
-    ///
-    /// The parent widget is the owner of its direct children.
-    /// For UI widgets, the parent widget is a container of its child widgets.
-    /// Child widgets are always positioned relative to their parent.
-    /// Children can only be visplayed in the boundary of their parent.
-    ///
-    /// The parent ID of the widget cannot be changed.
-    ///
-    /// Returns `None` for [crate::widgets::root::RootWidget].
-    pub fn parent_id(&self) -> Option<RawWidgetId> {
-        self.parent_id
-    }
-
-    /// Returns current layout strategy of the widget.
-    ///
-    /// Layout strategy determines how child widgets are positioned within the widget.
-    pub fn layout(&self) -> Layout {
-        self.layout
-    }
-
-    /// Set the layout strategy for the widget.
-    ///
-    /// Layout strategy determines how child widgets are positioned within the widget.
-    pub fn set_layout(&mut self, layout: Layout) -> &mut Self {
-        self.layout = layout;
-        self
-    }
-
-    /// Returns an iterator over the widget's children.
-    pub fn children(&self) -> impl Iterator<Item = &dyn Widget> {
-        self.children.values().map(|v| &**v)
-    }
-
-    /// Returns an iterator over the widget's children.
-    pub fn children_mut(&mut self) -> impl Iterator<Item = &mut dyn Widget> {
-        self.children.values_mut().map(|v| &mut **v)
-    }
-
-    /// Returns an iterator over the widget's children and associated keys.
-    pub fn children_with_keys(&self) -> impl Iterator<Item = (&Key, &dyn Widget)> {
-        self.children.iter().map(|(k, v)| (k, &**v))
-    }
-
-    /// Returns an iterator over the widget's children and associated keys.
-    pub fn children_mut_with_keys(&mut self) -> impl Iterator<Item = (&Key, &mut dyn Widget)> {
-        self.children.iter_mut().map(|(k, v)| (k, &mut **v))
-    }
-
-    /// Returns an iterator over the keys of the widget's children.
-    pub fn child_keys(&self) -> impl Iterator<Item = &Key> {
-        self.children.keys()
-    }
-
-    /// Returns information about the widget's common style properties.
-    pub(crate) fn base_style(&self) -> &BaseComputedStyle {
-        &self.base_style
-    }
 }
 
 #[derive(Debug)]

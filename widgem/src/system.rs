@@ -29,6 +29,7 @@ pub struct SystemConfig {
     pub auto_repeat_delay: Duration,
     pub auto_repeat_interval: Duration,
     pub exit_after_last_window_closes: bool,
+    pub fixed_scale: Option<f32>,
 }
 
 pub struct SharedSystemDataInner {

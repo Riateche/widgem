@@ -28,8 +28,8 @@ pub use {
     },
     tiny_skia,
     widgets::{
-        EventFilterFn, RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetBaseOf,
-        WidgetCreationContext, WidgetExt, WidgetGeometry, WidgetId, WidgetNotFound,
+        EventFilterFn, RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetBaseOf, WidgetExt,
+        WidgetGeometry, WidgetId, WidgetNotFound, Window,
     },
     winit::{self, window::WindowAttributes},
 };
