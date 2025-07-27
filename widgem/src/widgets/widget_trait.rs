@@ -495,7 +495,7 @@ pub trait Widget: Any {
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
-        let options = self.base().common_style.grid.clone();
+        let options = self.base().base_style().grid.clone();
         let rows_and_columns = assign_rows_and_columns(self);
         Ok(grid::size_hint_x(self, &options, &rows_and_columns))
     }
@@ -524,7 +524,7 @@ pub trait Widget: Any {
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHints> {
-        let options = self.base().common_style.grid.clone();
+        let options = self.base().base_style().grid.clone();
         let rows_and_columns = assign_rows_and_columns(self);
         Ok(grid::size_hint_y(self, &options, size_x, &rows_and_columns))
     }

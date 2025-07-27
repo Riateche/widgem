@@ -2,7 +2,7 @@ use {
     super::{
         css::{
             convert_background, convert_border, convert_font, convert_main_color, convert_padding,
-            convert_zoom, is_root, StyleSelector, PseudoClass,
+            convert_zoom, is_root, PseudoClass, StyleSelector,
         },
         RelativeOffset, Style,
     },
@@ -40,7 +40,7 @@ impl Default for ComputedBorderStyle {
 }
 
 #[derive(Debug)]
-pub struct CommonComputedStyle {
+pub struct BaseComputedStyle {
     pub border: ComputedBorderStyle,
     pub background: Option<ComputedBackground>,
     pub text_color: tiny_skia::Color,
@@ -48,7 +48,7 @@ pub struct CommonComputedStyle {
     pub grid: GridOptions,
 }
 
-impl ComputedElementStyle for CommonComputedStyle {
+impl ComputedElementStyle for BaseComputedStyle {
     fn new(style: &Style, element: &StyleSelector, scale: f32) -> Self {
         let rules = style.find_rules(|s| element.matches(s));
         let mut rules_with_root = style.find_rules(is_root);

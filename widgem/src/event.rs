@@ -82,7 +82,7 @@ impl MouseScrollEvent {
     pub fn unified_delta(&self, widget_common: &WidgetBase) -> PhysicalPosition<f64> {
         match self.delta {
             MouseScrollDelta::LineDelta(dx, dy) => {
-                let line_height = widget_common.common_style.font_metrics.line_height;
+                let line_height = widget_common.base_style().font_metrics.line_height;
                 PhysicalPosition::new((line_height * dx).into(), (line_height * dy).into())
             }
             MouseScrollDelta::PixelDelta(delta) => delta,

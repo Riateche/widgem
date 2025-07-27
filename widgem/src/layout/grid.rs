@@ -325,7 +325,7 @@ pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[Wid
         }
         return;
     };
-    let options = widget.base().common_style.grid.clone();
+    let options = widget.base().base_style().grid.clone();
     let rows_and_columns = assign_rows_and_columns(widget);
     let x_layout = x_layout(widget, &rows_and_columns, &options.x, geometry.size_x());
     let mut hints_per_row = BTreeMap::new();

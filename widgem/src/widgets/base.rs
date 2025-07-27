@@ -8,7 +8,7 @@ use {
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
-            common::CommonComputedStyle,
+            common::BaseComputedStyle,
             css::{PseudoClass, StyleSelector},
             get_style,
         },
@@ -218,7 +218,7 @@ pub struct WidgetBase {
 
     shortcuts: HashMap<ShortcutId, Shortcut>,
     style_selector: StyleSelector,
-    pub common_style: Rc<CommonComputedStyle>,
+    base_style: Rc<BaseComputedStyle>,
 
     pub num_added_children: u32,
     // Direct and indirect children created by last call of this widget's
@@ -287,7 +287,7 @@ impl WidgetBase {
             event_filters: HashMap::new(),
             shortcuts: HashMap::new(),
             style_selector,
-            common_style,
+            base_style: common_style,
             num_added_children: 0,
             declared_children: Default::default(),
             layout: Layout::default(),
@@ -939,8 +939,8 @@ impl WidgetBase {
 
                 event.stroke_and_fill_rounded_rect(
                     Rect::from_pos_size(Point::default(), size),
-                    &self.common_style.border,
-                    self.common_style.background.as_ref(),
+                    &self.base_style.border,
+                    self.base_style.background.as_ref(),
                 );
             }
             Event::KeyboardInput(_)
@@ -1100,7 +1100,7 @@ impl WidgetBase {
     // TODO: remove_shortcut
 
     pub fn refresh_common_style(&mut self) {
-        self.common_style = get_style(&self.style_selector, self.scale());
+        self.base_style = get_style(&self.style_selector, self.scale());
         self.size_hint_changed();
         self.update();
     }
@@ -1314,6 +1314,11 @@ impl WidgetBase {
     /// Returns an iterator over the keys of the widget's children.
     pub fn child_keys(&self) -> impl Iterator<Item = &Key> {
         self.children.keys()
+    }
+
+    /// Returns information about the widget's common style properties.
+    pub(crate) fn base_style(&self) -> &BaseComputedStyle {
+        &self.base_style
     }
 }
 
