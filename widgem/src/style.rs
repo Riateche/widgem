@@ -4,7 +4,7 @@ use {
             common::ComputedElementStyle,
             css::{
                 convert_background_color, convert_font, convert_main_color, is_root, replace_vars,
-                Element,
+                StyleSelector,
             },
         },
         system::with_system,
@@ -98,7 +98,7 @@ pub struct Style {
     pub css: StyleSheet<'static, 'static>,
     pub source: StyleSource,
 
-    cache: HashMap<(Element, OrderedFloat<f32>, TypeId), Box<dyn Any>>,
+    cache: HashMap<(StyleSelector, OrderedFloat<f32>, TypeId), Box<dyn Any>>,
 }
 
 fn load_css(css: &str) -> Result<StyleSheet<'static, 'static>> {
@@ -144,7 +144,7 @@ impl Style {
         })
     }
 
-    pub fn find_rules_for_element(&self, element: &Element) -> Vec<&Property<'static>> {
+    pub fn find_rules_for_element(&self, element: &StyleSelector) -> Vec<&Property<'static>> {
         self.find_rules(|selector| element.matches(selector))
     }
 
@@ -227,7 +227,7 @@ impl Style {
         Ok(Rc::new(pixmap))
     }
 
-    pub fn get<T: ComputedElementStyle>(&mut self, element: &Element, scale: f32) -> Rc<T> {
+    pub fn get<T: ComputedElementStyle>(&mut self, element: &StyleSelector, scale: f32) -> Rc<T> {
         let type_id = TypeId::of::<T>();
         let key = (element.clone(), OrderedFloat(scale), type_id);
         if let Some(data) = self.cache.get(&key) {
@@ -243,6 +243,6 @@ impl Style {
     }
 }
 
-pub fn get_style<T: ComputedElementStyle>(element: &Element, scale: f32) -> Rc<T> {
+pub fn get_style<T: ComputedElementStyle>(element: &StyleSelector, scale: f32) -> Rc<T> {
     with_system(|system| system.style.get(element, scale))
 }

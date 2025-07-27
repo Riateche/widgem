@@ -13,7 +13,8 @@ use {
         style::{
             common::ComputedElementStyle,
             css::{
-                convert_background_color, convert_font, convert_main_color, is_selection, Element,
+                convert_background_color, convert_font, convert_main_color, is_selection,
+                StyleSelector,
             },
             defaults, get_style, Style,
         },
@@ -82,7 +83,7 @@ impl TextStyle {
 }
 
 impl ComputedElementStyle for TextStyle {
-    fn new(style: &Style, element: &Element, scale: f32) -> Self {
+    fn new(style: &Style, element: &StyleSelector, scale: f32) -> Self {
         let rules = style.find_rules_for_element(element);
 
         // TODO: different selection styles depending on `element`
@@ -116,7 +117,7 @@ pub struct Text {
     is_cursor_hidden: bool,
     is_host_focused: bool,
     host_id: Option<RawWidgetId>,
-    host_element: Element,
+    host_element: StyleSelector,
     forbid_mouse_interaction: bool,
     blink_timer: Option<TimerId>,
     selected_text: String,
@@ -175,7 +176,7 @@ impl Text {
         self
     }
 
-    pub fn set_host_style_element(&mut self, element: Element) -> &mut Self {
+    pub fn set_host_style_selector(&mut self, element: StyleSelector) -> &mut Self {
         self.host_element = element;
         self.style = get_style(&self.host_element, self.base.scale());
         self.set_font_metrics(self.style.font_metrics);
@@ -1007,7 +1008,7 @@ impl NewWidget for Text {
         let mut t = Self {
             editor,
             pixmap: None,
-            host_element: Element::new("_unknown_".into()),
+            host_element: StyleSelector::new("_unknown_".into()),
             style,
             size: Size::default(),
             is_multiline: true,

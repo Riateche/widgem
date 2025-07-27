@@ -1,6 +1,6 @@
 use {
     super::{
-        css::{convert_font, convert_width, Element, PseudoClass},
+        css::{convert_font, convert_width, StyleSelector, PseudoClass},
         defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
         Style,
     },
@@ -15,7 +15,7 @@ pub struct TextInputStyle {
 }
 
 impl ComputedElementStyle for TextInputStyle {
-    fn new(style: &Style, element: &Element, scale: f32) -> TextInputStyle {
+    fn new(style: &Style, element: &StyleSelector, scale: f32) -> TextInputStyle {
         let element_min = element
             .clone()
             .with_pseudo_class(PseudoClass::Custom("min".into()));

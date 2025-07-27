@@ -296,64 +296,68 @@ pub trait WidgetExt: Widget {
     }
 
     fn add_class(&mut self, class: Cow<'static, str>) -> &mut Self {
-        if self.base().style_element.has_class(&class) {
+        if self.base().style_selector().has_class(&class) {
             return self;
         }
-        self.base_mut().style_element.add_class(class);
+        self.base_mut().style_selector_mut().add_class(class);
         self.dispatch(StyleChangeEvent {}.into());
         self
     }
 
     fn remove_class(&mut self, class: Cow<'static, str>) -> &mut Self {
-        if !self.base().style_element.has_class(&class) {
+        if !self.base().style_selector().has_class(&class) {
             return self;
         }
-        self.base_mut().style_element.remove_class(class);
+        self.base_mut().style_selector_mut().remove_class(class);
         self.dispatch(StyleChangeEvent {}.into());
         self
     }
 
     fn has_class(&self, class: &str) -> bool {
-        self.base().style_element.has_class(class)
+        self.base().style_selector().has_class(class)
     }
 
     fn set_class(&mut self, class: Cow<'static, str>, present: bool) -> &mut Self {
-        if self.base().style_element.has_class(&class) == present {
+        if self.base().style_selector().has_class(&class) == present {
             return self;
         }
-        self.base_mut().style_element.set_class(class, present);
+        self.base_mut()
+            .style_selector_mut()
+            .set_class(class, present);
         self.dispatch(StyleChangeEvent {}.into());
         self
     }
 
     fn add_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
-        if self.base().style_element.has_pseudo_class(class.clone()) {
+        if self.base().style_selector().has_pseudo_class(class.clone()) {
             return self;
         }
-        self.base_mut().style_element.add_pseudo_class(class);
+        self.base_mut().style_selector_mut().add_pseudo_class(class);
         self.dispatch(StyleChangeEvent {}.into());
         self
     }
 
     fn remove_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
-        if !self.base().style_element.has_pseudo_class(class.clone()) {
+        if !self.base().style_selector().has_pseudo_class(class.clone()) {
             return self;
         }
-        self.base_mut().style_element.remove_pseudo_class(class);
+        self.base_mut()
+            .style_selector_mut()
+            .remove_pseudo_class(class);
         self.dispatch(StyleChangeEvent {}.into());
         self
     }
 
     fn has_pseudo_class(&self, class: PseudoClass) -> bool {
-        self.base().style_element.has_pseudo_class(class)
+        self.base().style_selector().has_pseudo_class(class)
     }
 
     fn set_pseudo_class(&mut self, class: PseudoClass, present: bool) -> &mut Self {
-        if self.base().style_element.has_pseudo_class(class.clone()) == present {
+        if self.base().style_selector().has_pseudo_class(class.clone()) == present {
             return self;
         }
         self.base_mut()
-            .style_element
+            .style_selector_mut()
             .set_pseudo_class(class, present);
         self.dispatch(StyleChangeEvent {}.into());
         self

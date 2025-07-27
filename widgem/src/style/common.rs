@@ -2,7 +2,7 @@ use {
     super::{
         css::{
             convert_background, convert_border, convert_font, convert_main_color, convert_padding,
-            convert_zoom, is_root, Element, PseudoClass,
+            convert_zoom, is_root, StyleSelector, PseudoClass,
         },
         RelativeOffset, Style,
     },
@@ -49,7 +49,7 @@ pub struct CommonComputedStyle {
 }
 
 impl ComputedElementStyle for CommonComputedStyle {
-    fn new(style: &Style, element: &Element, scale: f32) -> Self {
+    fn new(style: &Style, element: &StyleSelector, scale: f32) -> Self {
         let rules = style.find_rules(|s| element.matches(s));
         let mut rules_with_root = style.find_rules(is_root);
         rules_with_root.extend(rules.clone());
@@ -116,7 +116,7 @@ impl ComputedElementStyle for CommonComputedStyle {
 }
 
 pub trait ComputedElementStyle: Any + Sized {
-    fn new(style: &Style, element: &Element, scale: f32) -> Self;
+    fn new(style: &Style, element: &StyleSelector, scale: f32) -> Self;
 }
 
 #[derive(Debug, Clone)]

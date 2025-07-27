@@ -11,7 +11,7 @@ use {
         shared_window::SetFocusRequest,
         style::{
             common::ComputedElementStyle,
-            css::{convert_content_url, convert_zoom, Element, PseudoClass},
+            css::{convert_content_url, convert_zoom, PseudoClass, StyleSelector},
             get_style, Style,
         },
         system::{add_interval, add_timer, send_window_request, with_system},
@@ -162,7 +162,7 @@ impl Button {
     }
 
     fn refresh_style(&mut self) {
-        self.style = get_style(self.base.style_element(), self.base.scale());
+        self.style = get_style(self.base.style_selector(), self.base.scale());
         let icon = self.style.icon.clone();
         self.image_widget_mut().set_visible(icon.is_some());
         self.image_widget_mut().set_prescaled(true);
@@ -178,12 +178,12 @@ impl NewWidget for Button {
         base.set_layout(Layout::HorizontalFirst);
         base.add_child::<Image>(None).set_visible(false);
         let id = base.id().raw();
-        let element = base.style_element().clone();
+        let element = base.style_selector().clone();
         base.add_child::<Text>(arg)
             .set_host_id(id)
-            .set_host_style_element(element);
+            .set_host_style_selector(element);
         let mut b = Self {
-            style: get_style(base.style_element(), base.scale()),
+            style: get_style(base.style_selector(), base.scale()),
             auto_repeat: false,
             is_mouse_leave_sensitive: true,
             trigger_on_press: false,
@@ -297,8 +297,8 @@ impl Widget for Button {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        let element = self.base.style_element().clone();
-        self.text_widget_mut().set_host_style_element(element);
+        let element = self.base.style_selector().clone();
+        self.text_widget_mut().set_host_style_selector(element);
         self.refresh_style();
         self.base.size_hint_changed();
         self.base.update();
@@ -312,7 +312,7 @@ struct ComputedButtonStyle {
 }
 
 impl ComputedElementStyle for ComputedButtonStyle {
-    fn new(style: &Style, element: &Element, scale: f32) -> ComputedButtonStyle {
+    fn new(style: &Style, element: &StyleSelector, scale: f32) -> ComputedButtonStyle {
         let properties = style.find_rules(|s| element.matches(s));
 
         let scale = scale * convert_zoom(&properties);

@@ -9,7 +9,7 @@ use {
         layout::{grid::grid_layout, SizeHints},
         style::{
             common::ComputedElementStyle,
-            css::{convert_font, convert_width, Element, PseudoClass},
+            css::{convert_font, convert_width, PseudoClass, StyleSelector},
             defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
             get_style, Style,
         },
@@ -161,7 +161,7 @@ impl NewWidget for TextInput {
         base.set_supports_focus(true);
         base.set_cursor_icon(CursorIcon::Text);
         let host_id = base.id();
-        let element = base.style_element().clone();
+        let element = base.style_selector().clone();
         let viewport = base.add_child_with_key::<Viewport>(0, ());
         viewport.base_mut().set_receives_all_mouse_events(true);
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
@@ -171,10 +171,10 @@ impl NewWidget for TextInput {
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into())
-            .set_host_style_element(element);
+            .set_host_style_selector(element);
         editor.base_mut().set_receives_all_mouse_events(true);
         Self {
-            style: get_style(base.style_element(), base.scale()),
+            style: get_style(base.style_selector(), base.scale()),
             base,
         }
     }
@@ -199,7 +199,7 @@ impl Widget for TextInput {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        self.style = get_style(self.base().style_element(), self.base().scale());
+        self.style = get_style(self.base().style_selector(), self.base().scale());
         Ok(())
     }
 
@@ -238,7 +238,7 @@ pub struct TextInputStyle {
 }
 
 impl ComputedElementStyle for TextInputStyle {
-    fn new(style: &Style, element: &Element, scale: f32) -> TextInputStyle {
+    fn new(style: &Style, element: &StyleSelector, scale: f32) -> TextInputStyle {
         let element_min = element
             .clone()
             .with_pseudo_class(PseudoClass::Custom("min".into()));

@@ -9,7 +9,7 @@ use {
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
             common::CommonComputedStyle,
-            css::{Element, PseudoClass},
+            css::{PseudoClass, StyleSelector},
             get_style,
         },
         system::{
@@ -31,7 +31,6 @@ use {
         ops::{Deref, DerefMut},
         rc::Rc,
     },
-    stringcase::kebab_case,
     winit::window::CursorIcon,
 };
 
@@ -217,8 +216,8 @@ pub struct WidgetBase {
     #[derivative(Debug = "ignore")]
     event_filters: HashMap<RawWidgetId, Box<EventFilterFn>>,
 
-    pub shortcuts: Vec<Shortcut>,
-    pub style_element: Element,
+    shortcuts: HashMap<ShortcutId, Shortcut>,
+    style_selector: StyleSelector,
     pub common_style: Rc<CommonComputedStyle>,
 
     pub num_added_children: u32,
@@ -234,7 +233,7 @@ impl Drop for WidgetBase {
         // Drop and unmount children before unmounting self.
         self.children.clear();
         self.remove_accessibility_node();
-        for shortcut in &self.shortcuts {
+        for shortcut in self.shortcuts.values() {
             // TODO: deregister widget/window shortcuts
             if shortcut.scope == ShortcutScope::Application {
                 with_system(|system| system.application_shortcuts.retain(|s| s.id != shortcut.id));
@@ -256,9 +255,9 @@ impl WidgetBase {
         register_address(id, ctx.address.clone());
 
         let type_name = T::type_name();
-        let style_element = Element::new(kebab_case(last_path_part(type_name)))
+        let style_selector = StyleSelector::new(last_path_part(type_name).into())
             .with_pseudo_class(PseudoClass::Enabled);
-        let common_style = get_style(&style_element, ctx.parent_scale);
+        let common_style = get_style(&style_selector, ctx.parent_scale);
         let mut common = Self {
             id,
             type_name,
@@ -286,8 +285,8 @@ impl WidgetBase {
             children: BTreeMap::new(),
             layout_item_options: LayoutItemOptions::default(),
             event_filters: HashMap::new(),
-            shortcuts: Vec::new(),
-            style_element,
+            shortcuts: HashMap::new(),
+            style_selector,
             common_style,
             num_added_children: 0,
             declared_children: Default::default(),
@@ -1088,26 +1087,30 @@ impl WidgetBase {
         Err(WidgetNotFound)
     }
 
+    // TODO: declare-compatible shortcut API
     pub fn add_shortcut(&mut self, shortcut: Shortcut) -> ShortcutId {
         let id = shortcut.id;
         if shortcut.scope == ShortcutScope::Application {
             with_system(|system| system.application_shortcuts.push(shortcut.clone()));
         }
         // TODO: register widget/window shortcuts
-        self.shortcuts.push(shortcut);
+        self.shortcuts.insert(id, shortcut);
         id
     }
-
     // TODO: remove_shortcut
 
     pub fn refresh_common_style(&mut self) {
-        self.common_style = get_style(&self.style_element, self.scale());
+        self.common_style = get_style(&self.style_selector, self.scale());
         self.size_hint_changed();
         self.update();
     }
 
-    pub fn style_element(&self) -> &Element {
-        &self.style_element
+    pub fn style_selector(&self) -> &StyleSelector {
+        &self.style_selector
+    }
+
+    pub(crate) fn style_selector_mut(&mut self) -> &mut StyleSelector {
+        &mut self.style_selector
     }
 
     /// Scale of the widget.

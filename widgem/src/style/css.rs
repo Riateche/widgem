@@ -821,14 +821,14 @@ impl PseudoClass {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Element {
+pub struct StyleSelector {
     tag: String,
     // TODO: small vec?
     classes: Vec<Cow<'static, str>>,
     pseudo_classes: Vec<PseudoClass>,
 }
 
-impl Element {
+impl StyleSelector {
     pub fn new(tag: String) -> Self {
         Self {
             tag,
