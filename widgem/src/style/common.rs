@@ -40,12 +40,11 @@ impl Default for ComputedBorderStyle {
 }
 
 #[derive(Debug)]
-pub struct BaseComputedStyle {
-    pub border: ComputedBorderStyle,
-    pub background: Option<ComputedBackground>,
-    pub text_color: tiny_skia::Color,
-    pub font_metrics: cosmic_text::Metrics,
-    pub grid: GridOptions,
+pub(crate) struct BaseComputedStyle {
+    pub(crate) border: ComputedBorderStyle,
+    pub(crate) background: Option<ComputedBackground>,
+    pub(crate) font_metrics: cosmic_text::Metrics,
+    pub(crate) grid: GridOptions,
 }
 
 impl ComputedElementStyle for BaseComputedStyle {
@@ -109,7 +108,6 @@ impl ComputedElementStyle for BaseComputedStyle {
             font_metrics: font.to_metrics(scale),
             border,
             background,
-            text_color,
             grid,
         }
     }

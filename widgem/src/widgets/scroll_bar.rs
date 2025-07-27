@@ -6,7 +6,7 @@ use {
             Event, FocusInEvent, FocusOutEvent, KeyboardInputEvent, LayoutEvent, MouseScrollEvent,
         },
         impl_widget_base,
-        layout::{grid_layout, Layout, SizeHints},
+        layout::{default_layout, Layout, SizeHint},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::widget_trait::NewWidget,
@@ -436,7 +436,7 @@ impl ScrollBar {
         let Some(size) = self.base.size() else {
             return Ok(());
         };
-        grid_layout(self, changed_size_hints);
+        default_layout(self, changed_size_hints);
         let pager_rect = self
             .base
             .get_dyn_child(INDEX_PAGER)
@@ -772,7 +772,7 @@ impl NewWidget for Pager {
 impl Widget for Pager {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
         let grip = self.base.get_dyn_child(INDEX_GRIP_IN_PAGER).unwrap();
         let grip_hint = grip.size_hint_x();
         let min_size = match self.axis {
@@ -783,13 +783,13 @@ impl Widget for Pager {
             Axis::X => grip_hint.preferred() * PAGER_SIZE_HINT_MULTIPLIER,
             Axis::Y => grip_hint.preferred(),
         };
-        Ok(SizeHints::new(
+        Ok(SizeHint::new(
             min_size,
             preferred_size,
             self.axis == Axis::Y,
         ))
     }
-    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
         let grip_hint = self
             .base
             .get_dyn_child(INDEX_GRIP_IN_PAGER)
@@ -803,7 +803,7 @@ impl Widget for Pager {
             Axis::X => grip_hint.preferred(),
             Axis::Y => grip_hint.preferred() * PAGER_SIZE_HINT_MULTIPLIER,
         };
-        Ok(SizeHints::new(
+        Ok(SizeHint::new(
             min_size,
             preferred_size,
             self.axis == Axis::X,

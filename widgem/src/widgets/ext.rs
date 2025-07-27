@@ -3,7 +3,7 @@ use {
     crate::{
         callback::{widget_callback, Callback},
         event::{Event, LayoutEvent, StyleChangeEvent},
-        layout::{Layout, SizeHints, FALLBACK_SIZE_HINTS},
+        layout::{Layout, SizeHint, FALLBACK_SIZE_HINTS},
         style::css::PseudoClass,
         system::{with_system, ReportError},
         types::PhysicalPixels,
@@ -270,7 +270,7 @@ pub trait WidgetExt: Widget {
         self.base_mut().after_declare_children(state);
     }
 
-    fn size_hint_x(&self) -> SizeHints {
+    fn size_hint_x(&self) -> SizeHint {
         if let Some(cached) = self.base().size_hint_x_cache() {
             cached
         } else {
@@ -283,7 +283,7 @@ pub trait WidgetExt: Widget {
         }
     }
 
-    fn size_hint_y(&self, size_x: PhysicalPixels) -> SizeHints {
+    fn size_hint_y(&self, size_x: PhysicalPixels) -> SizeHint {
         if let Some(cached) = self.base().size_hint_y_cache(size_x) {
             cached
         } else {

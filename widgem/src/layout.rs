@@ -35,13 +35,13 @@ pub enum Layout {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SizeHints {
+pub struct SizeHint {
     min: PhysicalPixels,
     preferred: PhysicalPixels,
     is_fixed: bool,
 }
 
-impl SizeHints {
+impl SizeHint {
     pub fn new(min: PhysicalPixels, preferred: PhysicalPixels, is_fixed: bool) -> Self {
         Self {
             min,
@@ -94,7 +94,7 @@ impl SizeHints {
 // }
 
 pub(crate) const FALLBACK_SIZE_HINT: i32 = 48;
-pub(crate) const FALLBACK_SIZE_HINTS: SizeHints = SizeHints {
+pub(crate) const FALLBACK_SIZE_HINTS: SizeHint = SizeHint {
     min: PhysicalPixels::from_i32(FALLBACK_SIZE_HINT),
     preferred: PhysicalPixels::from_i32(FALLBACK_SIZE_HINT),
     is_fixed: true,
@@ -217,7 +217,7 @@ pub(crate) fn fair_split(count: i32, total: PhysicalPixels) -> Vec<PhysicalPixel
 
 #[derive(Debug)]
 pub(crate) struct LayoutItem {
-    pub(crate) size_hints: SizeHints,
+    pub(crate) size_hints: SizeHint,
     // TODO: params
 }
 
@@ -324,12 +324,13 @@ pub(crate) fn solve_layout(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GridOptions {
-    pub x: GridAxisOptions,
-    pub y: GridAxisOptions,
+pub(crate) struct GridOptions {
+    pub(crate) x: GridAxisOptions,
+    pub(crate) y: GridAxisOptions,
 }
 
 impl GridOptions {
+    #[allow(dead_code)]
     pub const ZERO: Self = GridOptions {
         x: GridAxisOptions {
             min_padding: PhysicalPixels::ZERO,
@@ -351,13 +352,13 @@ impl GridOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct GridAxisOptions {
-    pub min_padding: PhysicalPixels,
-    pub min_spacing: PhysicalPixels,
-    pub preferred_padding: PhysicalPixels,
-    pub preferred_spacing: PhysicalPixels,
-    pub border_collapse: PhysicalPixels,
-    pub alignment: Alignment,
+pub(crate) struct GridAxisOptions {
+    pub(crate) min_padding: PhysicalPixels,
+    pub(crate) min_spacing: PhysicalPixels,
+    pub(crate) preferred_padding: PhysicalPixels,
+    pub(crate) preferred_spacing: PhysicalPixels,
+    pub(crate) border_collapse: PhysicalPixels,
+    pub(crate) alignment: Alignment,
 }
 
 fn size_hint(
@@ -399,11 +400,17 @@ fn size_hint(
         + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse)
 }
 
+pub fn default_size_hint_x(widget: &(impl Widget + ?Sized)) -> SizeHint {
+    let options = widget.base().base_style().grid.clone();
+    let rows_and_columns = assign_rows_and_columns(widget);
+    size_hint_x(widget, &options, &rows_and_columns)
+}
+
 pub(crate) fn size_hint_x(
     widget: &(impl Widget + ?Sized),
     options: &GridOptions,
     rows_and_columns: &RowsAndColumns,
-) -> SizeHints {
+) -> SizeHint {
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
@@ -426,11 +433,17 @@ pub(crate) fn size_hint_x(
             all_fixed = false;
         }
     }
-    SizeHints {
+    SizeHint {
         min: size_hint(&min_items, &options.x, SizeHintMode::Min),
         preferred: size_hint(&preferred_items, &options.x, SizeHintMode::Preferred),
         is_fixed: all_fixed,
     }
+}
+
+pub fn default_size_hint_y(widget: &(impl Widget + ?Sized), size_x: PhysicalPixels) -> SizeHint {
+    let options = widget.base().base_style().grid.clone();
+    let rows_and_columns = assign_rows_and_columns(widget);
+    size_hint_y(widget, &options, size_x, &rows_and_columns)
 }
 
 pub(crate) fn size_hint_y(
@@ -438,7 +451,7 @@ pub(crate) fn size_hint_y(
     options: &GridOptions,
     size_x: PhysicalPixels,
     rows_and_columns: &RowsAndColumns,
-) -> SizeHints {
+) -> SizeHint {
     let x_layout = x_layout(widget, rows_and_columns, &options.x, size_x);
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
@@ -466,7 +479,7 @@ pub(crate) fn size_hint_y(
             all_fixed = false;
         }
     }
-    SizeHints {
+    SizeHint {
         min: size_hint(&min_items, &options.y, SizeHintMode::Min),
         preferred: size_hint(&preferred_items, &options.y, SizeHintMode::Preferred),
         is_fixed: all_fixed,
@@ -546,14 +559,14 @@ fn x_layout(
 }
 
 #[derive(Default)]
-pub struct RowsAndColumns {
+pub(crate) struct RowsAndColumns {
     id_to_x: HashMap<RawWidgetId, RangeInclusive<i32>>,
     id_to_y: HashMap<RawWidgetId, RangeInclusive<i32>>,
     x_y_to_id: HashMap<(i32, i32), RawWidgetId>,
 }
 
 // TODO: refresh only when relevant things have changed
-pub fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &W) -> RowsAndColumns {
+pub(crate) fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &W) -> RowsAndColumns {
     let mut output = RowsAndColumns::default();
     let mut current_x = 0;
     let mut current_y = 0;
@@ -626,7 +639,8 @@ pub fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &W) -> RowsAndColumns
     output
 }
 
-pub fn grid_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
+// TODO: remove explicit changed_size_hints, pass in global context?
+pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
     let Some(geometry) = widget.base().geometry().cloned() else {
         for child in widget.base_mut().children_mut() {
             child.set_geometry(None, changed_size_hints);

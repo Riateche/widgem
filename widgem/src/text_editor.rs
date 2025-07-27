@@ -7,7 +7,7 @@ use {
             MouseInputEvent, MouseMoveEvent, StyleChangeEvent, WindowFocusChangeEvent,
         },
         impl_widget_base,
-        layout::SizeHints,
+        layout::SizeHint,
         shared_window::{ScrollToRectRequest, SetFocusRequest},
         shortcut::standard_shortcuts,
         style::{
@@ -1203,13 +1203,13 @@ impl Widget for Text {
         Ok(Some(node))
     }
 
-    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
-        Ok(SizeHints::new_fixed(self.size_x(), self.size_x()))
+    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
+        Ok(SizeHint::new_fixed(self.size_x(), self.size_x()))
     }
 
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
         // TODO: use size_x, handle multiple lines
-        Ok(SizeHints::new_fixed(self.size_y(), self.size_y()))
+        Ok(SizeHint::new_fixed(self.size_y(), self.size_y()))
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {

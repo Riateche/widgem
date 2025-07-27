@@ -3,7 +3,7 @@ use {
     crate::{
         draw::DrawEvent,
         impl_widget_base,
-        layout::SizeHints,
+        layout::SizeHint,
         types::{PhysicalPixels, Point, PpxSuffix},
         widgets::widget_trait::NewWidget,
         Pixmap,
@@ -104,24 +104,24 @@ impl Widget for Image {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
         let scale = self.total_scale();
         let size = self
             .pixmap
             .as_ref()
             .map_or(0.ppx(), |p| p.size_x().mul_f32_ceil(scale));
 
-        Ok(SizeHints::new_fixed(size, size))
+        Ok(SizeHint::new_fixed(size, size))
     }
 
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
         let scale = self.total_scale();
         let size = self
             .pixmap
             .as_ref()
             .map_or(0.ppx(), |p| p.size_y().mul_f32_ceil(scale));
 
-        Ok(SizeHints::new_fixed(size, size))
+        Ok(SizeHint::new_fixed(size, size))
     }
 
     fn handle_layout(&mut self, _event: crate::event::LayoutEvent) -> Result<()> {

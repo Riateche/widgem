@@ -7,7 +7,7 @@ use {
             KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
             MouseMoveEvent, MouseScrollEvent, StyleChangeEvent, WindowFocusChangeEvent,
         },
-        layout::{self, assign_rows_and_columns, grid_layout, SizeHints},
+        layout::{self, assign_rows_and_columns, default_layout, default_size_hint_y, SizeHint},
         types::PhysicalPixels,
         ScrollToRectRequest,
     },
@@ -274,7 +274,7 @@ pub trait Widget: Any {
     /// it's sufficient to implement [handle_size_hint_x_request](Self::handle_size_hint_x_request) and
     /// [handle_size_hint_y_request](Self::handle_size_hint_y_request).
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        grid_layout(self, &event.changed_size_hints);
+        default_layout(self, &event.changed_size_hints);
         Ok(())
     }
 
@@ -491,10 +491,8 @@ pub trait Widget: Any {
     /// Note that [set_layout_item_options](crate::widgets::WidgetBase::set_layout_item_options)
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
-    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
-        let options = self.base().base_style().grid.clone();
-        let rows_and_columns = assign_rows_and_columns(self);
-        Ok(layout::size_hint_x(self, &options, &rows_and_columns))
+    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
+        Ok(layout::default_size_hint_x(self))
     }
 
     /// Calculates size hint of this widget along the Y axis, given the X size.
@@ -520,15 +518,8 @@ pub trait Widget: Any {
     /// Note that [set_layout_item_options](crate::widgets::WidgetBase::set_layout_item_options)
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
-    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHints> {
-        let options = self.base().base_style().grid.clone();
-        let rows_and_columns = assign_rows_and_columns(self);
-        Ok(layout::size_hint_y(
-            self,
-            &options,
-            size_x,
-            &rows_and_columns,
-        ))
+    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
+        Ok(default_size_hint_y(self, size_x))
     }
 
     // TODO: track accesskit state and don't update nodes if it's disabled

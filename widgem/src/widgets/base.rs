@@ -4,7 +4,7 @@ use {
         callback::{widget_callback, Callback},
         child_key::ChildKey,
         event::Event,
-        layout::{Layout, LayoutItemOptions, SizeHints},
+        layout::{Layout, LayoutItemOptions, SizeHint},
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
@@ -172,9 +172,9 @@ auto_bitflags! {
 
 #[derive(Debug, Default)]
 struct Cache {
-    size_hint_x: Option<SizeHints>,
+    size_hint_x: Option<SizeHint>,
     // TODO: limit count
-    size_hint_y: HashMap<PhysicalPixels, SizeHints>,
+    size_hint_y: HashMap<PhysicalPixels, SizeHint>,
 }
 
 /// The first building block of a widget.
@@ -1367,19 +1367,19 @@ impl WidgetBase {
         cache.size_hint_y.clear();
     }
 
-    pub(crate) fn size_hint_x_cache(&self) -> Option<SizeHints> {
+    pub(crate) fn size_hint_x_cache(&self) -> Option<SizeHint> {
         self.cache.borrow().size_hint_x
     }
 
-    pub(crate) fn set_size_hint_x_cache(&self, value: SizeHints) {
+    pub(crate) fn set_size_hint_x_cache(&self, value: SizeHint) {
         self.cache.borrow_mut().size_hint_x = Some(value);
     }
 
-    pub(crate) fn size_hint_y_cache(&self, size_x: PhysicalPixels) -> Option<SizeHints> {
+    pub(crate) fn size_hint_y_cache(&self, size_x: PhysicalPixels) -> Option<SizeHint> {
         self.cache.borrow().size_hint_y.get(&size_x).cloned()
     }
 
-    pub(crate) fn set_size_hint_y_cache(&self, size_x: PhysicalPixels, value: SizeHints) {
+    pub(crate) fn set_size_hint_y_cache(&self, size_x: PhysicalPixels, value: SizeHint) {
         self.cache.borrow_mut().size_hint_y.insert(size_x, value);
     }
 

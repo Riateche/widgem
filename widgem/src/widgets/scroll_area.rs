@@ -5,7 +5,7 @@ use {
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_base,
-        layout::{grid_layout, Layout, SizeHints},
+        layout::{default_layout, Layout, SizeHint},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
         widgets::widget_trait::NewWidget,
     },
@@ -93,7 +93,7 @@ impl ScrollArea {
 
     fn relayout(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
         let geometry = self.base.geometry_or_err()?.clone();
-        grid_layout(self, changed_size_hints);
+        default_layout(self, changed_size_hints);
 
         if self.has_content() {
             let value_x = self
@@ -236,10 +236,10 @@ impl NewWidget for Viewport {
 impl Widget for Viewport {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
-        Ok(SizeHints::new_expanding(0.ppx(), 0.ppx()))
+    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
+        Ok(SizeHint::new_expanding(0.ppx(), 0.ppx()))
     }
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
-        Ok(SizeHints::new_expanding(0.ppx(), 0.ppx()))
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
+        Ok(SizeHint::new_expanding(0.ppx(), 0.ppx()))
     }
 }

@@ -4,7 +4,7 @@ use {
         child_key::ChildKey,
         event::LayoutEvent,
         impl_widget_base,
-        layout::SizeHints,
+        layout::SizeHint,
         types::{PhysicalPixels, PpxSuffix, Rect},
         widgets::NewWidget,
     },
@@ -44,7 +44,7 @@ impl Widget for Stack {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self) -> Result<crate::layout::SizeHints> {
+    fn handle_size_hint_x_request(&self) -> Result<crate::layout::SizeHint> {
         let max = self
             .base
             .children()
@@ -52,10 +52,10 @@ impl Widget for Stack {
             .map(|rect| rect.bottom_right().x())
             .max()
             .unwrap_or(0.ppx());
-        Ok(SizeHints::new_fixed(max, max))
+        Ok(SizeHint::new_fixed(max, max))
     }
 
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
+    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
         let max = self
             .base
             .children()
@@ -63,6 +63,6 @@ impl Widget for Stack {
             .map(|rect| rect.bottom_right().y())
             .max()
             .unwrap_or(0.ppx());
-        Ok(SizeHints::new_fixed(max, max))
+        Ok(SizeHint::new_fixed(max, max))
     }
 }
