@@ -763,7 +763,7 @@ impl NewWidget for Pager {
             base,
             axis: Axis::X,
         };
-        t.add_class("no_padding".into());
+        t.set_padding_enabled(false);
         t
     }
     fn handle_declared(&mut self, (): Self::Arg) {}

@@ -304,6 +304,10 @@ pub trait WidgetExt: Widget {
         self
     }
 
+    fn set_padding_enabled(&mut self, padding_enabled: bool) -> &mut Self {
+        self.set_class(Cow::Borrowed("no_padding"), !padding_enabled)
+    }
+
     fn remove_class(&mut self, class: Cow<'static, str>) -> &mut Self {
         if !self.base().style_selector().has_class(&class) {
             return self;
