@@ -9,6 +9,7 @@ pub mod event;
 mod event_loop;
 pub mod key;
 pub mod layout;
+mod pixmap;
 pub mod shared_window;
 pub mod shortcut;
 pub mod style;
@@ -20,20 +21,27 @@ pub mod types;
 pub mod widgets;
 mod window_handler;
 
+use crate::types::Rect;
 use event_loop::with_active_event_loop;
+
 pub use {
     crate::{
         accessibility::new_accessibility_node_id,
         event_loop::{run, App},
+        pixmap::Pixmap,
     },
-    tiny_skia,
     widgets::{
-        EventFilterFn, RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetBaseOf, WidgetExt,
-        WidgetGeometry, WidgetId, WidgetNotFound, Window,
+        RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetBaseOf, WidgetExt, WidgetGeometry,
+        WidgetId, WidgetNotFound, Window,
     },
-    winit::{self, window::WindowAttributes},
 };
 
 pub fn exit() {
     with_active_event_loop(|event_loop| event_loop.exit());
+}
+
+#[derive(Debug, Clone)]
+pub struct ScrollToRectRequest {
+    pub address: WidgetAddress,
+    pub rect: Rect,
 }

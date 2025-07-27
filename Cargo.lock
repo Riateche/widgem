@@ -4937,6 +4937,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "strum",
+ "tiny-skia",
  "uitest",
  "widgem",
  "widgem_macros",

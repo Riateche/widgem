@@ -183,10 +183,4 @@ pub struct AccessibilityActionEvent {
 }
 
 #[derive(Debug, Clone)]
-pub struct ScrollToRectRequest {
-    pub address: WidgetAddress,
-    pub rect: Rect,
-}
-
-#[derive(Debug, Clone)]
 pub struct StyleChangeEvent {}

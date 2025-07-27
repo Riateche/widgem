@@ -9,6 +9,7 @@ use {
         },
         system::with_system,
         types::{LogicalPixels, Point},
+        Pixmap,
     },
     anyhow::{anyhow, bail, Context, Result},
     lightningcss::{
@@ -26,7 +27,7 @@ use {
         path::{Path, PathBuf},
         rc::Rc,
     },
-    tiny_skia::{Color, Pixmap},
+    tiny_skia::Color,
 };
 
 pub mod common;
@@ -206,7 +207,7 @@ impl Style {
         }
     }
 
-    pub fn load_pixmap(&self, path: &str, scale: f32) -> Result<Rc<Pixmap>> {
+    pub fn load_pixmap(&self, path: &str, scale: f32) -> Result<Pixmap> {
         // TODO: cache pixmaps
         // TODO: support png
         if !path.ends_with(".svg") {
@@ -224,7 +225,7 @@ impl Style {
             tiny_skia::Transform::from_scale(scale, scale),
             &mut pixmap.as_mut(),
         );
-        Ok(Rc::new(pixmap))
+        Ok(pixmap.into())
     }
 
     pub fn get<T: ComputedElementStyle>(&mut self, element: &StyleSelector, scale: f32) -> Rc<T> {

@@ -18,13 +18,13 @@ use {
         text_editor::Text,
         timer::TimerId,
         widgets::widget_trait::NewWidget,
+        Pixmap,
     },
     accesskit::{Action, Role},
     anyhow::Result,
     cosmic_text::Attrs,
     log::warn,
     std::{fmt::Display, rc::Rc},
-    tiny_skia::Pixmap,
     widgem_macros::impl_with,
     winit::{
         event::MouseButton,
@@ -308,7 +308,7 @@ impl Widget for Button {
 
 #[derive(Debug, Clone, Default)]
 struct ComputedButtonStyle {
-    pub icon: Option<Rc<Pixmap>>,
+    pub icon: Option<Pixmap>,
 }
 
 impl ComputedElementStyle for ComputedButtonStyle {

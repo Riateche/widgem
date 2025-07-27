@@ -3,7 +3,7 @@ use {
     crate::{
         event::{
             FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
-            ScrollToRectRequest, StyleChangeEvent,
+            StyleChangeEvent,
         },
         impl_widget_base,
         layout::{grid::grid_layout, SizeHints},
@@ -17,6 +17,7 @@ use {
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
         widgets::NewWidget,
+        ScrollToRectRequest,
     },
     anyhow::Result,
     cosmic_text::Attrs,

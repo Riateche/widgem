@@ -922,7 +922,7 @@ impl WidgetBase {
     pub fn add_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
         let key = self.num_added_children;
         self.num_added_children += 1;
-        self.add_child_common(format!("__a{key}").into(), false, None, arg)
+        self.add_child_common(key.into(), false, None, arg)
     }
 
     /// Adds or replaces a child widget of type `T` associated with `key`. `arg` is passed to the child widget's constructor.
@@ -954,7 +954,7 @@ impl WidgetBase {
             *num += 1;
             key
         });
-        self.add_child_common(format!("__d{key}").into(), true, None, arg)
+        self.add_child_common(key.into(), true, None, arg)
     }
 
     /// Declares a child widget of type `T` associated with `key`.

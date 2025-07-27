@@ -95,6 +95,10 @@ impl PhysicalPixels {
         Self(((self.0 as f32) * scale).round() as i32)
     }
 
+    pub fn mul_f32_ceil(self, scale: f32) -> Self {
+        Self(((self.0 as f32) * scale).ceil() as i32)
+    }
+
     pub fn div_f32_round(self, scale: f32) -> Self {
         Self(((self.0 as f32) / scale).round() as i32)
     }

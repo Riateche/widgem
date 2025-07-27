@@ -5,14 +5,14 @@ use {
         event::{
             AccessibilityActionEvent, Event, FocusInEvent, FocusOutEvent, InputMethodEvent,
             KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-            MouseMoveEvent, MouseScrollEvent, ScrollToRectRequest, StyleChangeEvent,
-            WindowFocusChangeEvent,
+            MouseMoveEvent, MouseScrollEvent, StyleChangeEvent, WindowFocusChangeEvent,
         },
         layout::{
             grid::{self, assign_rows_and_columns, grid_layout},
             SizeHints,
         },
         types::PhysicalPixels,
+        ScrollToRectRequest,
     },
     anyhow::Result,
     log::warn,

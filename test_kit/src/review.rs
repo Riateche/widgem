@@ -11,12 +11,12 @@ use {
         rc::Rc,
     },
     strum::{EnumIter, IntoEnumIterator},
+    tiny_skia::{Pixmap, PremultipliedColorU8},
     widgem::{
         event::Event,
         impl_widget_base,
         layout::Layout,
         system::ReportError,
-        tiny_skia::{Pixmap, PremultipliedColorU8},
         types::Point,
         widgets::{
             Button, Image, Label, NewWidget, Row, Widget, WidgetBaseOf, WidgetExt, WidgetId, Window,
@@ -72,7 +72,7 @@ impl ReviewWidget {
             .set_text(state.snapshot_name);
         self.base
             .find_child_mut(self.image_id)?
-            .set_pixmap(state.snapshot);
+            .set_pixmap(state.snapshot.clone().map(Into::into));
         for (mode, id) in &self.mode_button_ids {
             self.base
                 .find_child_mut(*id)?

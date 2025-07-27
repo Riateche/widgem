@@ -3,7 +3,7 @@ use {
         event::{
             AccessibilityActionEvent, FocusInEvent, FocusOutEvent, FocusReason, InputMethodEvent,
             KeyboardInputEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent,
-            ScrollToRectRequest, WindowFocusChangeEvent,
+            WindowFocusChangeEvent,
         },
         event_loop::UserEvent,
         shared_window::{MouseEventState, SharedWindow, WindowRequest},
@@ -13,6 +13,7 @@ use {
             get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
             RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
         },
+        ScrollToRectRequest,
     },
     accesskit::ActionRequest,
     log::{trace, warn},

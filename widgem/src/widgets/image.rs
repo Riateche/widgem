@@ -4,19 +4,18 @@ use {
         draw::DrawEvent,
         impl_widget_base,
         layout::SizeHints,
-        types::{PhysicalPixels, Point},
+        types::{PhysicalPixels, Point, PpxSuffix},
         widgets::widget_trait::NewWidget,
+        Pixmap,
     },
     anyhow::Result,
-    png::DecodingError,
-    std::{path::Path, rc::Rc},
-    tiny_skia::Pixmap,
+    std::path::Path,
     usvg::Transform,
     widgem_macros::impl_with,
 };
 
 pub struct Image {
-    pixmap: Option<Rc<Pixmap>>,
+    pixmap: Option<Pixmap>,
     // TODO: finite f32
     scale: Option<f32>,
     base: WidgetBaseOf<Self>,
@@ -35,8 +34,8 @@ impl Image {
         self.is_prescaled
     }
 
-    pub fn set_pixmap(&mut self, pixmap: Option<Rc<Pixmap>>) {
-        if self.pixmap.as_ref().map(Rc::as_ptr) == pixmap.as_ref().map(Rc::as_ptr) {
+    pub fn set_pixmap(&mut self, pixmap: Option<Pixmap>) {
+        if self.pixmap == pixmap {
             return;
         }
         self.pixmap = pixmap;
@@ -44,8 +43,8 @@ impl Image {
         self.base.update();
     }
 
-    pub fn load_png<P: AsRef<Path>>(&mut self, path: P) -> Result<(), DecodingError> {
-        self.set_pixmap(Some(Rc::new(Pixmap::load_png(path)?)));
+    pub fn load_png<P: AsRef<Path>>(&mut self, path: P) -> anyhow::Result<()> {
+        self.set_pixmap(Some(Pixmap::load_png(path)?));
         Ok(())
     }
 
@@ -74,7 +73,7 @@ impl Image {
 }
 
 impl NewWidget for Image {
-    type Arg = Option<Rc<Pixmap>>;
+    type Arg = Option<Pixmap>;
 
     fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         Self {
@@ -98,7 +97,7 @@ impl Widget for Image {
         if let Some(pixmap) = &self.pixmap {
             event.draw_pixmap(
                 Point::default(),
-                (**pixmap).as_ref(),
+                pixmap.as_tiny_skia_ref(),
                 Transform::from_scale(scale, scale),
             );
         }
@@ -107,22 +106,28 @@ impl Widget for Image {
 
     fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
         let scale = self.total_scale();
-        let size = (self.pixmap.as_ref().map_or(0.0, |p| p.width() as f32) * scale).ceil() as i32;
+        let size = self
+            .pixmap
+            .as_ref()
+            .map_or(0.ppx(), |p| p.size_x().mul_f32_ceil(scale));
 
         Ok(SizeHints {
-            min: PhysicalPixels::from_i32(size),
-            preferred: PhysicalPixels::from_i32(size),
+            min: size,
+            preferred: size,
             is_fixed: true,
         })
     }
 
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let scale = self.total_scale();
-        let size = (self.pixmap.as_ref().map_or(0.0, |p| p.height() as f32) * scale).ceil() as i32;
+        let size = self
+            .pixmap
+            .as_ref()
+            .map_or(0.ppx(), |p| p.size_y().mul_f32_ceil(scale));
 
         Ok(SizeHints {
-            min: PhysicalPixels::from_i32(size),
-            preferred: PhysicalPixels::from_i32(size),
+            min: size,
+            preferred: size,
             is_fixed: true,
         })
     }

@@ -2,11 +2,12 @@ use {
     super::{base::WidgetGeometry, Widget, WidgetAddress, WidgetId},
     crate::{
         callback::{widget_callback, Callback},
-        event::{Event, LayoutEvent, ScrollToRectRequest, StyleChangeEvent},
+        event::{Event, LayoutEvent, StyleChangeEvent},
         layout::{Layout, SizeHints, FALLBACK_SIZE_HINTS},
         style::css::PseudoClass,
         system::{with_system, ReportError},
         types::PhysicalPixels,
+        ScrollToRectRequest,
     },
     anyhow::Result,
     log::{error, warn},
