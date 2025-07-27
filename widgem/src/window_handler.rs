@@ -405,10 +405,15 @@ impl<'a> WindowHandler<'a> {
         let old_preferred_size = self.window.preferred_inner_size();
         let hints_x = self.root_widget.size_hint_x();
         let preferred_size = Size::new(
-            hints_x.preferred,
-            self.root_widget.size_hint_y(hints_x.preferred).preferred,
+            hints_x.preferred(),
+            self.root_widget
+                .size_hint_y(hints_x.preferred())
+                .preferred(),
         );
-        let min_size = Size::new(hints_x.min, self.root_widget.size_hint_y(hints_x.min).min);
+        let min_size = Size::new(
+            hints_x.min(),
+            self.root_widget.size_hint_y(hints_x.min()).min(),
+        );
         self.window.set_min_inner_size(min_size);
         if min_size != old_min_size || preferred_size != old_preferred_size {
             self.window.set_preferred_inner_size(preferred_size);

@@ -5,7 +5,7 @@ use {
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_base,
-        layout::{grid::grid_layout, Layout, SizeHints},
+        layout::{grid_layout, Layout, SizeHints},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
         widgets::widget_trait::NewWidget,
     },
@@ -124,7 +124,7 @@ impl ScrollArea {
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
                 .size_hint_x()
-                .preferred;
+                .preferred();
             let content_size_y = self
                 .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
@@ -133,7 +133,7 @@ impl ScrollArea {
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
                 .size_hint_y(content_size_x)
-                .preferred;
+                .preferred();
             let content_rect = Rect::from_xywh(
                 PhysicalPixels::from_i32(-value_x),
                 PhysicalPixels::from_i32(-value_y),
@@ -237,17 +237,9 @@ impl Widget for Viewport {
     impl_widget_base!();
 
     fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
-        Ok(SizeHints {
-            min: 0.ppx(),
-            preferred: 0.ppx(),
-            is_fixed: false,
-        })
+        Ok(SizeHints::new_expanding(0.ppx(), 0.ppx()))
     }
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
-        Ok(SizeHints {
-            min: 0.ppx(),
-            preferred: 0.ppx(),
-            is_fixed: false,
-        })
+        Ok(SizeHints::new_expanding(0.ppx(), 0.ppx()))
     }
 }

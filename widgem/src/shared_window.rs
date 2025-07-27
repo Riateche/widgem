@@ -229,12 +229,14 @@ impl SharedWindow {
         let size_hints_x = root_widget.size_hint_x();
         // TODO: adjust size_x for screen size
         let preferred_size = Size::new(
-            size_hints_x.preferred,
-            root_widget.size_hint_y(size_hints_x.preferred).preferred,
+            size_hints_x.preferred(),
+            root_widget
+                .size_hint_y(size_hints_x.preferred())
+                .preferred(),
         );
         let min_size = Size::new(
-            size_hints_x.min,
-            root_widget.size_hint_y(size_hints_x.min).min,
+            size_hints_x.min(),
+            root_widget.size_hint_y(size_hints_x.min()).min(),
         );
 
         // TODO: all attrs

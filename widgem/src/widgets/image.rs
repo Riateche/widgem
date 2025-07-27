@@ -111,11 +111,7 @@ impl Widget for Image {
             .as_ref()
             .map_or(0.ppx(), |p| p.size_x().mul_f32_ceil(scale));
 
-        Ok(SizeHints {
-            min: size,
-            preferred: size,
-            is_fixed: true,
-        })
+        Ok(SizeHints::new_fixed(size, size))
     }
 
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
@@ -125,11 +121,7 @@ impl Widget for Image {
             .as_ref()
             .map_or(0.ppx(), |p| p.size_y().mul_f32_ceil(scale));
 
-        Ok(SizeHints {
-            min: size,
-            preferred: size,
-            is_fixed: true,
-        })
+        Ok(SizeHints::new_fixed(size, size))
     }
 
     fn handle_layout(&mut self, _event: crate::event::LayoutEvent) -> Result<()> {

@@ -6,7 +6,7 @@ use {
             StyleChangeEvent,
         },
         impl_widget_base,
-        layout::{grid::grid_layout, SizeHints},
+        layout::{grid_layout, SizeHints},
         style::{
             common::ComputedElementStyle,
             css::{convert_font, convert_width, PseudoClass, StyleSelector},
@@ -43,21 +43,13 @@ impl Widget for Viewport {
     impl_widget_base!();
 
     fn handle_size_hint_x_request(&self) -> Result<crate::layout::SizeHints> {
-        Ok(SizeHints {
-            min: 0.ppx(),
-            preferred: 0.ppx(),
-            is_fixed: false,
-        })
+        Ok(SizeHints::new_expanding(0.ppx(), 0.ppx()))
     }
 
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         let size =
             PhysicalPixels::from_i32(self.base.get_child::<Text>(0).unwrap().line_height() as i32);
-        Ok(SizeHints {
-            min: size,
-            preferred: size,
-            is_fixed: true,
-        })
+        Ok(SizeHints::new_fixed(size, size))
     }
 }
 
@@ -205,11 +197,10 @@ impl Widget for TextInput {
     }
 
     fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
-        Ok(SizeHints {
-            min: self.style.min_width,
-            preferred: self.style.preferred_width,
-            is_fixed: false,
-        })
+        Ok(SizeHints::new_expanding(
+            self.style.min_width,
+            self.style.preferred_width,
+        ))
     }
 
     fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {

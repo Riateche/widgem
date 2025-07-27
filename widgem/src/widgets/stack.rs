@@ -1,9 +1,9 @@
 use {
     super::{Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
+        child_key::ChildKey,
         event::LayoutEvent,
         impl_widget_base,
-        child_key::ChildKey,
         layout::SizeHints,
         types::{PhysicalPixels, PpxSuffix, Rect},
         widgets::NewWidget,
@@ -52,11 +52,7 @@ impl Widget for Stack {
             .map(|rect| rect.bottom_right().x())
             .max()
             .unwrap_or(0.ppx());
-        Ok(SizeHints {
-            min: max,
-            preferred: max,
-            is_fixed: true,
-        })
+        Ok(SizeHints::new_fixed(max, max))
     }
 
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
@@ -67,10 +63,6 @@ impl Widget for Stack {
             .map(|rect| rect.bottom_right().y())
             .max()
             .unwrap_or(0.ppx());
-        Ok(SizeHints {
-            min: max,
-            preferred: max,
-            is_fixed: true,
-        })
+        Ok(SizeHints::new_fixed(max, max))
     }
 }

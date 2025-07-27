@@ -6,7 +6,7 @@ use {
             Event, FocusInEvent, FocusOutEvent, KeyboardInputEvent, LayoutEvent, MouseScrollEvent,
         },
         impl_widget_base,
-        layout::{grid::grid_layout, Layout, SizeHints},
+        layout::{grid_layout, Layout, SizeHints},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::widget_trait::NewWidget,
@@ -452,7 +452,7 @@ impl ScrollBar {
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .size_hint_x()
-            .preferred;
+            .preferred();
         let grip_size_hint_y = self
             .base
             .get_dyn_child_mut(INDEX_PAGER)
@@ -461,7 +461,7 @@ impl ScrollBar {
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .size_hint_y(grip_size_hint_x)
-            .preferred;
+            .preferred();
 
         let (size_along_axis, grip_min_size_along_axis, pager_size_along_axis) = match self.axis {
             Axis::X => (size.x(), grip_size_hint_x, pager_rect.size_x()),
@@ -526,8 +526,8 @@ impl NewWidget for ScrollBar {
             .base
             .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER, names::SCROLL_PAGER.into())
             .set_grid_cell(0, 0)
-            .set_size_x_fixed(false)
-            .set_size_y_fixed(false)
+            .set_size_x_fixed(Some(false))
+            .set_size_y_fixed(Some(false))
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_pager".into())
@@ -776,18 +776,18 @@ impl Widget for Pager {
         let grip = self.base.get_dyn_child(INDEX_GRIP_IN_PAGER).unwrap();
         let grip_hint = grip.size_hint_x();
         let min_size = match self.axis {
-            Axis::X => grip_hint.min * PAGER_SIZE_HINT_MULTIPLIER,
-            Axis::Y => grip_hint.min,
+            Axis::X => grip_hint.min() * PAGER_SIZE_HINT_MULTIPLIER,
+            Axis::Y => grip_hint.min(),
         };
         let preferred_size = match self.axis {
-            Axis::X => grip_hint.preferred * PAGER_SIZE_HINT_MULTIPLIER,
-            Axis::Y => grip_hint.preferred,
+            Axis::X => grip_hint.preferred() * PAGER_SIZE_HINT_MULTIPLIER,
+            Axis::Y => grip_hint.preferred(),
         };
-        Ok(SizeHints {
-            min: min_size,
-            preferred: preferred_size,
-            is_fixed: self.axis == Axis::Y,
-        })
+        Ok(SizeHints::new(
+            min_size,
+            preferred_size,
+            self.axis == Axis::Y,
+        ))
     }
     fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHints> {
         let grip_hint = self
@@ -796,17 +796,17 @@ impl Widget for Pager {
             .unwrap()
             .size_hint_y(size_x);
         let min_size = match self.axis {
-            Axis::X => grip_hint.min,
-            Axis::Y => grip_hint.min * PAGER_SIZE_HINT_MULTIPLIER,
+            Axis::X => grip_hint.min(),
+            Axis::Y => grip_hint.min() * PAGER_SIZE_HINT_MULTIPLIER,
         };
         let preferred_size = match self.axis {
-            Axis::X => grip_hint.preferred,
-            Axis::Y => grip_hint.preferred * PAGER_SIZE_HINT_MULTIPLIER,
+            Axis::X => grip_hint.preferred(),
+            Axis::Y => grip_hint.preferred() * PAGER_SIZE_HINT_MULTIPLIER,
         };
-        Ok(SizeHints {
-            min: min_size,
-            preferred: preferred_size,
-            is_fixed: self.axis == Axis::X,
-        })
+        Ok(SizeHints::new(
+            min_size,
+            preferred_size,
+            self.axis == Axis::X,
+        ))
     }
 }

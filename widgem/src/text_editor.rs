@@ -1204,20 +1204,12 @@ impl Widget for Text {
     }
 
     fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
-        Ok(SizeHints {
-            min: self.size_x(),
-            preferred: self.size_x(),
-            is_fixed: true,
-        })
+        Ok(SizeHints::new_fixed(self.size_x(), self.size_x()))
     }
 
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHints> {
         // TODO: use size_x, handle multiple lines
-        Ok(SizeHints {
-            min: self.size_y(),
-            preferred: self.size_y(),
-            is_fixed: true,
-        })
+        Ok(SizeHints::new_fixed(self.size_y(), self.size_y()))
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {

@@ -401,15 +401,15 @@ pub trait WidgetExt: Widget {
         self
     }
 
-    fn set_size_x_fixed(&mut self, fixed: bool) -> &mut Self {
+    fn set_size_x_fixed(&mut self, fixed: Option<bool>) -> &mut Self {
         let mut options = self.base().layout_item_options().clone();
-        options.x.is_fixed = Some(fixed);
+        options.set_x_fixed(fixed);
         self.base_mut().set_layout_item_options(options);
         self
     }
-    fn set_size_y_fixed(&mut self, fixed: bool) -> &mut Self {
+    fn set_size_y_fixed(&mut self, fixed: Option<bool>) -> &mut Self {
         let mut options = self.base().layout_item_options().clone();
-        options.y.is_fixed = Some(fixed);
+        options.set_y_fixed(fixed);
         self.base_mut().set_layout_item_options(options);
         self
     }

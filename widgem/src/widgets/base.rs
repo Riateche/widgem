@@ -2,8 +2,8 @@ use {
     super::{address, RawWidgetId, Widget, WidgetAddress, WidgetId, WidgetNotFound},
     crate::{
         callback::{widget_callback, Callback},
-        event::Event,
         child_key::ChildKey,
+        event::Event,
         layout::{Layout, LayoutItemOptions, SizeHints},
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
@@ -1331,13 +1331,12 @@ impl WidgetBase {
     /// This setting only takes effect if the parent's layout is [Layout::ExplicitGrid].
     /// In other layout modes, column and row are assigned automatically.
     pub fn set_grid_cell(&mut self, x: i32, y: i32) -> &mut Self {
-        if self.layout_item_options.x.pos_in_grid == Some(x..=x)
-            && self.layout_item_options.y.pos_in_grid == Some(y..=y)
+        if self.layout_item_options.x().grid_cell() == Some(x..=x)
+            && self.layout_item_options.y().grid_cell() == Some(y..=y)
         {
             return self;
         }
-        self.layout_item_options.x.pos_in_grid = Some(x..=x);
-        self.layout_item_options.y.pos_in_grid = Some(y..=y);
+        self.layout_item_options.set_grid_cell(x, y);
         self.size_hint_changed();
         self
     }

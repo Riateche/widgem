@@ -7,7 +7,7 @@ use {
         RelativeOffset, Style,
     },
     crate::{
-        layout::grid::{GridAxisOptions, GridOptions},
+        layout::{GridAxisOptions, GridOptions},
         style::{
             css::{
                 convert_spacing, get_border_collapse, get_text_alignment, get_vertical_alignment,

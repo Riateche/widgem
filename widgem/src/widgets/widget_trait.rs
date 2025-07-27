@@ -7,10 +7,7 @@ use {
             KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
             MouseMoveEvent, MouseScrollEvent, StyleChangeEvent, WindowFocusChangeEvent,
         },
-        layout::{
-            grid::{self, assign_rows_and_columns, grid_layout},
-            SizeHints,
-        },
+        layout::{self, assign_rows_and_columns, grid_layout, SizeHints},
         types::PhysicalPixels,
         ScrollToRectRequest,
     },
@@ -497,7 +494,7 @@ pub trait Widget: Any {
     fn handle_size_hint_x_request(&self) -> Result<SizeHints> {
         let options = self.base().base_style().grid.clone();
         let rows_and_columns = assign_rows_and_columns(self);
-        Ok(grid::size_hint_x(self, &options, &rows_and_columns))
+        Ok(layout::size_hint_x(self, &options, &rows_and_columns))
     }
 
     /// Calculates size hint of this widget along the Y axis, given the X size.
@@ -526,7 +523,12 @@ pub trait Widget: Any {
     fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHints> {
         let options = self.base().base_style().grid.clone();
         let rows_and_columns = assign_rows_and_columns(self);
-        Ok(grid::size_hint_y(self, &options, size_x, &rows_and_columns))
+        Ok(layout::size_hint_y(
+            self,
+            &options,
+            size_x,
+            &rows_and_columns,
+        ))
     }
 
     // TODO: track accesskit state and don't update nodes if it's disabled
