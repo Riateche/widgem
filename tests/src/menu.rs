@@ -2,17 +2,28 @@ use {
     widgem::{
         impl_widget_base,
         widgets::{Button, Menu, MenuItem, NewWidget, Widget, WidgetBaseOf, Window},
+        WidgetExt, WidgetId,
     },
     widgem_test_kit::context::Context,
 };
 
 pub struct RootWidget {
     base: WidgetBaseOf<Self>,
+    button_id: WidgetId<Button>,
 }
 
 impl RootWidget {
     fn on_triggered(&mut self, _event: ()) -> anyhow::Result<()> {
-        let menu = self.base.add_child::<Menu>(());
+        let button = self.base.find_child(self.button_id)?;
+        let rect = button.base().rect_in_window_or_err()?;
+        let window = button.base().window_or_err()?;
+        let pos_in_window = window
+            .cursor_position()
+            .unwrap_or_else(|| rect.bottom_right());
+        let global_pos = window.inner_position()? + pos_in_window;
+
+        let menu = self.base.add_child::<Menu>(global_pos);
+
         menu.base_mut().add_child::<MenuItem>("Item 1".into());
         menu.base_mut().add_child::<MenuItem>("Item 2".into());
         menu.base_mut().add_child::<MenuItem>("Item 3".into());
@@ -27,12 +38,13 @@ impl NewWidget for RootWidget {
         let id = base.id();
         let window = base.add_child::<Window>(module_path!().into());
 
-        window
+        let button_id = window
             .base_mut()
             .add_child::<Button>("test".into())
-            .on_triggered(id.callback(Self::on_triggered));
+            .on_triggered(id.callback(Self::on_triggered))
+            .id();
 
-        Self { base }
+        Self { base, button_id }
     }
     fn handle_declared(&mut self, (): Self::Arg) {}
 }

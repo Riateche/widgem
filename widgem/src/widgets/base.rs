@@ -614,6 +614,13 @@ impl WidgetBase {
             return self;
         }
         self.flags.set(Flags::self_visible, value);
+        if self.is_window_root() {
+            if let Some(window) = &self.window {
+                window.set_visible(value);
+            } else {
+                error!("missing window for window root");
+            }
+        }
         self.size_hint_changed(); // trigger layout
         self
     }
@@ -1105,6 +1112,30 @@ impl WidgetBase {
             .context("no such key")?
             .downcast_mut()
             .context("child type mismatch")
+    }
+
+    /// Get a reference to the direct or indirect child of type `T` identified by `id`.
+    ///
+    /// Returns an error if there is no such child or if the child has a type other than `T`.
+    pub fn find_child<W: Widget>(&self, id: WidgetId<W>) -> Result<&W, WidgetNotFound> {
+        let w = self.find_dyn_child(id.raw())?;
+        Ok(w.downcast_ref::<W>().expect("child type mismatch"))
+    }
+
+    /// Get a mutable dyn reference to the direct or indirect child identified by `id`.
+    ///
+    /// Returns an error if there is no such child.
+    pub fn find_dyn_child(&self, id: RawWidgetId) -> Result<&dyn Widget, WidgetNotFound> {
+        // TODO: speed up
+        for child in self.children.values() {
+            if child.base().id == id {
+                return Ok(child.as_ref());
+            }
+            if let Ok(widget) = child.base().find_dyn_child(id) {
+                return Ok(widget);
+            }
+        }
+        Err(WidgetNotFound)
     }
 
     /// Get a mutable reference to the direct or indirect child of type `T` identified by `id`.

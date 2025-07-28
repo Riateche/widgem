@@ -2,10 +2,13 @@ use {
     super::{Widget, WidgetBaseOf},
     crate::{
         callback::{Callback, Callbacks},
+        event::WindowFocusChangeEvent,
         impl_widget_base,
         shared_window::X11WindowType,
         text_editor::Text,
+        types::Point,
         widgets::widget_trait::NewWidget,
+        WidgetExt,
     },
     log::error,
     winit::window::WindowLevel,
@@ -13,26 +16,40 @@ use {
 
 pub struct Menu {
     base: WidgetBaseOf<Self>,
+    window_was_focused: bool,
 }
 
 impl Menu {}
 
 impl NewWidget for Menu {
-    type Arg = ();
+    type Arg = Point;
 
-    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
+    fn new(base: WidgetBaseOf<Self>, position: Self::Arg) -> Self {
         if let Some(window) = base.window() {
             window.set_title("Menu"); // TODO: translations
             window.set_decorations(false);
+            window.set_has_macos_shadow(false);
+            window.set_resizable(false);
             window.set_window_level(WindowLevel::AlwaysOnTop);
             window.set_x11_window_type(vec![X11WindowType::Menu]);
             window.set_skip_windows_taskbar(true);
+            window.set_outer_position(position);
         } else {
             error!("Menu::new: missing window");
-        };
-        Self { base }
+        }
+        Self {
+            base,
+            window_was_focused: false,
+        }
     }
-    fn handle_declared(&mut self, (): Self::Arg) {}
+
+    fn handle_declared(&mut self, position: Self::Arg) {
+        if let Some(window) = self.base.window() {
+            window.set_outer_position(position);
+        } else {
+            error!("Menu::new: missing window");
+        }
+    }
 }
 
 impl Widget for Menu {
@@ -43,6 +60,17 @@ impl Widget for Menu {
         Self: Sized,
     {
         true
+    }
+
+    fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> anyhow::Result<()> {
+        if event.is_window_focused() {
+            self.window_was_focused = true;
+        } else {
+            if self.window_was_focused {
+                self.set_visible(false);
+            }
+        }
+        Ok(())
     }
 }
 

@@ -211,6 +211,12 @@ impl From<Point> for winit::dpi::PhysicalPosition<i32> {
     }
 }
 
+impl From<winit::dpi::PhysicalPosition<i32>> for Point {
+    fn from(value: winit::dpi::PhysicalPosition<i32>) -> Self {
+        Point::new(value.x.ppx(), value.y.ppx())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Size {
     x: PhysicalPixels,

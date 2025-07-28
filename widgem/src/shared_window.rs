@@ -36,6 +36,13 @@ use {
     },
 };
 
+#[cfg(target_os = "macos")]
+use winit::platform::macos::WindowAttributesExtMacOS;
+#[cfg(windows)]
+use winit::platform::windows::WindowAttributesExtWindows;
+#[cfg(all(unix, not(target_vendor = "apple")))]
+use winit::platform::x11::WindowAttributesExtX11;
+
 // Extra size to avoid visual artifacts when resizing the window.
 // Must be > 0 to avoid panic on pixmap creation.
 const EXTRA_SURFACE_SIZE: u32 = 50;
@@ -114,7 +121,7 @@ pub struct SharedWindowInner {
 
 #[derive(Debug)]
 pub struct Attributes {
-    pub position: Option<Point>,
+    pub outer_position: Option<Point>,
     pub resizable: bool,
     pub enabled_buttons: WindowButtons,
     pub title: Option<String>,
@@ -131,6 +138,7 @@ pub struct Attributes {
     pub active: Option<bool>,
     pub fullscreen: Option<Fullscreen>,
     // TODO: more platform specific
+    pub has_macos_shadow: Option<bool>,
     pub x11_window_type: Option<Vec<X11WindowType>>,
     pub skip_windows_taskbar: Option<bool>,
 }
@@ -138,7 +146,7 @@ pub struct Attributes {
 impl Default for Attributes {
     fn default() -> Self {
         Attributes {
-            position: None,
+            outer_position: None,
             resizable: true,
             enabled_buttons: WindowButtons::all(),
             title: None,
@@ -154,6 +162,7 @@ impl Default for Attributes {
             resize_increments: None,
             content_protected: false,
             active: None,
+            has_macos_shadow: None,
             x11_window_type: None,
             skip_windows_taskbar: None,
         }
@@ -239,7 +248,6 @@ impl SharedWindow {
             root_widget.size_hint_y(size_hints_x.min()).min(),
         );
 
-        // TODO: all attrs
         let mut attrs = WindowAttributes::default()
             .with_inner_size(PhysicalSize::from(preferred_size))
             .with_min_inner_size(PhysicalSize::from(min_size))
@@ -251,7 +259,6 @@ impl SharedWindow {
             .with_transparent(inner.attributes.transparent)
             .with_blur(inner.attributes.blur)
             .with_decorations(inner.attributes.decorations)
-            .with_resizable(inner.attributes.resizable)
             .with_window_icon(inner.attributes.window_icon.clone())
             .with_theme(inner.attributes.preferred_theme)
             .with_content_protected(inner.attributes.content_protected)
@@ -264,24 +271,27 @@ impl SharedWindow {
         if let Some(active) = inner.attributes.active {
             attrs = attrs.with_active(active);
         }
-        if let Some(position) = &inner.attributes.position {
-            attrs = attrs.with_position(PhysicalPosition::from(*position));
+        if let Some(position) = inner.attributes.outer_position.take() {
+            attrs = attrs.with_position(PhysicalPosition::from(position));
         }
         if let Some(resize_increments) = &inner.attributes.resize_increments {
             attrs = attrs.with_resize_increments(PhysicalSize::from(*resize_increments));
         }
+
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(has_shadow) = inner.attributes.has_macos_shadow {
+                attrs = attrs.with_has_shadow(has_shadow);
+            }
+        }
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
-            use winit::platform::x11::WindowAttributesExtX11;
-
             if let Some(v) = &inner.attributes.x11_window_type {
                 attrs = attrs.with_x11_window_type(v.iter().copied().map(Into::into).collect());
             }
         }
         #[cfg(windows)]
         {
-            use winit::platform::windows::WindowAttributesExtWindows;
-
             if let Some(v) = &inner.attributes.skip_windows_taskbar {
                 attrs = attrs.with_skip_taskbar(v);
             }
@@ -384,6 +394,39 @@ impl SharedWindow {
         self.0.borrow().cursor_position
     }
 
+    pub fn inner_position(&self) -> anyhow::Result<Point> {
+        let inner = self.0.borrow();
+        let window = inner
+            .winit_window
+            .as_ref()
+            .context("native window is not created yet")?;
+        let position = window
+            .inner_position()
+            .context("winit window position is unsupported")?;
+        Ok(position.into())
+    }
+
+    pub fn outer_position(&self) -> anyhow::Result<Point> {
+        let this = self.0.borrow();
+        if let Some(window) = &this.winit_window {
+            let position = window
+                .outer_position()
+                .context("winit window position is unsupported")?;
+            Ok(position.into())
+        } else {
+            self.outer_position()
+                .context("native window is not created yet")
+        }
+    }
+
+    pub fn set_outer_position(&self, position: Point) {
+        let mut this = self.0.borrow_mut();
+        if let Some(window) = &this.winit_window {
+            window.set_outer_position(PhysicalPosition::from(position));
+        }
+        this.attributes.outer_position = Some(position);
+    }
+
     pub(crate) fn num_clicks(&self) -> u32 {
         self.0.borrow().num_clicks
     }
@@ -400,10 +443,13 @@ impl SharedWindow {
         self.0.borrow().is_delete_widget_on_close_enabled
     }
 
-    pub fn set_visible(&self, visible: bool) {
-        if let Some(w) = self.0.borrow().winit_window.as_ref() {
+    // Private: visibility should be set on the window's root widget
+    pub(crate) fn set_visible(&self, visible: bool) {
+        let mut this = self.0.borrow_mut();
+        if let Some(w) = this.winit_window.as_ref() {
             w.set_visible(visible);
         }
+        this.attributes.visible = visible;
     }
 
     pub(crate) fn set_cursor(&self, icon: CursorIcon) {
@@ -883,6 +929,17 @@ impl SharedWindow {
         this.attributes.decorations = value;
     }
 
+    pub fn set_resizable(&self, value: bool) {
+        let this = &mut *self.0.borrow_mut();
+        if value == this.attributes.resizable {
+            return;
+        }
+        if let Some(window) = &this.winit_window {
+            window.set_resizable(value);
+        }
+        this.attributes.resizable = value;
+    }
+
     pub fn set_window_level(&self, value: WindowLevel) {
         let this = &mut *self.0.borrow_mut();
         if value == this.attributes.window_level {
@@ -892,6 +949,23 @@ impl SharedWindow {
             window.set_window_level(value);
         }
         this.attributes.window_level = value;
+    }
+
+    #[allow(unused_variables)]
+    pub fn set_has_macos_shadow(&self, value: bool) {
+        #[cfg(target_os = "macos")]
+        {
+            use winit::platform::macos::WindowExtMacOS;
+
+            let this = &mut *self.0.borrow_mut();
+            if Some(&value) == this.attributes.has_macos_shadow.as_ref() {
+                return;
+            }
+            if let Some(window) = &this.winit_window {
+                window.set_has_shadow(value);
+            }
+            this.attributes.has_macos_shadow = Some(value);
+        }
     }
 
     #[allow(unused_variables)]
@@ -924,7 +998,7 @@ impl SharedWindow {
         }
     }
 
-    pub fn deregister(&self) {
+    pub(crate) fn deregister(&self) {
         let this = self.0.borrow();
         let id = this.id;
         let winit_id = this.winit_window.as_ref().map(|w| w.id());
