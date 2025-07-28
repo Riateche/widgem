@@ -179,9 +179,7 @@ impl NewWidget for Button {
         base.add_child::<Image>(None).set_visible(false);
         let id = base.id().raw();
         let element = base.style_selector().clone();
-        base.add_child::<Text>(arg)
-            .set_host_id(id)
-            .set_host_style_selector(element);
+        base.add_child::<Text>((arg, element)).set_host_id(id);
         let mut b = Self {
             style: get_style(base.style_selector(), base.scale()),
             auto_repeat: false,

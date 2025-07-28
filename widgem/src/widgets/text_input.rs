@@ -160,11 +160,10 @@ impl NewWidget for TextInput {
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
         let editor = viewport
             .base_mut()
-            .add_child_with_key::<Text>(0, String::new())
+            .add_child_with_key::<Text>(0, (String::new(), element))
             .set_multiline(false)
             .set_editable(true)
-            .set_host_id(host_id.into())
-            .set_host_style_selector(element);
+            .set_host_id(host_id.into());
         editor.base_mut().set_receives_all_mouse_events(true);
         Self {
             style: get_style(base.style_selector(), base.scale()),

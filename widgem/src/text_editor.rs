@@ -997,18 +997,18 @@ impl Text {
 }
 
 impl NewWidget for Text {
-    type Arg = String;
+    // TODO: config struct?
+    type Arg = (String, StyleSelector);
 
-    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
-        // Host element is not known at this time.
-        let style = TextStyle::default(base.scale());
+    fn new(base: WidgetBaseOf<Self>, (text, style_selector): (String, StyleSelector)) -> Self {
+        let style = get_style::<TextStyle>(&style_selector, base.scale());
         let editor = with_system(|system| {
             Editor::new(Buffer::new(&mut system.font_system, style.font_metrics))
         });
         let mut t = Self {
             editor,
             pixmap: None,
-            host_element: StyleSelector::new("_unknown_".into()),
+            host_element: style_selector,
             style,
             size: Size::default(),
             is_multiline: true,
@@ -1030,14 +1030,15 @@ impl NewWidget for Text {
             );
         }
         t.editor.set_cursor_hidden(true);
-        t.set_text(arg, Attrs::new());
+        t.set_text(text, Attrs::new());
         t.reset_blink_timer();
         t.request_scroll();
         t
     }
 
-    fn handle_declared(&mut self, arg: Self::Arg) {
-        self.set_text(arg, Attrs::new());
+    fn handle_declared(&mut self, (text, style_selector): (String, StyleSelector)) {
+        self.set_text(text, Attrs::new());
+        self.set_host_style_selector(style_selector);
     }
 }
 

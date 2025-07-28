@@ -33,9 +33,7 @@ impl NewWidget for Label {
     fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
         let id = base.id().raw();
         let element = base.style_selector().clone();
-        base.add_child::<Text>(arg)
-            .set_host_id(id)
-            .set_host_style_selector(element);
+        base.add_child::<Text>((arg, element)).set_host_id(id);
         Self { base }
     }
 
