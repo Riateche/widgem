@@ -18,7 +18,7 @@ use {
         properties::{
             align::GapValue,
             border::{BorderSideWidth, LineStyle},
-            custom::{CustomPropertyName, Token, TokenOrValue},
+            custom::{CustomProperty, CustomPropertyName, Token, TokenOrValue},
             font::{FontSize, LineHeight, VerticalAlign, VerticalAlignKeyword},
             size::Size,
             text::TextAlign,
@@ -274,6 +274,42 @@ pub fn convert_padding(
         left.unwrap_or_default().to_physical(scale),
         top.unwrap_or_default().to_physical(scale),
     )
+}
+
+pub fn convert_layout_ignores_border(properties: &[&Property<'static>]) -> bool {
+    let mut output = false;
+    for property in properties {
+        match property {
+            Property::Custom(CustomProperty {
+                name: CustomPropertyName::Unknown(name),
+                value,
+            }) => {
+                if name == &"-widgem-layout-ignores-border" {
+                    if value.0.len() != 1 {
+                        warn!("invalid css value for -widgem-layout-ignores-border: expected true or false");
+                        continue;
+                    }
+                    if let TokenOrValue::Token(Token::Ident(ident)) = &value.0[0] {
+                        match &**ident {
+                            "true" => {
+                                output = true;
+                            }
+                            "false" => {
+                                output = false;
+                            }
+                            _ => {
+                                warn!("invalid css value for -widgem-layout-ignores-border: expected true or false");
+                            }
+                        }
+                    } else {
+                        warn!("invalid css value for -widgem-layout-ignores-border: expected true or false");
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    output
 }
 
 pub fn convert_spacing(

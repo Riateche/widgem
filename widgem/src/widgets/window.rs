@@ -1,30 +1,9 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{
-        event_loop::with_active_event_loop, impl_widget_base, shared_window::X11WindowType,
-        system::with_system, widgets::widget_trait::NewWidget, WidgetExt,
-    },
-    log::warn,
+    crate::{impl_widget_base, shared_window::X11WindowType, widgets::widget_trait::NewWidget},
     std::fmt::Display,
     winit::window::WindowLevel,
 };
-
-fn default_scale() -> f32 {
-    if let Some(scale) = with_system(|system| system.config.fixed_scale) {
-        return scale;
-    }
-    with_active_event_loop(|event_loop| {
-        let monitor = event_loop
-            .primary_monitor()
-            .or_else(|| event_loop.available_monitors().next());
-        if let Some(monitor) = monitor {
-            monitor.scale_factor() as f32
-        } else {
-            warn!("unable to find any monitors");
-            1.0
-        }
-    })
-}
 
 pub struct Window {
     base: WidgetBaseOf<Self>,
@@ -60,15 +39,14 @@ impl Window {
 impl NewWidget for Window {
     type Arg = String;
 
-    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
+    fn new(base: WidgetBaseOf<Self>, title: Self::Arg) -> Self {
         let mut w = Self { base };
-        w.set_title(arg);
-        w.set_scale(Some(default_scale()));
+        w.set_title(title);
         w
     }
 
-    fn handle_declared(&mut self, arg: Self::Arg) {
-        self.set_title(arg);
+    fn handle_declared(&mut self, title: Self::Arg) {
+        self.set_title(title);
     }
 }
 
@@ -77,11 +55,5 @@ impl Widget for Window {
 
     fn is_window_root_type() -> bool {
         true
-    }
-}
-
-impl Drop for Window {
-    fn drop(&mut self) {
-        self.base.window().unwrap().deregister();
     }
 }

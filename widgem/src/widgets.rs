@@ -17,8 +17,17 @@ mod widget_trait;
 mod window;
 
 pub use self::{
-    button::Button, column::Column, image::Image, label::Label, menu::Menu, root::RootWidget,
-    row::Row, scroll_area::ScrollArea, scroll_bar::ScrollBar, stack::Stack, text_input::TextInput,
+    button::Button,
+    column::Column,
+    image::Image,
+    label::Label,
+    menu::{Menu, MenuItem},
+    root::RootWidget,
+    row::Row,
+    scroll_area::ScrollArea,
+    scroll_bar::ScrollBar,
+    stack::Stack,
+    text_input::TextInput,
     window::Window,
 };
 

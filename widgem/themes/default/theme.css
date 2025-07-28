@@ -149,3 +149,18 @@ Button.scroll_grip_x.scroll_bar_focused, Button.scroll_grip_y.scroll_bar_focused
 Label {
     padding: 0;
 }
+Menu {
+    padding: 0;
+    gap: 0;
+    border: 1px solid #959595;
+    -widgem-layout-ignores-border: true;
+}
+MenuItem {
+    padding: 7px;
+    border: 1px solid transparent;
+}
+MenuItem:hover {
+    border-color: #26709e;
+    background: #308cc6;
+    color: white;
+}

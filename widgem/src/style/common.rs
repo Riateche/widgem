@@ -10,8 +10,8 @@ use {
         layout::{GridAxisOptions, GridOptions},
         style::{
             css::{
-                convert_spacing, get_border_collapse, get_text_alignment, get_vertical_alignment,
-                is_root_min,
+                convert_layout_ignores_border, convert_spacing, get_border_collapse,
+                get_text_alignment, get_vertical_alignment, is_root_min,
             },
             defaults,
         },
@@ -81,9 +81,17 @@ impl ComputedElementStyle for BaseComputedStyle {
             0.ppx()
         };
 
-        let min_padding_with_border = min_padding + Point::new(border.width, border.width);
-        let preferred_padding_with_border =
-            preferred_padding + Point::new(border.width, border.width);
+        let layout_ignores_border = convert_layout_ignores_border(&rules_with_root);
+        let min_padding_with_border = if layout_ignores_border {
+            min_padding
+        } else {
+            min_padding + Point::new(border.width, border.width)
+        };
+        let preferred_padding_with_border = if layout_ignores_border {
+            preferred_padding
+        } else {
+            preferred_padding + Point::new(border.width, border.width)
+        };
 
         let grid = GridOptions {
             x: GridAxisOptions {
@@ -92,7 +100,7 @@ impl ComputedElementStyle for BaseComputedStyle {
                 preferred_padding: preferred_padding_with_border.x(),
                 preferred_spacing: preferred_spacing.x(),
                 border_collapse,
-                alignment: get_text_alignment(&properties_with_root),
+                alignment: get_text_alignment(&rules_with_root),
             },
             y: GridAxisOptions {
                 min_padding: min_padding_with_border.y(),
@@ -100,7 +108,7 @@ impl ComputedElementStyle for BaseComputedStyle {
                 preferred_padding: preferred_padding_with_border.y(),
                 preferred_spacing: preferred_spacing.y(),
                 border_collapse,
-                alignment: get_vertical_alignment(&properties_with_root),
+                alignment: get_vertical_alignment(&rules_with_root),
             },
         };
 

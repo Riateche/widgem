@@ -1,7 +1,7 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{Button, Menu, NewWidget, Widget, WidgetBaseOf, Window},
+        widgets::{Button, Menu, MenuItem, NewWidget, Widget, WidgetBaseOf, Window},
     },
     widgem_test_kit::context::Context,
 };
@@ -12,7 +12,10 @@ pub struct RootWidget {
 
 impl RootWidget {
     fn on_triggered(&mut self, _event: ()) -> anyhow::Result<()> {
-        self.base.add_child::<Menu>(());
+        let menu = self.base.add_child::<Menu>(());
+        menu.base_mut().add_child::<MenuItem>("Item 1".into());
+        menu.base_mut().add_child::<MenuItem>("Item 2".into());
+        menu.base_mut().add_child::<MenuItem>("Item 3".into());
         Ok(())
     }
 }

@@ -4,6 +4,7 @@ use {
         callback::{widget_callback, Callback},
         child_key::ChildKey,
         event::Event,
+        event_loop::with_active_event_loop,
         layout::{Layout, LayoutItemOptions, SizeHint},
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
@@ -33,6 +34,23 @@ use {
     },
     winit::window::CursorIcon,
 };
+
+fn default_scale() -> f32 {
+    if let Some(scale) = with_system(|system| system.config.fixed_scale) {
+        return scale;
+    }
+    with_active_event_loop(|event_loop| {
+        let monitor = event_loop
+            .primary_monitor()
+            .or_else(|| event_loop.available_monitors().next());
+        if let Some(monitor) = monitor {
+            monitor.scale_factor() as f32
+        } else {
+            warn!("unable to find any monitors");
+            1.0
+        }
+    })
+}
 
 #[derive(Debug, Clone)]
 struct WidgetCreationContext {
@@ -234,6 +252,13 @@ pub struct WidgetBase {
 
 impl Drop for WidgetBase {
     fn drop(&mut self) {
+        if self.is_window_root() {
+            if let Some(window) = &self.window {
+                window.deregister();
+            } else {
+                error!("missing window for a window root widget");
+            }
+        }
         unregister_address(self.id);
         // Drop and unmount children before unmounting self.
         self.children.clear();
@@ -276,7 +301,12 @@ impl WidgetBase {
         let type_name = T::type_name();
         let style_selector = StyleSelector::new(last_path_part(type_name).into())
             .with_pseudo_class(PseudoClass::Enabled);
-        let common_style = get_style(&style_selector, ctx.parent_scale);
+        let self_scale = if ctx.is_window_root {
+            Some(default_scale())
+        } else {
+            None
+        };
+        let common_style = get_style(&style_selector, self_scale.unwrap_or(ctx.parent_scale));
         let mut common = Self {
             id,
             type_name,
@@ -298,7 +328,7 @@ impl WidgetBase {
             address: ctx.address,
             window: ctx.window,
             parent_scale: ctx.parent_scale,
-            self_scale: None,
+            self_scale,
             geometry: None,
             cursor_icon: CursorIcon::Default,
             children: BTreeMap::new(),

@@ -1,5 +1,5 @@
 use {
-    super::{label::Label, window::Window, Widget, WidgetBaseOf},
+    super::{Widget, WidgetBaseOf},
     crate::{
         callback::{Callback, Callbacks},
         impl_widget_base,
@@ -7,6 +7,7 @@ use {
         text_editor::Text,
         widgets::widget_trait::NewWidget,
     },
+    log::error,
     winit::window::WindowLevel,
 };
 
@@ -19,22 +20,30 @@ impl Menu {}
 impl NewWidget for Menu {
     type Arg = ();
 
-    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        let window = base
-            .add_child::<Window>("Menu".into())
-            .set_decorations(false)
-            .set_window_level(WindowLevel::AlwaysOnTop)
-            .set_x11_window_type(vec![X11WindowType::Menu])
-            .set_skip_windows_taskbar(true);
-        window
-            .base_mut()
-            .add_child::<Label>("menu content 1\nmenu content 2\nmenu content 3".into());
+    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
+        if let Some(window) = base.window() {
+            window.set_title("Menu"); // TODO: translations
+            window.set_decorations(false);
+            window.set_window_level(WindowLevel::AlwaysOnTop);
+            window.set_x11_window_type(vec![X11WindowType::Menu]);
+            window.set_skip_windows_taskbar(true);
+        } else {
+            error!("Menu::new: missing window");
+        };
         Self { base }
     }
     fn handle_declared(&mut self, (): Self::Arg) {}
 }
+
 impl Widget for Menu {
     impl_widget_base!();
+
+    fn is_window_root_type() -> bool
+    where
+        Self: Sized,
+    {
+        true
+    }
 }
 
 pub struct MenuItem {

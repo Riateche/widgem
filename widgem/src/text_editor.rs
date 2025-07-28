@@ -37,7 +37,6 @@ use {
     },
     line_straddler::{GlyphStyle, LineGenerator, LineType},
     log::warn,
-    once_cell::unsync,
     range_ext::intersect::Intersect,
     std::{
         cmp::{max, min},
@@ -62,24 +61,6 @@ struct TextStyle {
     text_color: Color,
     selected_text_color: Color,
     selected_text_background: Color,
-}
-
-impl TextStyle {
-    fn default(scale: f32) -> Rc<Self> {
-        thread_local! {
-            static LAZY: unsync::OnceCell<Rc<TextStyle>> = const { unsync::OnceCell::new() };
-        }
-        LAZY.with(|lazy| {
-            Rc::clone(lazy.get_or_init(|| {
-                Rc::new(TextStyle {
-                    font_metrics: defaults::font_style().to_metrics(scale),
-                    text_color: defaults::text_color(),
-                    selected_text_color: defaults::selected_text_color(),
-                    selected_text_background: defaults::selected_text_background(),
-                })
-            }))
-        })
-    }
 }
 
 impl ComputedElementStyle for TextStyle {
