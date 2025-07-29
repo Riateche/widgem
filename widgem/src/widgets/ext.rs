@@ -420,7 +420,12 @@ pub trait WidgetExt: Widget {
         changed_size_hints: &[WidgetAddress],
     ) {
         let geometry_changed = self.base().geometry() != geometry.as_ref();
-        self.base_mut().set_geometry(geometry);
+        // println!(
+        //     "set_geometry {:?} -> {:?}",
+        //     self.base().geometry(),
+        //     geometry,
+        // );
+        self.base_mut().set_geometry(geometry.clone());
         if geometry_changed
             || changed_size_hints
                 .iter()
@@ -428,7 +433,7 @@ pub trait WidgetExt: Widget {
         {
             self.dispatch(
                 LayoutEvent {
-                    new_geometry: None,
+                    new_geometry: geometry,
                     changed_size_hints: changed_size_hints.to_vec(),
                 }
                 .into(),

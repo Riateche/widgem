@@ -26,7 +26,7 @@ impl RootWidget {
 
         menu.base_mut().add_child::<MenuItem>("Item 1".into());
         menu.base_mut().add_child::<MenuItem>("Item 2".into());
-        menu.base_mut().add_child::<MenuItem>("Item 3".into());
+        menu.base_mut().add_child::<MenuItem>("Long item 3".into());
         Ok(())
     }
 }

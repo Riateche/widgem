@@ -4,7 +4,7 @@ use {
         child_key::ChildKey,
         draw::DrawEvent,
         event::FocusReason,
-        event_loop::with_active_event_loop,
+        event_loop::{with_active_event_loop, UserEvent},
         system::with_system,
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
@@ -455,6 +455,16 @@ impl SharedWindow {
     pub(crate) fn set_cursor(&self, icon: CursorIcon) {
         if let Some(w) = self.0.borrow().winit_window.as_ref() {
             w.set_cursor(icon);
+        }
+    }
+
+    pub fn close(&self) {
+        // TODO: add option to confirm close or do something else
+        if self.is_delete_widget_on_close_enabled() {
+            let event = UserEvent::DeleteWidget(self.root_widget_id());
+            with_system(|system| {
+                let _ = system.event_loop_proxy.send_event(event);
+            });
         }
     }
 

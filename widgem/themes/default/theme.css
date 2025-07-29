@@ -156,7 +156,7 @@ Menu {
     -widgem-layout-ignores-border: true;
 }
 MenuItem {
-    padding: 7px;
+    padding: 4px 7px;
     border: 1px solid transparent;
 }
 MenuItem:hover {

@@ -5,7 +5,6 @@ use {
             KeyboardInputEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent,
             WindowFocusChangeEvent,
         },
-        event_loop::UserEvent,
         shared_window::{MouseEventState, SharedWindow, WindowRequest},
         system::{address, with_system, ReportError},
         types::{PhysicalPixels, Point, Size},
@@ -60,13 +59,7 @@ impl<'a> WindowHandler<'a> {
                 self.layout(Vec::new());
             }
             WindowEvent::CloseRequested => {
-                // TODO: add option to confirm close or do something else
-                if self.window.is_delete_widget_on_close_enabled() {
-                    let event = UserEvent::DeleteWidget(self.window.root_widget_id());
-                    with_system(|system| {
-                        let _ = system.event_loop_proxy.send_event(event);
-                    });
-                }
+                self.window.close();
             }
             // TODO: should use device id?
             WindowEvent::CursorEntered { .. } => {

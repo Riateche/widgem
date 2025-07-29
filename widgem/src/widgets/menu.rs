@@ -4,11 +4,12 @@ use {
         callback::{Callback, Callbacks},
         event::WindowFocusChangeEvent,
         impl_widget_base,
+        layout::{default_layout, default_size_hint_x, default_size_hint_y},
         shared_window::X11WindowType,
+        system::ReportError,
         text_editor::Text,
         types::Point,
         widgets::widget_trait::NewWidget,
-        WidgetExt,
     },
     log::error,
     winit::window::WindowLevel,
@@ -19,7 +20,18 @@ pub struct Menu {
     window_was_focused: bool,
 }
 
-impl Menu {}
+impl Menu {
+    // pub fn delete_on_close(&self) -> bool {
+    //     self.delete_on_close
+    // }
+
+    // pub fn set_delete_on_close(&mut self, delete_on_close: bool) -> &mut Self {
+    //     if let Some(window) = self.base.window_or_err().or_report_err() {
+    //         window.set
+    //     }
+    //     self
+    // }
+}
 
 impl NewWidget for Menu {
     type Arg = Point;
@@ -40,6 +52,7 @@ impl NewWidget for Menu {
         Self {
             base,
             window_was_focused: false,
+            //delete_on_close: false,
         }
     }
 
@@ -67,9 +80,17 @@ impl Widget for Menu {
             self.window_was_focused = true;
         } else {
             if self.window_was_focused {
-                self.set_visible(false);
+                //self.set_visible(false);
+                if let Some(window) = self.base.window_or_err().or_report_err() {
+                    window.close();
+                }
             }
         }
+        Ok(())
+    }
+
+    fn handle_layout(&mut self, event: crate::event::LayoutEvent) -> anyhow::Result<()> {
+        default_layout(self, &event.changed_size_hints);
         Ok(())
     }
 }
@@ -117,5 +138,23 @@ impl Widget for MenuItem {
             .declare_child::<Text>((self.text.clone(), selector))
             .set_multiline(false);
         Ok(())
+    }
+
+    // Menu items are not really expanding.
+    // However, the menu's OS window is sometimes slightly larger than requested.
+    // In that case we want menu items to take all available space.
+    fn handle_size_hint_x_request(&self) -> anyhow::Result<crate::layout::SizeHint> {
+        let mut size_hint = default_size_hint_x(self);
+        size_hint.set_fixed(false);
+        Ok(size_hint)
+    }
+
+    fn handle_size_hint_y_request(
+        &self,
+        size_x: crate::types::PhysicalPixels,
+    ) -> anyhow::Result<crate::layout::SizeHint> {
+        let mut size_hint = default_size_hint_y(self, size_x);
+        size_hint.set_fixed(false);
+        Ok(size_hint)
     }
 }
