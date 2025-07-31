@@ -3,7 +3,7 @@ pub mod review;
 
 use {
     crate::{
-        context::{CheckContext, Context, SnapshotMode},
+        context::{Context, SnapshotMode},
         review::{ReviewWidget, Reviewer},
     },
     anyhow::{bail, Context as _},
@@ -102,7 +102,7 @@ fn run_test_check_and_verify(
     ctx: &mut Context,
 ) -> anyhow::Result<Vec<String>> {
     registry.run_test(test_case, ctx)?;
-    if let Some(child) = ctx.as_check().child.take() {
+    if let Some(child) = ctx.check(|c| c.take_child()) {
         verify_test_exit(child)?;
     }
     Ok(ctx.finish())
@@ -169,7 +169,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             let exe_path = env::args_os()
                 .next()
                 .context("failed to get current executable path")?;
-            let mut conn = Connection::new()?;
+            let connection = Connection::new()?;
             let mut all_fails = Vec::new();
             let mut num_total = 0;
             let mut num_failed = 0;
@@ -185,25 +185,21 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 if !matches_filter {
                     continue;
                 }
-                conn.mouse_move_global(1, 1)?;
+                connection.mouse_move_global(1, 1)?;
                 println!("running test: {}", test_name);
-                let mut ctx = Context::Check(Box::new(CheckContext::new(
-                    conn,
+                let mut ctx = Context::new_check(
+                    connection.clone(),
                     test_name.clone(),
                     test_snapshots_dir(snapshots_dir, &test_name),
                     mode,
                     exe_path.clone(),
-                )?));
+                )?;
                 let fails = run_test_check_and_verify(&mut registry, &test_name, &mut ctx)
                     .unwrap_or_else(|err| {
                         let fail = format!("test {:?} failed: {:?}", test_name, err);
                         println!("{fail}");
                         vec![fail]
                     });
-                conn = match ctx {
-                    Context::Check(ctx) => ctx.connection,
-                    Context::Run(_) => unreachable!(),
-                };
                 num_total += 1;
                 if !fails.is_empty() {
                     num_failed += 1;
@@ -237,7 +233,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 process::exit(1);
             }
             let app = test_app(default_scale);
-            let mut ctx = Context::Run(Some(app));
+            let mut ctx = Context::new_run(app);
             registry.run_test(&test_case, &mut ctx)?;
         }
         Args::Review => {

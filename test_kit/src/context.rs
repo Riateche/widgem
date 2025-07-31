@@ -11,6 +11,7 @@ use {
         mem,
         path::{Path, PathBuf},
         process::{self, Child, Command},
+        sync::{Arc, Mutex},
         thread::sleep,
         time::{Duration, Instant},
     },
@@ -29,19 +30,19 @@ pub enum SnapshotMode {
 }
 
 pub struct CheckContext {
-    pub connection: Connection,
-    pub test_name: String,
-    pub test_case_dir: PathBuf,
-    pub last_snapshot_index: u32,
-    pub snapshot_mode: SnapshotMode,
-    pub exe_path: OsString,
-    pub pid: Option<u32>,
-    pub child: Option<Child>,
+    connection: Connection,
+    test_name: String,
+    test_case_dir: PathBuf,
+    last_snapshot_index: u32,
+    snapshot_mode: SnapshotMode,
+    exe_path: OsString,
+    pid: Option<u32>,
+    child: Option<Child>,
     unverified_files: BTreeMap<u32, SingleSnapshotFiles>,
     fails: Vec<String>,
-    pub blinking_expected: bool,
-    pub changing_expected: bool,
-    pub last_snapshots: BTreeMap<u32, RgbaImage>,
+    blinking_expected: bool,
+    changing_expected: bool,
+    last_snapshots: BTreeMap<u32, RgbaImage>,
 }
 
 impl CheckContext {
@@ -67,6 +68,10 @@ impl CheckContext {
             blinking_expected: false,
             changing_expected: true,
         })
+    }
+
+    pub(crate) fn take_child(&mut self) -> Option<Child> {
+        self.child.take()
     }
 
     pub fn set_blinking_expected(&mut self, value: bool) {
@@ -292,25 +297,52 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
     Ok(image.into_rgba8())
 }
 
-pub enum Context {
-    Check(Box<CheckContext>),
+enum ContextInner {
+    Check(CheckContext),
     Run(Option<App>),
 }
 
+pub struct Context(Arc<Mutex<ContextInner>>);
+
 impl Context {
-    pub(crate) fn as_check(&mut self) -> &mut CheckContext {
-        match self {
-            Context::Check(ctx) => ctx,
-            Context::Run(_) => panic!("called a check function in a run context"),
+    pub(crate) fn new_check(
+        connection: Connection,
+        test_name: String,
+        test_case_dir: PathBuf,
+        snapshot_mode: SnapshotMode,
+        exe_path: OsString,
+    ) -> anyhow::Result<Self> {
+        Ok(Context(Arc::new(Mutex::new(ContextInner::Check(
+            CheckContext::new(
+                connection,
+                test_name,
+                test_case_dir,
+                snapshot_mode,
+                exe_path,
+            )?,
+        )))))
+    }
+
+    pub(crate) fn new_run(app: App) -> Self {
+        Context(Arc::new(Mutex::new(ContextInner::Run(Some(app)))))
+    }
+
+    pub(crate) fn check<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut CheckContext) -> R,
+    {
+        match &mut *self.0.lock().unwrap() {
+            ContextInner::Check(ctx) => f(ctx),
+            ContextInner::Run(_) => panic!("called a check function in a run context"),
         }
     }
 
     pub fn run(
-        &mut self,
+        &self,
         init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
     ) -> anyhow::Result<()> {
-        match self {
-            Context::Check(ctx) => {
+        match &mut *self.0.lock().unwrap() {
+            ContextInner::Check(ctx) => {
                 let child = Command::new(&ctx.exe_path)
                     .args(["run", &ctx.test_name])
                     .spawn()?;
@@ -318,7 +350,7 @@ impl Context {
                 ctx.child = Some(child);
                 Ok(())
             }
-            Context::Run(app) => {
+            ContextInner::Run(app) => {
                 let app = app.take().context("cannot run multiple apps in one test")?;
                 app.run(init)?;
                 process::exit(0);
@@ -327,30 +359,30 @@ impl Context {
     }
 
     pub fn set_blinking_expected(&mut self, value: bool) {
-        self.as_check().set_blinking_expected(value);
+        self.check(|c| c.set_blinking_expected(value));
     }
 
     pub fn set_changing_expected(&mut self, value: bool) {
-        self.as_check().set_changing_expected(value);
+        self.check(|c| c.set_changing_expected(value));
     }
 
     pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
-        self.as_check().snapshot(window, text)
+        self.check(|c| c.snapshot(window, text))
     }
 
     pub fn finish(&mut self) -> Vec<String> {
-        self.as_check().finish()
+        self.check(|c| c.finish())
     }
 
     pub fn wait_for_windows_by_pid(&mut self, num_windows: usize) -> anyhow::Result<Vec<Window>> {
-        self.as_check().wait_for_windows_by_pid(num_windows)
+        self.check(|c| c.wait_for_windows_by_pid(num_windows))
     }
 
     pub fn wait_for_window_by_pid(&mut self) -> anyhow::Result<Window> {
-        self.as_check().wait_for_window_by_pid()
+        self.check(|c| c.wait_for_window_by_pid())
     }
 
-    pub fn connection(&mut self) -> &mut Connection {
-        &mut self.as_check().connection
+    pub fn connection(&self) -> Connection {
+        self.check(|c| c.connection.clone())
     }
 }

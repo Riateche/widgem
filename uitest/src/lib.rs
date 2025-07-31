@@ -2,6 +2,7 @@ use {
     anyhow::{bail, Context},
     std::{
         process::Command,
+        sync::Arc,
         thread::sleep,
         time::{Duration, Instant},
     },
@@ -15,12 +16,15 @@ use {
 const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);
 const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(5);
 
-pub struct Connection {
+struct ConnectionInner {
     connection: RustConnection,
     net_wm_pid: Atom,
     cardinal: Atom,
     wait_duration: Duration,
 }
+
+#[derive(Clone)]
+pub struct Connection(Arc<ConnectionInner>);
 
 fn get_or_intern_atom(conn: &RustConnection, name: &[u8]) -> Atom {
     let result = conn
@@ -38,12 +42,12 @@ impl Connection {
         let (connection, _screen_num) = x11rb::connect(None)?;
         let net_wm_pid = get_or_intern_atom(&connection, b"_NET_WM_PID");
         let cardinal = get_or_intern_atom(&connection, b"CARDINAL");
-        Ok(Self {
+        Ok(Self(Arc::new(ConnectionInner {
             connection,
             net_wm_pid,
             cardinal,
             wait_duration: DEFAULT_WAIT_DURATION,
-        })
+        })))
     }
 
     pub fn all_windows(&self) -> anyhow::Result<Vec<Window>> {
@@ -65,7 +69,7 @@ impl Connection {
     ) -> anyhow::Result<Vec<Window>> {
         let started = Instant::now();
         let mut windows = Vec::new();
-        while started.elapsed() < self.wait_duration {
+        while started.elapsed() < self.0.wait_duration {
             windows = self.windows_by_pid(pid)?;
             if windows.len() == num_windows {
                 return Ok(windows);
@@ -76,7 +80,7 @@ impl Connection {
             bail!(
                 "couldn't find a window with pid={} after {:?}",
                 pid,
-                self.wait_duration
+                self.0.wait_duration
             );
         } else if windows.len() > num_windows {
             bail!(
@@ -91,7 +95,7 @@ impl Connection {
                 num_windows,
                 pid,
                 windows.len(),
-                self.wait_duration
+                self.0.wait_duration
             );
         }
     }
@@ -179,12 +183,13 @@ pub struct Window {
 impl Window {
     fn new(connection: &Connection, inner: xcap::Window) -> anyhow::Result<Self> {
         let pid = connection
+            .0
             .connection
             .get_property(
                 false,
                 inner.id()?,
-                connection.net_wm_pid,
-                connection.cardinal,
+                connection.0.net_wm_pid,
+                connection.0.cardinal,
                 0,
                 u32::MAX,
             )?
