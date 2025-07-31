@@ -1,4 +1,5 @@
 use {
+    anyhow::{ensure, Context as _},
     widgem::{
         impl_widget_base,
         widgets::{Button, Menu, MenuItem, NewWidget, Widget, WidgetBaseOf, Window},
@@ -40,7 +41,7 @@ impl NewWidget for RootWidget {
 
         let button_id = window
             .base_mut()
-            .add_child::<Button>("test".into())
+            .add_child::<Button>("Open menu".into())
             .on_triggered(id.callback(Self::on_triggered))
             .id();
 
@@ -59,7 +60,29 @@ fn menu(ctx: &mut Context) -> anyhow::Result<()> {
         r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
-    let window = ctx.wait_for_window_by_pid()?;
-    window.close()?;
+    let mut main_window = ctx.wait_for_window_by_pid()?;
+    ctx.snapshot(&mut main_window, "main window")?;
+    main_window.mouse_move(50, 30)?;
+    ctx.connection().mouse_click(1)?;
+    let windows = ctx.wait_for_windows_by_pid(2)?;
+    ensure!(
+        windows.iter().any(|w| w.id() == main_window.id()),
+        "no main window"
+    );
+    let mut menu_window = windows
+        .into_iter()
+        .find(|w| w.id() != main_window.id())
+        .context("no non-main window")?;
+    ctx.snapshot(&mut main_window, "main window after opening menu")?;
+    ctx.snapshot(&mut menu_window, "menu")?;
+    menu_window.mouse_move(60, 50)?;
+    ctx.snapshot(&mut menu_window, "select second item")?;
+    main_window.mouse_move(1, 1)?;
+    ctx.connection().mouse_click(1)?;
+    let window2 = ctx.wait_for_window_by_pid()?;
+    ensure!(window2.id() == main_window.id(), "no main window");
+    ctx.snapshot(&mut main_window, "main window after closing menu")?;
+
+    main_window.close()?;
     Ok(())
 }

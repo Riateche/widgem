@@ -284,6 +284,7 @@ impl<'a> WindowHandler<'a> {
                 //self.inner.set_ime_position(PhysicalPosition::new(10, 10));
             }
             WindowEvent::Focused(is_focused) => {
+                trace!("window focus {:?} {}", self.window.id(), is_focused);
                 if self.window.focus_changed(is_focused) {
                     self.dispatch_mouse_leave();
                 }

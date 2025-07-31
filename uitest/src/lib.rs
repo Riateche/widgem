@@ -58,20 +58,42 @@ impl Connection {
         Ok(windows.into_iter().filter(|w| w.pid == pid).collect())
     }
 
-    pub fn wait_for_windows_by_pid(&self, pid: u32) -> anyhow::Result<Vec<Window>> {
+    pub fn wait_for_windows_by_pid(
+        &self,
+        pid: u32,
+        num_windows: usize,
+    ) -> anyhow::Result<Vec<Window>> {
         let started = Instant::now();
+        let mut windows = Vec::new();
         while started.elapsed() < self.wait_duration {
-            let windows = self.windows_by_pid(pid)?;
-            if !windows.is_empty() {
+            windows = self.windows_by_pid(pid)?;
+            if windows.len() == num_windows {
                 return Ok(windows);
             }
             sleep(SINGLE_WAIT_DURATION);
         }
-        bail!(
-            "couldn't find a window with pid={} after {:?}",
-            pid,
-            self.wait_duration
-        );
+        if windows.is_empty() {
+            bail!(
+                "couldn't find a window with pid={} after {:?}",
+                pid,
+                self.wait_duration
+            );
+        } else if windows.len() > num_windows {
+            bail!(
+                "expected to find {} windows with pid={}, but found {} windows",
+                num_windows,
+                pid,
+                windows.len(),
+            );
+        } else {
+            bail!(
+                "expected to find {} windows with pid={}, but found only {} windows after {:?}",
+                num_windows,
+                pid,
+                windows.len(),
+                self.wait_duration
+            );
+        }
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {

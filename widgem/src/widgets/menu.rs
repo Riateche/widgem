@@ -43,7 +43,7 @@ impl NewWidget for Menu {
             window.set_has_macos_shadow(false);
             window.set_resizable(false);
             window.set_window_level(WindowLevel::AlwaysOnTop);
-            window.set_x11_window_type(vec![X11WindowType::Menu]);
+            window.set_x11_window_type(vec![X11WindowType::PopupMenu]);
             window.set_skip_windows_taskbar(true);
             window.set_outer_position(position);
         } else {

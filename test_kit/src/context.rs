@@ -262,14 +262,14 @@ impl CheckContext {
         mem::take(&mut self.fails)
     }
 
-    pub fn wait_for_windows_by_pid(&self) -> anyhow::Result<Vec<Window>> {
+    pub fn wait_for_windows_by_pid(&self, num_windows: usize) -> anyhow::Result<Vec<Window>> {
         let pid = self.pid.context("app has not been run yet")?;
-        self.connection.wait_for_windows_by_pid(pid)
+        self.connection.wait_for_windows_by_pid(pid, num_windows)
     }
 
     pub fn wait_for_window_by_pid(&self) -> anyhow::Result<Window> {
         let pid = self.pid.context("app has not been run yet")?;
-        let mut windows = self.connection.wait_for_windows_by_pid(pid)?;
+        let mut windows = self.connection.wait_for_windows_by_pid(pid, 1)?;
         if windows.len() != 1 {
             bail!("expected 1 window, got {}", windows.len());
         }
@@ -342,8 +342,8 @@ impl Context {
         self.as_check().finish()
     }
 
-    pub fn wait_for_windows_by_pid(&mut self) -> anyhow::Result<Vec<Window>> {
-        self.as_check().wait_for_windows_by_pid()
+    pub fn wait_for_windows_by_pid(&mut self, num_windows: usize) -> anyhow::Result<Vec<Window>> {
+        self.as_check().wait_for_windows_by_pid(num_windows)
     }
 
     pub fn wait_for_window_by_pid(&mut self) -> anyhow::Result<Window> {

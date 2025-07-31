@@ -27,13 +27,15 @@ docker run \
             sh -s -- --default-toolchain 1.87.0 --profile minimal -y
         cargo build --package widgem_tests --locked $CARGO_ARGS"
 mkdir -p target/docker/bin
-cp target/docker/target/$BUILD_MODE/widgem_tests tests/scripts/xfce_entrypoint.sh target/docker/bin/
+# cp target/docker/target/$BUILD_MODE/widgem_tests tests/scripts/xfce_entrypoint.sh target/docker/bin/
 
-docker build --file tests/scripts/tests.Dockerfile --tag widgem_tests target/docker/bin
+docker build --file tests/scripts/tests.Dockerfile --tag widgem_tests tests/scripts
 
 docker rm --force widgem_tests || true
 docker run --name widgem_tests \
+    --mount "type=bind,source=$PWD/target/docker/target/$BUILD_MODE/widgem_tests,target=/usr/local/bin/widgem_tests" \
     --mount "type=bind,source=$PWD,target=/app" \
-    --publish 25901:5901 --publish 26901:6901 \
+    --publish 25901:5901 \
+    -it \
     widgem_tests \
     widgem_tests test "$1"
