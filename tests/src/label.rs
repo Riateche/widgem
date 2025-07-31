@@ -34,7 +34,7 @@ pub fn label(ctx: &mut Context) -> anyhow::Result<()> {
         Ok(())
     })?;
     let window = ctx.wait_for_window_by_pid()?;
-    ctx.snapshot(&window, "label")?;
+    window.snapshot("label")?;
     window.close()?;
     Ok(())
 }

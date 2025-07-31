@@ -35,7 +35,7 @@ pub fn button(ctx: &mut Context) -> anyhow::Result<()> {
         Ok(())
     })?;
     let window = ctx.wait_for_window_by_pid()?;
-    ctx.snapshot(&window, "button")?;
+    window.snapshot("button")?;
     window.close()?;
     Ok(())
 }

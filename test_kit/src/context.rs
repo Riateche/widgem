@@ -1,6 +1,7 @@
 use {
     crate::{discover_snapshots, SingleSnapshotFiles},
     anyhow::{bail, Context as _},
+    derive_more::Deref,
     fs_err::create_dir_all,
     image::{ImageReader, RgbaImage},
     itertools::Itertools,
@@ -15,7 +16,7 @@ use {
         thread::sleep,
         time::{Duration, Instant},
     },
-    uitest::{Connection, Window},
+    uitest::Connection,
     widgem::{widgets::RootWidget, App},
 };
 
@@ -29,7 +30,7 @@ pub enum SnapshotMode {
     Check,
 }
 
-pub struct CheckContext {
+pub(crate) struct CheckContext {
     connection: Connection,
     test_name: String,
     test_case_dir: PathBuf,
@@ -263,12 +264,15 @@ impl CheckContext {
         mem::take(&mut self.fails)
     }
 
-    pub fn wait_for_windows_by_pid(&self, num_windows: usize) -> anyhow::Result<Vec<Window>> {
+    pub fn wait_for_windows_by_pid(
+        &self,
+        num_windows: usize,
+    ) -> anyhow::Result<Vec<uitest::Window>> {
         let pid = self.pid.context("app has not been run yet")?;
         self.connection.wait_for_windows_by_pid(pid, num_windows)
     }
 
-    pub fn wait_for_window_by_pid(&self) -> anyhow::Result<Window> {
+    pub fn wait_for_window_by_pid(&self) -> anyhow::Result<uitest::Window> {
         let pid = self.pid.context("app has not been run yet")?;
         let mut windows = self.connection.wait_for_windows_by_pid(pid, 1)?;
         if windows.len() != 1 {
@@ -298,6 +302,7 @@ enum ContextInner {
     Run(Option<App>),
 }
 
+#[derive(Clone)]
 pub struct Context(Arc<Mutex<ContextInner>>);
 
 impl Context {
@@ -354,31 +359,51 @@ impl Context {
         }
     }
 
-    pub fn set_blinking_expected(&mut self, value: bool) {
+    pub fn set_blinking_expected(&self, value: bool) {
         self.check(|c| c.set_blinking_expected(value));
     }
 
-    pub fn set_changing_expected(&mut self, value: bool) {
+    pub fn set_changing_expected(&self, value: bool) {
         self.check(|c| c.set_changing_expected(value));
     }
 
-    pub fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
-        self.check(|c| c.snapshot(window, text))
-    }
-
-    pub fn finish(&mut self) -> Vec<String> {
+    pub fn finish(&self) -> Vec<String> {
         self.check(|c| c.finish())
     }
 
-    pub fn wait_for_windows_by_pid(&mut self, num_windows: usize) -> anyhow::Result<Vec<Window>> {
-        self.check(|c| c.wait_for_windows_by_pid(num_windows))
+    pub fn wait_for_windows_by_pid(&self, num_windows: usize) -> anyhow::Result<Vec<Window>> {
+        let windows = self.check(|c| c.wait_for_windows_by_pid(num_windows))?;
+        Ok(windows
+            .into_iter()
+            .map(|inner| Window {
+                inner,
+                context: self.clone(),
+            })
+            .collect())
     }
 
-    pub fn wait_for_window_by_pid(&mut self) -> anyhow::Result<Window> {
-        self.check(|c| c.wait_for_window_by_pid())
+    pub fn wait_for_window_by_pid(&self) -> anyhow::Result<Window> {
+        let inner = self.check(|c| c.wait_for_window_by_pid())?;
+        Ok(Window {
+            inner,
+            context: self.clone(),
+        })
     }
 
     pub fn connection(&self) -> Connection {
         self.check(|c| c.connection.clone())
+    }
+}
+
+#[derive(Clone, Deref)]
+pub struct Window {
+    #[deref]
+    inner: uitest::Window,
+    context: Context,
+}
+
+impl Window {
+    pub fn snapshot(&self, text: impl Display) -> anyhow::Result<()> {
+        self.context.check(|c| c.snapshot(self, text))
     }
 }

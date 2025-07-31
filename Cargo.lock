@@ -4931,6 +4931,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ctor",
+ "derive_more",
  "env_logger",
  "fs-err",
  "image",

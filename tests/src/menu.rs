@@ -61,7 +61,7 @@ fn menu(ctx: &mut Context) -> anyhow::Result<()> {
         Ok(())
     })?;
     let main_window = ctx.wait_for_window_by_pid()?;
-    ctx.snapshot(&main_window, "main window")?;
+    main_window.snapshot("main window")?;
     main_window.mouse_move(50, 30)?;
     ctx.connection().mouse_click(1)?;
     let windows = ctx.wait_for_windows_by_pid(2)?;
@@ -73,15 +73,15 @@ fn menu(ctx: &mut Context) -> anyhow::Result<()> {
         .into_iter()
         .find(|w| w.id() != main_window.id())
         .context("no non-main window")?;
-    ctx.snapshot(&main_window, "main window after opening menu")?;
-    ctx.snapshot(&menu_window, "menu")?;
+    main_window.snapshot("main window after opening menu")?;
+    menu_window.snapshot("menu")?;
     menu_window.mouse_move(60, 50)?;
-    ctx.snapshot(&menu_window, "select second item")?;
+    menu_window.snapshot("select second item")?;
     main_window.mouse_move(1, 1)?;
     ctx.connection().mouse_click(1)?;
     let window2 = ctx.wait_for_window_by_pid()?;
     ensure!(window2.id() == main_window.id(), "no main window");
-    ctx.snapshot(&main_window, "main window after closing menu")?;
+    main_window.snapshot("main window after closing menu")?;
 
     main_window.close()?;
     Ok(())

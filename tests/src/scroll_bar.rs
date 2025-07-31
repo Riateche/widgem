@@ -106,9 +106,9 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.mouse_move(0, 0)?;
-    ctx.snapshot(&window, "scroll bar and label")?;
+    window.snapshot("scroll bar and label")?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "resized")?;
+    window.snapshot("resized")?;
 
     window.close()?;
     Ok(())
@@ -122,36 +122,36 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "scroll bar")?;
+    window.snapshot("scroll bar")?;
     ctx.connection().key("f")?;
-    ctx.snapshot(&window, "focused")?;
+    window.snapshot("focused")?;
     ctx.connection().key("1")?;
-    ctx.snapshot(&window, "increased range")?;
+    window.snapshot("increased range")?;
 
     ctx.connection().key("Down")?;
-    ctx.snapshot(&window, "step down")?;
+    window.snapshot("step down")?;
     ctx.connection().key("Down")?;
-    ctx.snapshot(&window, "step down")?;
+    window.snapshot("step down")?;
 
     ctx.connection().key("Page_Down")?;
-    ctx.snapshot(&window, "page down")?;
+    window.snapshot("page down")?;
     ctx.connection().key("Page_Down")?;
-    ctx.snapshot(&window, "page down")?;
+    window.snapshot("page down")?;
 
     ctx.connection().key("Up")?;
-    ctx.snapshot(&window, "step up")?;
+    window.snapshot("step up")?;
     ctx.connection().key("Up")?;
-    ctx.snapshot(&window, "step up")?;
+    window.snapshot("step up")?;
 
     ctx.connection().key("Page_Up")?;
-    ctx.snapshot(&window, "page up")?;
+    window.snapshot("page up")?;
     ctx.connection().key("Page_Up")?;
-    ctx.snapshot(&window, "page up")?;
+    window.snapshot("page up")?;
 
     ctx.connection().key("End")?;
-    ctx.snapshot(&window, "end")?;
+    window.snapshot("end")?;
     ctx.connection().key("Home")?;
-    ctx.snapshot(&window, "home")?;
+    window.snapshot("home")?;
 
     window.close()?;
     Ok(())
@@ -165,34 +165,34 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "scroll bar")?;
+    window.snapshot("scroll bar")?;
 
     window.mouse_move(100, 20)?;
-    ctx.snapshot(&window, "highlighted pager")?;
+    window.snapshot("highlighted pager")?;
 
     ctx.connection().mouse_scroll_down()?;
-    ctx.snapshot(&window, "scrolled down")?;
+    window.snapshot("scrolled down")?;
 
     ctx.connection().mouse_scroll_down()?;
-    ctx.snapshot(&window, "scrolled down")?;
+    window.snapshot("scrolled down")?;
 
     ctx.connection().mouse_scroll_up()?;
-    ctx.snapshot(&window, "scrolled up")?;
+    window.snapshot("scrolled up")?;
 
     ctx.connection().mouse_scroll_up()?;
-    ctx.snapshot(&window, "scrolled up")?;
+    window.snapshot("scrolled up")?;
 
     ctx.connection().mouse_scroll_right()?;
-    ctx.snapshot(&window, "scrolled down")?;
+    window.snapshot("scrolled down")?;
 
     ctx.connection().mouse_scroll_right()?;
-    ctx.snapshot(&window, "scrolled down")?;
+    window.snapshot("scrolled down")?;
 
     ctx.connection().mouse_scroll_left()?;
-    ctx.snapshot(&window, "scrolled up")?;
+    window.snapshot("scrolled up")?;
 
     ctx.connection().mouse_scroll_left()?;
-    ctx.snapshot(&window, "scrolled up")?;
+    window.snapshot("scrolled up")?;
 
     window.close()?;
     Ok(())
@@ -206,41 +206,41 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "scroll bar")?;
+    window.snapshot("scroll bar")?;
 
     window.mouse_move(100, 20)?;
-    ctx.snapshot(&window, "highlighted pager")?;
+    window.snapshot("highlighted pager")?;
     ctx.connection().mouse_click(1)?;
-    ctx.snapshot(&window, "page right")?;
+    window.snapshot("page right")?;
     window.mouse_move(0, 0)?;
-    ctx.snapshot(&window, "no highlight")?;
+    window.snapshot("no highlight")?;
 
     window.mouse_move(43, 20)?;
-    ctx.snapshot(&window, "highlighted pager")?;
+    window.snapshot("highlighted pager")?;
     ctx.connection().mouse_click(1)?;
-    ctx.snapshot(&window, "page left")?;
+    window.snapshot("page left")?;
     window.mouse_move(0, 0)?;
-    ctx.snapshot(&window, "no highlight")?;
+    window.snapshot("no highlight")?;
 
     ctx.connection().key("1")?;
-    ctx.snapshot(&window, "increase range")?;
+    window.snapshot("increase range")?;
     window.mouse_move(100, 20)?;
-    ctx.snapshot(&window, "highlighted pager")?;
+    window.snapshot("highlighted pager")?;
 
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "page right")?;
+    window.snapshot("page right")?;
     ctx.connection().mouse_up(1)?;
     ctx.set_changing_expected(false);
-    ctx.snapshot(&window, "released pager - no auto repeat")?;
+    window.snapshot("released pager - no auto repeat")?;
     ctx.set_changing_expected(true);
 
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "page right")?;
-    ctx.snapshot(&window, "page right - first auto repeat")?;
-    ctx.snapshot(&window, "page right - second auto repeat")?;
+    window.snapshot("page right")?;
+    window.snapshot("page right - first auto repeat")?;
+    window.snapshot("page right - second auto repeat")?;
     ctx.connection().mouse_up(1)?;
     ctx.set_changing_expected(false);
-    ctx.snapshot(&window, "released pager - no more auto repeats")?;
+    window.snapshot("released pager - no more auto repeats")?;
     ctx.set_changing_expected(true);
 
     window.close()?;
@@ -255,37 +255,37 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "scroll bar")?;
+    window.snapshot("scroll bar")?;
 
     window.resize(1, 1)?;
-    ctx.snapshot(&window, "min size")?;
+    window.snapshot("min size")?;
 
     window.resize(200, 66)?;
-    ctx.snapshot(&window, "resized")?;
+    window.snapshot("resized")?;
 
     window.resize(300, 66)?;
-    ctx.snapshot(&window, "resized")?;
+    window.snapshot("resized")?;
 
     window.resize(300, 200)?;
-    ctx.snapshot(&window, "no change - fixed y size")?;
+    window.snapshot("no change - fixed y size")?;
 
     window.resize(300, 5)?;
-    ctx.snapshot(&window, "min y size")?;
+    window.snapshot("min y size")?;
 
     ctx.connection().key("r")?;
-    ctx.snapshot(&window, "changed to vertical scroll bar")?;
+    window.snapshot("changed to vertical scroll bar")?;
 
     window.resize(1, 1)?;
-    ctx.snapshot(&window, "min size")?;
+    window.snapshot("min size")?;
 
     window.resize(200, 200)?;
-    ctx.snapshot(&window, "resized")?;
+    window.snapshot("resized")?;
 
     window.resize(200, 300)?;
-    ctx.snapshot(&window, "resized")?;
+    window.snapshot("resized")?;
 
     window.resize(1, 300)?;
-    ctx.snapshot(&window, "min x size")?;
+    window.snapshot("min x size")?;
 
     window.close()?;
     Ok(())
@@ -300,21 +300,21 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.connection().mouse_move_global(0, 0)?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "scroll bar")?;
+    window.snapshot("scroll bar")?;
     window.mouse_move(142, 22)?;
-    ctx.snapshot(&window, "highlighted right arrow")?;
+    window.snapshot("highlighted right arrow")?;
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "pressed right arrow - step right by 5")?;
+    window.snapshot("pressed right arrow - step right by 5")?;
     ctx.connection().mouse_up(1)?;
-    ctx.snapshot(&window, "released right arrow - no auto repeat")?;
+    window.snapshot("released right arrow - no auto repeat")?;
 
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "pressed right arrow - step right by 5")?;
-    ctx.snapshot(&window, "first auto repeat")?;
-    ctx.snapshot(&window, "second auto repeat")?;
-    ctx.snapshot(&window, "third auto repeat")?;
+    window.snapshot("pressed right arrow - step right by 5")?;
+    window.snapshot("first auto repeat")?;
+    window.snapshot("second auto repeat")?;
+    window.snapshot("third auto repeat")?;
     ctx.connection().mouse_up(1)?;
-    ctx.snapshot(&window, "released right arrow - no more auto repeats")?;
+    window.snapshot("released right arrow - no more auto repeats")?;
 
     window.close()?;
     Ok(())
@@ -328,30 +328,30 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "scroll bar")?;
+    window.snapshot("scroll bar")?;
 
     window.mouse_move(60, 20)?;
-    ctx.snapshot(&window, "highlighted slider")?;
+    window.snapshot("highlighted slider")?;
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "grabbed slider")?;
+    window.snapshot("grabbed slider")?;
     window.mouse_move(300, 24)?;
-    ctx.snapshot(&window, "dragged all the way right")?;
+    window.snapshot("dragged all the way right")?;
     ctx.connection().mouse_up(1)?;
-    ctx.snapshot(&window, "released slider - no highlight")?;
+    window.snapshot("released slider - no highlight")?;
 
     window.mouse_move(90, 24)?;
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "grabbed slider")?;
+    window.snapshot("grabbed slider")?;
     window.mouse_move(0, 20)?;
-    ctx.snapshot(&window, "dragged all the way left")?;
+    window.snapshot("dragged all the way left")?;
     window.mouse_move(20, 20)?;
     ctx.set_changing_expected(false);
-    ctx.snapshot(&window, "still all the way left")?;
+    window.snapshot("still all the way left")?;
     ctx.set_changing_expected(true);
     window.mouse_move(58, 20)?;
-    ctx.snapshot(&window, "no longer all the way left")?;
+    window.snapshot("no longer all the way left")?;
     ctx.connection().mouse_up(1)?;
-    ctx.snapshot(&window, "released slider")?;
+    window.snapshot("released slider")?;
 
     window.close()?;
     Ok(())
@@ -365,31 +365,31 @@ pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
-    ctx.snapshot(&window, "scroll bar")?;
+    window.snapshot("scroll bar")?;
 
     window.mouse_move(40, 20)?;
-    ctx.snapshot(&window, "highlighted slider")?;
+    window.snapshot("highlighted slider")?;
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "grabbed slider")?;
+    window.snapshot("grabbed slider")?;
     window.mouse_move(50, 20)?;
-    ctx.snapshot(&window, "moved slider by 10 px")?;
+    window.snapshot("moved slider by 10 px")?;
     ctx.connection().mouse_up(1)?;
-    ctx.snapshot(&window, "released slider")?;
+    window.snapshot("released slider")?;
     window.mouse_move(15, 15)?;
-    ctx.snapshot(&window, "highlighted left arrow")?;
+    window.snapshot("highlighted left arrow")?;
     ctx.connection().mouse_click(1)?;
-    ctx.snapshot(&window, "step left by 5")?;
+    window.snapshot("step left by 5")?;
 
     window.mouse_move(60, 18)?;
-    ctx.snapshot(&window, "highlighted slider")?;
+    window.snapshot("highlighted slider")?;
     ctx.connection().mouse_down(1)?;
-    ctx.snapshot(&window, "grabbed slider")?;
+    window.snapshot("grabbed slider")?;
     window.mouse_move(60, 88)?;
-    ctx.snapshot(&window, "dragged down and outside - no effect")?;
+    window.snapshot("dragged down and outside - no effect")?;
     window.mouse_move(50, 88)?;
-    ctx.snapshot(&window, "dragged left")?;
+    window.snapshot("dragged left")?;
     ctx.connection().mouse_up(1)?;
-    ctx.snapshot(&window, "released slider - no highlight")?;
+    window.snapshot("released slider - no highlight")?;
 
     window.close()?;
     Ok(())
