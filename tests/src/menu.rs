@@ -60,8 +60,8 @@ fn menu(ctx: &mut Context) -> anyhow::Result<()> {
         r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
-    let mut main_window = ctx.wait_for_window_by_pid()?;
-    ctx.snapshot(&mut main_window, "main window")?;
+    let main_window = ctx.wait_for_window_by_pid()?;
+    ctx.snapshot(&main_window, "main window")?;
     main_window.mouse_move(50, 30)?;
     ctx.connection().mouse_click(1)?;
     let windows = ctx.wait_for_windows_by_pid(2)?;
@@ -69,19 +69,19 @@ fn menu(ctx: &mut Context) -> anyhow::Result<()> {
         windows.iter().any(|w| w.id() == main_window.id()),
         "no main window"
     );
-    let mut menu_window = windows
+    let menu_window = windows
         .into_iter()
         .find(|w| w.id() != main_window.id())
         .context("no non-main window")?;
-    ctx.snapshot(&mut main_window, "main window after opening menu")?;
-    ctx.snapshot(&mut menu_window, "menu")?;
+    ctx.snapshot(&main_window, "main window after opening menu")?;
+    ctx.snapshot(&menu_window, "menu")?;
     menu_window.mouse_move(60, 50)?;
-    ctx.snapshot(&mut menu_window, "select second item")?;
+    ctx.snapshot(&menu_window, "select second item")?;
     main_window.mouse_move(1, 1)?;
     ctx.connection().mouse_click(1)?;
     let window2 = ctx.wait_for_window_by_pid()?;
     ensure!(window2.id() == main_window.id(), "no main window");
-    ctx.snapshot(&mut main_window, "main window after closing menu")?;
+    ctx.snapshot(&main_window, "main window after closing menu")?;
 
     main_window.close()?;
     Ok(())

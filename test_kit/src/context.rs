@@ -82,7 +82,7 @@ impl CheckContext {
         self.changing_expected = value;
     }
 
-    fn capture_changed(&mut self, window: &mut Window) -> anyhow::Result<RgbaImage> {
+    fn capture_changed(&mut self, window: &Window) -> anyhow::Result<RgbaImage> {
         let mut started = Instant::now();
         let mut image = None;
         while started.elapsed() < MAX_DURATION {
@@ -108,7 +108,7 @@ impl CheckContext {
         Ok(image)
     }
 
-    fn capture_maybe_changed(&mut self, window: &mut Window) -> anyhow::Result<RgbaImage> {
+    fn capture_maybe_changed(&mut self, window: &Window) -> anyhow::Result<RgbaImage> {
         if self.changing_expected {
             self.capture_changed(window)
         } else {
@@ -119,11 +119,7 @@ impl CheckContext {
         }
     }
 
-    fn capture_blinking(
-        &mut self,
-        window: &mut Window,
-        file_name: &str,
-    ) -> anyhow::Result<RgbaImage> {
+    fn capture_blinking(&mut self, window: &Window, file_name: &str) -> anyhow::Result<RgbaImage> {
         let started = Instant::now();
         let mut images = Vec::new();
         while started.elapsed() < MAX_DURATION || images.is_empty() {
@@ -165,7 +161,7 @@ impl CheckContext {
         }
     }
 
-    pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
+    pub fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
         if !self.test_case_dir.try_exists()? {
             create_dir_all(&self.test_case_dir)?;
         }
@@ -366,7 +362,7 @@ impl Context {
         self.check(|c| c.set_changing_expected(value));
     }
 
-    pub fn snapshot(&mut self, window: &mut Window, text: impl Display) -> anyhow::Result<()> {
+    pub fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
         self.check(|c| c.snapshot(window, text))
     }
 

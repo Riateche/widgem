@@ -174,6 +174,7 @@ impl Connection {
     }
 }
 
+#[derive(Clone)]
 pub struct Window {
     id: u32,
     pid: u32,
@@ -243,7 +244,7 @@ impl Window {
         self.inner.is_maximized()
     }
 
-    pub fn capture_image(&mut self) -> anyhow::Result<RgbaImage> {
+    pub fn capture_image(&self) -> anyhow::Result<RgbaImage> {
         Ok(self.inner.capture_image()?)
     }
 

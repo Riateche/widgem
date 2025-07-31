@@ -34,8 +34,8 @@ pub fn button(ctx: &mut Context) -> anyhow::Result<()> {
         r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
-    let mut window = ctx.wait_for_window_by_pid()?;
-    ctx.snapshot(&mut window, "button")?;
+    let window = ctx.wait_for_window_by_pid()?;
+    ctx.snapshot(&window, "button")?;
     window.close()?;
     Ok(())
 }

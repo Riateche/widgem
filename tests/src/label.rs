@@ -33,8 +33,8 @@ pub fn label(ctx: &mut Context) -> anyhow::Result<()> {
         r.base_mut().add_child::<RootWidget>(());
         Ok(())
     })?;
-    let mut window = ctx.wait_for_window_by_pid()?;
-    ctx.snapshot(&mut window, "label")?;
+    let window = ctx.wait_for_window_by_pid()?;
+    ctx.snapshot(&window, "label")?;
     window.close()?;
     Ok(())
 }
