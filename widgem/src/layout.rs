@@ -695,29 +695,39 @@ pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[
         options.y.alignment,
     );
     for item in widget.base_mut().children_mut() {
-        // if !item.common().is_self_visible {
-        //     continue;
-        // }
+        if item.base().is_window_root() {
+            continue;
+        }
+        if !item.base().is_self_visible() {
+            item.set_geometry(None, changed_size_hints);
+            continue;
+        }
 
         let Some(pos_x) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
+            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(pos_y) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
+            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(cell_pos_x) = positions_x.get(pos_x.start()) else {
+            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(cell_pos_y) = positions_y.get(pos_y.start()) else {
             warn!("missing item in positions_y");
+            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(size_x) = x_layout.child_sizes.get(&item.base().id()) else {
             warn!("missing item in x_layout.child_sizes");
+            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(row_size) = row_sizes.get(pos_y.start()) else {
             warn!("missing item in row_sizes");
+            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let size_hint_y = item.size_hint_y(*size_x);
