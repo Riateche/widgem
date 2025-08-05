@@ -23,7 +23,7 @@ impl RootWidget {
             .unwrap_or_else(|| rect.bottom_right());
         let global_pos = window.inner_position()? + pos_in_window;
 
-        let menu = self.base.add_child::<Menu>(global_pos);
+        let menu = self.base.add_child::<Menu>(global_pos).content_mut();
 
         menu.base_mut().add_child::<MenuItem>("Item 1".into());
         menu.base_mut().add_child::<MenuItem>("Item 2".into());

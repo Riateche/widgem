@@ -1096,6 +1096,7 @@ impl WidgetBase {
     ///
     /// Returns an error if there is no such child or if the child has a type other than `T`.
     pub fn get_child<T: Widget>(&self, key: impl Into<ChildKey>) -> anyhow::Result<&T> {
+        // TODO: custom error type
         self.children
             .get(&key.into())
             .context("no such key")?

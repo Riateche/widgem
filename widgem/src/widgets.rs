@@ -24,7 +24,7 @@ pub use self::{
     menu::{Menu, MenuItem},
     root::RootWidget,
     row::Row,
-    scroll_area::ScrollArea,
+    scroll_area::{ScrollArea, ScrollBarPolicy},
     scroll_bar::ScrollBar,
     stack::Stack,
     text_input::TextInput,

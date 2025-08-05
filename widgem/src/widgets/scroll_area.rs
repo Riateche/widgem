@@ -14,8 +14,18 @@ use {
     widgem_macros::impl_with,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum ScrollBarPolicy {
+    #[default]
+    AsNeeded,
+    AlwaysOn,
+    AlwaysOff,
+}
+
 pub struct ScrollArea {
     base: WidgetBaseOf<Self>,
+    x_policy: ScrollBarPolicy,
+    y_policy: ScrollBarPolicy,
 }
 
 const INDEX_SCROLL_BAR_X: u64 = 0;
@@ -36,12 +46,53 @@ impl ScrollArea {
 
     // TODO: naming?
     pub fn set_content<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
-        assert!(!self.has_content());
         self.base
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
             .base_mut()
             .add_child_with_key::<T>(KEY_CONTENT_IN_VIEWPORT, arg)
+    }
+
+    pub fn declare_content<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
+        self.base
+            .get_dyn_child_mut(INDEX_VIEWPORT)
+            .unwrap()
+            .base_mut()
+            .declare_child_with_key::<T>(KEY_CONTENT_IN_VIEWPORT, arg)
+    }
+
+    pub fn remove_content(&mut self) -> &mut Self {
+        let _ = self
+            .base
+            .get_dyn_child_mut(INDEX_VIEWPORT)
+            .unwrap()
+            .base_mut()
+            .remove_child(KEY_CONTENT_IN_VIEWPORT);
+        self
+    }
+
+    pub fn content<T: Widget>(&self) -> anyhow::Result<&T> {
+        self.base
+            .get_dyn_child(INDEX_VIEWPORT)
+            .unwrap()
+            .base()
+            .get_child(KEY_CONTENT_IN_VIEWPORT)
+    }
+
+    pub fn dyn_content(&self) -> anyhow::Result<&dyn Widget> {
+        self.base
+            .get_dyn_child(INDEX_VIEWPORT)
+            .unwrap()
+            .base()
+            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+    }
+
+    pub fn dyn_content_mut(&mut self) -> anyhow::Result<&mut dyn Widget> {
+        self.base
+            .get_dyn_child_mut(INDEX_VIEWPORT)
+            .unwrap()
+            .base_mut()
+            .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
     }
 
     // pub fn set_content(&mut self, content: Box<dyn Widget>) {
@@ -116,24 +167,36 @@ impl ScrollArea {
             else {
                 return Ok(());
             };
-            let content_size_x = self
+            let content_size_hint_x = self
                 .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
                 .base_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
-                .size_hint_x()
-                .preferred();
-            let content_size_y = self
+                .size_hint_x();
+            let content_size_x = if !content_size_hint_x.is_fixed()
+                && viewport_rect.size_x() > content_size_hint_x.preferred()
+            {
+                viewport_rect.size_x()
+            } else {
+                content_size_hint_x.preferred()
+            };
+            let content_size_hint_y = self
                 .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
                 .unwrap()
                 .base_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
-                .size_hint_y(content_size_x)
-                .preferred();
+                .size_hint_y(content_size_x);
+            let content_size_y = if !content_size_hint_y.is_fixed()
+                && viewport_rect.size_y() > content_size_hint_y.preferred()
+            {
+                viewport_rect.size_y()
+            } else {
+                content_size_hint_y.preferred()
+            };
             let content_rect = Rect::from_xywh(
                 PhysicalPixels::from_i32(-value_x),
                 PhysicalPixels::from_i32(-value_y),
@@ -182,7 +245,11 @@ impl NewWidget for ScrollArea {
             .on_value_changed(relayout);
         base.add_child_with_key::<Viewport>(INDEX_VIEWPORT, ())
             .set_grid_cell(0, 0);
-        Self { base }
+        Self {
+            base,
+            x_policy: ScrollBarPolicy::default(),
+            y_policy: ScrollBarPolicy::default(),
+        }
     }
     fn handle_declared(&mut self, (): Self::Arg) {}
 }
@@ -216,6 +283,7 @@ impl Widget for ScrollArea {
             *scroll_y.value_range().start(),
             *scroll_y.value_range().end(),
         ));
+        self.base.update();
         Ok(true)
     }
 }
@@ -237,9 +305,21 @@ impl Widget for Viewport {
     impl_widget_base!();
 
     fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
-        Ok(SizeHint::new_expanding(0.ppx(), 0.ppx()))
+        let preferred = self
+            .base
+            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .ok()
+            .map(|content| content.size_hint_x().preferred())
+            .unwrap_or(0.ppx());
+        Ok(SizeHint::new_expanding(0.ppx(), preferred))
     }
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
-        Ok(SizeHint::new_expanding(0.ppx(), 0.ppx()))
+    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
+        let preferred = self
+            .base
+            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .ok()
+            .map(|content| content.size_hint_y(size_x).preferred())
+            .unwrap_or(0.ppx());
+        Ok(SizeHint::new_expanding(0.ppx(), preferred))
     }
 }

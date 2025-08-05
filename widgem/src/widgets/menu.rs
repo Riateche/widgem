@@ -9,7 +9,8 @@ use {
         system::ReportError,
         text_editor::Text,
         types::Point,
-        widgets::widget_trait::NewWidget,
+        widgets::{widget_trait::NewWidget, Column, ScrollArea},
+        WidgetExt,
     },
     log::error,
     winit::window::WindowLevel,
@@ -21,6 +22,21 @@ pub struct Menu {
 }
 
 impl Menu {
+    pub fn content(&self) -> &dyn Widget {
+        self.base
+            .get_child::<ScrollArea>(SCROLL_AREA_KEY)
+            .expect("missing scroll area child widget in menu")
+            .dyn_content()
+            .expect("missing scroll area content in menu")
+    }
+
+    pub fn content_mut(&mut self) -> &mut dyn Widget {
+        self.base
+            .get_child_mut::<ScrollArea>(SCROLL_AREA_KEY)
+            .expect("missing scroll area child widget in menu")
+            .dyn_content_mut()
+            .expect("missing scroll area content in menu")
+    }
     // pub fn delete_on_close(&self) -> bool {
     //     self.delete_on_close
     // }
@@ -33,15 +49,17 @@ impl Menu {
     // }
 }
 
+const SCROLL_AREA_KEY: u64 = 0;
+
 impl NewWidget for Menu {
     type Arg = Point;
 
-    fn new(base: WidgetBaseOf<Self>, position: Self::Arg) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, position: Self::Arg) -> Self {
         if let Some(window) = base.window() {
             window.set_title("Menu"); // TODO: translations
             window.set_decorations(false);
             window.set_has_macos_shadow(false);
-            window.set_resizable(false);
+            //window.set_resizable(false);
             window.set_window_level(WindowLevel::AlwaysOnTop);
             window.set_x11_window_type(vec![X11WindowType::PopupMenu]);
             window.set_skip_windows_taskbar(true);
@@ -49,6 +67,9 @@ impl NewWidget for Menu {
         } else {
             error!("Menu::new: missing window");
         }
+        base.add_child_with_key::<ScrollArea>(SCROLL_AREA_KEY, ())
+            .set_content::<Column>(())
+            .add_class("menu".into());
         Self {
             base,
             window_was_focused: false,
