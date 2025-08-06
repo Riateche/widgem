@@ -46,7 +46,9 @@ use {
         time::Duration,
     },
     strict_num::FiniteF32,
-    tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform},
+    tiny_skia::{
+        Color, Paint, PathBuilder, Pixmap, PremultipliedColorU8, Shader, Stroke, Transform,
+    },
     unicode_segmentation::UnicodeSegmentation,
     widgem_macros::impl_with,
     winit::{
@@ -706,6 +708,8 @@ impl Text {
             let size_y = max(1, buffer_height.unwrap_or(0.).ceil() as u32);
 
             let mut pixmap = Pixmap::new(size_x, size_y).expect("failed to create pixmap");
+            let pixmap_width = pixmap.width() as usize;
+            let pixels = pixmap.pixels_mut();
             with_system(|system| {
                 self.editor.draw(
                     &mut system.font_system,
@@ -717,18 +721,18 @@ impl Text {
                         selected_text_color: convert_color(self.style.selected_text_color),
                     },
                     |x, y, w, h, c| {
-                        let color = Color::from_rgba8(c.r(), c.g(), c.b(), c.a());
-                        let paint = Paint {
-                            shader: Shader::SolidColor(color),
-                            ..Paint::default()
-                        };
-                        pixmap.fill_rect(
-                            tiny_skia::Rect::from_xywh(x as f32, y as f32, w as f32, h as f32)
-                                .unwrap(),
-                            &paint,
-                            Transform::default(),
-                            None,
-                        );
+                        let color = PremultipliedColorU8::from_rgba(
+                            min(c.a(), c.r()),
+                            min(c.a(), c.g()),
+                            min(c.a(), c.b()),
+                            c.a(),
+                        )
+                        .expect("RGB components must be <= alpha");
+                        for iy in y as usize..(y as usize + h as usize) {
+                            for ix in x as usize..(x as usize + w as usize) {
+                                pixels[ix + iy * pixmap_width] = color;
+                            }
+                        }
                     },
                 );
             });

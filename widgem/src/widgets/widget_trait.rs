@@ -468,6 +468,11 @@ pub trait Widget: Any {
     /// You don't need to implement this function if your widget doesn't have any children or if you're
     /// managing its children explicitly.
     fn handle_declare_children_request(&mut self) -> Result<()> {
+        // println!(
+        //     "handle_declare_children_request {:?} {:?}",
+        //     self.base().type_name(),
+        //     self.base().id()
+        // );
         self.base_mut().set_has_declare_children_override(false);
         Ok(())
     }
