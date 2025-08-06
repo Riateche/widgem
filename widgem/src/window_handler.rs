@@ -314,8 +314,10 @@ impl<'a> WindowHandler<'a> {
     }
 
     pub fn after_widget_activity(&mut self) {
+        let mut should_layout = false;
         if !self.window.has_winit_window() {
             self.window.init_winit_window(self.root_widget);
+            should_layout = true;
         }
         let accessibility_updates = self.window.take_pending_accessibility_updates();
         for addr in accessibility_updates {
@@ -329,6 +331,9 @@ impl<'a> WindowHandler<'a> {
         let pending_size_hint_invalidations = self.window.take_pending_size_hint_invalidations();
         if !pending_size_hint_invalidations.is_empty() {
             invalidate_size_hint_cache(self.root_widget, &pending_size_hint_invalidations);
+            should_layout = true;
+        }
+        if should_layout {
             self.layout(pending_size_hint_invalidations);
         }
         if self.window.focusable_widgets_changed() {

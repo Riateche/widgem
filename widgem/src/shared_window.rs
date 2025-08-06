@@ -6,7 +6,7 @@ use {
         event::FocusReason,
         event_loop::{with_active_event_loop, UserEvent},
         system::with_system,
-        types::{PhysicalPixels, Point, Rect, Size},
+        types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
     },
     accesskit::NodeId,
@@ -16,6 +16,7 @@ use {
     log::{info, warn},
     std::{
         cell::RefCell,
+        cmp::{max, min},
         collections::HashSet,
         fmt::Display,
         mem,
@@ -235,21 +236,72 @@ impl SharedWindow {
             return;
         }
 
+        let mut monitor_scale = None;
+        let mut monitor_rect = None;
+        with_active_event_loop(|event_loop| {
+            if let Some(outer_position) = inner.attributes.outer_position {
+                for monitor in event_loop.available_monitors() {
+                    let rect =
+                        Rect::from_pos_size(monitor.position().into(), monitor.size().into());
+                    if rect.contains(outer_position) {
+                        monitor_scale = Some(monitor.scale_factor() as f32);
+                        monitor_rect = Some(rect);
+                        return;
+                    }
+                }
+            }
+            if let Some(monitor) = event_loop
+                .primary_monitor()
+                .or_else(|| event_loop.available_monitors().next())
+            {
+                let rect = Rect::from_pos_size(monitor.position().into(), monitor.size().into());
+                monitor_scale = Some(monitor.scale_factor() as f32);
+                monitor_rect = Some(rect);
+            }
+        });
+        if let Some(monitor_scale) = monitor_scale {
+            root_widget.set_scale(Some(monitor_scale));
+        }
+
         let size_hints_x = root_widget.size_hint_x();
-        // TODO: adjust size_x for screen size
-        let preferred_size = Size::new(
-            size_hints_x.preferred(),
-            root_widget
-                .size_hint_y(size_hints_x.preferred())
-                .preferred(),
-        );
-        let min_size = Size::new(
-            size_hints_x.min(),
-            root_widget.size_hint_y(size_hints_x.min()).min(),
-        );
+
+        let size_x = if let Some(monitor_rect) = monitor_rect {
+            max(
+                size_hints_x.min(),
+                min(size_hints_x.preferred(), monitor_rect.size_x()),
+            )
+        } else {
+            max(size_hints_x.min(), size_hints_x.preferred())
+        };
+
+        let size_hint_y_min = root_widget.size_hint_y(size_hints_x.min()).min();
+        let size_hint_y_preferred = root_widget
+            .size_hint_y(size_hints_x.preferred())
+            .preferred();
+        let size_y = if let Some(monitor_rect) = monitor_rect {
+            max(
+                size_hint_y_min,
+                min(size_hint_y_preferred, monitor_rect.size_y() - 200.ppx()), // TMP!
+            )
+        } else {
+            max(size_hint_y_min, size_hint_y_preferred)
+        };
+        println!("test1 size_hint_y_preferred={size_hint_y_preferred:?}, size_y={size_y:?}");
+        let min_size = Size::new(size_hints_x.min(), size_hint_y_min);
+
+        let position = inner.attributes.outer_position.take().map(|position| {
+            if let Some(monitor_rect) = monitor_rect {
+                Point::new(
+                    min(position.x(), monitor_rect.right() - size_x),
+                    min(position.y(), monitor_rect.bottom() - 100.ppx() - size_y), // TMP!
+                )
+            } else {
+                position
+            }
+        });
 
         let mut attrs = WindowAttributes::default()
-            .with_inner_size(PhysicalSize::from(preferred_size))
+            .with_inner_size(PhysicalSize::from(Size::new(size_x, size_y)))
             .with_min_inner_size(PhysicalSize::from(min_size))
             .with_resizable(inner.attributes.resizable)
             .with_enabled_buttons(inner.attributes.enabled_buttons)
@@ -271,7 +323,7 @@ impl SharedWindow {
         if let Some(active) = inner.attributes.active {
             attrs = attrs.with_active(active);
         }
-        if let Some(position) = inner.attributes.outer_position.take() {
+        if let Some(position) = position {
             attrs = attrs.with_position(PhysicalPosition::from(position));
         }
         if let Some(resize_increments) = &inner.attributes.resize_increments {
