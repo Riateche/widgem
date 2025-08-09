@@ -257,6 +257,18 @@ impl NewWidget for ReviewWidget {
                 w.base.find_child_mut(w.image_id)?.set_scale(Some(2.0));
                 Ok(())
             }));
+        row.base_mut()
+            .add_child::<Button>("400%".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.base.find_child_mut(w.image_id)?.set_scale(Some(4.0));
+                Ok(())
+            }));
+        row.base_mut()
+            .add_child::<Button>("800%".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.base.find_child_mut(w.image_id)?.set_scale(Some(8.0));
+                Ok(())
+            }));
         let coords_id = row.base_mut().add_child::<Label>("".into()).id();
         let image = window
             .base_mut()
@@ -733,14 +745,15 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
             //         255,
             //     )
             //     .unwrap()
-            } else if let Some(pixel_a) = pixel_a {
-                PremultipliedColorU8::from_rgba(
-                    pixel_a.red().saturating_sub(50),
-                    pixel_a.green().saturating_add(50),
-                    pixel_a.blue().saturating_sub(50),
-                    255,
-                )
-                .unwrap()
+            } else if let Some(_pixel_a) = pixel_a {
+                // PremultipliedColorU8::from_rgba(
+                //     pixel_a.red().saturating_sub(50),
+                //     pixel_a.green().saturating_add(50),
+                //     pixel_a.blue().saturating_sub(50),
+                //     255,
+                // )
+                // .unwrap()
+                PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap()
             } else {
                 PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap()
             };

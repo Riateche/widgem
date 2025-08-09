@@ -1,23 +1,28 @@
-use {super::RawWidgetId, crate::child_key::ChildKey, std::fmt::Debug};
+use {
+    super::RawWidgetId,
+    crate::child_key::ChildKey,
+    std::{fmt::Debug, rc::Rc},
+};
 
 // TODO: store only keys?
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WidgetAddress {
-    pub path: Vec<(ChildKey, RawWidgetId)>,
+    pub path: Rc<[(ChildKey, RawWidgetId)]>,
 }
 
 impl WidgetAddress {
     pub fn root(id: RawWidgetId) -> Self {
         Self {
-            path: vec![("".into(), id)],
+            path: vec![("".into(), id)].into(),
         }
     }
-    pub fn join(mut self, key: ChildKey, id: RawWidgetId) -> Self {
-        self.path.push((key, id));
-        self
+    pub fn join(self, key: ChildKey, id: RawWidgetId) -> Self {
+        let mut path = self.path.to_vec();
+        path.push((key, id));
+        Self { path: path.into() }
     }
     pub fn starts_with(&self, base: &WidgetAddress) -> bool {
-        base.path.len() <= self.path.len() && base.path == self.path[..base.path.len()]
+        base.path.len() <= self.path.len() && *base.path == self.path[..base.path.len()]
     }
     pub fn widget_id(&self) -> RawWidgetId {
         self.path.last().expect("WidgetAddress path is empty").1

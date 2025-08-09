@@ -286,7 +286,6 @@ impl SharedWindow {
         } else {
             max(size_hint_y_min, size_hint_y_preferred)
         };
-        println!("test1 size_hint_y_preferred={size_hint_y_preferred:?}, size_y={size_y:?}");
         let min_size = Size::new(size_hints_x.min(), size_hint_y_min);
 
         let position = inner.attributes.outer_position.take().map(|position| {

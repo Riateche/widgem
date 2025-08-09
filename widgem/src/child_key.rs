@@ -4,11 +4,12 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
+    rc::Rc,
 };
 
 // TODO: smallvec optimization?
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ChildKey(Box<str>);
+pub struct ChildKey(Rc<str>);
 
 impl Debug for ChildKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -45,8 +46,8 @@ impl From<&ChildKey> for ChildKey {
     }
 }
 
-impl From<Box<str>> for ChildKey {
-    fn from(value: Box<str>) -> ChildKey {
+impl From<Rc<str>> for ChildKey {
+    fn from(value: Rc<str>) -> ChildKey {
         Self(value)
     }
 }
