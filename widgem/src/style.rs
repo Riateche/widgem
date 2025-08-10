@@ -7,7 +7,6 @@ use {
                 StyleSelector,
             },
         },
-        system::with_system,
         types::{LogicalPixels, Point},
         Pixmap,
     },
@@ -102,7 +101,31 @@ pub struct Style {
     cache: HashMap<(StyleSelector, OrderedFloat<f32>, TypeId), Box<dyn Any>>,
 }
 
-fn load_css(css: &str) -> Result<StyleSheet<'static, 'static>> {
+fn find_rules<'a>(
+    style: &'a StyleSheet<'static, 'static>,
+    check_selector: impl Fn(&Selector<'static>) -> bool,
+) -> Vec<&'a Property<'static>> {
+    let mut results = Vec::new();
+    for rule in &style.rules.0 {
+        if let CssRule::Style(rule) = rule {
+            for selector in &rule.selectors.0 {
+                if check_selector(selector) {
+                    let specificity = selector.specificity();
+                    results.extend(
+                        rule.declarations
+                            .iter()
+                            .map(|(dec, important)| (important, specificity, dec)),
+                    );
+                }
+            }
+        }
+    }
+    // Use stable sort because later statements should take priority.
+    results.sort_by_key(|(important, specificity, _dec)| (*important, *specificity));
+    results.into_iter().map(|(_, _, dec)| dec).collect()
+}
+
+pub(crate) fn load_css(css: &str) -> Result<StyleSheet<'static, 'static>> {
     let mut style = StyleSheet::parse(css, Default::default())
         .map_err(|e| anyhow!("failed to parse css: {e}"))?;
     replace_vars(&mut style);
@@ -153,24 +176,7 @@ impl Style {
         &self,
         check_selector: impl Fn(&Selector<'static>) -> bool,
     ) -> Vec<&Property<'static>> {
-        let mut results = Vec::new();
-        for rule in &self.css.rules.0 {
-            if let CssRule::Style(rule) = rule {
-                for selector in &rule.selectors.0 {
-                    if check_selector(selector) {
-                        let specificity = selector.specificity();
-                        results.extend(
-                            rule.declarations
-                                .iter()
-                                .map(|(dec, important)| (important, specificity, dec)),
-                        );
-                    }
-                }
-            }
-        }
-        // Use stable sort because later statements should take priority.
-        results.sort_by_key(|(important, specificity, _dec)| (*important, *specificity));
-        results.into_iter().map(|(_, _, dec)| dec).collect()
+        find_rules(&self.css, check_selector)
     }
 
     // TODO: cache?
@@ -228,7 +234,20 @@ impl Style {
         Ok(pixmap.into())
     }
 
-    pub fn get<T: ComputedElementStyle>(&mut self, element: &StyleSelector, scale: f32) -> Rc<T> {
+    pub fn get<T: ComputedElementStyle>(
+        &mut self,
+        element: &StyleSelector,
+        scale: f32,
+        custom_style: Option<&StyleSheet<'static, 'static>>,
+    ) -> Rc<T> {
+        if let Some(custom_style) = custom_style {
+            let styles = Styles {
+                main: self,
+                custom: Some(custom_style),
+            };
+            // TODO: avoid unneeded Rc
+            return Rc::new(T::new(&styles, element, scale));
+        }
         let type_id = TypeId::of::<T>();
         let key = (element.clone(), OrderedFloat(scale), type_id);
         if let Some(data) = self.cache.get(&key) {
@@ -237,13 +256,52 @@ impl Style {
                 .expect("style cache type mismatch")
                 .clone();
         }
-        let style = Rc::new(T::new(self, element, scale));
+        let style = Rc::new(T::new(
+            &Styles {
+                main: self,
+                custom: None,
+            },
+            element,
+            scale,
+        ));
         let style_clone = style.clone();
         self.cache.insert(key, Box::new(style));
         style_clone
     }
 }
 
-pub fn get_style<T: ComputedElementStyle>(element: &StyleSelector, scale: f32) -> Rc<T> {
-    with_system(|system| system.style.get(element, scale))
+#[derive(Debug)]
+pub struct Styles<'a> {
+    main: &'a Style,
+    custom: Option<&'a StyleSheet<'static, 'static>>,
+}
+
+impl<'a> Styles<'a> {
+    pub fn find_rules_for_element(&self, element: &StyleSelector) -> Vec<&Property<'static>> {
+        self.find_rules(|selector| element.matches(selector))
+    }
+
+    pub fn find_rules(
+        &self,
+        check_selector: impl Fn(&Selector<'static>) -> bool,
+    ) -> Vec<&Property<'static>> {
+        let mut rules = self.main.find_rules(&check_selector);
+        if let Some(custom) = self.custom {
+            rules.extend(find_rules(custom, check_selector));
+        }
+        rules
+    }
+
+    // TODO: cache?
+    pub fn root_font_style(&self) -> FontStyle {
+        self.main.root_font_style()
+    }
+
+    pub fn root_color(&self) -> Color {
+        self.main.root_color()
+    }
+
+    pub fn load_pixmap(&self, path: &str, scale: f32) -> Result<Pixmap> {
+        self.main.load_pixmap(path, scale)
+    }
 }

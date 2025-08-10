@@ -4,7 +4,7 @@ use {
             convert_background, convert_border, convert_font, convert_main_color, convert_padding,
             convert_zoom, is_root, PseudoClass, StyleSelector,
         },
-        RelativeOffset, Style,
+        RelativeOffset,
     },
     crate::{
         layout::{GridAxisOptions, GridOptions},
@@ -13,7 +13,7 @@ use {
                 convert_layout_ignores_border, convert_spacing, get_border_collapse,
                 get_text_alignment, get_vertical_alignment, is_root_min,
             },
-            defaults,
+            defaults, Styles,
         },
         types::{LpxSuffix, PhysicalPixels, Point, PpxSuffix},
     },
@@ -48,7 +48,7 @@ pub(crate) struct BaseComputedStyle {
 }
 
 impl ComputedElementStyle for BaseComputedStyle {
-    fn new(style: &Style, element: &StyleSelector, scale: f32) -> Self {
+    fn new(style: &Styles, element: &StyleSelector, scale: f32) -> Self {
         let rules = style.find_rules(|s| element.matches(s));
         let mut rules_with_root = style.find_rules(is_root);
         rules_with_root.extend(rules.clone());
@@ -122,7 +122,7 @@ impl ComputedElementStyle for BaseComputedStyle {
 }
 
 pub trait ComputedElementStyle: Any + Sized {
-    fn new(style: &Style, element: &StyleSelector, scale: f32) -> Self;
+    fn new(styles: &Styles, element: &StyleSelector, scale: f32) -> Self;
 }
 
 #[derive(Debug, Clone)]

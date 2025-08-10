@@ -9,9 +9,9 @@ use {
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
         style::{
-            common::BaseComputedStyle,
+            common::{BaseComputedStyle, ComputedElementStyle},
             css::{PseudoClass, StyleSelector},
-            get_style,
+            load_css,
         },
         system::{
             register_address, request_children_update, unregister_address, with_system,
@@ -22,6 +22,7 @@ use {
     },
     anyhow::{Context, Result},
     derivative::Derivative,
+    lightningcss::stylesheet::StyleSheet,
     log::{error, warn},
     std::{
         cell::RefCell,
@@ -195,6 +196,12 @@ struct Cache {
     size_hint_y: HashMap<PhysicalPixels, SizeHint>,
 }
 
+#[derive(Debug)]
+struct CustomStyle {
+    code: String,
+    style_sheet: StyleSheet<'static, 'static>,
+}
+
 /// The first building block of a widget.
 ///
 /// Any widget contains a `WidgetBase` object. You can obtain it by calling [base()](crate::widgets::Widget::base)
@@ -239,6 +246,7 @@ pub struct WidgetBase {
     shortcuts: HashMap<ShortcutId, Shortcut>,
     style_selector: StyleSelector,
     base_style: Rc<BaseComputedStyle>,
+    style: Option<CustomStyle>,
 
     // Counter used for assigning auto keys in `add_child`.
     // It never resets.
@@ -278,6 +286,18 @@ fn last_path_part(str: &str) -> &str {
         .expect("rsplit always returns at least one element")
 }
 
+fn get_computed_style<T: ComputedElementStyle>(
+    element: &StyleSelector,
+    scale: f32,
+    custom_style: Option<&CustomStyle>,
+) -> Rc<T> {
+    with_system(|system| {
+        system
+            .style
+            .get(element, scale, custom_style.map(|s| &s.style_sheet))
+    })
+}
+
 // Various private impls.
 impl WidgetBase {
     pub(crate) fn new_root<T: Widget>() -> WidgetBaseOf<T> {
@@ -306,7 +326,11 @@ impl WidgetBase {
         } else {
             None
         };
-        let common_style = get_style(&style_selector, self_scale.unwrap_or(ctx.parent_scale));
+        let common_style = get_computed_style(
+            &style_selector,
+            self_scale.unwrap_or(ctx.parent_scale),
+            None,
+        );
         let mut common = Self {
             id,
             type_name,
@@ -336,6 +360,7 @@ impl WidgetBase {
             event_filters: HashMap::new(),
             shortcuts: HashMap::new(),
             style_selector,
+            style: None,
             base_style: common_style,
             num_added_children: 0,
             declared_children: Default::default(),
@@ -625,6 +650,35 @@ impl WidgetBase {
         self
     }
 
+    pub(crate) fn style(&self) -> Option<&str> {
+        self.style.as_ref().map(|s| s.code.as_str())
+    }
+
+    pub(crate) fn set_style(&mut self, style: &str) -> &mut Self {
+        if self.style() == Some(style) {
+            return self;
+        }
+        println!("WidgetBase set_style");
+        self.style = load_css(style)
+            .or_report_err()
+            .map(|style_sheet| CustomStyle {
+                style_sheet,
+                code: style.into(),
+            });
+        println!("WidgetBase set_style {:?}", self.style);
+        self
+    }
+
+    pub fn compute_style<T: ComputedElementStyle>(&self) -> Rc<T> {
+        with_system(|system| {
+            system.style.get(
+                &self.style_selector,
+                self.scale(),
+                self.style.as_ref().map(|s| &s.style_sheet),
+            )
+        })
+    }
+
     /// True if this widget is a root widget of an OS window.
     ///
     /// This is true for [Window](crate::Window) and false for all other provided widget types.
@@ -766,7 +820,7 @@ impl WidgetBase {
     }
 
     fn refresh_common_style(&mut self) {
-        self.base_style = get_style(&self.style_selector, self.scale());
+        self.base_style = self.compute_style();
         self.size_hint_changed();
         self.update();
     }

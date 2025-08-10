@@ -16,7 +16,7 @@ use {
                 convert_background_color, convert_font, convert_main_color, is_selection,
                 StyleSelector,
             },
-            defaults, get_style, Style,
+            defaults, Styles,
         },
         system::{add_interval, report_error, send_window_request, with_system, ReportError},
         text::{
@@ -64,7 +64,7 @@ struct TextStyle {
 }
 
 impl ComputedElementStyle for TextStyle {
-    fn new(style: &Style, element: &StyleSelector, scale: f32) -> Self {
+    fn new(style: &Styles, element: &StyleSelector, scale: f32) -> Self {
         let rules = style.find_rules_for_element(element);
 
         // TODO: different selection styles depending on `element`
@@ -160,7 +160,7 @@ impl Text {
     pub fn set_host_style_selector(&mut self, element: StyleSelector) -> &mut Self {
         self.host_element = element;
         let old_style = self.style.clone();
-        self.style = get_style(&self.host_element, self.base.scale());
+        self.style = self.base.compute_style();
         self.set_font_metrics(self.style.font_metrics);
         if old_style.text_color != self.style.text_color
             || old_style.selected_text_color != self.style.selected_text_color
@@ -1025,7 +1025,7 @@ impl NewWidget for Text {
     type Arg = (String, StyleSelector);
 
     fn new(base: WidgetBaseOf<Self>, (text, style_selector): (String, StyleSelector)) -> Self {
-        let style = get_style::<TextStyle>(&style_selector, base.scale());
+        let style = base.compute_style::<TextStyle>();
         let editor = with_system(|system| {
             Editor::new(Buffer::new(&mut system.font_system, style.font_metrics))
         });
@@ -1238,7 +1238,7 @@ impl Widget for Text {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        self.style = get_style(&self.host_element, self.base.scale());
+        self.style = self.base.compute_style();
         Ok(())
     }
 }

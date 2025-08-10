@@ -12,7 +12,7 @@ use {
         style::{
             common::ComputedElementStyle,
             css::{convert_content_url, convert_zoom, PseudoClass, StyleSelector},
-            get_style, Style,
+            Styles,
         },
         system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
@@ -162,7 +162,7 @@ impl Button {
     }
 
     fn refresh_style(&mut self) {
-        self.style = get_style(self.base.style_selector(), self.base.scale());
+        self.style = self.base.compute_style();
         let icon = self.style.icon.clone();
         self.image_widget_mut().set_visible(icon.is_some());
         self.image_widget_mut().set_prescaled(true);
@@ -181,7 +181,7 @@ impl NewWidget for Button {
         let element = base.style_selector().clone();
         base.add_child::<Text>((arg, element)).set_host_id(id);
         let mut b = Self {
-            style: get_style(base.style_selector(), base.scale()),
+            style: base.compute_style(),
             auto_repeat: false,
             is_mouse_leave_sensitive: true,
             trigger_on_press: false,
@@ -310,7 +310,7 @@ struct ComputedButtonStyle {
 }
 
 impl ComputedElementStyle for ComputedButtonStyle {
-    fn new(style: &Style, element: &StyleSelector, scale: f32) -> ComputedButtonStyle {
+    fn new(style: &Styles, element: &StyleSelector, scale: f32) -> ComputedButtonStyle {
         let properties = style.find_rules(|s| element.matches(s));
 
         let scale = scale * convert_zoom(&properties);

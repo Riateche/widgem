@@ -19,7 +19,8 @@ use {
         system::ReportError,
         types::Point,
         widgets::{
-            Button, Image, Label, NewWidget, Row, Widget, WidgetBaseOf, WidgetExt, WidgetId, Window,
+            Button, Column, Image, Label, NewWidget, Row, ScrollArea, Widget, WidgetBaseOf,
+            WidgetExt, WidgetId, Window,
         },
     },
 };
@@ -270,10 +271,15 @@ impl NewWidget for ReviewWidget {
                 Ok(())
             }));
         let coords_id = row.base_mut().add_child::<Label>("".into()).id();
+
         let image = window
             .base_mut()
-            .add_child::<Image>(None)
-            .set_grid_cell(2, current_row);
+            .add_child::<ScrollArea>(())
+            .set_grid_cell(2, current_row)
+            .set_content::<Column>(())
+            .set_style("Column { background: #e0e0e0 }")
+            .base_mut()
+            .add_child::<Image>(None);
         current_row += 1;
 
         let image_mouse_move = id.callback(Self::image_mouse_move);

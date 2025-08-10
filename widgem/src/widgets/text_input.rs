@@ -11,7 +11,7 @@ use {
             common::ComputedElementStyle,
             css::{convert_font, convert_width, PseudoClass, StyleSelector},
             defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
-            get_style, Style,
+            Styles,
         },
         system::ReportError,
         text_editor::Text,
@@ -166,7 +166,7 @@ impl NewWidget for TextInput {
             .set_host_id(host_id.into());
         editor.base_mut().set_receives_all_mouse_events(true);
         Self {
-            style: get_style(base.style_selector(), base.scale()),
+            style: base.compute_style(),
             base,
         }
     }
@@ -191,7 +191,7 @@ impl Widget for TextInput {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        self.style = get_style(self.base().style_selector(), self.base().scale());
+        self.style = self.base.compute_style();
         Ok(())
     }
 
@@ -229,7 +229,7 @@ pub struct TextInputStyle {
 }
 
 impl ComputedElementStyle for TextInputStyle {
-    fn new(style: &Style, element: &StyleSelector, scale: f32) -> TextInputStyle {
+    fn new(style: &Styles, element: &StyleSelector, scale: f32) -> TextInputStyle {
         let element_min = element
             .clone()
             .with_pseudo_class(PseudoClass::Custom("min".into()));

@@ -61,6 +61,15 @@ pub trait WidgetExt: Widget {
         self
     }
 
+    fn set_style(&mut self, style: &str) -> &mut Self {
+        if self.base().style() == Some(style) {
+            return self;
+        }
+        self.base_mut().set_style(style);
+        self.dispatch(StyleChangeEvent { _empty: () }.into());
+        self
+    }
+
     fn callback<F, E>(&self, func: F) -> Callback<E>
     where
         F: Fn(&mut Self, E) -> Result<()> + 'static,
