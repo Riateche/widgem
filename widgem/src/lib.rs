@@ -27,7 +27,7 @@ use event_loop::with_active_event_loop;
 pub use {
     crate::{
         accessibility::new_accessibility_node_id,
-        child_key::{ChildKey, FormatChildKey},
+        child_key::ChildKey,
         event_loop::{run, App},
         pixmap::Pixmap,
     },

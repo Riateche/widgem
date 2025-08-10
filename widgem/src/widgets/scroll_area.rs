@@ -487,6 +487,7 @@ impl Widget for ScrollArea {
             *scroll_y.value_range().start(),
             *scroll_y.value_range().end(),
         ));
+        self.relayout(&[])?;
         self.base.update();
         Ok(true)
     }

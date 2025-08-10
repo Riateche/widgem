@@ -2,286 +2,175 @@
 
 use std::{
     collections::BTreeMap,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
     hash::Hash,
+    io::Write,
     rc::Rc,
 };
 
 // TODO: smallvec optimization?
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ChildKey(Rc<str>);
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct ChildKey {
+    sort: Rc<[u8]>,
+    debug: Rc<str>,
+}
+
+pub trait ChildKeyData: Debug {
+    fn sort_key(&self, out: impl Write);
+}
+
+impl<T: ChildKeyData + ?Sized> ChildKeyData for &T {
+    fn sort_key(&self, out: impl Write) {
+        <T as ChildKeyData>::sort_key(self, out)
+    }
+}
+
+impl<T: ChildKeyData> From<T> for ChildKey {
+    fn from(value: T) -> Self {
+        let debug = format!("{value:?}");
+        let mut sort = Vec::new();
+        value.sort_key(&mut sort);
+        Self {
+            sort: sort.into(),
+            debug: debug.into(),
+        }
+    }
+}
+
+impl PartialOrd for ChildKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ChildKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.sort.cmp(&other.sort)
+    }
+}
 
 impl Debug for ChildKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.debug)
     }
 }
 
-pub trait FormatChildKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result;
-}
-
-struct KeyFormatter<T>(T);
-
-impl<T> Display for KeyFormatter<&T>
-where
-    T: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        <T as FormatChildKey>::fmt(self.0, f)
-    }
-}
-
-impl<T> From<T> for ChildKey
-where
-    T: FormatChildKey,
-{
-    fn from(value: T) -> ChildKey {
-        Self(KeyFormatter(&value).to_string().into())
-    }
-}
 impl From<&ChildKey> for ChildKey {
     fn from(value: &ChildKey) -> Self {
         value.clone()
     }
 }
 
-impl From<Rc<str>> for ChildKey {
-    fn from(value: Rc<str>) -> ChildKey {
-        Self(value)
-    }
-}
-
-macro_rules! impl_from_debug {
+macro_rules! impl_int {
     ($t:ty) => {
-        impl FormatChildKey for $t {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(f, "{:?}", self)
-            }
-        }
-        impl FormatChildKey for &$t {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(f, "{:?}", self)
+        impl ChildKeyData for $t {
+            fn sort_key(&self, mut out: impl Write) {
+                out.write_all(&self.to_be_bytes()).unwrap();
             }
         }
     };
 }
 
-// macro_rules! impl_from_into {
-//     ($t:ty) => {
-//         impl From<$t> for Key {
-//             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//                 Key(value.into())
-//             }
-//         }
-//     };
-// }
-impl_from_debug!(char);
-impl_from_debug!(usize);
-impl_from_debug!(isize);
-impl_from_debug!(u128);
-impl_from_debug!(u64);
-impl_from_debug!(u32);
-impl_from_debug!(u16);
-impl_from_debug!(u8);
-impl_from_debug!(i128);
-impl_from_debug!(i64);
-impl_from_debug!(i32);
-impl_from_debug!(i16);
-impl_from_debug!(i8);
-impl_from_debug!(String);
-impl_from_debug!(&str);
+impl_int!(u128);
+impl_int!(u64);
+impl_int!(u32);
+impl_int!(u16);
+impl_int!(u8);
+impl_int!(i128);
+impl_int!(i64);
+impl_int!(i32);
+impl_int!(i16);
+impl_int!(i8);
+impl_int!(usize);
+impl_int!(isize);
 
-// impl_from_into!(String);
-// impl_from_into!(&str);
-
-// impl From<Box<str>> for Key {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         Key(value)
-//     }
-// }
-// impl From<&String> for Key {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         Key(value.as_str().into())
-//     }
-// }
-impl<T0, T1> FormatChildKey for (T0, T1)
-where
-    T0: FormatChildKey,
-    T1: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
-    }
-}
-impl<T0, T1, T2> FormatChildKey for (T0, T1, T2)
-where
-    T0: FormatChildKey,
-    T1: FormatChildKey,
-    T2: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "({},{},{})",
-            KeyFormatter(&self.0),
-            KeyFormatter(&self.1),
-            KeyFormatter(&self.2)
-        )
-    }
-}
-impl<T0, T1, T2, T3> FormatChildKey for (T0, T1, T2, T3)
-where
-    T0: FormatChildKey,
-    T1: FormatChildKey,
-    T2: FormatChildKey,
-    T3: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "({},{},{},{})",
-            KeyFormatter(&self.0),
-            KeyFormatter(&self.1),
-            KeyFormatter(&self.2),
-            KeyFormatter(&self.3)
-        )
-    }
-}
-impl<T0, T1> FormatChildKey for &(T0, T1)
-where
-    T0: FormatChildKey,
-    T1: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "({},{})", KeyFormatter(&self.0), KeyFormatter(&self.1))
-    }
-}
-impl<T0, T1, T2> FormatChildKey for &(T0, T1, T2)
-where
-    T0: FormatChildKey,
-    T1: FormatChildKey,
-    T2: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "({},{},{})",
-            KeyFormatter(&self.0),
-            KeyFormatter(&self.1),
-            KeyFormatter(&self.2)
-        )
-    }
-}
-impl<T0, T1, T2, T3> FormatChildKey for &(T0, T1, T2, T3)
-where
-    T0: FormatChildKey,
-    T1: FormatChildKey,
-    T2: FormatChildKey,
-    T3: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "({},{},{},{})",
-            KeyFormatter(&self.0),
-            KeyFormatter(&self.1),
-            KeyFormatter(&self.2),
-            KeyFormatter(&self.3)
-        )
+impl ChildKeyData for char {
+    fn sort_key(&self, mut out: impl Write) {
+        out.write_all(&u32::from(*self).to_be_bytes()).unwrap();
     }
 }
 
-impl<T, const N: usize> FormatChildKey for [T; N]
+impl From<Rc<str>> for ChildKey {
+    fn from(value: Rc<str>) -> ChildKey {
+        Self {
+            debug: format!("{value:?}").into(),
+            sort: value.into(),
+        }
+    }
+}
+
+impl From<&Rc<str>> for ChildKey {
+    fn from(value: &Rc<str>) -> ChildKey {
+        Self {
+            debug: format!("{value:?}").into(),
+            sort: value.clone().into(),
+        }
+    }
+}
+
+impl ChildKeyData for String {
+    fn sort_key(&self, mut out: impl Write) {
+        out.write_all(self.as_bytes()).unwrap();
+    }
+}
+
+impl ChildKeyData for str {
+    fn sort_key(&self, mut out: impl Write) {
+        out.write_all(self.as_bytes()).unwrap();
+    }
+}
+
+macro_rules! impl_tuple {
+    (($($ty:ident,)*), ($($fi:tt,)*)) => {
+        impl<$($ty,)*> ChildKeyData for ($($ty,)*)
+        where $($ty: ChildKeyData,)*
+        {
+            fn sort_key(&self, mut out: impl Write) {
+                $({
+                    self.$fi.sort_key(&mut out);
+                })*
+            }
+        }
+    };
+}
+
+impl_tuple!((T0, T1,), (0, 1,));
+impl_tuple!((T0, T1, T2,), (0, 1, 2,));
+impl_tuple!((T0, T1, T2, T3,), (0, 1, 2, 3,));
+
+impl<T, const N: usize> ChildKeyData for [T; N]
 where
-    T: FormatChildKey,
+    T: ChildKeyData,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
-        let mut is_first = true;
+    fn sort_key(&self, out: impl Write) {
+        <[T] as ChildKeyData>::sort_key(self, out)
+    }
+}
+
+impl<T> ChildKeyData for [T]
+where
+    T: ChildKeyData,
+{
+    fn sort_key(&self, mut out: impl Write) {
         for item in self {
-            if is_first {
-                write!(f, ",")?;
-            }
-            write!(f, "{}", KeyFormatter(item))?;
-            is_first = false;
+            item.sort_key(&mut out);
         }
-        write!(f, "]")
-    }
-}
-impl<T, const N: usize> FormatChildKey for &[T; N]
-where
-    T: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
-        let mut is_first = true;
-        for item in *self {
-            if is_first {
-                write!(f, ",")?;
-            }
-            write!(f, "{}", KeyFormatter(item))?;
-            is_first = false;
-        }
-        write!(f, "]")
-    }
-}
-impl<T> FormatChildKey for [T]
-where
-    T: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
-        let mut is_first = true;
-        for item in self {
-            if is_first {
-                write!(f, ",")?;
-            }
-            write!(f, "{}", KeyFormatter(item))?;
-            is_first = false;
-        }
-        write!(f, "]")
-    }
-}
-impl<T> FormatChildKey for &[T]
-where
-    T: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[")?;
-        let mut is_first = true;
-        for item in *self {
-            if is_first {
-                write!(f, ",")?;
-            }
-            write!(f, "{}", KeyFormatter(item))?;
-            is_first = false;
-        }
-        write!(f, "]")
     }
 }
 
-impl<T> FormatChildKey for Option<T>
+impl<T> ChildKeyData for Option<T>
 where
-    T: FormatChildKey,
+    T: ChildKeyData,
 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if let Some(value) = self {
-            write!(f, "Some({})", KeyFormatter(value))
-        } else {
-            write!(f, "None")
-        }
-    }
-}
-impl<T> FormatChildKey for &Option<T>
-where
-    T: FormatChildKey,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if let Some(value) = self {
-            write!(f, "Some({})", KeyFormatter(value))
-        } else {
-            write!(f, "None")
+    fn sort_key(&self, mut out: impl Write) {
+        match self {
+            None => {
+                out.write_all(&[0]).unwrap();
+            }
+            Some(value) => {
+                out.write_all(&[1]).unwrap();
+                value.sort_key(&mut out);
+            }
         }
     }
 }
