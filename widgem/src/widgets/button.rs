@@ -173,13 +173,13 @@ impl Button {
 impl NewWidget for Button {
     type Arg = String;
 
-    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
+    fn new(mut base: WidgetBaseOf<Self>, text: Self::Arg) -> Self {
         base.set_supports_focus(true);
         base.set_layout(Layout::HorizontalFirst);
         base.add_child::<Image>(None).set_visible(false);
         let id = base.id().raw();
-        let element = base.style_selector().clone();
-        base.add_child::<Text>((arg, element)).set_host_id(id);
+        let text_style = base.compute_style();
+        base.add_child::<Text>((text, text_style)).set_host_id(id);
         let mut b = Self {
             style: base.compute_style(),
             auto_repeat: false,
@@ -295,8 +295,8 @@ impl Widget for Button {
     }
 
     fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        let element = self.base.style_selector().clone();
-        self.text_widget_mut().set_host_style_selector(element);
+        let text_style = self.base.compute_style();
+        self.text_widget_mut().set_text_style(text_style);
         self.refresh_style();
         self.base.size_hint_changed();
         self.base.update();

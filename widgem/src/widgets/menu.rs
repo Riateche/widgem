@@ -7,7 +7,7 @@ use {
         layout::{default_layout, default_size_hint_x, default_size_hint_y},
         shared_window::X11WindowType,
         system::ReportError,
-        text_editor::Text,
+        text_editor::{Text, TextStyle},
         types::Point,
         widgets::{widget_trait::NewWidget, Column, ScrollArea},
         WidgetExt,
@@ -137,16 +137,16 @@ impl MenuItem {
 impl NewWidget for MenuItem {
     type Arg = String;
 
-    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
+    fn new(base: WidgetBaseOf<Self>, text: Self::Arg) -> Self {
         Self {
             base,
-            text: arg,
+            text,
             clicked: Default::default(),
         }
     }
 
-    fn handle_declared(&mut self, arg: Self::Arg) {
-        self.set_text(&arg);
+    fn handle_declared(&mut self, text: Self::Arg) {
+        self.set_text(&text);
     }
 }
 
@@ -154,9 +154,9 @@ impl Widget for MenuItem {
     impl_widget_base!();
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
-        let selector = self.base.style_selector().clone();
+        let text_style = self.base.compute_style::<TextStyle>();
         self.base
-            .declare_child::<Text>((self.text.clone(), selector))
+            .declare_child::<Text>((self.text.clone(), text_style))
             .set_multiline(false);
         Ok(())
     }

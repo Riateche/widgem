@@ -4,7 +4,7 @@ use {
         draw::DrawEvent,
         event::{
             AccessibilityActionEvent, FocusReason, InputMethodEvent, KeyboardInputEvent,
-            MouseInputEvent, MouseMoveEvent, StyleChangeEvent, WindowFocusChangeEvent,
+            MouseInputEvent, MouseMoveEvent, WindowFocusChangeEvent,
         },
         impl_widget_base,
         layout::SizeHint,
@@ -56,9 +56,10 @@ use {
     },
 };
 
-struct TextStyle {
+#[derive(Debug, PartialEq, Clone)]
+pub struct TextStyle {
     font_metrics: cosmic_text::Metrics,
-    text_color: Color,
+    pub(crate) text_color: Color,
     selected_text_color: Color,
     selected_text_background: Color,
 }
@@ -98,7 +99,6 @@ pub struct Text {
     is_cursor_hidden: bool,
     is_host_focused: bool,
     host_id: Option<RawWidgetId>,
-    host_element: StyleSelector,
     forbid_mouse_interaction: bool,
     blink_timer: Option<TimerId>,
     selected_text: String,
@@ -154,21 +154,6 @@ impl Text {
 
     pub fn set_host_id(&mut self, id: RawWidgetId) -> &mut Self {
         self.host_id = Some(id);
-        self
-    }
-
-    pub fn set_host_style_selector(&mut self, element: StyleSelector) -> &mut Self {
-        self.host_element = element;
-        let old_style = self.style.clone();
-        self.style = self.base.compute_style();
-        self.set_font_metrics(self.style.font_metrics);
-        if old_style.text_color != self.style.text_color
-            || old_style.selected_text_color != self.style.selected_text_color
-            || old_style.selected_text_background != self.style.selected_text_background
-        {
-            self.editor.with_buffer_mut(|b| b.set_redraw(true));
-            self.base.update();
-        }
         self
     }
 
@@ -432,6 +417,23 @@ impl Text {
 
     pub fn text(&self) -> String {
         self.editor.with_buffer(text_without_preedit)
+    }
+
+    pub fn set_text_style(&mut self, style: Rc<TextStyle>) -> &mut Self {
+        if self.style == style {
+            return self;
+        }
+        let old_style = self.style.clone();
+        self.style = style;
+        self.set_font_metrics(self.style.font_metrics);
+        if old_style.text_color != self.style.text_color
+            || old_style.selected_text_color != self.style.selected_text_color
+            || old_style.selected_text_background != self.style.selected_text_background
+        {
+            self.editor.with_buffer_mut(|b| b.set_redraw(true));
+            self.base.update();
+        }
+        self
     }
 
     fn after_change(&mut self) {
@@ -1022,17 +1024,15 @@ impl Text {
 
 impl NewWidget for Text {
     // TODO: config struct?
-    type Arg = (String, StyleSelector);
+    type Arg = (String, Rc<TextStyle>);
 
-    fn new(base: WidgetBaseOf<Self>, (text, style_selector): (String, StyleSelector)) -> Self {
-        let style = base.compute_style::<TextStyle>();
+    fn new(base: WidgetBaseOf<Self>, (text, style): (String, Rc<TextStyle>)) -> Self {
         let editor = with_system(|system| {
             Editor::new(Buffer::new(&mut system.font_system, style.font_metrics))
         });
         let mut t = Self {
             editor,
             pixmap: None,
-            host_element: style_selector,
             style,
             size: Size::default(),
             is_multiline: true,
@@ -1060,9 +1060,9 @@ impl NewWidget for Text {
         t
     }
 
-    fn handle_declared(&mut self, (text, style_selector): (String, StyleSelector)) {
+    fn handle_declared(&mut self, (text, style): (String, Rc<TextStyle>)) {
         self.set_text(text, Attrs::new());
-        self.set_host_style_selector(style_selector);
+        self.set_text_style(style);
     }
 }
 
@@ -1235,11 +1235,6 @@ impl Widget for Text {
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
         // TODO: use size_x, handle multiple lines
         Ok(SizeHint::new_fixed(self.size_y(), self.size_y()))
-    }
-
-    fn handle_style_change(&mut self, _event: StyleChangeEvent) -> Result<()> {
-        self.style = self.base.compute_style();
-        Ok(())
     }
 }
 

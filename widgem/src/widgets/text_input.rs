@@ -154,13 +154,13 @@ impl NewWidget for TextInput {
         base.set_supports_focus(true);
         base.set_cursor_icon(CursorIcon::Text);
         let host_id = base.id();
-        let element = base.style_selector().clone();
+        let text_style = base.compute_style();
         let viewport = base.add_child_with_key::<Viewport>(0, ());
         viewport.base_mut().set_receives_all_mouse_events(true);
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
         let editor = viewport
             .base_mut()
-            .add_child_with_key::<Text>(0, (String::new(), element))
+            .add_child_with_key::<Text>(0, (String::new(), text_style))
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into());
