@@ -399,7 +399,7 @@ pub trait Widget: Any {
     /// Implement this function if your widget needs to react to a style change. Possible examples include
     /// updating cached margins or regenerating pixmaps that depend on style. You don't need to implement it
     /// if your implementation doesn't cache anything and always fetches the style data using
-    /// [style](crate::style::get_style).
+    /// [compute_style](WidgetBase::compute_style).
     /// The widget is always updated (including a redraw) when its style changes.
     fn handle_style_change(&mut self, event: StyleChangeEvent) -> Result<()> {
         let _ = event;
