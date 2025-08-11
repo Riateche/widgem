@@ -32,14 +32,13 @@ jobs:
       - name: Build tests
         run: |
           cargo build --package widgem_tests --release --locked
-      - name: Build Docker image
+      - name: Build test environment Docker image
         run: |
-          mkdir -p target/bin
-          cp target/release/widgem_tests tests/scripts/xfce_entrypoint.sh target/bin/
-          docker build --tag widgem_tests --file tests/scripts/tests.Dockerfile target/bin
+          docker build --file tests/scripts/tests.Dockerfile --tag widgem_tests tests/scripts
       - name: Run UI tests
         run: |
           docker run --name widgem_tests \
+            --mount "type=bind,source=$PWD/target/release/widgem_tests,target=/usr/local/bin/widgem_tests" \
             --mount "type=bind,source=$PWD,target=/app" \
             widgem_tests widgem_tests test
       - name: Upload test snapshots on failure
