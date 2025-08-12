@@ -1,7 +1,7 @@
 use {
     super::{image::Image, Widget, WidgetBaseOf, WidgetExt},
     crate::{
-        callback::{Callback, CallbackVec},
+        callback::{Callback, Callbacks},
         event::{
             AccessibilityActionEvent, FocusReason, KeyboardInputEvent, MouseInputEvent,
             MouseMoveEvent, StyleChangeEvent,
@@ -36,7 +36,7 @@ pub struct Button {
     auto_repeat: bool,
     is_mouse_leave_sensitive: bool,
     trigger_on_press: bool,
-    on_triggered: CallbackVec<()>,
+    on_triggered: Callbacks<()>,
     is_pressed: bool,
     was_pressed_but_moved_out: bool,
     auto_repeat_delay_timer: Option<TimerId>,
@@ -101,12 +101,12 @@ impl Button {
     // }
 
     pub fn on_triggered(&mut self, callback: Callback<()>) -> &mut Self {
-        self.on_triggered.push(callback);
+        self.on_triggered.add(callback);
         self
     }
 
     pub fn trigger(&mut self) {
-        self.on_triggered.invoke(());
+        self.on_triggered.invoke((), false);
     }
 
     fn set_pressed(&mut self, value: bool, suppress_trigger: bool) {
@@ -185,7 +185,7 @@ impl NewWidget for Button {
             auto_repeat: false,
             is_mouse_leave_sensitive: true,
             trigger_on_press: false,
-            on_triggered: CallbackVec::new(),
+            on_triggered: Callbacks::default(),
             is_pressed: false,
             was_pressed_but_moved_out: false,
             base,

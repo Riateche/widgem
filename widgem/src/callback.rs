@@ -93,27 +93,6 @@ impl<Event: Send + 'static> Callback<Event> {
     }
 }
 
-pub struct CallbackVec<Event>(Vec<Callback<Event>>);
-
-impl<Event> CallbackVec<Event> {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
-    pub fn push(&mut self, callback: Callback<Event>) {
-        self.0.push(callback);
-    }
-
-    pub fn invoke(&self, event: Event)
-    where
-        Event: Send + Clone + 'static,
-    {
-        for item in &self.0 {
-            item.invoke(event.clone());
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CallbackId(u64);
 

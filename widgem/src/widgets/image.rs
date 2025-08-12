@@ -48,13 +48,14 @@ impl Image {
         Ok(())
     }
 
-    pub fn set_scale(&mut self, scale: Option<f32>) {
+    pub fn set_scale(&mut self, scale: Option<f32>) -> &mut Self {
         if self.scale == scale {
-            return;
+            return self;
         }
         self.scale = scale;
         self.base.size_hint_changed();
         self.base.update();
+        self
     }
 
     fn total_scale(&self) -> f32 {

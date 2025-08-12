@@ -6,9 +6,8 @@ use {
     log::warn,
     std::{
         cmp::max,
-        collections::{BTreeMap, HashMap},
+        collections::BTreeMap,
         path::{Path, PathBuf},
-        rc::Rc,
     },
     strum::{EnumIter, IntoEnumIterator},
     tiny_skia::{Pixmap, PremultipliedColorU8},
@@ -27,15 +26,9 @@ use {
 
 pub struct ReviewWidget {
     base: WidgetBaseOf<Self>,
-    test_name_id: WidgetId<Label>,
-    snapshot_name_id: WidgetId<Label>,
-    coords_id: WidgetId<Label>,
-    image_id: WidgetId<Image>,
-    approve_and_skip_id: WidgetId<Row>,
-    unconfirmed_count_id: WidgetId<Label>,
-    // TODO: remove Option
-    reviewer: Option<Reviewer>,
-    mode_button_ids: HashMap<Mode, WidgetId<Button>>,
+    reviewer: Reviewer,
+    coords: String,
+    image_scale: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
@@ -59,59 +52,36 @@ impl Mode {
 
 impl ReviewWidget {
     pub fn set_reviewer(&mut self, reviewer: Reviewer) -> anyhow::Result<()> {
-        self.reviewer = Some(reviewer);
-        self.update_ui()
-    }
-
-    fn update_ui(&mut self) -> anyhow::Result<()> {
-        let state = self.reviewer.as_mut().unwrap().current_state();
-        self.base
-            .find_child_mut(self.test_name_id)?
-            .set_text(state.test_case_name);
-        self.base
-            .find_child_mut(self.snapshot_name_id)?
-            .set_text(state.snapshot_name);
-        self.base
-            .find_child_mut(self.image_id)?
-            .set_pixmap(state.snapshot.clone().map(Into::into));
-        for (mode, id) in &self.mode_button_ids {
-            self.base
-                .find_child_mut(*id)?
-                .set_enabled(self.reviewer.as_mut().unwrap().is_mode_allowed(*mode));
-        }
-        self.base
-            .find_child_mut(self.approve_and_skip_id)?
-            .set_enabled(self.reviewer.as_mut().unwrap().has_unconfirmed());
-        self.base
-            .find_child_mut(self.unconfirmed_count_id)?
-            .set_text(if state.unconfirmed_count > 0 {
-                format!(
-                    "Unconfirmed snapshots remaining: {}",
-                    state.unconfirmed_count
-                )
-            } else {
-                "No unconfirmed snapshots.".into()
-            });
+        self.reviewer = reviewer;
+        self.base.update();
         Ok(())
     }
 
     fn set_mode(&mut self, mode: Mode) -> anyhow::Result<()> {
-        self.reviewer.as_mut().unwrap().set_mode(mode);
-        self.update_ui()
+        self.reviewer.set_mode(mode);
+        self.base.update();
+        Ok(())
     }
 
-    fn image_mouse_move(&mut self, pos_in_widget: Option<Point>) -> anyhow::Result<()> {
+    fn image_mouse_move(
+        &mut self,
+        (image_id, pos_in_widget): (WidgetId<Image>, Option<Point>),
+    ) -> anyhow::Result<()> {
         let Some(pos_in_widget) = pos_in_widget else {
-            self.base.find_child_mut(self.coords_id)?.set_text("");
+            self.coords.clear();
+            self.base.update();
             return Ok(());
         };
         let pos_in_content = self
             .base
-            .find_child_mut(self.image_id)?
+            .find_child_mut(image_id)?
             .map_widget_pos_to_content_pos(pos_in_widget);
-        self.base
-            .find_child_mut(self.coords_id)?
-            .set_text(format!("{:?}", pos_in_content));
+        self.coords = format!(
+            "X: {}; Y: {}",
+            pos_in_content.x().to_i32(),
+            pos_in_content.y().to_i32()
+        );
+        self.base.update();
         Ok(())
     }
 }
@@ -120,246 +90,13 @@ impl NewWidget for ReviewWidget {
     type Arg = Reviewer;
 
     #[allow(clippy::collapsible_if)]
-    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
-        let id = base.id();
-        // TODO: Grid widget
-
-        let window = base.add_child::<Window>("widgem test review".into());
-        // TODO: replace with implicit layout
-        window.set_layout(Layout::ExplicitGrid);
-        let mut current_row = 1;
-        window
-            .base_mut()
-            .add_child::<Label>("Test:".into())
-            .set_grid_cell(1, current_row);
-        let test_name_id = window
-            .base_mut()
-            .add_child::<Label>("".into())
-            .set_grid_cell(2, current_row)
-            .id();
-        current_row += 1;
-
-        let row = window
-            .base_mut()
-            .add_child::<Row>(())
-            .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
-        current_row += 1;
-
-        row.base_mut()
-            .add_child::<Button>("First test".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.as_mut().unwrap().go_to_test_case(0);
-                w.update_ui()
-            }));
-
-        row.base_mut()
-            .add_child::<Button>("Previous test".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.as_mut().unwrap().go_to_previous_test_case();
-                w.update_ui()
-            }));
-        row.base_mut()
-            .add_child::<Button>("Next test".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.as_mut().unwrap().go_to_next_test_case();
-                w.update_ui()
-            }));
-        row.base_mut()
-            .add_child::<Button>("Last test".into())
-            .on_triggered(id.callback(move |w, _e| {
-                let index = w
-                    .reviewer
-                    .as_mut()
-                    .unwrap()
-                    .test_cases()
-                    .len()
-                    .saturating_sub(1);
-                w.reviewer.as_mut().unwrap().go_to_test_case(index);
-                w.update_ui()
-            }));
-
-        window
-            .base_mut()
-            .add_child::<Label>("Snapshot:".into())
-            .set_grid_cell(1, current_row);
-        let snapshot_name_id = window
-            .base_mut()
-            .add_child::<Label>("".into())
-            .set_grid_cell(2, current_row)
-            .id();
-        current_row += 1;
-
-        let row = window
-            .base_mut()
-            .add_child::<Row>(())
-            .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
-        current_row += 1;
-
-        row.base_mut()
-            .add_child::<Button>("Previous snapshot".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.as_mut().unwrap().go_to_previous_snapshot();
-                w.update_ui()
-            }));
-        row.base_mut()
-            .add_child::<Button>("Next snapshot".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.as_mut().unwrap().go_to_next_snapshot();
-                w.update_ui()
-            }));
-
-        window
-            .base_mut()
-            .add_child::<Label>("Display mode:".into())
-            .set_grid_cell(1, current_row);
-        current_row += 1;
-
-        // TODO: radio buttons
-        let modes_row = window
-            .base_mut()
-            .add_child::<Row>(())
-            .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
-        current_row += 1;
-
-        let mut mode_button_ids = HashMap::new();
-        for mode in Mode::iter() {
-            // TODO: radio buttons
-            let button = modes_row
-                .base_mut()
-                .add_child::<Button>(mode.ui_name().into())
-                .on_triggered(id.callback(move |w, _e| w.set_mode(mode)));
-            mode_button_ids.insert(mode, button.id());
-        }
-
-        window
-            .base_mut()
-            .add_child::<Label>("Snapshot:".into())
-            .set_grid_cell(1, current_row);
-
-        let row = window
-            .base_mut()
-            .add_child::<Row>(())
-            .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
-        current_row += 1;
-
-        row.base_mut()
-            .add_child::<Button>("100%".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.base.find_child_mut(w.image_id)?.set_scale(Some(1.0));
-                Ok(())
-            }));
-        row.base_mut()
-            .add_child::<Button>("200%".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.base.find_child_mut(w.image_id)?.set_scale(Some(2.0));
-                Ok(())
-            }));
-        row.base_mut()
-            .add_child::<Button>("400%".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.base.find_child_mut(w.image_id)?.set_scale(Some(4.0));
-                Ok(())
-            }));
-        row.base_mut()
-            .add_child::<Button>("800%".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.base.find_child_mut(w.image_id)?.set_scale(Some(8.0));
-                Ok(())
-            }));
-        let coords_id = row.base_mut().add_child::<Label>("".into()).id();
-
-        let image = window
-            .base_mut()
-            .add_child::<ScrollArea>(())
-            .set_grid_cell(2, current_row)
-            .set_content::<Column>(())
-            .set_style("Column { background: #e0e0e0 }")
-            .base_mut()
-            .add_child::<Image>(None);
-        current_row += 1;
-
-        let image_mouse_move = id.callback(Self::image_mouse_move);
-        image
-            .base_mut()
-            .install_event_filter(id.raw(), move |event| {
-                match event {
-                    Event::MouseMove(event) => {
-                        image_mouse_move.invoke(Some(event.pos()));
-                    }
-                    Event::MouseLeave(_) => {
-                        image_mouse_move.invoke(None);
-                    }
-                    _ => (),
-                }
-                Ok(false)
-            });
-        let image_id = image.id();
-
-        window
-            .base_mut()
-            .add_child::<Label>("Actions:".into())
-            .set_grid_cell(1, current_row);
-
-        let approve_and_skip = window
-            .base_mut()
-            .add_child::<Row>(())
-            .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
-        current_row += 1;
-
-        approve_and_skip
-            .base_mut()
-            .add_child::<Button>("Approve".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.as_mut().unwrap().approve()?;
-                w.update_ui()
-            }));
-        approve_and_skip
-            .base_mut()
-            .add_child::<Button>("Skip snapshot".into())
-            .on_triggered(id.callback(move |w, _e| {
-                if !w.reviewer.as_mut().unwrap().go_to_next_unconfirmed_file() {
-                    widgem::exit();
-                }
-                w.update_ui()
-            }));
-        approve_and_skip
-            .base_mut()
-            .add_child::<Button>("Skip test".into())
-            .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.as_mut().unwrap().go_to_next_test_case();
-                if !w.reviewer.as_mut().unwrap().has_unconfirmed() {
-                    if !w.reviewer.as_mut().unwrap().go_to_next_unconfirmed_file() {
-                        widgem::exit();
-                    }
-                }
-                w.update_ui()
-            }));
-        let approve_and_skip_id = approve_and_skip.id();
-
-        let unconfirmed_count_id = window
-            .base_mut()
-            .add_child::<Label>("".into())
-            .set_grid_cell(2, current_row)
-            .id();
-
-        let mut w = Self {
+    fn new(base: WidgetBaseOf<Self>, reviewer: Self::Arg) -> Self {
+        Self {
             base,
-            test_name_id,
-            snapshot_name_id,
-            image_id,
-            coords_id,
-            approve_and_skip_id,
-            unconfirmed_count_id,
-            mode_button_ids,
-            reviewer: None,
-        };
-        w.set_reviewer(arg).or_report_err();
-        w
+            reviewer,
+            coords: String::new(),
+            image_scale: 1.0,
+        }
     }
 
     fn handle_declared(&mut self, arg: Self::Arg) {
@@ -369,6 +106,290 @@ impl NewWidget for ReviewWidget {
 
 impl Widget for ReviewWidget {
     impl_widget_base!();
+
+    fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
+        let id = self.base.id();
+
+        let window = self
+            .base
+            .declare_child::<Window>("widgem snapshot review".into());
+        window.set_layout(Layout::ExplicitGrid);
+        let mut current_row = 1;
+        window
+            .base_mut()
+            .declare_child::<Label>("Test:".into())
+            .set_grid_cell(1, current_row);
+        let test_case_name = self
+            .reviewer
+            .current_test_case_name()
+            .and_then(|name| {
+                Some(format!(
+                    "({}/{}) {:?}",
+                    self.reviewer.current_test_case_index()? + 1,
+                    self.reviewer.num_test_cases(),
+                    name
+                ))
+            })
+            .unwrap_or_else(|| "none".into());
+        window
+            .base_mut()
+            .declare_child::<Label>(test_case_name)
+            .set_grid_cell(2, current_row);
+        current_row += 1;
+
+        let row = window
+            .base_mut()
+            .declare_child::<Row>(())
+            .set_grid_cell(2, current_row)
+            .set_padding_enabled(false);
+        current_row += 1;
+
+        row.base_mut()
+            .declare_child::<Button>("First test".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.go_to_test_case(0);
+                w.base.update();
+                Ok(())
+            }));
+
+        row.base_mut()
+            .declare_child::<Button>("Previous test".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.go_to_previous_test_case();
+                w.base.update();
+                Ok(())
+            }));
+        row.base_mut()
+            .declare_child::<Button>("Next test".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.go_to_next_test_case();
+                w.base.update();
+                Ok(())
+            }));
+        row.base_mut()
+            .declare_child::<Button>("Last test".into())
+            .on_triggered(id.callback(move |w, _e| {
+                let index = w.reviewer.test_cases().len().saturating_sub(1);
+                w.reviewer.go_to_test_case(index);
+                w.base.update();
+                Ok(())
+            }));
+
+        window
+            .base_mut()
+            .declare_child::<Label>("Snapshot:".into())
+            .set_grid_cell(1, current_row);
+
+        let snapshot_name = self
+            .reviewer
+            .current_snapshot()
+            .and_then(|current_files| match self.reviewer.mode {
+                Mode::New | Mode::DiffWithConfirmed | Mode::DiffWithPreviousConfirmed => {
+                    current_files
+                        .unconfirmed
+                        .as_ref()
+                        .map(|f| f.description.clone())
+                }
+                Mode::Confirmed => current_files
+                    .confirmed
+                    .as_ref()
+                    .map(|f| f.description.clone()),
+            })
+            .and_then(|description| {
+                let index = self.reviewer.current_snapshot_index?;
+                Some(format!(
+                    "({}/{}) {:?}",
+                    index,
+                    self.reviewer.num_current_snapshots(),
+                    description
+                ))
+            })
+            .unwrap_or_else(|| "none".into());
+        window
+            .base_mut()
+            .declare_child::<Label>(snapshot_name)
+            .set_grid_cell(2, current_row);
+        current_row += 1;
+
+        let row = window
+            .base_mut()
+            .declare_child::<Row>(())
+            .set_grid_cell(2, current_row)
+            .set_padding_enabled(false);
+        current_row += 1;
+
+        row.base_mut()
+            .declare_child::<Button>("Previous snapshot".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.go_to_previous_snapshot();
+                w.base.update();
+                Ok(())
+            }));
+        row.base_mut()
+            .declare_child::<Button>("Next snapshot".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.go_to_next_snapshot();
+                w.base.update();
+                Ok(())
+            }));
+
+        window
+            .base_mut()
+            .declare_child::<Label>("Display mode:".into())
+            .set_grid_cell(1, current_row);
+        current_row += 1;
+
+        // TODO: radio buttons
+        let modes_row = window
+            .base_mut()
+            .declare_child::<Row>(())
+            .set_grid_cell(2, current_row)
+            .set_padding_enabled(false);
+        current_row += 1;
+
+        for mode in Mode::iter() {
+            // TODO: radio buttons
+            modes_row
+                .base_mut()
+                .declare_child::<Button>(mode.ui_name().into())
+                .set_enabled(self.reviewer.is_mode_allowed(mode))
+                .on_triggered(id.callback(move |w, _e| w.set_mode(mode)));
+        }
+
+        window
+            .base_mut()
+            .declare_child::<Label>("Snapshot:".into())
+            .set_grid_cell(1, current_row);
+
+        let row = window
+            .base_mut()
+            .declare_child::<Row>(())
+            .set_grid_cell(2, current_row)
+            .set_padding_enabled(false);
+        current_row += 1;
+
+        row.base_mut()
+            .declare_child::<Button>("100%".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.image_scale = 1.0;
+                w.base.update();
+                Ok(())
+            }));
+        row.base_mut()
+            .declare_child::<Button>("200%".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.image_scale = 2.0;
+                w.base.update();
+                Ok(())
+            }));
+        row.base_mut()
+            .declare_child::<Button>("400%".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.image_scale = 4.0;
+                w.base.update();
+                Ok(())
+            }));
+        row.base_mut()
+            .declare_child::<Button>("800%".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.image_scale = 8.0;
+                w.base.update();
+                Ok(())
+            }));
+        row.base_mut().declare_child::<Label>(self.coords.clone());
+
+        let pixmap = self
+            .reviewer
+            .make_pixmap()
+            .or_report_err()
+            .flatten()
+            .map(Into::into);
+        let image = window
+            .base_mut()
+            .declare_child::<ScrollArea>(())
+            .set_grid_cell(2, current_row)
+            .set_content::<Column>(())
+            .set_style("Column { background: #c0c0c0; padding: 2px; }")
+            .base_mut()
+            .declare_child::<Image>(pixmap)
+            .set_scale(Some(self.image_scale));
+        current_row += 1;
+
+        let image_mouse_move = id.callback(Self::image_mouse_move);
+        let image_id = image.id();
+        image
+            .base_mut()
+            .install_event_filter(id.raw(), move |event| {
+                match event {
+                    Event::MouseMove(event) => {
+                        image_mouse_move.invoke((image_id, Some(event.pos())));
+                    }
+                    Event::MouseLeave(_) => {
+                        image_mouse_move.invoke((image_id, None));
+                    }
+                    _ => (),
+                }
+                Ok(false)
+            });
+
+        window
+            .base_mut()
+            .declare_child::<Label>("Actions:".into())
+            .set_grid_cell(1, current_row);
+
+        let approve_and_skip = window
+            .base_mut()
+            .declare_child::<Row>(())
+            .set_grid_cell(2, current_row)
+            .set_padding_enabled(false);
+        current_row += 1;
+
+        approve_and_skip
+            .base_mut()
+            .declare_child::<Button>("Approve".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.approve()?;
+                w.base_mut().update();
+                Ok(())
+            }));
+        approve_and_skip
+            .base_mut()
+            .declare_child::<Button>("Skip snapshot".into())
+            .on_triggered(id.callback(move |w, _e| {
+                if !w.reviewer.go_to_next_unconfirmed_file() {
+                    widgem::exit();
+                }
+                w.base.update();
+                Ok(())
+            }));
+        #[allow(clippy::collapsible_if)]
+        approve_and_skip
+            .base_mut()
+            .declare_child::<Button>("Skip test".into())
+            .set_enabled(self.reviewer.has_unconfirmed())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.go_to_next_test_case();
+                if !w.reviewer.has_unconfirmed() {
+                    if !w.reviewer.go_to_next_unconfirmed_file() {
+                        widgem::exit();
+                    }
+                }
+                w.base.update();
+                Ok(())
+            }));
+
+        let unconfirmed_count = self.reviewer.unconfirmed_count();
+        window
+            .base_mut()
+            .declare_child::<Label>(if unconfirmed_count > 0 {
+                format!("Unconfirmed snapshots remaining: {}", unconfirmed_count)
+            } else {
+                "No unconfirmed snapshots.".into()
+            })
+            .set_grid_cell(2, current_row);
+
+        Ok(())
+    }
 }
 
 pub struct Reviewer {
@@ -421,7 +442,7 @@ impl Reviewer {
             }
             if self
                 .current_snapshot()
-                .is_ok_and(|f| f.unconfirmed.is_some())
+                .is_some_and(|f| f.unconfirmed.is_some())
             {
                 return true;
             }
@@ -489,41 +510,21 @@ impl Reviewer {
         true
     }
 
-    fn current_test_case(&self) -> anyhow::Result<&str> {
-        self.test_cases
-            .get(
-                self.current_test_case_index
-                    .context("no current test case")?,
-            )
-            .context("test case not found")
-            .map(|s| s.as_str())
+    fn current_test_case_name(&self) -> Option<&str> {
+        Some(self.test_cases.get(self.current_test_case_index?)?.as_str())
     }
 
-    fn previous_snapshot(&self) -> anyhow::Result<&SingleSnapshotFiles> {
-        let index = self
-            .current_snapshot_index
-            .context("no current files")?
-            .checked_sub(1)
-            .context("no previous files")?;
+    fn previous_snapshot(&self) -> Option<&SingleSnapshotFiles> {
+        let index = self.current_snapshot_index?.checked_sub(1)?;
         self.all_snapshots
-            .get(
-                self.current_test_case_index
-                    .context("no current_test_case_index")?,
-            )
-            .context("invalid current_test_case_index")?
+            .get(self.current_test_case_index?)?
             .get(&index)
-            .context("previous files not found")
     }
 
-    fn current_snapshot(&self) -> anyhow::Result<&SingleSnapshotFiles> {
+    fn current_snapshot(&self) -> Option<&SingleSnapshotFiles> {
         self.all_snapshots
-            .get(
-                self.current_test_case_index
-                    .context("no current_test_case_index")?,
-            )
-            .context("invalid current_test_case_index")?
-            .get(&self.current_snapshot_index.context("no current files")?)
-            .context("current files not found")
+            .get(self.current_test_case_index?)?
+            .get(&self.current_snapshot_index?)
     }
 
     fn current_snapshot_mut(&mut self) -> anyhow::Result<&mut SingleSnapshotFiles> {
@@ -537,144 +538,112 @@ impl Reviewer {
             .context("current files not found")
     }
 
-    fn load_new(&self) -> anyhow::Result<Pixmap> {
-        let path = test_snapshots_dir(&self.test_cases_dir, self.current_test_case()?).join(
-            &self
-                .current_snapshot()?
-                .unconfirmed
-                .as_ref()
-                .context("no unconfirmed file")?
-                .full_name,
-        );
-        Ok(Pixmap::load_png(path)?)
+    fn load_new(&self) -> anyhow::Result<Option<Pixmap>> {
+        let Some(test_case) = self.current_test_case_name() else {
+            return Ok(None);
+        };
+        let Some(snapshot) = self.current_snapshot() else {
+            return Ok(None);
+        };
+        let Some(unconfirmed) = snapshot.unconfirmed.as_ref() else {
+            return Ok(None);
+        };
+        let path = test_snapshots_dir(&self.test_cases_dir, test_case).join(&unconfirmed.full_name);
+        Ok(Some(Pixmap::load_png(path)?))
     }
 
-    fn load_confirmed(&self) -> anyhow::Result<Pixmap> {
-        let path = test_snapshots_dir(&self.test_cases_dir, self.current_test_case()?).join(
-            &self
-                .current_snapshot()?
-                .confirmed
-                .as_ref()
-                .context("no unconfirmed file")?
-                .full_name,
-        );
-        Ok(Pixmap::load_png(path)?)
+    fn load_confirmed(&self) -> anyhow::Result<Option<Pixmap>> {
+        let Some(test_case) = self.current_test_case_name() else {
+            return Ok(None);
+        };
+        let Some(snapshot) = self.current_snapshot() else {
+            return Ok(None);
+        };
+        let Some(confirmed) = snapshot.confirmed.as_ref() else {
+            return Ok(None);
+        };
+        let path = test_snapshots_dir(&self.test_cases_dir, test_case).join(&confirmed.full_name);
+        Ok(Some(Pixmap::load_png(path)?))
     }
 
-    fn load_previous_confirmed(&self) -> anyhow::Result<Pixmap> {
-        let path = test_snapshots_dir(&self.test_cases_dir, self.current_test_case()?).join(
-            &self
-                .previous_snapshot()?
-                .confirmed
-                .as_ref()
-                .context("no unconfirmed file")?
-                .full_name,
-        );
-        Ok(Pixmap::load_png(path)?)
+    fn load_previous_confirmed(&self) -> anyhow::Result<Option<Pixmap>> {
+        let Some(test_case) = self.current_test_case_name() else {
+            return Ok(None);
+        };
+        let Some(snapshot) = self.previous_snapshot() else {
+            return Ok(None);
+        };
+        let Some(confirmed) = snapshot.confirmed.as_ref() else {
+            return Ok(None);
+        };
+        let path = test_snapshots_dir(&self.test_cases_dir, test_case).join(&confirmed.full_name);
+        Ok(Some(Pixmap::load_png(path)?))
     }
 
-    fn make_pixmap(&self) -> anyhow::Result<Pixmap> {
+    fn make_pixmap(&self) -> anyhow::Result<Option<Pixmap>> {
         match self.mode {
             Mode::New => self.load_new(),
             Mode::Confirmed => self.load_confirmed(),
-            Mode::DiffWithConfirmed => Ok(pixmap_diff(&self.load_new()?, &self.load_confirmed()?)),
-            Mode::DiffWithPreviousConfirmed => Ok(pixmap_diff(
-                &self.load_new()?,
-                &self.load_previous_confirmed()?,
-            )),
+            Mode::DiffWithConfirmed => {
+                let Some(first) = self.load_new()? else {
+                    return Ok(None);
+                };
+                let Some(second) = self.load_confirmed()? else {
+                    return Ok(None);
+                };
+                Ok(Some(pixmap_diff(&first, &second)))
+            }
+            Mode::DiffWithPreviousConfirmed => {
+                let Some(first) = self.load_new()? else {
+                    return Ok(None);
+                };
+                let Some(second) = self.load_previous_confirmed()? else {
+                    return Ok(None);
+                };
+                Ok(Some(pixmap_diff(&first, &second)))
+            }
         }
     }
 
-    fn current_state(&self) -> ReviewerState {
-        let unconfirmed_count = self
-            .all_snapshots
+    fn unconfirmed_count(&self) -> usize {
+        self.all_snapshots
             .iter()
             .flat_map(|s| s.values())
             .filter(|s| s.unconfirmed.is_some())
-            .count();
-        let Ok(test_case) = self.current_test_case() else {
-            return ReviewerState {
-                test_case_name: "none".into(),
-                snapshot_name: "none".into(),
-                mode: Mode::Confirmed,
-                snapshot: None,
-                unconfirmed_count,
-            };
-        };
-        let test_case_name = format!(
-            "({}/{}) {:?}",
-            self.current_test_case_index.unwrap() + 1,
-            self.test_cases.len(),
-            test_case
-        );
-        let Ok(current_files) = self.current_snapshot() else {
-            return ReviewerState {
-                test_case_name,
-                snapshot_name: "none".into(),
-                mode: Mode::Confirmed,
-                snapshot: None,
-                unconfirmed_count,
-            };
-        };
-        let snapshot_name = match self.mode {
-            Mode::New | Mode::DiffWithConfirmed | Mode::DiffWithPreviousConfirmed => current_files
-                .unconfirmed
-                .as_ref()
-                .map_or_else(|| "none".into(), |f| f.description.clone()),
-            Mode::Confirmed => current_files
-                .confirmed
-                .as_ref()
-                .map_or_else(|| "none".into(), |f| f.description.clone()),
-        };
-        let Some(snapshots) = self
-            .current_test_case_index
-            .and_then(|index| self.all_snapshots.get(index))
-        else {
-            warn!("invalid current_test_case_index2");
-            return ReviewerState {
-                test_case_name,
-                snapshot_name: "none".into(),
-                mode: Mode::Confirmed,
-                snapshot: None,
-                unconfirmed_count,
-            };
-        };
-        let snapshot_name = format!(
-            "({}/{}) {}",
-            self.current_snapshot_index.unwrap(),
-            snapshots.len(),
-            snapshot_name
-        );
+            .count()
+    }
 
-        ReviewerState {
-            test_case_name,
-            mode: self.mode,
-            snapshot_name,
-            snapshot: self
-                .make_pixmap()
-                .map_err(|err| {
-                    warn!("failed to make pixmap: {:?}", err);
-                })
-                .ok()
-                .map(Rc::new),
-            unconfirmed_count,
-        }
+    fn current_test_case_index(&self) -> Option<usize> {
+        self.current_test_case_index
+    }
+
+    fn num_test_cases(&self) -> usize {
+        self.test_cases.len()
+    }
+
+    fn num_current_snapshots(&self) -> usize {
+        self.current_test_case_index
+            .and_then(|index| self.all_snapshots.get(index))
+            .map(|snapshots| snapshots.len())
+            .unwrap_or(0)
     }
 
     pub fn has_unconfirmed(&self) -> bool {
-        let current_files = self.current_snapshot();
-        current_files.is_ok_and(|f| f.unconfirmed.is_some())
+        self.current_snapshot()
+            .is_some_and(|f| f.unconfirmed.is_some())
     }
 
     pub fn is_mode_allowed(&self, mode: Mode) -> bool {
         let current_files = self.current_snapshot();
         let has_new = current_files
             .as_ref()
-            .is_ok_and(|f| f.unconfirmed.is_some());
-        let has_confirmed = current_files.as_ref().is_ok_and(|f| f.confirmed.is_some());
+            .is_some_and(|f| f.unconfirmed.is_some());
+        let has_confirmed = current_files
+            .as_ref()
+            .is_some_and(|f| f.confirmed.is_some());
         let has_previous_confirmed = self
             .previous_snapshot()
-            .is_ok_and(|f| f.confirmed.is_some());
+            .is_some_and(|f| f.confirmed.is_some());
 
         match mode {
             Mode::New => has_new,
@@ -693,7 +662,9 @@ impl Reviewer {
     }
 
     pub fn approve(&mut self) -> anyhow::Result<()> {
-        let test_case = self.current_test_case()?;
+        let test_case = self
+            .current_test_case_name()
+            .context("no current test case")?;
         let test_case_dir = test_snapshots_dir(&self.test_cases_dir, test_case);
         let current_files = self.current_snapshot_mut()?;
         let unconfirmed = current_files
@@ -722,16 +693,6 @@ impl Reviewer {
         self.go_to_next_unconfirmed_file();
         Ok(())
     }
-}
-
-struct ReviewerState {
-    test_case_name: String,
-    snapshot_name: String,
-    // TODO: use it to set active radio button
-    #[allow(dead_code)]
-    mode: Mode,
-    snapshot: Option<Rc<Pixmap>>,
-    unconfirmed_count: usize,
 }
 
 fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {

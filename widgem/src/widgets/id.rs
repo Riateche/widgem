@@ -48,7 +48,7 @@ impl From<NodeId> for RawWidgetId {
 /// it has the indicated type.
 /// Widgets can be deleted at any time.
 /// Missing widget errors should be handled gracefully.
-pub struct WidgetId<T>(RawWidgetId, PhantomData<T>);
+pub struct WidgetId<T>(RawWidgetId, PhantomData<fn() -> T>);
 
 impl<T> WidgetId<T> {
     /// Creates a new typed widget ID from an untyped ID.

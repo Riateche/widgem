@@ -658,14 +658,12 @@ impl WidgetBase {
         if self.style() == Some(style) {
             return self;
         }
-        println!("WidgetBase set_style");
         self.style = load_css(style)
             .or_report_err()
             .map(|style_sheet| CustomStyle {
                 style_sheet,
                 code: style.into(),
             });
-        println!("WidgetBase set_style {:?}", self.style);
         self
     }
 
