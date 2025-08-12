@@ -4887,6 +4887,7 @@ dependencies = [
  "arboard",
  "bitflags 2.9.1",
  "bytemuck",
+ "clap",
  "cosmic-text",
  "derivative",
  "derive_more",
