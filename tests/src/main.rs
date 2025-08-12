@@ -22,5 +22,5 @@ fn repo_dir() -> PathBuf {
 }
 
 fn main() -> anyhow::Result<()> {
-    widgem_test_kit::run(repo_dir().join("tests/snapshots"))
+    widgem_tester::run(repo_dir().join("tests/snapshots"))
 }

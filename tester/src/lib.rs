@@ -1,15 +1,12 @@
 pub mod context;
-pub mod review;
 
 use {
-    crate::{
-        context::{Context, SnapshotMode},
-        review::{ReviewWidget, Reviewer},
-    },
+    crate::context::{Context, SnapshotMode},
     anyhow::{bail, Context as _},
     clap::Parser,
     fs_err::read_dir,
     itertools::Itertools,
+    serde::{Deserialize, Serialize},
     std::{
         collections::BTreeMap,
         env,
@@ -19,7 +16,7 @@ use {
         thread::sleep,
         time::{Duration, Instant},
     },
-    widgem::{widgets::Widget, App},
+    widgem::App,
 };
 
 #[doc(hidden)]
@@ -131,7 +128,7 @@ fn verify_test_exit(mut child: Child) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn test_snapshots_dir(snapshots_dir: &Path, test_name: &str) -> PathBuf {
+pub fn test_snapshots_dir(snapshots_dir: &Path, test_name: &str) -> PathBuf {
     snapshots_dir.join(test_name.split("::").join("/"))
 }
 
@@ -149,14 +146,13 @@ enum Args {
         #[clap(long)]
         default_scale: bool,
     },
-    Review,
-    Approve {
-        screenshot_path: String,
+    Query {
+        query: String,
     },
 }
 
 pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
-    let snapshots_dir = snapshots_dir.as_ref();
+    let snapshots_dir = snapshots_dir.as_ref().to_owned();
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info")
     }
@@ -190,7 +186,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 let mut ctx = Context::new_check(
                     connection.clone(),
                     test_name.clone(),
-                    test_snapshots_dir(snapshots_dir, &test_name),
+                    test_snapshots_dir(&snapshots_dir, &test_name),
                     mode,
                     exe_path.clone(),
                 )?;
@@ -236,44 +232,42 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             let mut ctx = Context::new_run(app);
             registry.run_test(&test_case, &mut ctx)?;
         }
-        Args::Review => {
-            let mut reviewer = Reviewer::new(&registry, snapshots_dir);
-            if !reviewer.go_to_next_unconfirmed_file() {
-                reviewer.go_to_test_case(0);
+        Args::Query { query } => {
+            if query != "all" {
+                bail!("unknown query");
             }
-            widgem::run(move |w| {
-                w.base_mut().add_child::<ReviewWidget>(reviewer);
-                Ok(())
-            })?;
-        }
-        Args::Approve { screenshot_path } => {
-            let Some(str) = screenshot_path.strip_suffix(".new.png") else {
-                bail!(
-                    "expected a path that ends with \".new.png\", got {:?}",
-                    screenshot_path
-                );
+            let data = QueryAllResponse {
+                snapshots_dir,
+                test_cases: registry.tests().map(|s| s.to_owned()).collect(),
             };
-            fs_err::rename(&screenshot_path, format!("{str}.png"))?;
-            println!("Approved.");
+            println!("{}", serde_json::to_string_pretty(&data)?);
         }
     }
 
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QueryAllResponse {
+    pub snapshots_dir: PathBuf,
+    pub test_cases: Vec<String>,
+}
+
 #[derive(Debug)]
-struct SingleSnapshotFile {
+pub struct SingleSnapshotFile {
     pub full_name: String,
     pub description: String,
 }
 
 #[derive(Debug, Default)]
-struct SingleSnapshotFiles {
-    confirmed: Option<SingleSnapshotFile>,
-    unconfirmed: Option<SingleSnapshotFile>,
+pub struct SingleSnapshotFiles {
+    pub confirmed: Option<SingleSnapshotFile>,
+    pub unconfirmed: Option<SingleSnapshotFile>,
 }
 
-fn discover_snapshots(test_case_dir: &Path) -> anyhow::Result<BTreeMap<u32, SingleSnapshotFiles>> {
+pub fn discover_snapshots(
+    test_case_dir: &Path,
+) -> anyhow::Result<BTreeMap<u32, SingleSnapshotFiles>> {
     if !test_case_dir.try_exists()? {
         return Ok(BTreeMap::new());
     }

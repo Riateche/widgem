@@ -1,10 +1,14 @@
 [package]
-name = "widgem_test_kit"
+name = "widgem_tester"
 version = "0.1.0"
 edition = "2021"
 description = "Test framework for widgem widget toolkit"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Riateche/widgem"
+
+[[bin]]
+name = "widgem_tester"
+path = "src/bin/tester/main.rs"
 
 [dependencies]
 widgem = { workspace = true }
@@ -19,6 +23,8 @@ fs-err = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 strum = { workspace = true }
 tiny-skia = { workspace = true }
 derive_more = { workspace = true }

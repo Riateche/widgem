@@ -8,7 +8,7 @@ repository = "https://github.com/Riateche/widgem"
 
 [dependencies]
 widgem = { workspace = true }
-widgem_test_kit = { workspace = true }
+widgem_tester = { workspace = true }
 
 anyhow = { workspace = true }
 clap = { workspace = true }

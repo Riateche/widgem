@@ -6,7 +6,7 @@ use {
         types::Axis,
         widgets::{Label, NewWidget, ScrollBar, Widget, WidgetBaseOf, WidgetExt, Window},
     },
-    widgem_test_kit::context::Context,
+    widgem_tester::context::Context,
 };
 
 pub struct RootWidget {
@@ -98,7 +98,7 @@ impl Widget for RootWidget {
     }
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());
@@ -114,7 +114,7 @@ pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());
@@ -157,7 +157,7 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());
@@ -198,7 +198,7 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());
@@ -247,7 +247,7 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());
@@ -291,7 +291,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());
@@ -320,7 +320,7 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());
@@ -357,7 +357,7 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());

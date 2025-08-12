@@ -2,9 +2,9 @@ use widgem::{
     widgets::{Column, Label, ScrollArea},
     Widget, WidgetExt, Window,
 };
-use widgem_test_kit::context::Context;
+use widgem_tester::context::Context;
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         let content = r

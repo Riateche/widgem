@@ -84,9 +84,9 @@ pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let register_ident = Ident::new(&format!("__register_{}", ident), ident.span());
 
     let q = quote! {
-        #[::widgem_test_kit::__ctor::ctor(crate_path = ::widgem_test_kit::__ctor)]
+        #[::widgem_tester::__ctor::ctor(crate_path = ::widgem_tester::__ctor)]
         fn #register_ident() {
-            ::widgem_test_kit::add_test(
+            ::widgem_tester::add_test(
                 &format!(
                     "{}::{}",
                     module_path!().splitn(2, "::").nth(1).unwrap(),

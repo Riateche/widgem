@@ -3,7 +3,7 @@ use {
         impl_widget_base,
         widgets::{Button, NewWidget, Widget, WidgetBaseOf, Window},
     },
-    widgem_test_kit::context::Context,
+    widgem_tester::context::Context,
 };
 
 pub struct RootWidget {
@@ -28,7 +28,7 @@ impl Widget for RootWidget {
     impl_widget_base!();
 }
 
-#[widgem_test_kit::test]
+#[widgem_tester::test]
 pub fn button(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().add_child::<RootWidget>(());

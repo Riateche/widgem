@@ -1,13 +1,13 @@
 [workspace]
 
-members = ["widgem", "macros", "tests", "uitest", "test_kit"]
+members = ["widgem", "macros", "tests", "uitest", "tester"]
 resolver = "2"
 
 [workspace.dependencies]
 widgem = { path = "widgem" }
 widgem_macros = { path = "macros", version = "0.0.1" }
 uitest = { path = "uitest" }
-widgem_test_kit = { path = "test_kit" }
+widgem_tester = { path = "tester" }
 
 accesskit = "0.19.0"
 accesskit_winit = "0.27.0"
@@ -36,6 +36,7 @@ range-ext = "0.3.0"
 resvg = { version = "0.45.1", default-features = false }
 scoped-tls = "1.0.1"
 serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.142"
 serde-value = "0.7.0"
 softbuffer = "0.4.6"
 strict-num = "0.2.0"
