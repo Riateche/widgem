@@ -165,7 +165,8 @@ impl Widget for TesterUi {
 
         row.base_mut()
             .declare_child::<Button>("Run test subject".into())
-            .on_triggered(id.callback(move |_w, _e| Ok(())));
+            .set_enabled(self.reviewer.current_test_case_name().is_some())
+            .on_triggered(id.callback(move |w, _e| w.reviewer.run_test_subject()));
 
         window
             .base_mut()

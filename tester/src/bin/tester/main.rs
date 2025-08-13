@@ -48,7 +48,7 @@ pub fn main() -> anyhow::Result<()> {
         )
     })?;
 
-    let mut reviewer = TesterLogic::new(data.test_cases, &data.snapshots_dir);
+    let mut reviewer = TesterLogic::new(data.test_cases, args.path, data.snapshots_dir);
     if !reviewer.go_to_next_unconfirmed_file() {
         reviewer.go_to_test_case(0);
     }

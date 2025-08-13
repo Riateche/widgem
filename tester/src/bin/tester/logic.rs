@@ -1,11 +1,7 @@
 use {
     anyhow::Context,
-    log::warn,
-    std::{
-        cmp::max,
-        collections::BTreeMap,
-        path::{Path, PathBuf},
-    },
+    log::{info, warn},
+    std::{cmp::max, collections::BTreeMap, path::PathBuf, process::Command},
     strum::EnumIter,
     tiny_skia::{Pixmap, PremultipliedColorU8},
     widgem_tester::{
@@ -22,6 +18,7 @@ pub enum Mode {
 }
 
 pub struct TesterLogic {
+    tests_dir: PathBuf,
     test_cases_dir: PathBuf,
     mode: Mode,
     test_cases: Vec<String>,
@@ -31,11 +28,11 @@ pub struct TesterLogic {
 }
 
 impl TesterLogic {
-    pub fn new(test_cases: Vec<String>, test_cases_dir: &Path) -> Self {
+    pub fn new(test_cases: Vec<String>, tests_dir: PathBuf, test_cases_dir: PathBuf) -> Self {
         let mut all_snapshots = Vec::new();
         for test_case in &test_cases {
             all_snapshots.push(
-                discover_snapshots(&test_snapshots_dir(test_cases_dir, test_case)).unwrap_or_else(
+                discover_snapshots(&test_snapshots_dir(&test_cases_dir, test_case)).unwrap_or_else(
                     |err| {
                         // TODO: ui message
                         warn!("failed to fetch snapshots: {:?}", err);
@@ -45,7 +42,8 @@ impl TesterLogic {
             );
         }
         let mut this = Self {
-            test_cases_dir: test_cases_dir.into(),
+            tests_dir,
+            test_cases_dir,
             mode: Mode::New,
             test_cases,
             current_test_case_index: None,
@@ -328,6 +326,18 @@ impl TesterLogic {
 
     pub fn current_snapshot_index(&self) -> Option<u32> {
         self.current_snapshot_index
+    }
+
+    pub fn run_test_subject(&self) -> anyhow::Result<()> {
+        let test_name = self
+            .current_test_case_name()
+            .context("no current test case")?;
+        let child = Command::new("cargo")
+            .args(["run", "--", "run", "--default-scale", test_name])
+            .current_dir(&self.tests_dir)
+            .spawn()?;
+        info!("spawned process with pid: {:?}", child.id());
+        Ok(())
     }
 }
 
