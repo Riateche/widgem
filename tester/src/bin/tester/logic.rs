@@ -21,7 +21,7 @@ pub enum Mode {
     DiffWithPreviousConfirmed,
 }
 
-pub struct Reviewer {
+pub struct TesterLogic {
     test_cases_dir: PathBuf,
     mode: Mode,
     test_cases: Vec<String>,
@@ -30,7 +30,7 @@ pub struct Reviewer {
     current_snapshot_index: Option<u32>,
 }
 
-impl Reviewer {
+impl TesterLogic {
     pub fn new(test_cases: Vec<String>, test_cases_dir: &Path) -> Self {
         let mut all_snapshots = Vec::new();
         for test_case in &test_cases {

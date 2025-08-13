@@ -2,7 +2,7 @@ mod logic;
 mod ui;
 
 use {
-    crate::{logic::Reviewer, ui::ReviewWidget},
+    crate::{logic::TesterLogic, ui::TesterUi},
     anyhow::{bail, ensure, Context},
     clap::Parser,
     std::{
@@ -48,12 +48,12 @@ pub fn main() -> anyhow::Result<()> {
         )
     })?;
 
-    let mut reviewer = Reviewer::new(data.test_cases, &data.snapshots_dir);
+    let mut reviewer = TesterLogic::new(data.test_cases, &data.snapshots_dir);
     if !reviewer.go_to_next_unconfirmed_file() {
         reviewer.go_to_test_case(0);
     }
     widgem::run(move |w| {
-        w.base_mut().add_child::<ReviewWidget>(reviewer);
+        w.base_mut().add_child::<TesterUi>(reviewer);
         Ok(())
     })
 }

@@ -1,5 +1,5 @@
 use {
-    crate::logic::{Mode, Reviewer},
+    crate::logic::{Mode, TesterLogic},
     strum::IntoEnumIterator,
     widgem::{
         event::Event,
@@ -14,9 +14,9 @@ use {
     },
 };
 
-pub struct ReviewWidget {
+pub struct TesterUi {
     base: WidgetBaseOf<Self>,
-    reviewer: Reviewer,
+    reviewer: TesterLogic,
     coords: String,
     image_scale: f32,
 }
@@ -31,8 +31,8 @@ fn mode_ui_name(mode: Mode) -> &'static str {
     }
 }
 
-impl ReviewWidget {
-    pub fn set_reviewer(&mut self, reviewer: Reviewer) -> anyhow::Result<()> {
+impl TesterUi {
+    pub fn set_reviewer(&mut self, reviewer: TesterLogic) -> anyhow::Result<()> {
         self.reviewer = reviewer;
         self.base.update();
         Ok(())
@@ -67,8 +67,8 @@ impl ReviewWidget {
     }
 }
 
-impl NewWidget for ReviewWidget {
-    type Arg = Reviewer;
+impl NewWidget for TesterUi {
+    type Arg = TesterLogic;
 
     #[allow(clippy::collapsible_if)]
     fn new(base: WidgetBaseOf<Self>, reviewer: Self::Arg) -> Self {
@@ -85,7 +85,7 @@ impl NewWidget for ReviewWidget {
     }
 }
 
-impl Widget for ReviewWidget {
+impl Widget for TesterUi {
     impl_widget_base!();
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
@@ -155,6 +155,17 @@ impl Widget for ReviewWidget {
                 w.base.update();
                 Ok(())
             }));
+
+        let row = window
+            .base_mut()
+            .declare_child::<Row>(())
+            .set_grid_cell(2, current_row)
+            .set_padding_enabled(false);
+        current_row += 1;
+
+        row.base_mut()
+            .declare_child::<Button>("Run test subject".into())
+            .on_triggered(id.callback(move |_w, _e| Ok(())));
 
         window
             .base_mut()
