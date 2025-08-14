@@ -37,7 +37,7 @@ use {
             string::CowArcStr,
         },
     },
-    log::warn,
+    tracing::warn,
     std::{borrow::Cow, collections::HashMap},
     tiny_skia::{Color, GradientStop, SpreadMode},
 };

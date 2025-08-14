@@ -17,7 +17,7 @@ use {
         },
         types::{LpxSuffix, PhysicalPixels, Point, PpxSuffix},
     },
-    log::warn,
+    tracing::warn,
     std::any::Any,
     tiny_skia::{Color, GradientStop, SpreadMode},
 };

@@ -17,7 +17,7 @@ use {
     arboard::Clipboard,
     cosmic_text::{fontdb, FontSystem, SwashCache},
     derive_more::From,
-    log::warn,
+    tracing::warn,
     scoped_tls::scoped_thread_local,
     std::{
         any::Any,

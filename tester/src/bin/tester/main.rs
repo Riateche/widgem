@@ -6,6 +6,7 @@ use {
     anyhow::{bail, ensure, Context},
     clap::Parser,
     std::{path::PathBuf, process::Command},
+    tracing_subscriber::{filter::LevelFilter, EnvFilter},
     widgem::Widget,
 };
 
@@ -20,7 +21,14 @@ pub struct Args {
 
 pub fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    env_logger::init();
+
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env()?,
+        )
+        .init();
 
     // Sanity checks
     if !args.path.try_exists()? {

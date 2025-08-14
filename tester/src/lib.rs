@@ -16,6 +16,7 @@ use {
         thread::sleep,
         time::{Duration, Instant},
     },
+    tracing_subscriber::{filter::LevelFilter, EnvFilter},
     widgem::App,
 };
 
@@ -156,7 +157,14 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info")
     }
-    env_logger::init();
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env()?,
+        )
+        .init();
+
     let args = Args::parse();
     let mut registry = default_registry().lock().unwrap();
 

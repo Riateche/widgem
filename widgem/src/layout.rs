@@ -5,7 +5,7 @@ use {
         RawWidgetId,
     },
     itertools::Itertools,
-    log::warn,
+    tracing::warn,
     std::{
         cmp::{max, min},
         collections::{hash_map, BTreeMap, HashMap},

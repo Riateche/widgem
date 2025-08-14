@@ -12,11 +12,9 @@ widgem_tester = { workspace = true }
 
 anyhow = { workspace = true }
 clap = { workspace = true }
-env_logger = { workspace = true }
 fs-err = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
-log = { workspace = true }
 
 [package.metadata.bundle.bin.widgem_tests]
 identifier = "io.github.Riateche.widgem.tests"

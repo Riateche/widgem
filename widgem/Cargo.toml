@@ -20,12 +20,10 @@ clap = { workspace = true }
 cosmic-text = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
-env_logger = { workspace = true }
 fs-err = { workspace = true }
 itertools = { workspace = true }
 lightningcss = { workspace = true }
 line-straddler = { workspace = true }
-log = { workspace = true }
 once_cell = { workspace = true }
 ordered-float = { workspace = true }
 png = { workspace = true }
@@ -40,6 +38,10 @@ strict-num = { workspace = true }
 stringcase = { workspace = true }
 thiserror = { workspace = true }
 tiny-skia = { workspace = true }
+tracing = { workspace = true }
 unicode-segmentation = { workspace = true }
 usvg = { workspace = true }
 winit = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }

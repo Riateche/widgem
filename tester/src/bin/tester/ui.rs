@@ -1,6 +1,6 @@
 use {
     crate::logic::{Mode, TesterLogic},
-    log::{info, warn},
+    tracing::{info, warn},
     std::thread,
     strum::IntoEnumIterator,
     widgem::{

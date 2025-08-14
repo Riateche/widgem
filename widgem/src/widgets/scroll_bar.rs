@@ -12,7 +12,7 @@ use {
         widgets::widget_trait::NewWidget,
     },
     anyhow::Result,
-    log::warn,
+    tracing::warn,
     ordered_float::NotNan,
     std::{
         cmp::{max, min},

@@ -12,7 +12,7 @@ use {
         ScrollToRectRequest,
     },
     anyhow::Result,
-    log::warn,
+    tracing::warn,
     std::any::Any,
 };
 

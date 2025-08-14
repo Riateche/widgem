@@ -14,7 +14,7 @@ use {
     lightningcss::{
         properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
     },
-    log::warn,
+    tracing::warn,
     ordered_float::OrderedFloat,
     serde::{Deserialize, Serialize},
     std::{

@@ -23,7 +23,7 @@ use {
     anyhow::{Context, Result},
     derivative::Derivative,
     lightningcss::stylesheet::StyleSheet,
-    log::{error, warn},
+    tracing::{error, warn},
     std::{
         cell::RefCell,
         collections::{BTreeMap, HashMap, HashSet},

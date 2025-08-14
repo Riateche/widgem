@@ -11,7 +11,7 @@ use {
     anyhow::Result,
     arboard::Clipboard,
     cosmic_text::{FontSystem, SwashCache},
-    log::warn,
+    tracing::warn,
     std::{
         cell::RefCell,
         collections::{HashMap, HashSet},

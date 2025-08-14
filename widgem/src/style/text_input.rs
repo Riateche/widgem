@@ -5,7 +5,7 @@ use {
         Styles,
     },
     crate::{style::common::ComputedElementStyle, system::ReportError, types::PhysicalPixels},
-    log::warn,
+    tracing::warn,
 };
 
 #[derive(Debug, Clone)]

@@ -560,7 +560,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
         if let Some(pending) = self.change.take() {
             if !pending.items.is_empty() {
                 //TODO: is this a good idea?
-                log::warn!("pending change caused apply_change to be ignored!");
+                tracing::warn!("pending change caused apply_change to be ignored!");
                 self.change = Some(pending);
                 return false;
             }
@@ -690,7 +690,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
             Action::Insert(character) => {
                 if character.is_control() && !['\t', '\n', '\u{92}'].contains(&character) {
                     // Filter out special chars (except for tab), use Action instead
-                    log::debug!("Refusing to insert control character {:?}", character);
+                    tracing::debug!("Refusing to insert control character {:?}", character);
                 } else if character == '\n' {
                     self.action(font_system, Action::Enter);
                 } else {
@@ -1065,7 +1065,7 @@ impl<'buffer> Edit<'buffer> for Editor<'buffer> {
             if let Some(glyph) = run.glyphs.get(new_cursor_glyph) {
                 let font_opt = self.buffer.font_system().get_font(glyph.cache_key.font_id);
                 let text_glyph = &run.text[glyph.start..glyph.end];
-                log::debug!(
+                tracing::debug!(
                     "{}, {}: '{}' ('{}'): '{}' ({:?})",
                     self.cursor.line,
                     self.cursor.index,

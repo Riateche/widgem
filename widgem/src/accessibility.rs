@@ -2,11 +2,11 @@ use {
     crate::{child_key::ChildKey, widgets::RawWidgetId},
     accesskit::{Node, NodeId, Role, Tree, TreeUpdate},
     derivative::Derivative,
-    log::warn,
     std::{
         collections::{hash_map::Entry, HashMap, HashSet},
         convert::identity,
     },
+    tracing::warn,
 };
 
 #[derive(Derivative)]

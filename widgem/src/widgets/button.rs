@@ -23,7 +23,7 @@ use {
     accesskit::{Action, Role},
     anyhow::Result,
     cosmic_text::Attrs,
-    log::warn,
+    tracing::warn,
     std::{fmt::Display, rc::Rc},
     widgem_macros::impl_with,
     winit::{

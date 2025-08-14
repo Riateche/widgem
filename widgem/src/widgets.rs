@@ -40,7 +40,7 @@ pub use self::{
     widget_trait::{NewWidget, Widget},
 };
 
-use {crate::system::address, anyhow::Result, log::warn, std::fmt::Debug, thiserror::Error};
+use {crate::system::address, anyhow::Result, tracing::warn, std::fmt::Debug, thiserror::Error};
 
 #[derive(Debug, Error)]
 #[error("widget not found")]

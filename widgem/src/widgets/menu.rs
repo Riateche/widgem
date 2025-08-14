@@ -12,7 +12,7 @@ use {
         widgets::{widget_trait::NewWidget, Column, ScrollArea},
         WidgetExt,
     },
-    log::error,
+    tracing::error,
     winit::window::WindowLevel,
 };
 

@@ -36,7 +36,6 @@ use {
         Shaping, Wrap,
     },
     line_straddler::{GlyphStyle, LineGenerator, LineType},
-    log::warn,
     range_ext::intersect::Intersect,
     std::{
         cmp::{max, min},
@@ -47,6 +46,7 @@ use {
     },
     strict_num::FiniteF32,
     tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform},
+    tracing::warn,
     unicode_segmentation::UnicodeSegmentation,
     widgem_macros::impl_with,
     winit::{

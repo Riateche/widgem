@@ -6,12 +6,12 @@ use {
         },
         types::{Point, PpxSuffix, Rect},
     },
-    log::warn,
     std::{cell::RefCell, rc::Rc},
     tiny_skia::{
         BlendMode, Color, FillRule, FilterQuality, LinearGradient, Mask, Paint, Path, PathBuilder,
         Pattern, Pixmap, PixmapPaint, PixmapRef, Shader, SpreadMode, Stroke, Transform,
     },
+    tracing::warn,
 };
 
 fn rounded_line_in_square_corner(

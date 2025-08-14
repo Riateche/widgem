@@ -13,7 +13,7 @@ use {
     anyhow::{bail, Context},
     derivative::Derivative,
     derive_more::From,
-    log::{info, warn},
+    tracing::{info, warn},
     std::{
         cell::RefCell,
         cmp::{max, min},

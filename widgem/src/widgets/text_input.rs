@@ -21,7 +21,7 @@ use {
     },
     anyhow::Result,
     cosmic_text::Attrs,
-    log::warn,
+    tracing::warn,
     std::{cmp::max, fmt::Display, rc::Rc},
     winit::window::CursorIcon,
 };

@@ -1,6 +1,6 @@
 use {
     anyhow::{ensure, Context},
-    log::{info, warn},
+    tracing::{info, warn},
     std::{
         cmp::max,
         collections::BTreeMap,

@@ -3,6 +3,8 @@
 use {
     anyhow::Result,
     std::time::Duration,
+    tracing::level_filters::LevelFilter,
+    tracing_subscriber::EnvFilter,
     widgem::{
         impl_widget_base,
         system::add_interval,
@@ -201,7 +203,16 @@ fn main() {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info")
     }
-    env_logger::init();
+
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(
+            EnvFilter::builder()
+                .with_default_directive(LevelFilter::INFO.into())
+                .from_env()
+                .unwrap(),
+        )
+        .init();
+
     App::new()
         .run(|r| {
             r.base_mut().add_child::<RootWidget>(());

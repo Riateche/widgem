@@ -10,7 +10,7 @@ use {
         ScrollToRectRequest,
     },
     anyhow::Result,
-    log::{error, warn},
+    tracing::{error, warn},
     std::borrow::Cow,
 };
 
