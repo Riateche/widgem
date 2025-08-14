@@ -1,11 +1,17 @@
 use {
-    anyhow::Context,
+    anyhow::{ensure, Context},
     log::{info, warn},
-    std::{cmp::max, collections::BTreeMap, path::PathBuf, process::Command},
+    std::{
+        cmp::max,
+        collections::BTreeMap,
+        path::{Path, PathBuf},
+        process::{Command, Stdio},
+    },
     strum::EnumIter,
     tiny_skia::{Pixmap, PremultipliedColorU8},
     widgem_tester::{
-        discover_snapshots, test_snapshots_dir, SingleSnapshotFile, SingleSnapshotFiles,
+        discover_snapshots, test_snapshots_dir, QueryAllResponse, SingleSnapshotFile,
+        SingleSnapshotFiles,
     },
 };
 
@@ -19,7 +25,7 @@ pub enum Mode {
 
 pub struct TesterLogic {
     tests_dir: PathBuf,
-    test_cases_dir: PathBuf,
+    snapshots_dir: PathBuf,
     mode: Mode,
     test_cases: Vec<String>,
     current_test_case_index: Option<usize>,
@@ -43,7 +49,7 @@ impl TesterLogic {
         }
         let mut this = Self {
             tests_dir,
-            test_cases_dir,
+            snapshots_dir: test_cases_dir,
             mode: Mode::New,
             test_cases,
             current_test_case_index: None,
@@ -174,7 +180,7 @@ impl TesterLogic {
         let Some(unconfirmed) = snapshot.unconfirmed.as_ref() else {
             return Ok(None);
         };
-        let path = test_snapshots_dir(&self.test_cases_dir, test_case).join(&unconfirmed.full_name);
+        let path = test_snapshots_dir(&self.snapshots_dir, test_case).join(&unconfirmed.full_name);
         Ok(Some(Pixmap::load_png(path)?))
     }
 
@@ -188,7 +194,7 @@ impl TesterLogic {
         let Some(confirmed) = snapshot.confirmed.as_ref() else {
             return Ok(None);
         };
-        let path = test_snapshots_dir(&self.test_cases_dir, test_case).join(&confirmed.full_name);
+        let path = test_snapshots_dir(&self.snapshots_dir, test_case).join(&confirmed.full_name);
         Ok(Some(Pixmap::load_png(path)?))
     }
 
@@ -202,7 +208,7 @@ impl TesterLogic {
         let Some(confirmed) = snapshot.confirmed.as_ref() else {
             return Ok(None);
         };
-        let path = test_snapshots_dir(&self.test_cases_dir, test_case).join(&confirmed.full_name);
+        let path = test_snapshots_dir(&self.snapshots_dir, test_case).join(&confirmed.full_name);
         Ok(Some(Pixmap::load_png(path)?))
     }
 
@@ -291,7 +297,7 @@ impl TesterLogic {
         let test_case = self
             .current_test_case_name()
             .context("no current test case")?;
-        let test_case_dir = test_snapshots_dir(&self.test_cases_dir, test_case);
+        let test_case_dir = test_snapshots_dir(&self.snapshots_dir, test_case);
         let current_files = self.current_snapshot_mut()?;
         let unconfirmed = current_files
             .unconfirmed
@@ -339,6 +345,33 @@ impl TesterLogic {
         info!("spawned process with pid: {:?}", child.id());
         Ok(())
     }
+
+    pub fn refresh(&mut self) -> anyhow::Result<()> {
+        let data = query_data(&self.tests_dir)?;
+        self.all_snapshots = discover_all_snapshots(&data.test_cases, &data.snapshots_dir);
+        self.snapshots_dir = data.snapshots_dir;
+        if self
+            .current_test_case_index
+            .is_some_and(|i| i >= self.test_cases.len())
+        {
+            self.current_test_case_index = self.test_cases.len().checked_sub(1);
+        }
+        if let Some(test_index) = self.current_test_case_index {
+            if let Some(snapshots) = self.all_snapshots.get(test_index) {
+                if self
+                    .current_snapshot_index
+                    .is_some_and(|i| i >= snapshots.len() as u32)
+                {
+                    self.current_snapshot_index = snapshots.len().checked_sub(1).map(|i| i as u32);
+                }
+            } else {
+                self.current_snapshot_index = None;
+            }
+        } else {
+            self.current_snapshot_index = None;
+        }
+        Ok(())
+    }
 }
 
 fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
@@ -375,4 +408,40 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
     }
 
     out
+}
+
+pub fn query_data(path: &Path) -> anyhow::Result<QueryAllResponse> {
+    let output = Command::new("cargo")
+        .args(["run", "--", "query", "all"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .current_dir(path)
+        .output()?;
+    ensure!(output.status.success(), "failed to run cargo");
+    let data = serde_json::from_slice::<QueryAllResponse>(&output.stdout).with_context(|| {
+        format!(
+            "couldn't parse output: {:?}",
+            String::from_utf8_lossy(&output.stdout)
+        )
+    })?;
+    Ok(data)
+}
+
+fn discover_all_snapshots(
+    test_cases: &[String],
+    test_cases_dir: &Path,
+) -> Vec<BTreeMap<u32, SingleSnapshotFiles>> {
+    let mut all_snapshots = Vec::new();
+    for test_case in test_cases {
+        all_snapshots.push(
+            discover_snapshots(&test_snapshots_dir(&test_cases_dir, test_case)).unwrap_or_else(
+                |err| {
+                    // TODO: ui message
+                    warn!("failed to fetch snapshots: {:?}", err);
+                    Default::default()
+                },
+            ),
+        );
+    }
+    all_snapshots
 }

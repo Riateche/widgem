@@ -2,7 +2,10 @@ mod logic;
 mod ui;
 
 use {
-    crate::{logic::TesterLogic, ui::TesterUi},
+    crate::{
+        logic::{query_data, TesterLogic},
+        ui::TesterUi,
+    },
     anyhow::{bail, ensure, Context},
     clap::Parser,
     std::{
@@ -22,6 +25,8 @@ pub struct Args {
 
 pub fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
+    // Sanity checks
     if !args.path.try_exists()? {
         bail!("no such directory: {:?}", args.path);
     }
@@ -34,20 +39,7 @@ pub fn main() -> anyhow::Result<()> {
         .context("failed to run cargo")?;
     ensure!(status.success(), "failed to run cargo");
 
-    let output = Command::new("cargo")
-        .args(["run", "--", "query", "all"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .current_dir(&args.path)
-        .output()?;
-    ensure!(output.status.success(), "failed to run cargo");
-    let data = serde_json::from_slice::<QueryAllResponse>(&output.stdout).with_context(|| {
-        format!(
-            "couldn't parse output: {:?}",
-            String::from_utf8_lossy(&output.stdout)
-        )
-    })?;
-
+    let data = query_data(&args.path)?;
     let mut reviewer = TesterLogic::new(data.test_cases, args.path, data.snapshots_dir);
     if !reviewer.go_to_next_unconfirmed_file() {
         reviewer.go_to_test_case(0);

@@ -16,8 +16,8 @@ else
     CARGO_ARGS=""
 fi
 
-mkdir -p target/.empty
-docker build --file tests/scripts/builder.Dockerfile --tag widgem_builder target/.empty
+# mkdir -p target/.empty
+# docker build --file tests/scripts/builder.Dockerfile --tag widgem_builder target/.empty
 
 docker run \
     --mount "type=bind,src=$PWD,dst=/app" \
@@ -29,7 +29,7 @@ docker run \
 mkdir -p target/docker/bin
 # cp target/docker/target/$BUILD_MODE/widgem_tests tests/scripts/xfce_entrypoint.sh target/docker/bin/
 
-docker build --file tests/scripts/tests.Dockerfile --tag widgem_tests tests/scripts
+# docker build --file tests/scripts/tests.Dockerfile --tag widgem_tests tests/scripts
 
 docker rm --force widgem_tests || true
 docker run --name widgem_tests \

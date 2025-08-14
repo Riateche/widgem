@@ -72,7 +72,7 @@ pub fn add_test(name: &str, f: impl FnOnce(&mut Context) -> anyhow::Result<()> +
 // TODO: lazy
 fn assets_dir() -> PathBuf {
     if let Ok(var) = env::var("WIDGEM_REPO_DIR") {
-        PathBuf::from(var).join("test_kit/assets")
+        PathBuf::from(var).join("tester/assets")
     } else {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("assets")
     }

@@ -156,6 +156,14 @@ impl Widget for TesterUi {
                 Ok(())
             }));
 
+        row.base_mut()
+            .declare_child::<Button>("Refresh list".into())
+            .on_triggered(id.callback(move |w, _e| {
+                w.reviewer.refresh()?;
+                w.base.update();
+                Ok(())
+            }));
+
         let row = window
             .base_mut()
             .declare_child::<Row>(())

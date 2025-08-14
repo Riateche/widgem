@@ -38,9 +38,8 @@ jobs:
       - name: Run UI tests
         run: |
           docker run --name widgem_tests \
-            --mount "type=bind,source=$PWD/target/release/widgem_tests,target=/usr/local/bin/widgem_tests" \
             --mount "type=bind,source=$PWD,target=/app" \
-            widgem_tests widgem_tests test
+            widgem_tests /app/target/release/widgem_tests test
       - name: Upload test snapshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
