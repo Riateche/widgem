@@ -5,7 +5,7 @@ use {
         cmp::max,
         collections::BTreeMap,
         path::{Path, PathBuf},
-        process::{Command, Stdio},
+        process::{self, Command, Stdio},
     },
     strum::EnumIter,
     tiny_skia::{Pixmap, PremultipliedColorU8},
@@ -25,6 +25,7 @@ pub enum Mode {
 
 pub struct TesterLogic {
     tests_dir: PathBuf,
+    run_script: Option<PathBuf>,
     snapshots_dir: PathBuf,
     mode: Mode,
     test_cases: Vec<String>,
@@ -34,30 +35,31 @@ pub struct TesterLogic {
 }
 
 impl TesterLogic {
-    pub fn new(test_cases: Vec<String>, tests_dir: PathBuf, test_cases_dir: PathBuf) -> Self {
+    pub fn new(tests_dir: PathBuf, run_script: Option<PathBuf>) -> anyhow::Result<Self> {
+        let data = query_data(&tests_dir)?;
         let mut all_snapshots = Vec::new();
-        for test_case in &test_cases {
+        for test_case in &data.test_cases {
             all_snapshots.push(
-                discover_snapshots(&test_snapshots_dir(&test_cases_dir, test_case)).unwrap_or_else(
-                    |err| {
+                discover_snapshots(&test_snapshots_dir(&data.snapshots_dir, test_case))
+                    .unwrap_or_else(|err| {
                         // TODO: ui message
                         warn!("failed to fetch snapshots: {:?}", err);
                         Default::default()
-                    },
-                ),
+                    }),
             );
         }
         let mut this = Self {
             tests_dir,
-            snapshots_dir: test_cases_dir,
+            run_script,
+            snapshots_dir: data.snapshots_dir,
             mode: Mode::New,
-            test_cases,
+            test_cases: data.test_cases,
             current_test_case_index: None,
             all_snapshots,
             current_snapshot_index: None,
         };
         this.go_to_next_test_case();
-        this
+        Ok(this)
     }
 
     pub fn test_cases(&self) -> &[String] {
@@ -346,6 +348,21 @@ impl TesterLogic {
         Ok(())
     }
 
+    pub fn run_test(&self) -> anyhow::Result<process::Child> {
+        let test_name = self
+            .current_test_case_name()
+            .context("no current test case")?;
+        let mut command = if let Some(run_script) = &self.run_script {
+            Command::new(run_script)
+        } else {
+            let mut c = Command::new("cargo");
+            c.args(["run", "--"]).current_dir(&self.tests_dir);
+            c
+        };
+        let child = command.args(["test", test_name]).spawn()?;
+        Ok(child)
+    }
+
     pub fn refresh(&mut self) -> anyhow::Result<()> {
         let data = query_data(&self.tests_dir)?;
         self.all_snapshots = discover_all_snapshots(&data.test_cases, &data.snapshots_dir);
@@ -434,7 +451,7 @@ fn discover_all_snapshots(
     let mut all_snapshots = Vec::new();
     for test_case in test_cases {
         all_snapshots.push(
-            discover_snapshots(&test_snapshots_dir(&test_cases_dir, test_case)).unwrap_or_else(
+            discover_snapshots(&test_snapshots_dir(test_cases_dir, test_case)).unwrap_or_else(
                 |err| {
                     // TODO: ui message
                     warn!("failed to fetch snapshots: {:?}", err);

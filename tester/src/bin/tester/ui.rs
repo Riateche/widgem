@@ -1,5 +1,7 @@
 use {
     crate::logic::{Mode, TesterLogic},
+    log::{info, warn},
+    std::thread,
     strum::IntoEnumIterator,
     widgem::{
         event::Event,
@@ -62,6 +64,11 @@ impl TesterUi {
             pos_in_content.x().to_i32(),
             pos_in_content.y().to_i32()
         );
+        self.base.update();
+        Ok(())
+    }
+
+    fn test_finished(&mut self) -> anyhow::Result<()> {
         self.base.update();
         Ok(())
     }
@@ -175,6 +182,28 @@ impl Widget for TesterUi {
             .declare_child::<Button>("Run test subject".into())
             .set_enabled(self.reviewer.current_test_case_name().is_some())
             .on_triggered(id.callback(move |w, _e| w.reviewer.run_test_subject()));
+
+        let test_finished = id.callback(move |w, _e: ()| w.test_finished());
+        row.base_mut()
+            .declare_child::<Button>("Run test".into())
+            .set_enabled(self.reviewer.current_test_case_name().is_some())
+            .on_triggered(id.callback(move |w, _e| {
+                let mut child = w.reviewer.run_test()?;
+                info!("spawned process with pid: {:?}", child.id());
+                let test_finished = test_finished.clone();
+                thread::spawn(move || {
+                    match child.wait() {
+                        Ok(status) => {
+                            info!("child {:?} finished with status {:?}", child.id(), status);
+                        }
+                        Err(err) => {
+                            warn!("child {:?} wait error: {:?}", child.id(), err);
+                        }
+                    }
+                    test_finished.invoke(());
+                });
+                Ok(())
+            }));
 
         window
             .base_mut()
