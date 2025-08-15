@@ -6,6 +6,16 @@ description = "Test framework for widgem widget toolkit"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Riateche/widgem"
 
+[package.metadata.bundle.bin.widgem_tester]
+identifier = "io.github.Riateche.widgem.tester"
+name = "Widgem tester"
+icon = [
+    "widgem/assets/icon/32x32.png",
+    "widgem/assets/icon/64x64.png",
+    "widgem/assets/icon/128x128.png",
+    "widgem/assets/icon/128x128@2x.png",
+]
+
 [[bin]]
 name = "widgem_tester"
 path = "src/bin/tester/main.rs"

@@ -6,6 +6,16 @@ description = "Tests for widgem widget toolkit"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Riateche/widgem"
 
+[package.metadata.bundle.bin.widgem_tests]
+identifier = "io.github.Riateche.widgem.tests"
+name = "Widgem tests"
+icon = [
+    "widgem/assets/icon/32x32.png",
+    "widgem/assets/icon/64x64.png",
+    "widgem/assets/icon/128x128.png",
+    "widgem/assets/icon/128x128@2x.png",
+]
+
 [dependencies]
 widgem = { workspace = true }
 widgem_tester = { workspace = true }
@@ -16,7 +26,3 @@ fs-err = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
 
-[package.metadata.bundle.bin.widgem_tests]
-identifier = "io.github.Riateche.widgem.tests"
-name = "Widgem tests"
-icon = ["widgem/assets/32x32.png", "widgem/assets/128x128.png", "widgem/assets/128x128@2x.png"]
