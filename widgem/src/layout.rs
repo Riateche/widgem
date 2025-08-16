@@ -5,12 +5,12 @@ use {
         RawWidgetId,
     },
     itertools::Itertools,
-    tracing::warn,
     std::{
         cmp::{max, min},
         collections::{hash_map, BTreeMap, HashMap},
         ops::RangeInclusive,
     },
+    tracing::warn,
 };
 
 /// Layout strategy.

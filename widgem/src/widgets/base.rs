@@ -23,7 +23,6 @@ use {
     anyhow::{Context, Result},
     derivative::Derivative,
     lightningcss::stylesheet::StyleSheet,
-    tracing::{error, warn},
     std::{
         cell::RefCell,
         collections::{BTreeMap, HashMap, HashSet},
@@ -33,6 +32,7 @@ use {
         ops::{Deref, DerefMut},
         rc::Rc,
     },
+    tracing::{error, warn},
     winit::window::CursorIcon,
 };
 

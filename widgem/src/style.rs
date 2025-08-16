@@ -14,7 +14,6 @@ use {
     lightningcss::{
         properties::Property, rules::CssRule, selector::Selector, stylesheet::StyleSheet,
     },
-    tracing::warn,
     ordered_float::OrderedFloat,
     serde::{Deserialize, Serialize},
     std::{
@@ -27,6 +26,7 @@ use {
         rc::Rc,
     },
     tiny_skia::Color,
+    tracing::warn,
 };
 
 pub mod common;

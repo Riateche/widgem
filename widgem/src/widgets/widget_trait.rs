@@ -12,8 +12,8 @@ use {
         ScrollToRectRequest,
     },
     anyhow::Result,
-    tracing::warn,
     std::any::Any,
+    tracing::warn,
 };
 
 pub trait NewWidget: Widget + Sized {

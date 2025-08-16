@@ -12,12 +12,12 @@ use {
         widgets::widget_trait::NewWidget,
     },
     anyhow::Result,
-    tracing::warn,
     ordered_float::NotNan,
     std::{
         cmp::{max, min},
         ops::RangeInclusive,
     },
+    tracing::warn,
     widgem_macros::impl_with,
     winit::{
         event::{ElementState, MouseButton},

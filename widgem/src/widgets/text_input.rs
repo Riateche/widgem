@@ -21,8 +21,8 @@ use {
     },
     anyhow::Result,
     cosmic_text::Attrs,
-    tracing::warn,
     std::{cmp::max, fmt::Display, rc::Rc},
+    tracing::warn,
     winit::window::CursorIcon,
 };
 

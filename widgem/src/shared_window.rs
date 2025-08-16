@@ -13,7 +13,6 @@ use {
     anyhow::{bail, Context},
     derivative::Derivative,
     derive_more::From,
-    tracing::{info, warn},
     std::{
         cell::RefCell,
         cmp::{max, min},
@@ -27,6 +26,7 @@ use {
         time::{Duration, Instant},
     },
     tiny_skia::Pixmap,
+    tracing::{info, warn},
     winit::{
         dpi::{PhysicalPosition, PhysicalSize},
         event::{ElementState, MouseButton, WindowEvent},

@@ -15,8 +15,8 @@ use {
         ScrollToRectRequest,
     },
     accesskit::ActionRequest,
-    tracing::{trace, warn},
     std::cmp::max,
+    tracing::{trace, warn},
     winit::{
         event::{ElementState, Ime, WindowEvent},
         keyboard::{Key, NamedKey},

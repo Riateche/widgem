@@ -17,7 +17,6 @@ use {
     arboard::Clipboard,
     cosmic_text::{fontdb, FontSystem, SwashCache},
     derive_more::From,
-    tracing::warn,
     scoped_tls::scoped_thread_local,
     std::{
         any::Any,
@@ -26,6 +25,7 @@ use {
         path::PathBuf,
         time::{Duration, Instant},
     },
+    tracing::warn,
     winit::{
         application::ApplicationHandler,
         event::{StartCause, WindowEvent},

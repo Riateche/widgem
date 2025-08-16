@@ -23,8 +23,8 @@ use {
     accesskit::{Action, Role},
     anyhow::Result,
     cosmic_text::Attrs,
-    tracing::warn,
     std::{fmt::Display, rc::Rc},
+    tracing::warn,
     widgem_macros::impl_with,
     winit::{
         event::MouseButton,

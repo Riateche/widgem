@@ -37,9 +37,9 @@ use {
             string::CowArcStr,
         },
     },
-    tracing::warn,
     std::{borrow::Cow, collections::HashMap},
     tiny_skia::{Color, GradientStop, SpreadMode},
+    tracing::warn,
 };
 
 fn convert_color(color: &CssColor) -> Result<Color> {

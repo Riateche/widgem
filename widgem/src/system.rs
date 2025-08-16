@@ -11,13 +11,13 @@ use {
     anyhow::Result,
     arboard::Clipboard,
     cosmic_text::{FontSystem, SwashCache},
-    tracing::warn,
     std::{
         cell::RefCell,
         collections::{HashMap, HashSet},
         mem,
         time::{Duration, Instant},
     },
+    tracing::warn,
     winit::event_loop::EventLoopProxy,
 };
 

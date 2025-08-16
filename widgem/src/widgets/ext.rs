@@ -10,8 +10,8 @@ use {
         ScrollToRectRequest,
     },
     anyhow::Result,
-    tracing::{error, warn},
     std::borrow::Cow,
+    tracing::{error, warn},
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
