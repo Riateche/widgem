@@ -1,6 +1,5 @@
 use {
     anyhow::{ensure, Context},
-    tracing::{info, warn},
     std::{
         cmp::max,
         collections::BTreeMap,
@@ -9,6 +8,7 @@ use {
     },
     strum::EnumIter,
     tiny_skia::{Pixmap, PremultipliedColorU8},
+    tracing::{info, warn},
     widgem_tester::{
         discover_snapshots, test_snapshots_dir, QueryAllResponse, SingleSnapshotFile,
         SingleSnapshotFiles,
@@ -396,29 +396,34 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
     let width = out.width();
     for y in 0..out.height() {
         for x in 0..width {
-            let pixel_a = a.pixel(x, y);
-            let pixel_b = b.pixel(x, y);
-            let pixel_out = if pixel_a == pixel_b {
-                pixel_a.unwrap_or_else(|| PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap())
-            // } else if let (Some(pixel_a), Some(pixel_b)) = (pixel_a, pixel_b) {
-            //     PremultipliedColorU8::from_rgba(
-            //         u8_diff(pixel_a.red(), pixel_b.red()),
-            //         u8_diff(pixel_a.green(), pixel_b.green()),
-            //         u8_diff(pixel_a.blue(), pixel_b.blue()),
-            //         255,
-            //     )
-            //     .unwrap()
-            } else if let Some(_pixel_a) = pixel_a {
-                // PremultipliedColorU8::from_rgba(
-                //     pixel_a.red().saturating_sub(50),
-                //     pixel_a.green().saturating_add(50),
-                //     pixel_a.blue().saturating_sub(50),
-                //     255,
-                // )
-                // .unwrap()
-                PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap()
+            let pixel_a = if x < a.width() && y < a.height() {
+                a.pixel(x, y)
             } else {
-                PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap()
+                None
+            };
+            let pixel_b = if x < b.width() && y < b.height() {
+                b.pixel(x, y)
+            } else {
+                None
+            };
+            let pixel_out = match (pixel_a, pixel_b) {
+                (None, None) => PremultipliedColorU8::from_rgba(0, 0, 0, 0).unwrap(),
+                (None, Some(_)) => PremultipliedColorU8::from_rgba(0, 0, 255, 255).unwrap(),
+                (Some(_), None) => PremultipliedColorU8::from_rgba(255, 0, 255, 255).unwrap(),
+                (Some(pixel_a), Some(pixel_b)) => {
+                    if pixel_a == pixel_b {
+                        pixel_a
+                    } else {
+                        //     PremultipliedColorU8::from_rgba(
+                        //         u8_diff(pixel_a.red(), pixel_b.red()),
+                        //         u8_diff(pixel_a.green(), pixel_b.green()),
+                        //         u8_diff(pixel_a.blue(), pixel_b.blue()),
+                        //         255,
+                        //     )
+                        //     .unwrap()
+                        PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap()
+                    }
+                }
             };
             out.pixels_mut()[(y * width + x) as usize] = pixel_out;
         }

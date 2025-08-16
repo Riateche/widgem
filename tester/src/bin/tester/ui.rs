@@ -1,8 +1,8 @@
 use {
     crate::logic::{Mode, TesterLogic},
-    tracing::{info, warn},
     std::thread,
     strum::IntoEnumIterator,
+    tracing::{info, warn},
     widgem::{
         event::Event,
         impl_widget_base,
@@ -13,6 +13,7 @@ use {
             Button, Column, Image, Label, NewWidget, Row, ScrollArea, Widget, WidgetBaseOf,
             WidgetExt, WidgetId, Window,
         },
+        Pixmap,
     },
 };
 
@@ -69,6 +70,7 @@ impl TesterUi {
     }
 
     fn test_finished(&mut self) -> anyhow::Result<()> {
+        self.reviewer.refresh()?;
         self.base.update();
         Ok(())
     }
@@ -267,7 +269,6 @@ impl Widget for TesterUi {
             .base_mut()
             .declare_child::<Label>("Display mode:".into())
             .set_grid_cell(1, current_row);
-        current_row += 1;
 
         // TODO: radio buttons
         let modes_row = window
@@ -279,16 +280,48 @@ impl Widget for TesterUi {
 
         for mode in Mode::iter() {
             // TODO: radio buttons
+            let star = if self.reviewer.mode() == mode {
+                "* "
+            } else {
+                ""
+            };
             modes_row
                 .base_mut()
-                .declare_child::<Button>(mode_ui_name(mode).into())
+                .declare_child::<Button>(format!("{}{}", star, mode_ui_name(mode)))
                 .set_enabled(self.reviewer.is_mode_allowed(mode))
                 .on_triggered(id.callback(move |w, _e| w.set_mode(mode)));
         }
 
+        let pixmap: Option<Pixmap> = self
+            .reviewer
+            .pixmap()
+            .or_report_err()
+            .flatten()
+            .map(Into::into);
+
         window
             .base_mut()
-            .declare_child::<Label>("Snapshot:".into())
+            .declare_child::<Label>("Snapshot size:".into())
+            .set_grid_cell(1, current_row);
+        window
+            .base_mut()
+            .declare_child::<Label>({
+                if let Some(pixmap) = &pixmap {
+                    format!(
+                        "{} x {}",
+                        pixmap.size_x().to_i32(),
+                        pixmap.size_y().to_i32(),
+                    )
+                } else {
+                    "".into()
+                }
+            })
+            .set_grid_cell(2, current_row);
+        current_row += 1;
+
+        window
+            .base_mut()
+            .declare_child::<Label>("Zoom:".into())
             .set_grid_cell(1, current_row);
 
         let row = window
@@ -328,18 +361,12 @@ impl Widget for TesterUi {
             }));
         row.base_mut().declare_child::<Label>(self.coords.clone());
 
-        let pixmap = self
-            .reviewer
-            .pixmap()
-            .or_report_err()
-            .flatten()
-            .map(Into::into);
         let image = window
             .base_mut()
             .declare_child::<ScrollArea>(())
             .set_grid_cell(2, current_row)
-            .set_content::<Column>(())
-            .set_style("Column { background: #c0c0c0; padding: 2px; }")
+            .declare_content::<Column>(())
+            .set_style("Column { background: #55c080; padding: 2px; }")
             .base_mut()
             .declare_child::<Image>(pixmap)
             .set_scale(Some(self.image_scale));

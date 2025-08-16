@@ -24,6 +24,8 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     })?;
     let window = ctx.wait_for_window_by_pid()?;
     window.snapshot("scroll area")?;
+    window.resize(150, 150)?;
+    window.snapshot("resized")?;
     window.close()?;
     Ok(())
 }
