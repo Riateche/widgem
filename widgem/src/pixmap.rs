@@ -23,7 +23,7 @@ impl Pixmap {
             .map(Self)
     }
 
-    pub(crate) fn as_tiny_skia_ref(&self) -> tiny_skia::PixmapRef<'_> {
+    pub fn as_tiny_skia_ref(&self) -> tiny_skia::PixmapRef<'_> {
         (*self.0).as_ref()
     }
 

@@ -26,6 +26,11 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("scroll area")?;
     window.resize(150, 150)?;
     window.snapshot("resized")?;
+    window.mouse_move(146, 146)?;
+    ctx.connection().mouse_click(1)?;
+    window.snapshot("step down")?;
+    ctx.connection().mouse_scroll_down()?;
+    window.snapshot("scroll down")?;
     window.close()?;
     Ok(())
 }

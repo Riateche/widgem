@@ -14,7 +14,7 @@ use {
         process::{self, Child},
         sync::{Mutex, OnceLock},
         thread::sleep,
-        time::{Duration, Instant},
+        time::{Duration, Instant, SystemTime},
     },
     tracing_subscriber::{filter::LevelFilter, EnvFilter},
     widgem::App,
@@ -261,10 +261,12 @@ pub struct QueryAllResponse {
     pub test_cases: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SingleSnapshotFile {
     pub full_name: String,
     pub description: String,
+    pub path: PathBuf,
+    pub modified: SystemTime,
 }
 
 #[derive(Debug, Default)]
@@ -309,6 +311,8 @@ pub fn discover_snapshots(
             }
             files.unconfirmed = Some(SingleSnapshotFile {
                 description: description.into(),
+                path: entry.path(),
+                modified: entry.metadata()?.modified()?,
                 full_name,
             });
         } else {
@@ -321,6 +325,8 @@ pub fn discover_snapshots(
             }
             files.confirmed = Some(SingleSnapshotFile {
                 description: name_without_png_and_step.into(),
+                path: entry.path(),
+                modified: entry.metadata()?.modified()?,
                 full_name,
             });
         }

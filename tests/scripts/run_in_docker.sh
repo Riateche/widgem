@@ -19,6 +19,6 @@ docker run \
             sh -s -- --default-toolchain 1.87.0 --profile minimal -y
         cargo build --package widgem_tests --locked $CARGO_ARGS"
 
-docker exec -it \
+docker exec \
     widgem_tests \
     /app/target/docker/target/$BUILD_MODE/widgem_tests $*

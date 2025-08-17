@@ -1,8 +1,9 @@
+mod data;
 mod logic;
 mod ui;
 
 use {
-    crate::{logic::TesterLogic, ui::TesterUi},
+    crate::{data::Config, logic::TesterLogic, ui::TesterUi},
     anyhow::{bail, ensure, Context},
     clap::Parser,
     std::{path::PathBuf, process::Command},
@@ -43,10 +44,10 @@ pub fn main() -> anyhow::Result<()> {
         .context("failed to run cargo")?;
     ensure!(status.success(), "failed to run cargo");
 
-    let mut reviewer = TesterLogic::new(args.path, args.run_script)?;
-    if !reviewer.go_to_next_unconfirmed_file() {
-        reviewer.go_to_test_case(0);
-    }
+    let reviewer = TesterLogic::new(Config {
+        tests_dir: args.path,
+        run_script: args.run_script,
+    })?;
     widgem::run(move |w| {
         w.base_mut().add_child::<TesterUi>(reviewer);
         Ok(())

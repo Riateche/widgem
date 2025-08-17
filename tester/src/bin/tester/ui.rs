@@ -13,7 +13,6 @@ use {
             Button, Column, Image, Label, NewWidget, Row, ScrollArea, Widget, WidgetBaseOf,
             WidgetExt, WidgetId, Window,
         },
-        Pixmap,
     },
 };
 
@@ -116,7 +115,7 @@ impl Widget for TesterUi {
                 Some(format!(
                     "({}/{}) {:?}",
                     self.reviewer.current_test_case_index()? + 1,
-                    self.reviewer.num_test_cases(),
+                    self.reviewer.tests().num_tests(),
                     name
                 ))
             })
@@ -137,7 +136,7 @@ impl Widget for TesterUi {
         row.base_mut()
             .declare_child::<Button>("First test".into())
             .on_triggered(id.callback(move |w, _e| {
-                w.reviewer.go_to_test_case(0);
+                w.reviewer.go_to_first_test_case();
                 w.base.update();
                 Ok(())
             }));
@@ -159,8 +158,7 @@ impl Widget for TesterUi {
         row.base_mut()
             .declare_child::<Button>("Last test".into())
             .on_triggered(id.callback(move |w, _e| {
-                let index = w.reviewer.test_cases().len().saturating_sub(1);
-                w.reviewer.go_to_test_case(index);
+                w.reviewer.go_to_last_test_case();
                 w.base.update();
                 Ok(())
             }));
@@ -212,31 +210,23 @@ impl Widget for TesterUi {
             .declare_child::<Label>("Snapshot:".into())
             .set_grid_cell(1, current_row);
 
-        let snapshot_name = self
-            .reviewer
-            .current_snapshot()
-            .and_then(|current_files| match self.reviewer.mode() {
-                Mode::New | Mode::DiffWithConfirmed | Mode::DiffWithPreviousConfirmed => {
-                    current_files
-                        .unconfirmed
-                        .as_ref()
-                        .map(|f| f.description.clone())
-                }
-                Mode::Confirmed => current_files
-                    .confirmed
-                    .as_ref()
-                    .map(|f| f.description.clone()),
-            })
-            .and_then(|description| {
-                let index = self.reviewer.current_snapshot_index()?;
-                Some(format!(
-                    "({}/{}) {:?}",
-                    index,
-                    self.reviewer.num_current_snapshots(),
-                    description
-                ))
-            })
-            .unwrap_or_else(|| "none".into());
+        let snapshot_name = match self.reviewer.mode() {
+            Mode::New | Mode::DiffWithConfirmed | Mode::DiffWithPreviousConfirmed => self
+                .reviewer
+                .unconfirmed_description()
+                .map(|s| s.to_owned()),
+            Mode::Confirmed => self.reviewer.confirmed_description().map(|s| s.to_owned()),
+        }
+        .and_then(|description| {
+            let index = self.reviewer.current_snapshot_index()?;
+            Some(format!(
+                "({}/{}) {:?}",
+                index,
+                self.reviewer.num_current_snapshots(),
+                description
+            ))
+        })
+        .unwrap_or_else(|| "none".into());
         window
             .base_mut()
             .declare_child::<Label>(snapshot_name)
@@ -292,12 +282,7 @@ impl Widget for TesterUi {
                 .on_triggered(id.callback(move |w, _e| w.set_mode(mode)));
         }
 
-        let pixmap: Option<Pixmap> = self
-            .reviewer
-            .pixmap()
-            .or_report_err()
-            .flatten()
-            .map(Into::into);
+        let pixmap = self.reviewer.pixmap().or_report_err().flatten();
 
         window
             .base_mut()
@@ -413,7 +398,7 @@ impl Widget for TesterUi {
             .base_mut()
             .declare_child::<Button>("Skip snapshot".into())
             .on_triggered(id.callback(move |w, _e| {
-                if !w.reviewer.go_to_next_unconfirmed_file() {
+                if !w.reviewer.go_to_next_unconfirmed_snapshot() {
                     widgem::exit();
                 }
                 w.base.update();
@@ -427,7 +412,7 @@ impl Widget for TesterUi {
             .on_triggered(id.callback(move |w, _e| {
                 w.reviewer.go_to_next_test_case();
                 if !w.reviewer.has_unconfirmed() {
-                    if !w.reviewer.go_to_next_unconfirmed_file() {
+                    if !w.reviewer.go_to_next_unconfirmed_snapshot() {
                         widgem::exit();
                     }
                 }
@@ -435,7 +420,7 @@ impl Widget for TesterUi {
                 Ok(())
             }));
 
-        let unconfirmed_count = self.reviewer.unconfirmed_count();
+        let unconfirmed_count = self.reviewer.tests().unconfirmed_snapshot_count();
         window
             .base_mut()
             .declare_child::<Label>(if unconfirmed_count > 0 {

@@ -1,18 +1,10 @@
 use {
-    anyhow::{ensure, Context},
-    std::{
-        cmp::max,
-        collections::BTreeMap,
-        path::{Path, PathBuf},
-        process::{self, Command, Stdio},
-    },
+    crate::data::{Config, Position, Tests},
+    anyhow::Context,
+    std::process::{self, Command},
     strum::EnumIter,
-    tiny_skia::{Pixmap, PremultipliedColorU8},
     tracing::{info, warn},
-    widgem_tester::{
-        discover_snapshots, test_snapshots_dir, QueryAllResponse, SingleSnapshotFile,
-        SingleSnapshotFiles,
-    },
+    widgem::Pixmap,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
@@ -24,260 +16,156 @@ pub enum Mode {
 }
 
 pub struct TesterLogic {
-    tests_dir: PathBuf,
-    run_script: Option<PathBuf>,
-    snapshots_dir: PathBuf,
+    tests: Tests,
     mode: Mode,
-    test_cases: Vec<String>,
-    current_test_case_index: Option<usize>,
-    all_snapshots: Vec<BTreeMap<u32, SingleSnapshotFiles>>,
-    current_snapshot_index: Option<u32>,
+    position: Option<Position>,
 }
 
 impl TesterLogic {
-    pub fn new(tests_dir: PathBuf, run_script: Option<PathBuf>) -> anyhow::Result<Self> {
-        let data = query_data(&tests_dir)?;
-        let mut all_snapshots = Vec::new();
-        for test_case in &data.test_cases {
-            all_snapshots.push(
-                discover_snapshots(&test_snapshots_dir(&data.snapshots_dir, test_case))
-                    .unwrap_or_else(|err| {
-                        // TODO: ui message
-                        warn!("failed to fetch snapshots: {:?}", err);
-                        Default::default()
-                    }),
-            );
-        }
+    pub fn new(config: Config) -> anyhow::Result<Self> {
         let mut this = Self {
-            tests_dir,
-            run_script,
-            snapshots_dir: data.snapshots_dir,
-            mode: Mode::New,
-            test_cases: data.test_cases,
-            current_test_case_index: None,
-            all_snapshots,
-            current_snapshot_index: None,
+            tests: Tests::new(config)?,
+            mode: Mode::Confirmed,
+            position: None,
         };
-        this.go_to_next_test_case();
+        if this.tests.has_unconfirmed_snapshots() {
+            this.go_to_next_unconfirmed_snapshot();
+        } else {
+            this.go_to_next_test_case();
+        }
         Ok(this)
     }
 
-    pub fn test_cases(&self) -> &[String] {
-        &self.test_cases
+    fn adjust_mode(&mut self) {
+        if self.is_mode_allowed(self.mode) {
+            return;
+        }
+        self.mode = if self.has_unconfirmed() {
+            Mode::New
+        } else {
+            Mode::Confirmed
+        };
     }
 
     #[allow(clippy::collapsible_if)]
-    pub fn go_to_next_unconfirmed_file(&mut self) -> bool {
-        loop {
-            if !self.go_to_next_snapshot() {
-                if !self.go_to_next_test_case() {
-                    return false;
-                }
-            }
-            if self
-                .current_snapshot()
-                .is_some_and(|f| f.unconfirmed.is_some())
-            {
-                return true;
-            }
+    pub fn go_to_next_unconfirmed_snapshot(&mut self) -> bool {
+        if let Some(pos) = self.tests.next_unconfirmed_pos(self.position.as_ref()) {
+            self.position = Some(pos);
+            self.adjust_mode();
+            true
+        } else {
+            false
         }
     }
 
-    pub fn go_to_next_test_case(&mut self) -> bool {
-        let index = self.current_test_case_index.map_or(0, |i| i + 1);
-        self.go_to_test_case(index)
-    }
-
-    pub fn go_to_previous_test_case(&mut self) -> bool {
-        if self.current_test_case_index == Some(0) {
-            return false;
+    pub fn go_to_next_test_case(&mut self) {
+        if let Some(pos) = self.tests.next_test(self.position.as_ref()) {
+            self.position = Some(pos);
+            self.adjust_mode();
         }
-        let index = self.current_test_case_index.map_or(0, |i| i - 1);
-        self.go_to_test_case(index)
     }
 
-    pub fn go_to_test_case(&mut self, index: usize) -> bool {
-        self.current_snapshot_index = None;
-        if index >= self.test_cases.len() {
-            return false;
+    pub fn go_to_previous_test_case(&mut self) {
+        if let Some(pos) = self.tests.previous_test(self.position.as_ref()) {
+            self.position = Some(pos);
+            self.adjust_mode();
         }
-        self.current_test_case_index = Some(index);
-        self.go_to_next_snapshot();
-        true
     }
 
-    pub fn go_to_previous_snapshot(&mut self) -> bool {
-        if self.current_snapshot_index == Some(1) {
-            return false;
+    pub fn go_to_first_test_case(&mut self) {
+        if let Some(pos) = self.tests.next_test(None) {
+            self.position = Some(pos);
+            self.adjust_mode();
         }
-        let index = self.current_snapshot_index.map_or(0, |i| i - 1);
-        self.go_to_snapshot(index)
     }
 
-    pub fn go_to_next_snapshot(&mut self) -> bool {
-        let index = self.current_snapshot_index.map_or(1, |i| i + 1);
-        self.go_to_snapshot(index)
+    pub fn go_to_last_test_case(&mut self) {
+        if let Some(pos) = self.tests.previous_test(None) {
+            self.position = Some(pos);
+            self.adjust_mode();
+        }
     }
 
-    pub fn go_to_snapshot(&mut self, index: u32) -> bool {
-        let Some(snapshots) = self
-            .current_test_case_index
-            .and_then(|index| self.all_snapshots.get(index))
-        else {
-            warn!(
-                "invalid current_test_case_index {:?}",
-                self.current_test_case_index
-            );
-            return false;
+    pub fn go_to_previous_snapshot(&mut self) {
+        let Some(position) = self.position.as_ref() else {
+            return;
         };
-        let Some(files) = snapshots.get(&index) else {
-            return false;
-        };
-        self.current_snapshot_index = Some(index);
-        if !self.is_mode_allowed(self.mode) {
-            self.mode = if files.unconfirmed.is_some() {
-                Mode::New
-            } else {
-                Mode::Confirmed
-            };
+        if let Some(pos) = self.tests.previous_snapshot(position) {
+            self.position = Some(pos);
+            self.adjust_mode();
         }
-        true
+    }
+
+    pub fn go_to_next_snapshot(&mut self) {
+        let Some(position) = self.position.as_ref() else {
+            return;
+        };
+        if let Some(pos) = self.tests.next_snapshot(position) {
+            self.position = Some(pos);
+            self.adjust_mode();
+        }
     }
 
     pub fn current_test_case_name(&self) -> Option<&str> {
-        Some(self.test_cases.get(self.current_test_case_index?)?.as_str())
-    }
-
-    fn previous_snapshot(&self) -> Option<&SingleSnapshotFiles> {
-        let index = self.current_snapshot_index?.checked_sub(1)?;
-        self.all_snapshots
-            .get(self.current_test_case_index?)?
-            .get(&index)
-    }
-
-    pub fn current_snapshot(&self) -> Option<&SingleSnapshotFiles> {
-        self.all_snapshots
-            .get(self.current_test_case_index?)?
-            .get(&self.current_snapshot_index?)
-    }
-
-    fn current_snapshot_mut(&mut self) -> anyhow::Result<&mut SingleSnapshotFiles> {
-        self.all_snapshots
-            .get_mut(
-                self.current_test_case_index
-                    .context("no current_test_case_index")?,
-            )
-            .context("invalid current_test_case_index")?
-            .get_mut(&self.current_snapshot_index.context("no current files")?)
-            .context("current files not found")
-    }
-
-    fn load_new(&self) -> anyhow::Result<Option<Pixmap>> {
-        let Some(test_case) = self.current_test_case_name() else {
-            return Ok(None);
-        };
-        let Some(snapshot) = self.current_snapshot() else {
-            return Ok(None);
-        };
-        let Some(unconfirmed) = snapshot.unconfirmed.as_ref() else {
-            return Ok(None);
-        };
-        let path = test_snapshots_dir(&self.snapshots_dir, test_case).join(&unconfirmed.full_name);
-        Ok(Some(Pixmap::load_png(path)?))
-    }
-
-    fn load_confirmed(&self) -> anyhow::Result<Option<Pixmap>> {
-        let Some(test_case) = self.current_test_case_name() else {
-            return Ok(None);
-        };
-        let Some(snapshot) = self.current_snapshot() else {
-            return Ok(None);
-        };
-        let Some(confirmed) = snapshot.confirmed.as_ref() else {
-            return Ok(None);
-        };
-        let path = test_snapshots_dir(&self.snapshots_dir, test_case).join(&confirmed.full_name);
-        Ok(Some(Pixmap::load_png(path)?))
-    }
-
-    fn load_previous_confirmed(&self) -> anyhow::Result<Option<Pixmap>> {
-        let Some(test_case) = self.current_test_case_name() else {
-            return Ok(None);
-        };
-        let Some(snapshot) = self.previous_snapshot() else {
-            return Ok(None);
-        };
-        let Some(confirmed) = snapshot.confirmed.as_ref() else {
-            return Ok(None);
-        };
-        let path = test_snapshots_dir(&self.snapshots_dir, test_case).join(&confirmed.full_name);
-        Ok(Some(Pixmap::load_png(path)?))
-    }
-
-    pub fn pixmap(&self) -> anyhow::Result<Option<Pixmap>> {
-        match self.mode {
-            Mode::New => self.load_new(),
-            Mode::Confirmed => self.load_confirmed(),
-            Mode::DiffWithConfirmed => {
-                let Some(first) = self.load_new()? else {
-                    return Ok(None);
-                };
-                let Some(second) = self.load_confirmed()? else {
-                    return Ok(None);
-                };
-                Ok(Some(pixmap_diff(&first, &second)))
-            }
-            Mode::DiffWithPreviousConfirmed => {
-                let Some(first) = self.load_new()? else {
-                    return Ok(None);
-                };
-                let Some(second) = self.load_previous_confirmed()? else {
-                    return Ok(None);
-                };
-                Ok(Some(pixmap_diff(&first, &second)))
-            }
-        }
-    }
-
-    pub fn unconfirmed_count(&self) -> usize {
-        self.all_snapshots
-            .iter()
-            .flat_map(|s| s.values())
-            .filter(|s| s.unconfirmed.is_some())
-            .count()
+        self.position.as_ref().map(|pos| pos.test.as_str())
     }
 
     pub fn current_test_case_index(&self) -> Option<usize> {
-        self.current_test_case_index
+        self.position
+            .as_ref()
+            .and_then(|pos| self.tests.test_index(&pos.test))
     }
 
-    pub fn num_test_cases(&self) -> usize {
-        self.test_cases.len()
+    pub fn unconfirmed_description(&self) -> Option<&str> {
+        self.position
+            .as_ref()
+            .and_then(|pos| self.tests.unconfirmed_description(pos))
+    }
+
+    pub fn confirmed_description(&self) -> Option<&str> {
+        self.position
+            .as_ref()
+            .and_then(|pos| self.tests.confirmed_description(pos))
+    }
+
+    pub fn pixmap(&mut self) -> anyhow::Result<Option<Pixmap>> {
+        let Some(pos) = self.position.as_ref() else {
+            return Ok(None);
+        };
+        match self.mode {
+            Mode::New => self.tests.unconfirmed_pixmap(pos),
+            Mode::Confirmed => self.tests.confirmed_pixmap(pos),
+            Mode::DiffWithConfirmed => self.tests.diff_with_confirmed(pos),
+            Mode::DiffWithPreviousConfirmed => self.tests.diff_with_previous_confirmed(pos),
+        }
     }
 
     pub fn num_current_snapshots(&self) -> usize {
-        self.current_test_case_index
-            .and_then(|index| self.all_snapshots.get(index))
-            .map(|snapshots| snapshots.len())
-            .unwrap_or(0)
+        self.position
+            .as_ref()
+            .map_or(0, |pos| self.tests.num_snapshots(&pos.test))
     }
 
     pub fn has_unconfirmed(&self) -> bool {
-        self.current_snapshot()
-            .is_some_and(|f| f.unconfirmed.is_some())
+        self.position
+            .as_ref()
+            .is_some_and(|pos| self.tests.has_unconfirmed(pos))
+    }
+
+    pub fn has_confirmed(&self) -> bool {
+        self.position
+            .as_ref()
+            .is_some_and(|pos| self.tests.has_confirmed(pos))
     }
 
     pub fn is_mode_allowed(&self, mode: Mode) -> bool {
-        let current_files = self.current_snapshot();
-        let has_new = current_files
-            .as_ref()
-            .is_some_and(|f| f.unconfirmed.is_some());
-        let has_confirmed = current_files
-            .as_ref()
-            .is_some_and(|f| f.confirmed.is_some());
+        let has_new = self.has_unconfirmed();
+        let has_confirmed = self.has_confirmed();
         let has_previous_confirmed = self
-            .previous_snapshot()
-            .is_some_and(|f| f.confirmed.is_some());
+            .position
+            .as_ref()
+            .and_then(|pos| self.tests.previous_snapshot(pos))
+            .is_some_and(|prev_pos| self.tests.has_confirmed(&prev_pos));
 
         match mode {
             Mode::New => has_new,
@@ -296,35 +184,12 @@ impl TesterLogic {
     }
 
     pub fn approve(&mut self) -> anyhow::Result<()> {
-        let test_case = self
-            .current_test_case_name()
-            .context("no current test case")?;
-        let test_case_dir = test_snapshots_dir(&self.snapshots_dir, test_case);
-        let current_files = self.current_snapshot_mut()?;
-        let unconfirmed = current_files
-            .unconfirmed
-            .as_ref()
-            .context("no unconfirmed file")?;
-
-        if let Some(confirmed) = current_files.confirmed.take() {
-            fs_err::remove_file(test_case_dir.join(&confirmed.full_name))?;
+        let pos = self.position.as_ref().context("no current snapshot")?;
+        self.tests.approve(pos)?;
+        if self.tests.has_unconfirmed_snapshots() {
+            self.go_to_next_unconfirmed_snapshot();
         }
-        let unsuffixed = unconfirmed
-            .full_name
-            .strip_suffix(".new.png")
-            .context("invalid unconfirmed file name")?;
-        let confirmed_name = format!("{unsuffixed}.png");
-        fs_err::rename(
-            test_case_dir.join(&unconfirmed.full_name),
-            test_case_dir.join(&confirmed_name),
-        )?;
-        current_files.confirmed = Some(SingleSnapshotFile {
-            full_name: confirmed_name,
-            description: unconfirmed.description.clone(),
-        });
-        current_files.unconfirmed = None;
-
-        self.go_to_next_unconfirmed_file();
+        self.adjust_mode();
         Ok(())
     }
 
@@ -333,7 +198,7 @@ impl TesterLogic {
     }
 
     pub fn current_snapshot_index(&self) -> Option<u32> {
-        self.current_snapshot_index
+        self.position.as_ref().and_then(|pos| pos.snapshot)
     }
 
     pub fn run_test_subject(&self) -> anyhow::Result<()> {
@@ -342,7 +207,7 @@ impl TesterLogic {
             .context("no current test case")?;
         let child = Command::new("cargo")
             .args(["run", "--", "run", "--default-scale", test_name])
-            .current_dir(&self.tests_dir)
+            .current_dir(&self.tests.config().tests_dir)
             .spawn()?;
         info!("spawned process with pid: {:?}", child.id());
         Ok(())
@@ -352,11 +217,12 @@ impl TesterLogic {
         let test_name = self
             .current_test_case_name()
             .context("no current test case")?;
-        let mut command = if let Some(run_script) = &self.run_script {
+        let mut command = if let Some(run_script) = &self.tests.config().run_script {
             Command::new(run_script)
         } else {
             let mut c = Command::new("cargo");
-            c.args(["run", "--"]).current_dir(&self.tests_dir);
+            c.args(["run", "--"])
+                .current_dir(&self.tests.config().tests_dir);
             c
         };
         let child = command.args(["test", test_name]).spawn()?;
@@ -364,106 +230,16 @@ impl TesterLogic {
     }
 
     pub fn refresh(&mut self) -> anyhow::Result<()> {
-        let data = query_data(&self.tests_dir)?;
-        self.all_snapshots = discover_all_snapshots(&data.test_cases, &data.snapshots_dir);
-        self.snapshots_dir = data.snapshots_dir;
-        if self
-            .current_test_case_index
-            .is_some_and(|i| i >= self.test_cases.len())
-        {
-            self.current_test_case_index = self.test_cases.len().checked_sub(1);
-        }
-        if let Some(test_index) = self.current_test_case_index {
-            if let Some(snapshots) = self.all_snapshots.get(test_index) {
-                if self
-                    .current_snapshot_index
-                    .is_some_and(|i| i >= snapshots.len() as u32)
-                {
-                    self.current_snapshot_index = snapshots.len().checked_sub(1).map(|i| i as u32);
-                }
-            } else {
-                self.current_snapshot_index = None;
-            }
-        } else {
-            self.current_snapshot_index = None;
-        }
+        self.tests.refresh()?;
+        self.position = self
+            .position
+            .as_ref()
+            .and_then(|pos| self.tests.closest_valid_pos(pos));
+        self.adjust_mode();
         Ok(())
     }
-}
 
-fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
-    let mut out = Pixmap::new(max(a.width(), b.width()), max(a.height(), b.height())).unwrap();
-    let width = out.width();
-    for y in 0..out.height() {
-        for x in 0..width {
-            let pixel_a = if x < a.width() && y < a.height() {
-                a.pixel(x, y)
-            } else {
-                None
-            };
-            let pixel_b = if x < b.width() && y < b.height() {
-                b.pixel(x, y)
-            } else {
-                None
-            };
-            let pixel_out = match (pixel_a, pixel_b) {
-                (None, None) => PremultipliedColorU8::from_rgba(0, 0, 0, 0).unwrap(),
-                (None, Some(_)) => PremultipliedColorU8::from_rgba(0, 0, 255, 255).unwrap(),
-                (Some(_), None) => PremultipliedColorU8::from_rgba(255, 0, 255, 255).unwrap(),
-                (Some(pixel_a), Some(pixel_b)) => {
-                    if pixel_a == pixel_b {
-                        pixel_a
-                    } else {
-                        //     PremultipliedColorU8::from_rgba(
-                        //         u8_diff(pixel_a.red(), pixel_b.red()),
-                        //         u8_diff(pixel_a.green(), pixel_b.green()),
-                        //         u8_diff(pixel_a.blue(), pixel_b.blue()),
-                        //         255,
-                        //     )
-                        //     .unwrap()
-                        PremultipliedColorU8::from_rgba(255, 0, 0, 255).unwrap()
-                    }
-                }
-            };
-            out.pixels_mut()[(y * width + x) as usize] = pixel_out;
-        }
+    pub fn tests(&self) -> &Tests {
+        &self.tests
     }
-
-    out
-}
-
-pub fn query_data(path: &Path) -> anyhow::Result<QueryAllResponse> {
-    let output = Command::new("cargo")
-        .args(["run", "--", "query", "all"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .current_dir(path)
-        .output()?;
-    ensure!(output.status.success(), "failed to run cargo");
-    let data = serde_json::from_slice::<QueryAllResponse>(&output.stdout).with_context(|| {
-        format!(
-            "couldn't parse output: {:?}",
-            String::from_utf8_lossy(&output.stdout)
-        )
-    })?;
-    Ok(data)
-}
-
-fn discover_all_snapshots(
-    test_cases: &[String],
-    test_cases_dir: &Path,
-) -> Vec<BTreeMap<u32, SingleSnapshotFiles>> {
-    let mut all_snapshots = Vec::new();
-    for test_case in test_cases {
-        all_snapshots.push(
-            discover_snapshots(&test_snapshots_dir(test_cases_dir, test_case)).unwrap_or_else(
-                |err| {
-                    // TODO: ui message
-                    warn!("failed to fetch snapshots: {:?}", err);
-                    Default::default()
-                },
-            ),
-        );
-    }
-    all_snapshots
 }
