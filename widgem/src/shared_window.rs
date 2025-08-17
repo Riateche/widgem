@@ -644,14 +644,15 @@ impl SharedWindow {
             return;
         }
         let mut buffer = this.surface.as_mut().unwrap().buffer_mut().unwrap();
-        buffer.copy_from_slice(bytemuck::cast_slice(this.pixmap.borrow().data()));
 
-        // tiny-skia uses an RGBA format, while softbuffer uses XRGB. To convert, we need to
-        // iterate over the pixels and shift the pixels over.
-        buffer.iter_mut().for_each(|pixel| {
-            let [r, g, b, _] = pixel.to_ne_bytes();
-            *pixel = (b as u32) | ((g as u32) << 8) | ((r as u32) << 16);
-        });
+        {
+            let pixmap = this.pixmap.borrow();
+            let pixmap_data: &[u32] = bytemuck::cast_slice(pixmap.data());
+            for (dest, src) in buffer.iter_mut().zip(pixmap_data) {
+                // tiny-skia uses an RGBA format, while softbuffer uses XRGB.
+                *dest = src.swap_bytes() >> 8;
+            }
+        }
 
         buffer.present().unwrap();
     }

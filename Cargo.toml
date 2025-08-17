@@ -50,3 +50,18 @@ usvg = { version = "0.45.1", default-features = false }
 winit = "0.30.11"
 x11rb = { version = "0.13.1", features = ["res"] }
 xcap = "0.6.0"
+
+# Enable optimizations in dev mode for CPU-heavy dependencies.
+[profile.dev.package.tiny-skia]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+codegen-units = 16
+
+[profile.dev.package.softbuffer]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+codegen-units = 16

@@ -33,7 +33,7 @@ fn rounded_line_in_square_corner(
 pub struct DrawEvent {
     top_left: Point,
     pixmap: Rc<RefCell<Pixmap>>,
-    mask: Mask,
+    mask: Rc<Mask>,
     transform: Transform,
     mask_rect: Rect,
 }
@@ -59,7 +59,7 @@ impl DrawEvent {
         Self {
             top_left,
             pixmap,
-            mask,
+            mask: Rc::new(mask),
             transform: Transform::from_translate(
                 top_left.x().to_i32() as f32,
                 top_left.y().to_i32() as f32,
