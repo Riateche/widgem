@@ -34,12 +34,12 @@ jobs:
           cargo build --package widgem_tests --release --locked
       - name: Build test environment Docker image
         run: |
-          docker build --file tests/scripts/tests.Dockerfile --tag widgem_tests tests/scripts
+          docker build --file tests/scripts/xfce.Dockerfile --tag widgem_xfce tests/scripts
       - name: Run UI tests
         run: |
-          docker run --name widgem_tests \
+          docker run --name widgem_xfce \
             --mount "type=bind,source=$PWD,target=/app" \
-            widgem_tests /app/target/release/widgem_tests test
+            widgem_xfce /app/target/release/widgem_tests test
       - name: Upload test snapshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
