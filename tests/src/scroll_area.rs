@@ -25,12 +25,30 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     let window = ctx.wait_for_window_by_pid()?;
     window.snapshot("scroll area")?;
     window.resize(150, 150)?;
-    window.snapshot("resized")?;
+    window.snapshot("resized 150x150")?;
+    // scroll down button
     window.mouse_move(146, 146)?;
     ctx.connection().mouse_click(1)?;
     window.snapshot("step down")?;
     ctx.connection().mouse_scroll_down()?;
     window.snapshot("scroll down")?;
+    window.resize(110, 150)?;
+    window.snapshot("resized 110x150")?;
+    window.resize(100, 150)?;
+    window.snapshot("resized 100x150")?;
+    // horizontal scroll slider
+    window.mouse_move(30, 145)?;
+    ctx.connection().mouse_down(1)?;
+    window.mouse_move(100, 145)?;
+    ctx.connection().mouse_up(1)?;
+    window.snapshot("scroll right")?;
+    window.resize(160, 150)?;
+    window.snapshot("resized 160x150")?;
+    window.resize(160, 500)?;
+    window.snapshot("resized 160x500")?;
+    window.resize(160, 600)?;
+    window.snapshot("resized 160x600")?;
+
     window.close()?;
     Ok(())
 }
