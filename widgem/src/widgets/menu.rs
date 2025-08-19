@@ -8,7 +8,7 @@ use {
         shared_window::X11WindowType,
         system::ReportError,
         text_editor::{Text, TextStyle},
-        types::Point,
+        types::{PhysicalPixels, Point},
         widgets::{widget_trait::NewWidget, Column, ScrollArea},
         WidgetExt,
     },
@@ -164,7 +164,10 @@ impl Widget for MenuItem {
     // Menu items are not really expanding.
     // However, the menu's OS window is sometimes slightly larger than requested.
     // In that case we want menu items to take all available space.
-    fn handle_size_hint_x_request(&self) -> anyhow::Result<crate::layout::SizeHint> {
+    fn handle_size_hint_x_request(
+        &self,
+        _size_y: Option<PhysicalPixels>,
+    ) -> anyhow::Result<crate::layout::SizeHint> {
         let mut size_hint = default_size_hint_x(self);
         size_hint.set_fixed(false);
         Ok(size_hint)

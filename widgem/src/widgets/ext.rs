@@ -279,15 +279,15 @@ pub trait WidgetExt: Widget {
         self.base_mut().after_declare_children(state);
     }
 
-    fn size_hint_x(&self) -> SizeHint {
-        if let Some(cached) = self.base().size_hint_x_cache() {
+    fn size_hint_x(&self, size_y: Option<PhysicalPixels>) -> SizeHint {
+        if let Some(cached) = self.base().size_hint_x_cache(size_y) {
             cached
         } else {
             let r = self
-                .handle_size_hint_x_request()
+                .handle_size_hint_x_request(size_y)
                 .or_report_err()
                 .unwrap_or(FALLBACK_SIZE_HINTS);
-            self.base().set_size_hint_x_cache(r);
+            self.base().set_size_hint_x_cache(size_y, r);
             r
         }
     }

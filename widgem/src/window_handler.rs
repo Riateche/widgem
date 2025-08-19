@@ -402,7 +402,7 @@ impl<'a> WindowHandler<'a> {
         let mut inner_size = self.window.inner_size();
         let old_min_size = self.window.min_inner_size();
         let old_preferred_size = self.window.preferred_inner_size();
-        let hints_x = self.root_widget.size_hint_x();
+        let hints_x = self.root_widget.size_hint_x(None);
         let preferred_size = Size::new(
             hints_x.preferred(),
             self.root_widget

@@ -451,7 +451,7 @@ impl ScrollBar {
             .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .size_hint_x()
+            .size_hint_x(None)
             .preferred();
         let grip_size_hint_y = self
             .base
@@ -772,9 +772,9 @@ impl NewWidget for Pager {
 impl Widget for Pager {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         let grip = self.base.get_dyn_child(INDEX_GRIP_IN_PAGER).unwrap();
-        let grip_hint = grip.size_hint_x();
+        let grip_hint = grip.size_hint_x(None);
         let min_size = match self.axis {
             Axis::X => grip_hint.min() * PAGER_SIZE_HINT_MULTIPLIER,
             Axis::Y => grip_hint.min(),

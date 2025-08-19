@@ -42,7 +42,10 @@ impl NewWidget for Viewport {
 impl Widget for Viewport {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&self) -> Result<crate::layout::SizeHint> {
+    fn handle_size_hint_x_request(
+        &self,
+        _size_y: Option<PhysicalPixels>,
+    ) -> Result<crate::layout::SizeHint> {
         Ok(SizeHint::new_expanding(0.ppx(), 0.ppx()))
     }
 
@@ -195,7 +198,7 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         Ok(SizeHint::new_expanding(
             self.style.min_width,
             self.style.preferred_width,

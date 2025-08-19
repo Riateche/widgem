@@ -44,7 +44,10 @@ impl Widget for Stack {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self) -> Result<crate::layout::SizeHint> {
+    fn handle_size_hint_x_request(
+        &self,
+        _size_y: Option<PhysicalPixels>,
+    ) -> Result<crate::layout::SizeHint> {
         let max = self
             .base
             .children()

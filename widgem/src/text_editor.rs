@@ -1228,7 +1228,7 @@ impl Widget for Text {
         Ok(Some(node))
     }
 
-    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         Ok(SizeHint::new_fixed(self.size_x(), self.size_x()))
     }
 

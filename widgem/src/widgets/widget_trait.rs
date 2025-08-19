@@ -496,7 +496,8 @@ pub trait Widget: Any {
     /// Note that [set_layout_item_options](crate::widgets::WidgetBase::set_layout_item_options)
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
-    fn handle_size_hint_x_request(&self) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&self, size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+        let _ = size_y;
         Ok(layout::default_size_hint_x(self))
     }
 

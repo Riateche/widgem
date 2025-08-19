@@ -418,7 +418,7 @@ pub(crate) fn size_hint_x(
         let Some(pos_in_grid) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
-        let hints = item.size_hint_x();
+        let hints = item.size_hint_x(None);
         min_items.push((pos_in_grid.clone(), hints.min));
         preferred_items.push((pos_in_grid, hints.preferred));
 
@@ -509,7 +509,7 @@ fn x_layout(
         }
         let pos = *pos.start();
 
-        let mut hints = item.size_hint_x();
+        let mut hints = item.size_hint_x(None);
         if let Some(is_fixed) = item.base().layout_item_options().x.is_fixed {
             hints.is_fixed = is_fixed;
         }
@@ -541,9 +541,9 @@ fn x_layout(
             .layout_item_options()
             .x
             .is_fixed
-            .unwrap_or_else(|| item.size_hint_x().is_fixed)
+            .unwrap_or_else(|| item.size_hint_x(None).is_fixed)
         {
-            let hint = item.size_hint_x().preferred;
+            let hint = item.size_hint_x(None).preferred;
             min(hint, *column_size)
         } else {
             *column_size

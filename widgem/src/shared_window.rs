@@ -263,7 +263,7 @@ impl SharedWindow {
             root_widget.set_scale(Some(monitor_scale));
         }
 
-        let size_hints_x = root_widget.size_hint_x();
+        let size_hints_x = root_widget.size_hint_x(None);
 
         let size_x = if let Some(monitor_rect) = monitor_rect {
             max(

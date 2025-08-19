@@ -191,7 +191,7 @@ auto_bitflags! {
 
 #[derive(Debug, Default)]
 struct Cache {
-    size_hint_x: Option<SizeHint>,
+    size_hint_x: HashMap<Option<PhysicalPixels>, SizeHint>,
     // TODO: limit count
     size_hint_y: HashMap<PhysicalPixels, SizeHint>,
 }
@@ -1477,16 +1477,16 @@ impl WidgetBase {
 
     pub(crate) fn clear_size_hint_cache(&mut self) {
         let mut cache = self.cache.borrow_mut();
-        cache.size_hint_x = None;
+        cache.size_hint_x.clear();
         cache.size_hint_y.clear();
     }
 
-    pub(crate) fn size_hint_x_cache(&self) -> Option<SizeHint> {
-        self.cache.borrow().size_hint_x
+    pub(crate) fn size_hint_x_cache(&self, size_y: Option<PhysicalPixels>) -> Option<SizeHint> {
+        self.cache.borrow().size_hint_x.get(&size_y).cloned()
     }
 
-    pub(crate) fn set_size_hint_x_cache(&self, value: SizeHint) {
-        self.cache.borrow_mut().size_hint_x = Some(value);
+    pub(crate) fn set_size_hint_x_cache(&self, size_y: Option<PhysicalPixels>, value: SizeHint) {
+        self.cache.borrow_mut().size_hint_x.insert(size_y, value);
     }
 
     pub(crate) fn size_hint_y_cache(&self, size_x: PhysicalPixels) -> Option<SizeHint> {
