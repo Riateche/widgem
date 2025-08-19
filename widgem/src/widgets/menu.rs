@@ -166,9 +166,9 @@ impl Widget for MenuItem {
     // In that case we want menu items to take all available space.
     fn handle_size_hint_x_request(
         &self,
-        _size_y: Option<PhysicalPixels>,
+        size_y: Option<PhysicalPixels>,
     ) -> anyhow::Result<crate::layout::SizeHint> {
-        let mut size_hint = default_size_hint_x(self);
+        let mut size_hint = default_size_hint_x(self, size_y);
         size_hint.set_fixed(false);
         Ok(size_hint)
     }

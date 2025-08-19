@@ -1,6 +1,6 @@
 use {
     crate::{
-        types::{PhysicalPixels, PpxSuffix, Rect},
+        types::{PhysicalPixels, PpxSuffix, Rect, Size},
         widgets::{Widget, WidgetAddress, WidgetExt, WidgetGeometry},
         RawWidgetId,
     },
@@ -400,17 +400,30 @@ fn size_hint(
         + max_per_column.len().saturating_sub(1) as i32 * (spacing - options.border_collapse)
 }
 
-pub fn default_size_hint_x(widget: &(impl Widget + ?Sized)) -> SizeHint {
+pub fn default_size_hint_x(
+    widget: &(impl Widget + ?Sized),
+    size_y: Option<PhysicalPixels>,
+) -> SizeHint {
     let options = widget.base().base_style().grid.clone();
     let rows_and_columns = assign_rows_and_columns(widget);
-    size_hint_x(widget, &options, &rows_and_columns)
+    size_hint_x(widget, size_y, &options, &rows_and_columns)
 }
+
+const UNRESTRICTED: PhysicalPixels = PhysicalPixels::from_i32(100_000);
 
 pub(crate) fn size_hint_x(
     widget: &(impl Widget + ?Sized),
+    size_y: Option<PhysicalPixels>,
     options: &GridOptions,
     rows_and_columns: &RowsAndColumns,
 ) -> SizeHint {
+    let first_pass = default_layout_pass(
+        widget,
+        Some(Size::new(UNRESTRICTED, size_y.unwrap_or(UNRESTRICTED))),
+        rows_and_columns,
+        None,
+    );
+
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
@@ -418,7 +431,7 @@ pub(crate) fn size_hint_x(
         let Some(pos_in_grid) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
-        let hints = item.size_hint_x(None);
+        let hints = item.size_hint_x(first_pass.get(&item.base().id()).map(|g| g.size_y()));
         min_items.push((pos_in_grid.clone(), hints.min));
         preferred_items.push((pos_in_grid, hints.preferred));
 
@@ -452,7 +465,7 @@ pub(crate) fn size_hint_y(
     size_x: PhysicalPixels,
     rows_and_columns: &RowsAndColumns,
 ) -> SizeHint {
-    let x_layout = x_layout(widget, rows_and_columns, &options.x, size_x);
+    let x_layout = x_layout(widget, rows_and_columns, &options.x, size_x, None);
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
@@ -498,6 +511,7 @@ fn x_layout(
     rows_and_columns: &RowsAndColumns,
     options: &GridAxisOptions,
     size_x: PhysicalPixels,
+    first_pass: Option<HashMap<RawWidgetId, WidgetGeometry>>,
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
     for item in widget.base().children() {
@@ -509,7 +523,12 @@ fn x_layout(
         }
         let pos = *pos.start();
 
-        let mut hints = item.size_hint_x(None);
+        let mut hints = item.size_hint_x(
+            first_pass
+                .as_ref()
+                .and_then(|first_pass| first_pass.get(&item.base().id()))
+                .map(|g| g.size_y()),
+        );
         if let Some(is_fixed) = item.base().layout_item_options().x.is_fixed {
             hints.is_fixed = is_fixed;
         }
@@ -639,19 +658,30 @@ pub(crate) fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &W) -> RowsAnd
     output
 }
 
-// TODO: remove explicit changed_size_hints, pass in global context?
-pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
-    let Some(geometry) = widget.base().geometry().cloned() else {
-        for child in widget.base_mut().children_mut() {
-            child.set_geometry(None, changed_size_hints);
-        }
-        return;
+fn default_layout_pass<W: Widget + ?Sized>(
+    widget: &W,
+    for_size: Option<Size>,
+    rows_and_columns: &RowsAndColumns,
+    first_pass: Option<HashMap<RawWidgetId, WidgetGeometry>>,
+) -> HashMap<RawWidgetId, WidgetGeometry> {
+    let geometry = if let Some(for_size) = for_size {
+        WidgetGeometry::root(for_size)
+    } else if let Some(geometry) = widget.base().geometry() {
+        geometry.clone()
+    } else {
+        warn!("missing geometry or for_size in layout pass");
+        return Default::default();
     };
     let options = widget.base().base_style().grid.clone();
-    let rows_and_columns = assign_rows_and_columns(widget);
-    let x_layout = x_layout(widget, &rows_and_columns, &options.x, geometry.size_x());
+    let x_layout = x_layout(
+        widget,
+        rows_and_columns,
+        &options.x,
+        geometry.size_x(),
+        first_pass,
+    );
     let mut hints_per_row = BTreeMap::new();
-    for item in widget.base_mut().children_mut() {
+    for item in widget.base().children() {
         // TODO: problem with is_self_visible
         let Some(pos) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
             continue;
@@ -694,40 +724,33 @@ pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[
         geometry.size_y(),
         options.y.alignment,
     );
-    for item in widget.base_mut().children_mut() {
+    let mut output = HashMap::new();
+    for item in widget.base().children() {
         if item.base().is_window_root() {
             continue;
         }
         if !item.base().is_self_visible() {
-            item.set_geometry(None, changed_size_hints);
             continue;
         }
-
         let Some(pos_x) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
-            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(pos_y) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
-            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(cell_pos_x) = positions_x.get(pos_x.start()) else {
-            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(cell_pos_y) = positions_y.get(pos_y.start()) else {
             warn!("missing item in positions_y");
-            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(size_x) = x_layout.child_sizes.get(&item.base().id()) else {
             warn!("missing item in x_layout.child_sizes");
-            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let Some(row_size) = row_sizes.get(pos_y.start()) else {
             warn!("missing item in row_sizes");
-            item.set_geometry(None, changed_size_hints);
             continue;
         };
         let size_hint_y = item.size_hint_y(*size_x);
@@ -742,13 +765,30 @@ pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[
         } else {
             *row_size
         };
-        item.set_geometry(
-            Some(WidgetGeometry::new(
+        output.insert(
+            item.base().id(),
+            WidgetGeometry::new(
                 &geometry,
                 Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
-            )),
-            changed_size_hints,
+            ),
         );
+    }
+    output
+}
+
+// TODO: remove explicit changed_size_hints, pass in global context?
+pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
+    if widget.base().geometry().is_none() {
+        for child in widget.base_mut().children_mut() {
+            child.set_geometry(None, changed_size_hints);
+        }
+        return;
+    }
+    let rows_and_columns = assign_rows_and_columns(widget);
+    let first_pass = default_layout_pass(widget, None, &rows_and_columns, None);
+    let mut second_pass = default_layout_pass(widget, None, &rows_and_columns, Some(first_pass));
+    for child in widget.base_mut().children_mut() {
+        child.set_geometry(second_pass.remove(&child.base().id()), changed_size_hints);
     }
 }
 
