@@ -1,12 +1,12 @@
 use {
-    super::{Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry},
+    super::{Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         event::{
             FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
             StyleChangeEvent,
         },
         impl_widget_base,
-        layout::{default_layout, SizeHint},
+        layout::{default_layout, Layout, SizeHint},
         style::{
             common::ComputedElementStyle,
             css::{convert_font, convert_width, PseudoClass, StyleSelector},
@@ -84,7 +84,7 @@ impl TextInput {
         self.text_widget_mut().set_text(text, Attrs::new());
     }
 
-    fn adjust_scroll(&mut self, changed_size_hints: &[WidgetAddress]) {
+    fn adjust_scroll(&mut self) {
         let Some(editor_viewport_rect) =
             self.base.get_dyn_child(0).unwrap().base().rect_in_parent()
         else {
@@ -141,10 +141,7 @@ impl TextInput {
                 .base_mut()
                 .get_dyn_child_mut(0)
                 .unwrap()
-                .set_geometry(
-                    Some(WidgetGeometry::new(&geometry, new_rect)),
-                    changed_size_hints,
-                );
+                .set_geometry(Some(WidgetGeometry::new(&geometry, new_rect)));
         }
     }
 }
@@ -161,6 +158,7 @@ impl NewWidget for TextInput {
         let viewport = base.add_child_with_key::<Viewport>(0, ());
         viewport.base_mut().set_receives_all_mouse_events(true);
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
+        viewport.base_mut().set_layout(Layout::ExplicitGrid);
         let editor = viewport
             .base_mut()
             .add_child_with_key::<Text>(0, (String::new(), text_style))
@@ -187,9 +185,9 @@ impl Widget for TextInput {
         self.text_widget_mut().handle_host_focus_out()
     }
 
-    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        default_layout(self, &event.changed_size_hints);
-        self.adjust_scroll(&event.changed_size_hints);
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        default_layout(self);
+        self.adjust_scroll();
         Ok(())
     }
 
@@ -219,7 +217,7 @@ impl Widget for TextInput {
             return Ok(false);
         }
 
-        self.adjust_scroll(&[]);
+        self.adjust_scroll();
 
         Ok(true)
     }

@@ -274,7 +274,8 @@ pub trait Widget: Any {
     /// it's sufficient to implement [handle_size_hint_x_request](Self::handle_size_hint_x_request) and
     /// [handle_size_hint_y_request](Self::handle_size_hint_y_request).
     fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        default_layout(self, &event.changed_size_hints);
+        default_layout(self);
+        let _ = event;
         Ok(())
     }
 

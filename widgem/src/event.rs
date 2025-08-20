@@ -5,7 +5,7 @@ use crate::widgets::WidgetGeometry;
 use {
     crate::{
         types::{Point, Rect},
-        widgets::{WidgetAddress, WidgetBase},
+        widgets::WidgetBase,
     },
     accesskit::{Action, ActionData},
     derive_more::From,
@@ -235,17 +235,9 @@ impl InputMethodEvent {
 pub struct LayoutEvent {
     // None means widget is hidden
     pub(crate) new_geometry: Option<WidgetGeometry>,
-    // TODO: Rc?
-    pub(crate) changed_size_hints: Vec<WidgetAddress>,
 }
 
 impl LayoutEvent {
-    pub fn size_hints_changed_within(&self, addr: &WidgetAddress) -> bool {
-        self.changed_size_hints
-            .iter()
-            .any(|changed| changed.starts_with(addr))
-    }
-
     pub fn new_geometry(&self) -> Option<&WidgetGeometry> {
         self.new_geometry.as_ref()
     }

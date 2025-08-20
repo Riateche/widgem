@@ -1,11 +1,11 @@
 use {
-    super::{base::WidgetGeometry, Widget, WidgetAddress, WidgetId},
+    super::{base::WidgetGeometry, Widget, WidgetId},
     crate::{
         callback::{widget_callback, Callback},
         event::{Event, LayoutEvent, StyleChangeEvent},
         layout::{Layout, SizeHint, FALLBACK_SIZE_HINTS},
         style::css::PseudoClass,
-        system::{with_system, ReportError},
+        system::{with_system, LayoutState, ReportError},
         types::PhysicalPixels,
         ScrollToRectRequest,
     },
@@ -190,6 +190,26 @@ pub trait WidgetExt: Widget {
             }
             Event::Layout(_) => {
                 self.base_mut().update();
+                let state =
+                    with_system(|system| system.layout_state.clone()).unwrap_or_else(|| {
+                        warn!("WidgetExt::dispatch: missing layout_state");
+                        LayoutState::default()
+                    });
+                for child in self.base_mut().children_mut() {
+                    if state
+                        .changed_size_hints
+                        .iter()
+                        .any(|changed| changed.starts_with(child.base().address()))
+                    {
+                        let geometry = child.base().geometry().cloned();
+                        child.dispatch(
+                            LayoutEvent {
+                                new_geometry: geometry,
+                            }
+                            .into(),
+                        );
+                    }
+                }
             }
             Event::StyleChange(event) => {
                 for child in self.base_mut().children_mut() {
@@ -423,31 +443,38 @@ pub trait WidgetExt: Widget {
         self
     }
 
-    fn set_geometry(
-        &mut self,
-        geometry: Option<WidgetGeometry>,
-        changed_size_hints: &[WidgetAddress],
-    ) {
-        let geometry_changed = self.base().geometry() != geometry.as_ref();
-        // println!(
-        //     "set_geometry {:?} -> {:?}",
-        //     self.base().geometry(),
-        //     geometry,
-        // );
+    fn set_geometry(&mut self, geometry: Option<WidgetGeometry>) -> &mut Self {
+        if self.base().geometry() == geometry.as_ref() {
+            return self;
+        }
         self.base_mut().set_geometry(geometry.clone());
-        if geometry_changed
-            || changed_size_hints
-                .iter()
-                .any(|changed| changed.starts_with(self.base().address()))
-        {
+        let had_layout_state = with_system(|system| {
+            if let Some(layout_state) = &mut system.layout_state {
+                layout_state
+                    .changed_size_hints
+                    .push(self.base().address().clone());
+                return true;
+            }
+            system.layout_state = Some(LayoutState {
+                changed_size_hints: Vec::new(),
+            });
+            false
+        });
+        if !had_layout_state {
             self.dispatch(
                 LayoutEvent {
                     new_geometry: geometry,
-                    changed_size_hints: changed_size_hints.to_vec(),
                 }
                 .into(),
             );
+            with_system(|system| {
+                if system.layout_state.is_none() {
+                    warn!("WidgetExt::set_geometry: layout state is missing in system data");
+                }
+                system.layout_state = None;
+            });
         }
+        self
     }
 
     fn set_layout(&mut self, layout: Layout) -> &mut Self {

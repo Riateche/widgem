@@ -1,7 +1,7 @@
 use {
     crate::{
         types::{PhysicalPixels, PpxSuffix, Rect, Size},
-        widgets::{Widget, WidgetAddress, WidgetExt, WidgetGeometry},
+        widgets::{Widget, WidgetExt, WidgetGeometry},
         RawWidgetId,
     },
     itertools::Itertools,
@@ -431,7 +431,12 @@ pub(crate) fn size_hint_x(
         let Some(pos_in_grid) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
-        let hints = item.size_hint_x(first_pass.get(&item.base().id()).map(|g| g.size_y()));
+        let hints = item.size_hint_x(
+            first_pass
+                .get(&item.base().id())
+                .and_then(|x| x.as_ref())
+                .map(|g| g.size_y()),
+        );
         min_items.push((pos_in_grid.clone(), hints.min));
         preferred_items.push((pos_in_grid, hints.preferred));
 
@@ -511,7 +516,7 @@ fn x_layout(
     rows_and_columns: &RowsAndColumns,
     options: &GridAxisOptions,
     size_x: PhysicalPixels,
-    first_pass: Option<HashMap<RawWidgetId, WidgetGeometry>>,
+    first_pass: Option<HashMap<RawWidgetId, Option<WidgetGeometry>>>,
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
     for item in widget.base().children() {
@@ -526,6 +531,7 @@ fn x_layout(
         let first_pass_size_y = first_pass
             .as_ref()
             .and_then(|first_pass| first_pass.get(&item.base().id()))
+            .and_then(|x| x.as_ref())
             .map(|g| g.size_y());
         let mut hints = item.size_hint_x(first_pass_size_y);
         if let Some(is_fixed) = item.base().layout_item_options().x.is_fixed {
@@ -557,6 +563,7 @@ fn x_layout(
         let first_pass_size_y = first_pass
             .as_ref()
             .and_then(|first_pass| first_pass.get(&item.base().id()))
+            .and_then(|x| x.as_ref())
             .map(|g| g.size_y());
         let child_size = if item
             .base()
@@ -665,8 +672,8 @@ fn default_layout_pass<W: Widget + ?Sized>(
     widget: &W,
     for_size: Option<Size>,
     rows_and_columns: &RowsAndColumns,
-    first_pass: Option<HashMap<RawWidgetId, WidgetGeometry>>,
-) -> HashMap<RawWidgetId, WidgetGeometry> {
+    first_pass: Option<HashMap<RawWidgetId, Option<WidgetGeometry>>>,
+) -> HashMap<RawWidgetId, Option<WidgetGeometry>> {
     let geometry = if let Some(for_size) = for_size {
         WidgetGeometry::root(for_size)
     } else if let Some(geometry) = widget.base().geometry() {
@@ -733,6 +740,7 @@ fn default_layout_pass<W: Widget + ?Sized>(
             continue;
         }
         if !item.base().is_self_visible() {
+            output.insert(item.base().id(), None);
             continue;
         }
         let Some(pos_x) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
@@ -770,20 +778,19 @@ fn default_layout_pass<W: Widget + ?Sized>(
         };
         output.insert(
             item.base().id(),
-            WidgetGeometry::new(
+            Some(WidgetGeometry::new(
                 &geometry,
                 Rect::from_xywh(*cell_pos_x, *cell_pos_y, *size_x, size_y),
-            ),
+            )),
         );
     }
     output
 }
 
-// TODO: remove explicit changed_size_hints, pass in global context?
-pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[WidgetAddress]) {
+pub fn default_layout<W: Widget + ?Sized>(widget: &mut W) {
     if widget.base().geometry().is_none() {
         for child in widget.base_mut().children_mut() {
-            child.set_geometry(None, changed_size_hints);
+            child.set_geometry(None);
         }
         return;
     }
@@ -791,7 +798,9 @@ pub fn default_layout<W: Widget + ?Sized>(widget: &mut W, changed_size_hints: &[
     let first_pass = default_layout_pass(widget, None, &rows_and_columns, None);
     let mut second_pass = default_layout_pass(widget, None, &rows_and_columns, Some(first_pass));
     for child in widget.base_mut().children_mut() {
-        child.set_geometry(second_pass.remove(&child.base().id()), changed_size_hints);
+        if let Some(geometry) = second_pass.remove(&child.base().id()) {
+            child.set_geometry(geometry);
+        }
     }
 }
 

@@ -49,6 +49,12 @@ pub struct SharedSystemDataInner {
     pub application_shortcuts: Vec<Shortcut>,
     pub pending_children_updates: Vec<WidgetAddress>,
     pub current_children_update: Option<ChildrenUpdateState>,
+    pub layout_state: Option<LayoutState>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct LayoutState {
+    pub changed_size_hints: Vec<WidgetAddress>,
 }
 
 #[derive(Debug, Default)]

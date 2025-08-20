@@ -2,11 +2,11 @@ use {
     crate::{
         event::{
             AccessibilityActionEvent, FocusInEvent, FocusOutEvent, FocusReason, InputMethodEvent,
-            KeyboardInputEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent,
-            WindowFocusChangeEvent,
+            KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
+            MouseScrollEvent, WindowFocusChangeEvent,
         },
         shared_window::{MouseEventState, SharedWindow, WindowRequest},
-        system::{address, with_system, ReportError},
+        system::{address, with_system, LayoutState, ReportError},
         types::{PhysicalPixels, Point, Size},
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
@@ -427,9 +427,23 @@ impl<'a> WindowHandler<'a> {
             }
         }
 
+        with_system(|system| {
+            if system.layout_state.is_some() {
+                warn!("WindowHandler::layout: layout is already in progress");
+            }
+            system.layout_state = Some(LayoutState { changed_size_hints });
+        });
         // TODO: set geometry to `None` when window is hidden.
+        let new_geometry = Some(WidgetGeometry::root(inner_size));
+        self.root_widget.set_geometry(new_geometry.clone());
         self.root_widget
-            .set_geometry(Some(WidgetGeometry::root(inner_size)), &changed_size_hints);
+            .dispatch(LayoutEvent { new_geometry }.into());
+        with_system(|system| {
+            if system.layout_state.is_none() {
+                warn!("WindowHandler::layout: layout state is missing in system data");
+            }
+            system.layout_state = None;
+        });
     }
 
     pub fn handle_request(&mut self, request: WindowRequest) {

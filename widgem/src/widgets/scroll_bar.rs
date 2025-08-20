@@ -1,5 +1,5 @@
 use {
-    super::{button::Button, Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry},
+    super::{button::Button, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         callback::{Callback, Callbacks},
         event::{
@@ -319,7 +319,7 @@ impl ScrollBar {
             return self;
         }
         self.value_range = range;
-        self.update_grip_size(&[]).or_report_err();
+        self.update_grip_size().or_report_err();
         if self.current_value < *self.value_range.start()
             || self.current_value > *self.value_range.end()
         {
@@ -329,7 +329,7 @@ impl ScrollBar {
                 true,
             );
         } else {
-            self.update_grip_pos(&[]);
+            self.update_grip_pos();
         }
         self.update_decrease_increase();
         self
@@ -357,7 +357,7 @@ impl ScrollBar {
         }
         self.current_value = value;
         self.value_changed.invoke(self.current_value, from_setter);
-        self.update_grip_pos(&[]);
+        self.update_grip_pos();
         self.update_decrease_increase();
         self
     }
@@ -370,7 +370,7 @@ impl ScrollBar {
         increase.set_enabled(self.current_value < *self.value_range.end());
     }
 
-    fn update_grip_pos(&mut self, changed_size_hints: &[WidgetAddress]) {
+    fn update_grip_pos(&mut self) {
         self.current_grip_pos = self.value_to_slider_pos();
         let shift = match self.axis {
             Axis::X => Point::new(self.current_grip_pos, 0.ppx()),
@@ -399,10 +399,7 @@ impl ScrollBar {
             .base_mut()
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
-            .set_geometry(
-                rect.map(|rect| WidgetGeometry::new(&pager_geometry, rect)),
-                changed_size_hints,
-            );
+            .set_geometry(rect.map(|rect| WidgetGeometry::new(&pager_geometry, rect)));
 
         let pager_button = self
             .base
@@ -432,11 +429,11 @@ impl ScrollBar {
         PhysicalPixels::from_i32(pos.round() as i32)
     }
 
-    fn update_grip_size(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
+    fn update_grip_size(&mut self) -> Result<()> {
         let Some(size) = self.base.size() else {
             return Ok(());
         };
-        default_layout(self, changed_size_hints);
+        default_layout(self);
         let pager_rect = self
             .base
             .get_dyn_child(INDEX_PAGER)
@@ -651,9 +648,9 @@ impl NewWidget for ScrollBar {
 impl Widget for ScrollBar {
     impl_widget_base!();
 
-    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        self.update_grip_size(&event.changed_size_hints)?;
-        self.update_grip_pos(&event.changed_size_hints);
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        self.update_grip_size()?;
+        self.update_grip_pos();
         Ok(())
     }
 

@@ -1,7 +1,5 @@
 use {
-    super::{
-        scroll_bar::ScrollBar, Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry,
-    },
+    super::{scroll_bar::ScrollBar, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_base,
@@ -142,7 +140,7 @@ impl ScrollArea {
     //     }
     // }
 
-    fn relayout(&mut self, changed_size_hints: &[WidgetAddress]) -> Result<()> {
+    fn relayout(&mut self) -> Result<()> {
         let geometry = self.base.geometry_or_err()?.clone();
 
         let scroll_x_hint_x = self
@@ -228,7 +226,7 @@ impl ScrollArea {
             .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
             .set_visible(scroll_x_visible);
 
-        default_layout(self, changed_size_hints);
+        default_layout(self);
 
         if self.has_content() {
             let value_x = self
@@ -293,10 +291,7 @@ impl ScrollArea {
                 .base_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
-                .set_geometry(
-                    Some(WidgetGeometry::new(&geometry, content_rect)),
-                    changed_size_hints,
-                );
+                .set_geometry(Some(WidgetGeometry::new(&geometry, content_rect)));
 
             let max_value_x = max(0.ppx(), content_size_x - viewport_rect.size_x());
             let max_value_y = max(0.ppx(), content_size_y - viewport_rect.size_y());
@@ -317,7 +312,7 @@ impl NewWidget for ScrollArea {
     type Arg = ();
 
     fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        let relayout = base.callback(|this, _| this.relayout(&[]));
+        let relayout = base.callback(|this, _| this.relayout());
         base.set_layout(Layout::ExplicitGrid);
 
         // TODO: icons, localized name
@@ -328,7 +323,8 @@ impl NewWidget for ScrollArea {
             .set_grid_cell(1, 0)
             .on_value_changed(relayout);
         base.add_child_with_key::<Viewport>(INDEX_VIEWPORT, ())
-            .set_grid_cell(0, 0);
+            .set_grid_cell(0, 0)
+            .set_layout(Layout::ExplicitGrid);
         Self {
             base,
             x_policy: ScrollBarPolicy::default(),
@@ -492,8 +488,8 @@ impl Widget for ScrollArea {
         Ok(SizeHint::new_fixed(min, preferred))
     }
 
-    fn handle_layout(&mut self, event: LayoutEvent) -> Result<()> {
-        self.relayout(&event.changed_size_hints)
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        self.relayout()
     }
 
     fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
@@ -518,7 +514,7 @@ impl Widget for ScrollArea {
             *scroll_y.value_range().start(),
             *scroll_y.value_range().end(),
         ));
-        self.relayout(&[])?;
+        self.relayout()?;
         self.base.update();
         Ok(true)
     }

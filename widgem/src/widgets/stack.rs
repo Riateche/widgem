@@ -21,7 +21,7 @@ impl Stack {
         let geometry = self.base.geometry().cloned();
         let widget = self.base.add_child_with_key::<T>(key.clone(), arg);
         if let Some(geometry) = geometry {
-            widget.set_geometry(Some(WidgetGeometry::new(&geometry, rect)), &[]);
+            widget.set_geometry(Some(WidgetGeometry::new(&geometry, rect)));
         }
         self.base.update();
         self.base.get_child_mut::<T>(&key).unwrap()

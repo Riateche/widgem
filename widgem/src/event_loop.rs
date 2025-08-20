@@ -303,6 +303,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                 application_shortcuts: Vec::new(),
                 pending_children_updates: Vec::new(),
                 current_children_update: None,
+                layout_state: None,
             };
             SYSTEM.with(|system| {
                 *system.0.borrow_mut() = Some(shared_system_data);

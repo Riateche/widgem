@@ -2,7 +2,7 @@ use {
     super::{Widget, WidgetBaseOf},
     crate::{
         callback::{Callback, Callbacks},
-        event::WindowFocusChangeEvent,
+        event::{LayoutEvent, WindowFocusChangeEvent},
         impl_widget_base,
         layout::{default_layout, default_size_hint_x, default_size_hint_y},
         shared_window::X11WindowType,
@@ -110,8 +110,8 @@ impl Widget for Menu {
         Ok(())
     }
 
-    fn handle_layout(&mut self, event: crate::event::LayoutEvent) -> anyhow::Result<()> {
-        default_layout(self, &event.changed_size_hints);
+    fn handle_layout(&mut self, _event: LayoutEvent) -> anyhow::Result<()> {
+        default_layout(self);
         Ok(())
     }
 }

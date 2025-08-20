@@ -81,5 +81,6 @@ pub fn layout(ctx: &mut Context) -> anyhow::Result<()> {
     window.resize(300, 350)?;
     window.snapshot("resized to 300x350")?;
 
+    window.close()?;
     Ok(())
 }
