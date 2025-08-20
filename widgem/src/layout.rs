@@ -523,12 +523,11 @@ fn x_layout(
         }
         let pos = *pos.start();
 
-        let mut hints = item.size_hint_x(
-            first_pass
-                .as_ref()
-                .and_then(|first_pass| first_pass.get(&item.base().id()))
-                .map(|g| g.size_y()),
-        );
+        let first_pass_size_y = first_pass
+            .as_ref()
+            .and_then(|first_pass| first_pass.get(&item.base().id()))
+            .map(|g| g.size_y());
+        let mut hints = item.size_hint_x(first_pass_size_y);
         if let Some(is_fixed) = item.base().layout_item_options().x.is_fixed {
             hints.is_fixed = is_fixed;
         }
@@ -555,14 +554,18 @@ fn x_layout(
             warn!("missing column data for existing child");
             continue;
         };
+        let first_pass_size_y = first_pass
+            .as_ref()
+            .and_then(|first_pass| first_pass.get(&item.base().id()))
+            .map(|g| g.size_y());
         let child_size = if item
             .base()
             .layout_item_options()
             .x
             .is_fixed
-            .unwrap_or_else(|| item.size_hint_x(None).is_fixed)
+            .unwrap_or_else(|| item.size_hint_x(first_pass_size_y).is_fixed)
         {
-            let hint = item.size_hint_x(None).preferred;
+            let hint = item.size_hint_x(first_pass_size_y).preferred;
             min(hint, *column_size)
         } else {
             *column_size

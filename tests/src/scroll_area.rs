@@ -13,6 +13,7 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
             .set_padding_enabled(false)
             .base_mut()
             .add_child::<ScrollArea>(())
+            .set_size_x_fixed(Some(false))
             .set_content::<Column>(());
 
         for i in 0..20 {
@@ -50,5 +51,35 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("resized 160x600")?;
 
     window.close()?;
+    Ok(())
+}
+
+#[widgem_tester::test]
+pub fn layout(ctx: &mut Context) -> anyhow::Result<()> {
+    ctx.run(|r| {
+        let window = r.base_mut().add_child::<Window>(module_path!().into());
+        window.base_mut().add_child::<Label>("before".into());
+        let content = window
+            .base_mut()
+            .add_child::<ScrollArea>(())
+            .set_content::<Column>(())
+            .set_padding_enabled(false);
+
+        for i in 0..20 {
+            content
+                .base_mut()
+                .add_child::<Label>(format!("text item {i}"));
+        }
+        window.base_mut().add_child::<Label>("after".into());
+        Ok(())
+    })?;
+
+    let window = ctx.wait_for_window_by_pid()?;
+    window.snapshot("initial")?;
+    window.resize(300, 800)?;
+    window.snapshot("resized to 300x800")?;
+    window.resize(300, 350)?;
+    window.snapshot("resized to 300x350")?;
+
     Ok(())
 }
