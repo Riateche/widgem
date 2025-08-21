@@ -546,6 +546,14 @@ impl SharedWindow {
         self.0.borrow().preferred_inner_size
     }
 
+    pub fn scale(&self) -> f32 {
+        let this = self.0.borrow();
+        // TODO: get expected scale based on monitor
+        this.winit_window
+            .as_ref()
+            .map_or(1.0, |w| w.scale_factor() as f32)
+    }
+
     pub(crate) fn set_min_inner_size(&self, size: Size) {
         let this = &mut *self.0.borrow_mut();
         if size != this.min_inner_size {

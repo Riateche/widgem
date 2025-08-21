@@ -13,7 +13,12 @@ impl MonitorExt for MonitorHandle {
             tracing::trace, winit::platform::macos::MonitorHandleExtMacOS,
         };
 
-        trace!("winit size pos {:?}, {:?}", self.size(), self.position());
+        trace!(
+            "winit size {:?}, pos {:?}, scale {:?}",
+            self.size(),
+            self.position(),
+            self.scale_factor()
+        );
 
         let scale = self.scale_factor();
         // It is intentional that we use `CGMainDisplayID` (as opposed to
@@ -26,8 +31,15 @@ impl MonitorExt for MonitorHandle {
 
             let screen = Retained::retain(self.ns_screen()? as *mut NSScreen)?;
 
+            trace!("frame {:?}", screen.frame());
+            // trace!(
+            //     "frame backing {:?}",
+            //     screen.convertRectToBacking(screen.frame())
+            // );
+
             screen.visibleFrame()
         };
+        trace!("visible frame {:?}", visible_frame);
         let origin_y = main_screen_height - visible_frame.size.height - visible_frame.origin.y;
         Some(Rect::from_xywh(
             ((visible_frame.origin.x * scale).round() as i32).into(),

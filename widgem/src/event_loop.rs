@@ -29,6 +29,7 @@ use {
     tracing::warn,
     winit::{
         application::ApplicationHandler,
+        dpi::LogicalPosition,
         event::{StartCause, WindowEvent},
         event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     },
@@ -415,10 +416,15 @@ impl ApplicationHandler<UserEvent> for Handler {
             }
             with_system(|system| {
                 for window in system.windows.values() {
-                    println!(
-                        "window outer position: {:?}",
-                        window.shared_window.outer_position()
-                    );
+                    if let Ok(pos) = window.shared_window.outer_position() {
+                        println!(
+                            "window outer position (logical, fixed): {:?}",
+                            LogicalPosition::<f64>::from_physical(
+                                pos,
+                                window.shared_window.scale().into()
+                            )
+                        );
+                    }
                     // println!(
                     //     "inner position: {:?}",
                     //     window.shared_window.inner_position()
