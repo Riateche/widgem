@@ -9,6 +9,7 @@ mod draw;
 pub mod event;
 mod event_loop;
 pub mod layout;
+mod monitor;
 mod pixmap;
 pub mod shared_window;
 pub mod shortcut;
@@ -29,6 +30,7 @@ pub use {
         accessibility::new_accessibility_node_id,
         child_key::ChildKey,
         event_loop::{run, App},
+        monitor::MonitorExt,
         pixmap::Pixmap,
     },
     widgets::{

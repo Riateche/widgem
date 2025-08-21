@@ -465,7 +465,8 @@ impl SharedWindow {
                 .context("winit window position is unsupported")?;
             Ok(position.into())
         } else {
-            self.outer_position()
+            this.attributes
+                .outer_position
                 .context("native window is not created yet")
         }
     }

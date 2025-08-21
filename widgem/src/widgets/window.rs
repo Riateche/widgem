@@ -1,6 +1,9 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, shared_window::X11WindowType, widgets::widget_trait::NewWidget},
+    crate::{
+        impl_widget_base, shared_window::X11WindowType, types::Point,
+        widgets::widget_trait::NewWidget,
+    },
     std::fmt::Display,
     winit::window::WindowLevel,
 };
@@ -32,6 +35,11 @@ impl Window {
 
     pub fn set_skip_windows_taskbar(&mut self, value: bool) -> &mut Self {
         self.base.window().unwrap().set_skip_windows_taskbar(value);
+        self
+    }
+
+    pub fn set_outer_position(&mut self, position: Point) -> &mut Self {
+        self.base.window().unwrap().set_outer_position(position);
         self
     }
 }

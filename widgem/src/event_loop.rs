@@ -13,6 +13,7 @@ use {
             WidgetBase, WidgetExt,
         },
         window_handler::WindowHandler,
+        MonitorExt,
     },
     arboard::Clipboard,
     cosmic_text::{fontdb, FontSystem, SwashCache},
@@ -408,6 +409,23 @@ impl ApplicationHandler<UserEvent> for Handler {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
+            println!("------");
+            for monitor in event_loop.available_monitors() {
+                println!("work area: {:?}", monitor.work_area());
+            }
+            with_system(|system| {
+                for window in system.windows.values() {
+                    println!(
+                        "window outer position: {:?}",
+                        window.shared_window.outer_position()
+                    );
+                    // println!(
+                    //     "inner position: {:?}",
+                    //     window.shared_window.inner_position()
+                    // );
+                }
+            });
+
             self.before_handler();
             let next_timer = with_system(|system| system.timers.next_instant());
             if let Some(next_timer) = next_timer {

@@ -43,5 +43,10 @@ unicode-segmentation = { workspace = true }
 usvg = { workspace = true }
 winit = { workspace = true }
 
+[target.'cfg(target_os="macos")'.dependencies]
+core-graphics = { workspace = true }
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
