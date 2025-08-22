@@ -29,7 +29,6 @@ use {
     tracing::warn,
     winit::{
         application::ApplicationHandler,
-        dpi::LogicalPosition,
         event::{StartCause, WindowEvent},
         event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     },
@@ -412,25 +411,25 @@ impl ApplicationHandler<UserEvent> for Handler {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
             println!("------");
             for monitor in event_loop.available_monitors() {
-                println!("work area: {:?}", monitor.work_area());
+                let _ = monitor.work_area();
             }
-            with_system(|system| {
-                for window in system.windows.values() {
-                    if let Ok(pos) = window.shared_window.outer_position() {
-                        println!(
-                            "window outer position (logical, fixed): {:?}",
-                            LogicalPosition::<f64>::from_physical(
-                                pos,
-                                window.shared_window.scale().into()
-                            )
-                        );
-                    }
-                    // println!(
-                    //     "inner position: {:?}",
-                    //     window.shared_window.inner_position()
-                    // );
-                }
-            });
+            // with_system(|system| {
+            //     for window in system.windows.values() {
+            //         if let Ok(pos) = window.shared_window.outer_position() {
+            //             println!(
+            //                 "window outer position (logical, fixed): {:?}",
+            //                 LogicalPosition::<f64>::from_physical(
+            //                     pos,
+            //                     window.shared_window.scale().into()
+            //                 )
+            //             );
+            //         }
+            //         // println!(
+            //         //     "inner position: {:?}",
+            //         //     window.shared_window.inner_position()
+            //         // );
+            //     }
+            // });
 
             self.before_handler();
             let next_timer = with_system(|system| system.timers.next_instant());

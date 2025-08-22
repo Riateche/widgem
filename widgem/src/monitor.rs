@@ -1,15 +1,21 @@
 #[cfg(all(unix, not(target_os = "macos")))]
-mod x11; // TODO: wayland
+mod x11;
 
 use {crate::types::Rect, winit::monitor::MonitorHandle};
 
 pub trait MonitorExt {
+    fn rect(self) -> Rect;
+
     /// Returns global physical coordinates of the area of the monitor that is not allocated to
     /// system panels (taskbar on Windows, desktop panels on Linux, dock and menu bar on MacOS).
-    fn work_area(&self) -> Option<Rect>;
+    fn work_area(&self) -> Rect;
 }
 
 impl MonitorExt for MonitorHandle {
+    fn rect(self) -> Rect {
+        Rect::from_pos_size(self.position().into(), self.size().into())
+    }
+
     #[cfg(target_os = "macos")]
     fn work_area(&self) -> Option<Rect> {
         use {
@@ -45,12 +51,12 @@ impl MonitorExt for MonitorHandle {
         };
         trace!("visible frame {:?}", visible_frame);
         let origin_y = main_screen_height - visible_frame.size.height - visible_frame.origin.y;
-        Some(Rect::from_xywh(
+        Rect::from_xywh(
             ((visible_frame.origin.x * scale).round() as i32).into(),
             ((origin_y * scale).round() as i32).into(),
             ((visible_frame.size.width * scale).round() as i32).into(),
             ((visible_frame.size.height * scale).round() as i32).into(),
-        ))
+        )
     }
 
     #[cfg(target_os = "windows")]
@@ -91,19 +97,17 @@ impl MonitorExt for MonitorHandle {
             };
         }
         let work_rect = info.rcWork;
-        Some(Rect::from_x1y1x2y2(
+        Rect::from_x1y1x2y2(
             work_rect.left.ppx(),
             work_rect.top.ppx(),
             work_rect.right.ppx(),
             work_rect.bottom.ppx(),
-        ))
+        )
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
-    fn work_area(&self) -> Option<Rect> {
+    fn work_area(&self) -> Rect {
         // TODO: wayland
         x11::work_area(self)
-            .inspect_err(|err| tracing::warn!("failed to get monitor work area: {err:?}"))
-            .ok()
     }
 }

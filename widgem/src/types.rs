@@ -340,6 +340,7 @@ impl Rect {
         self.top_left.x <= pos.x && pos.x < br.x && self.top_left.y <= pos.y && pos.y < br.y
     }
 
+    #[must_use]
     pub fn intersect(&self, other: Self) -> Self {
         let top_left = Point {
             x: max(self.top_left.x, other.top_left.x),
@@ -359,6 +360,11 @@ impl Rect {
             return Rect::default();
         }
         Self { top_left, size }
+    }
+
+    #[must_use]
+    pub fn intersects(&self, other: Self) -> bool {
+        !self.intersect(other).is_empty()
     }
 }
 
