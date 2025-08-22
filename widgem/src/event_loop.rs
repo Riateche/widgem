@@ -411,7 +411,8 @@ impl ApplicationHandler<UserEvent> for Handler {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
             println!("------");
             for monitor in event_loop.available_monitors() {
-                let _ = monitor.work_area();
+                let work_area = monitor.work_area();
+                println!("work_area = {work_area:?}");
             }
             // with_system(|system| {
             //     for window in system.windows.values() {

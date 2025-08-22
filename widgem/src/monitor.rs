@@ -4,7 +4,7 @@ mod x11;
 use {crate::types::Rect, winit::monitor::MonitorHandle};
 
 pub trait MonitorExt {
-    fn rect(self) -> Rect;
+    fn rect(&self) -> Rect;
 
     /// Returns global physical coordinates of the area of the monitor that is not allocated to
     /// system panels (taskbar on Windows, desktop panels on Linux, dock and menu bar on MacOS).
@@ -12,12 +12,12 @@ pub trait MonitorExt {
 }
 
 impl MonitorExt for MonitorHandle {
-    fn rect(self) -> Rect {
+    fn rect(&self) -> Rect {
         Rect::from_pos_size(self.position().into(), self.size().into())
     }
 
     #[cfg(target_os = "macos")]
-    fn work_area(&self) -> Option<Rect> {
+    fn work_area(&self) -> Rect {
         use {
             core_graphics::display::CGDisplay, objc2::rc::Retained, objc2_app_kit::NSScreen,
             tracing::trace, winit::platform::macos::MonitorHandleExtMacOS,
@@ -60,7 +60,7 @@ impl MonitorExt for MonitorHandle {
     }
 
     #[cfg(target_os = "windows")]
-    fn work_area(&self) -> Option<Rect> {
+    fn work_area(&self) -> Rect {
         use {
             crate::types::PpxSuffix,
             std::ffi::c_void,
@@ -94,6 +94,7 @@ impl MonitorExt for MonitorHandle {
                     "failed to get monitor info (error code: {})",
                     GetLastError()
                 );
+                return self.rect();
             };
         }
         let work_rect = info.rcWork;
