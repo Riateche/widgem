@@ -46,6 +46,9 @@ winit = { workspace = true }
 [target.'cfg(target_os="windows")'.dependencies]
 windows-sys = { workspace = true }
 
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+x11rb = { workspace = true }
+
 [target.'cfg(target_os="macos")'.dependencies]
 core-graphics = { workspace = true }
 objc2 = { workspace = true }

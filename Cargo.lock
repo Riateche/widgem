@@ -4951,6 +4951,7 @@ dependencies = [
  "widgem_macros",
  "windows-sys 0.59.0",
  "winit",
+ "x11rb",
 ]
 
 [[package]]

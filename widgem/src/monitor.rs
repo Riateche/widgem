@@ -1,3 +1,6 @@
+#[cfg(all(unix, not(target_os = "macos")))]
+mod x11; // TODO: wayland
+
 use {crate::types::Rect, winit::monitor::MonitorHandle};
 
 pub trait MonitorExt {
@@ -94,5 +97,13 @@ impl MonitorExt for MonitorHandle {
             work_rect.right.ppx(),
             work_rect.bottom.ppx(),
         ))
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    fn work_area(&self) -> Option<Rect> {
+        // TODO: wayland
+        x11::work_area(self)
+            .inspect_err(|err| tracing::warn!("failed to get monitor work area: {err:?}"))
+            .ok()
     }
 }
