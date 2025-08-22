@@ -4,10 +4,11 @@ mod x11;
 use {crate::types::Rect, winit::monitor::MonitorHandle};
 
 pub trait MonitorExt {
+    /// Returns global physical coordinates of the total area of the monitor.
     fn rect(&self) -> Rect;
 
     /// Returns global physical coordinates of the area of the monitor that is not allocated to
-    /// system panels (taskbar on Windows, desktop panels on Linux, dock and menu bar on MacOS).
+    /// system panels (taskbar on Windows, desktop environment panels on Linux, dock and menu bar on MacOS).
     fn work_area(&self) -> Rect;
 }
 
@@ -19,8 +20,11 @@ impl MonitorExt for MonitorHandle {
     #[cfg(target_os = "macos")]
     fn work_area(&self) -> Rect {
         use {
-            core_graphics::display::CGDisplay, objc2::rc::Retained, objc2_app_kit::NSScreen,
-            tracing::trace, winit::platform::macos::MonitorHandleExtMacOS,
+            core_graphics::display::CGDisplay,
+            objc2::rc::Retained,
+            objc2_app_kit::NSScreen,
+            tracing::{trace, warn},
+            winit::platform::macos::MonitorHandleExtMacOS,
         };
 
         trace!(
@@ -29,6 +33,11 @@ impl MonitorExt for MonitorHandle {
             self.position(),
             self.scale_factor()
         );
+
+        let Some(ns_screen) = self.ns_screen() else {
+            warn!("no ns_screen");
+            return self.rect();
+        };
 
         let scale = self.scale_factor();
         // It is intentional that we use `CGMainDisplayID` (as opposed to
@@ -39,17 +48,14 @@ impl MonitorExt for MonitorHandle {
         let visible_frame = unsafe {
             trace!("main display bounds {:?}", CGDisplay::main().bounds());
 
-            let screen = Retained::retain(self.ns_screen()? as *mut NSScreen)?;
-
-            trace!("frame {:?}", screen.frame());
-            // trace!(
-            //     "frame backing {:?}",
-            //     screen.convertRectToBacking(screen.frame())
-            // );
+            let Some(screen) = Retained::retain(ns_screen as *mut NSScreen) else {
+                warn!("failed to retain ns_screen");
+                return self.rect();
+            };
 
             screen.visibleFrame()
         };
-        trace!("visible frame {:?}", visible_frame);
+        trace!("visible_frame = {:?}", visible_frame);
         let origin_y = main_screen_height - visible_frame.size.height - visible_frame.origin.y;
         Rect::from_xywh(
             ((visible_frame.origin.x * scale).round() as i32).into(),
