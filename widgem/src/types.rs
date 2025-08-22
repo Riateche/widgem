@@ -272,6 +272,15 @@ impl Rect {
         Self { top_left, size }
     }
 
+    pub fn from_x1y1x2y2(
+        x1: PhysicalPixels,
+        y1: PhysicalPixels,
+        x2: PhysicalPixels,
+        y2: PhysicalPixels,
+    ) -> Rect {
+        Self::from_pos_size(Point::new(x1, y1), Size::new(x2 - x1, y2 - y1))
+    }
+
     #[must_use]
     pub fn translate(&self, delta: Point) -> Self {
         Self {

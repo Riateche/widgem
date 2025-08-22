@@ -343,7 +343,7 @@ impl SharedWindow {
         }
         #[cfg(windows)]
         {
-            if let Some(v) = &inner.attributes.skip_windows_taskbar {
+            if let Some(v) = inner.attributes.skip_windows_taskbar {
                 attrs = attrs.with_skip_taskbar(v);
             }
         }
@@ -1058,12 +1058,14 @@ impl SharedWindow {
     pub fn set_skip_windows_taskbar(&self, value: bool) {
         #[cfg(windows)]
         {
+            use winit::platform::windows::WindowExtWindows;
+
             let this = &mut *self.0.borrow_mut();
             if Some(value) == this.attributes.skip_windows_taskbar {
                 return;
             }
             if let Some(window) = &this.winit_window {
-                window.set_skip_windows_taskbar(value);
+                window.set_skip_taskbar(value);
             }
             this.attributes.skip_windows_taskbar = Some(value);
         }

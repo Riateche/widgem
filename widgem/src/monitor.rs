@@ -1,7 +1,8 @@
 use {crate::types::Rect, winit::monitor::MonitorHandle};
 
 pub trait MonitorExt {
-    /// Returns global physical coordinates of the area of the monitor that is not allocated to toolbars.
+    /// Returns global physical coordinates of the area of the monitor that is not allocated to
+    /// system panels (taskbar on Windows, desktop panels on Linux, dock and menu bar on MacOS).
     fn work_area(&self) -> Option<Rect>;
 }
 
@@ -46,6 +47,52 @@ impl MonitorExt for MonitorHandle {
             ((origin_y * scale).round() as i32).into(),
             ((visible_frame.size.width * scale).round() as i32).into(),
             ((visible_frame.size.height * scale).round() as i32).into(),
+        ))
+    }
+
+    #[cfg(target_os = "windows")]
+    fn work_area(&self) -> Option<Rect> {
+        use {
+            crate::types::PpxSuffix,
+            std::ffi::c_void,
+            tracing::warn,
+            windows_sys::Win32::{
+                Foundation::{GetLastError, RECT},
+                Graphics::Gdi::{GetMonitorInfoW, MONITORINFO},
+            },
+            winit::platform::windows::MonitorHandleExtWindows,
+        };
+
+        let mut info = MONITORINFO {
+            cbSize: size_of::<MONITORINFO>() as u32,
+            rcMonitor: RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            },
+            rcWork: RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            },
+            dwFlags: 0,
+        };
+        unsafe {
+            if GetMonitorInfoW(self.hmonitor() as *mut c_void, &mut info) == 0 {
+                warn!(
+                    "failed to get monitor info (error code: {})",
+                    GetLastError()
+                );
+            };
+        }
+        let work_rect = info.rcWork;
+        Some(Rect::from_x1y1x2y2(
+            work_rect.left.ppx(),
+            work_rect.top.ppx(),
+            work_rect.right.ppx(),
+            work_rect.bottom.ppx(),
         ))
     }
 }

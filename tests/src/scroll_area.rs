@@ -1,5 +1,4 @@
 use widgem::{
-    types::{Point, PpxSuffix},
     widgets::{Column, Label, ScrollArea},
     Widget, WidgetExt, Window,
 };
