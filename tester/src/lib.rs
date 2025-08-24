@@ -17,7 +17,7 @@ use {
         time::{Duration, Instant, SystemTime},
     },
     tracing_subscriber::{filter::LevelFilter, EnvFilter},
-    widgem::App,
+    widgem::{App, AppBuilder},
 };
 
 #[doc(hidden)]
@@ -79,9 +79,9 @@ fn assets_dir() -> PathBuf {
     }
 }
 
-fn test_app(default_scale: bool) -> App {
+fn test_app_builder(default_scale: bool) -> AppBuilder {
     let fonts_path = assets_dir().join("fonts");
-    let mut app = App::new()
+    let mut app = App::builder()
         .with_system_fonts(false)
         .with_font(fonts_path.join("NotoSans-Regular.ttf"))
         .with_font(fonts_path.join("NotoColorEmoji.ttf"))
@@ -236,7 +236,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 }
                 process::exit(1);
             }
-            let app = test_app(default_scale);
+            let app = test_app_builder(default_scale);
             let mut ctx = Context::new_run(app);
             registry.run_test(&test_case, &mut ctx)?;
         }

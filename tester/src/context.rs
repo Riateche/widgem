@@ -17,7 +17,7 @@ use {
         time::{Duration, Instant},
     },
     uitest::Connection,
-    widgem::{widgets::RootWidget, App},
+    widgem::{widgets::RootWidget, AppBuilder},
 };
 
 const CAPTURE_INTERVAL: Duration = Duration::from_millis(30);
@@ -299,7 +299,7 @@ fn load_image(path: &Path) -> anyhow::Result<RgbaImage> {
 
 enum ContextInner {
     Check(CheckContext),
-    Run(Option<App>),
+    Run(Option<AppBuilder>),
 }
 
 #[derive(Clone)]
@@ -324,7 +324,7 @@ impl Context {
         )))))
     }
 
-    pub(crate) fn new_run(app: App) -> Self {
+    pub(crate) fn new_run(app: AppBuilder) -> Self {
         Context(Arc::new(Mutex::new(ContextInner::Run(Some(app)))))
     }
 

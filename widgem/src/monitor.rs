@@ -118,3 +118,5 @@ impl MonitorExt for MonitorHandle {
         x11::work_area(self)
     }
 }
+
+// for integration test: /root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml

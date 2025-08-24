@@ -12,7 +12,6 @@ use {
             Button, Column, Label, NewWidget, ScrollArea, TextInput, Widget, WidgetBaseOf,
             WidgetExt, WidgetId, Window,
         },
-        App,
     },
 };
 
@@ -213,10 +212,9 @@ fn main() {
         )
         .init();
 
-    App::new()
-        .run(|r| {
-            r.base_mut().add_child::<RootWidget>(());
-            Ok(())
-        })
-        .unwrap();
+    widgem::run(|r| {
+        r.base_mut().add_child::<RootWidget>(());
+        Ok(())
+    })
+    .unwrap();
 }

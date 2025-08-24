@@ -1,5 +1,6 @@
 use {
     crate::{
+        app_builder::AppBuilder,
         callback::{CallbackId, InvokeCallbackEvent},
         shared_window::{WindowId, WindowRequest},
         style::defaults::default_style,
@@ -22,7 +23,6 @@ use {
         any::Any,
         collections::HashMap,
         fmt::Debug,
-        path::PathBuf,
         time::{Duration, Instant},
     },
     tracing::warn,
@@ -69,82 +69,10 @@ fn dispatch_widget_callback(
     widget.update_accessibility_node();
 }
 
-pub struct App {
-    system_fonts: bool,
-    custom_font_paths: Vec<PathBuf>,
-    fixed_scale: Option<f32>,
-    auto_repeat_delay: Option<Duration>,
-    auto_repeat_interval: Option<Duration>,
-}
-
-impl Default for App {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl App {
-    pub fn new() -> App {
-        App {
-            system_fonts: true,
-            custom_font_paths: vec![],
-            fixed_scale: None,
-            auto_repeat_delay: None,
-            auto_repeat_interval: None,
-        }
-    }
-
-    pub fn with_system_fonts(mut self, enable: bool) -> App {
-        self.system_fonts = enable;
-        self
-    }
-
-    pub fn with_font(mut self, path: PathBuf) -> App {
-        self.custom_font_paths.push(path);
-        self
-    }
-
-    pub fn with_scale(mut self, scale: f32) -> App {
-        self.fixed_scale = Some(scale);
-        self
-    }
-
-    pub fn with_auto_repeat_delay(mut self, delay: Duration) -> App {
-        self.auto_repeat_delay = Some(delay);
-        self
-    }
-
-    pub fn with_auto_repeat_interval(mut self, interval: Duration) -> App {
-        self.auto_repeat_interval = Some(interval);
-        self
-    }
-
-    pub fn run(
-        self,
-        init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
-    ) -> anyhow::Result<()> {
-        let event_loop = EventLoop::<UserEvent>::with_user_event().build()?;
-        let mut handler = Handler::new(self, &event_loop, init);
-        event_loop.run_app(&mut handler)?;
-        // Delete widgets before de-initializing the system.
-        handler.root_widget = None;
-        // This is needed to make sure we drop winit window objects before
-        // event loop is destroyed.
-        SYSTEM.with(|system| *system.0.borrow_mut() = None);
-        Ok(())
-    }
-}
-
-pub fn run(
-    init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
-) -> anyhow::Result<()> {
-    App::new().run(init)
-}
-
 type BoxInitFn = Box<dyn FnOnce(&mut RootWidget) -> anyhow::Result<()>>;
 
-struct Handler {
-    app: App,
+pub(crate) struct Handler {
+    app_builder: AppBuilder,
     is_initialized: bool,
     init: Option<BoxInitFn>,
     root_widget: Option<Box<dyn Widget>>,
@@ -152,13 +80,13 @@ struct Handler {
 }
 
 impl Handler {
-    fn new(
-        app: App,
+    pub(crate) fn new(
+        app: AppBuilder,
         event_loop: &EventLoop<UserEvent>,
         init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
     ) -> Self {
         Self {
-            app,
+            app_builder: app,
             init: Some(Box::new(init)),
             is_initialized: false,
             root_widget: None,
@@ -260,7 +188,7 @@ impl ApplicationHandler<UserEvent> for Handler {
             }
 
             let mut db = fontdb::Database::new();
-            for custom_font_path in &self.app.custom_font_paths {
+            for custom_font_path in &self.app_builder.custom_font_paths {
                 if let Err(err) = db.load_font_file(custom_font_path) {
                     warn!(
                         "failed to initialize custom font from {:?}: {:?}",
@@ -268,7 +196,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                     );
                 }
             }
-            if self.app.system_fonts {
+            if self.app_builder.system_fonts {
                 db.load_system_fonts();
             }
             let font_system =
@@ -279,14 +207,14 @@ impl ApplicationHandler<UserEvent> for Handler {
                     exit_after_last_window_closes: true,
                     // TODO: should we fetch system settings instead?
                     auto_repeat_delay: self
-                        .app
+                        .app_builder
                         .auto_repeat_delay
                         .unwrap_or(DEFAULT_AUTO_REPEAT_DELAY),
                     auto_repeat_interval: self
-                        .app
+                        .app_builder
                         .auto_repeat_interval
                         .unwrap_or(DEFAULT_AUTO_REPEAT_INTERVAL),
-                    fixed_scale: self.app.fixed_scale,
+                    fixed_scale: self.app_builder.fixed_scale,
                 },
                 address_book: HashMap::new(),
                 font_system,

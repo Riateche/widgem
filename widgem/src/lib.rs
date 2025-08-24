@@ -3,6 +3,8 @@
 #![allow(clippy::comparison_chain)]
 
 mod accessibility;
+mod app;
+mod app_builder;
 mod callback;
 mod child_key;
 mod draw;
@@ -28,8 +30,9 @@ use event_loop::with_active_event_loop;
 pub use {
     crate::{
         accessibility::new_accessibility_node_id,
+        app::App,
+        app_builder::{run, AppBuilder},
         child_key::ChildKey,
-        event_loop::{run, App},
         monitor::MonitorExt,
         pixmap::Pixmap,
     },
