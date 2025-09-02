@@ -1,5 +1,5 @@
 use {
-    crate::{callback::Callback, system::with_system},
+    crate::callback::Callback,
     priority_queue::PriorityQueue,
     std::{
         cmp::Reverse,
@@ -19,14 +19,9 @@ pub struct Timers {
 pub struct TimerId(pub u64);
 
 impl TimerId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub(crate) fn new_unique() -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
-    }
-
-    pub fn cancel(self) {
-        with_system(|system| system.timers.remove(self))
     }
 }
 
@@ -42,7 +37,7 @@ impl Timers {
     }
 
     pub fn add(&mut self, instant: Instant, timer: Timer) -> TimerId {
-        let id = TimerId::new();
+        let id = TimerId::new_unique();
         self.add_with_id(instant, timer, id);
         id
     }
@@ -61,7 +56,7 @@ impl Timers {
         self.queue.peek().map(|(_item, instant)| instant.0)
     }
 
-    pub fn pop(&mut self) -> Option<Timer> {
+    pub fn next_ready_timer(&mut self) -> Option<Timer> {
         let next = self.next_instant()?;
         if next > Instant::now() {
             return None;

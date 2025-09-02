@@ -1,10 +1,9 @@
 use {
     crate::{
         event_loop::UserEvent,
-        system::with_system,
-        widgets::{RawWidgetId, Widget, WidgetId},
+        widgets::{RawWidgetId, Widget},
     },
-    anyhow::{anyhow, Context, Result},
+    anyhow::Result,
     std::{
         any::Any,
         collections::HashMap,
@@ -123,33 +122,6 @@ pub struct WidgetCallbackData {
     pub widget_id: RawWidgetId,
     pub func: Rc<WidgetCallbackDataFn>,
     // TODO: weak ref for cleanup
-}
-
-pub fn widget_callback<W, E, F>(widget_id: WidgetId<W>, func: F) -> Callback<E>
-where
-    W: Widget,
-    F: Fn(&mut W, E) -> Result<()> + 'static,
-    E: 'static,
-{
-    let callback_id = CallbackId::new();
-    let data = WidgetCallbackData {
-        widget_id: widget_id.raw(),
-        func: Rc::new(move |widget, any_event| {
-            let widget = widget
-                .downcast_mut::<W>()
-                .context("widget downcast failed")?;
-            let event = any_event
-                .downcast::<E>()
-                .map_err(|_| anyhow!("event downcast failed"))?;
-            func(widget, *event)
-        }),
-    };
-    with_system(|s| s.widget_callbacks.insert(callback_id, data));
-    Callback::new(
-        with_system(|s| s.event_loop_proxy.clone()),
-        callback_id,
-        widget_id.raw(),
-    )
 }
 
 #[derive(Debug, Clone)]

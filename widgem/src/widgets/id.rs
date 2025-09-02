@@ -1,8 +1,5 @@
 use {
-    super::Widget,
-    crate::callback::{widget_callback, Callback},
     accesskit::NodeId,
-    anyhow::Result,
     std::{
         fmt::{self, Debug},
         marker::PhantomData,
@@ -61,30 +58,6 @@ impl<T> WidgetId<T> {
     /// Converts a typed widget ID into an untyped ID. You can also use `.into()`.
     pub fn raw(self) -> RawWidgetId {
         self.0
-    }
-
-    // TODO: add example
-
-    /// Creates a callback that will call `func` on the receiver widget with ID `self`.
-    ///
-    /// The callback will only be invoked after you register it by passing it to a
-    /// `.on_*()` function of the sender widget.
-    ///
-    /// It's only possible to register a single callback for a given sender-signal-receiver
-    /// triplet. If another callback with the same receiver is supplied to the same
-    /// `.on_*()` function of the same sender widget, it will replace the previous callback.
-    /// Thus, it is save to call `.on_*()` functions within `handle_declare_children_request`,
-    /// as the new callbacks will overwrite the old ones instead of creating new copies.
-    ///
-    /// The callback will be automatically deregistered when the sender or the receiver is deleted.
-    pub fn callback<E, F>(self, func: F) -> Callback<E>
-    where
-        T: Widget,
-        F: Fn(&mut T, E) -> Result<()> + 'static,
-        E: 'static,
-    {
-        // TODO: add a way to add raw widget callbacks (i.e. operating on &mut dyn Widget)
-        widget_callback(self, func)
     }
 }
 

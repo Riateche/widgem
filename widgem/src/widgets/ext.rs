@@ -1,11 +1,11 @@
 use {
     super::{base::WidgetGeometry, Widget, WidgetId},
     crate::{
-        callback::{widget_callback, Callback},
+        callback::Callback,
         event::{Event, LayoutEvent, StyleChangeEvent},
         layout::{Layout, SizeHint, FALLBACK_SIZE_HINTS},
         style::css::PseudoClass,
-        system::{with_system, LayoutState, ReportError},
+        system::{LayoutState, ReportError},
         types::PhysicalPixels,
         ScrollToRectRequest,
     },
@@ -76,7 +76,7 @@ pub trait WidgetExt: Widget {
         E: 'static,
         Self: Sized,
     {
-        widget_callback(self.id(), func)
+        self.base().app().create_widget_callback(self.id(), func)
     }
 
     fn dispatch(&mut self, event: Event) -> bool {
@@ -190,8 +190,11 @@ pub trait WidgetExt: Widget {
             }
             Event::Layout(_) => {
                 self.base_mut().update();
-                let state =
-                    with_system(|system| system.layout_state.clone()).unwrap_or_else(|| {
+                let state = self
+                    .base()
+                    .app()
+                    .with_current_layout_state(|state| state.clone())
+                    .unwrap_or_else(|| {
                         warn!("WidgetExt::dispatch: missing layout_state");
                         LayoutState::default()
                     });
@@ -283,16 +286,23 @@ pub trait WidgetExt: Widget {
         if !self.base().has_declare_children_override() {
             return;
         }
-        let in_progress = with_system(|system| system.current_children_update.is_some());
+        let in_progress = self
+            .base()
+            .app()
+            .with_current_children_update(|state| state.is_some());
         if in_progress {
             error!("attempted to call update_children while another update_children is running");
             return;
         }
-        with_system(|system| {
-            system.current_children_update = Some(Default::default());
+        self.base().app().with_current_children_update(|state| {
+            *state = Some(Default::default());
         });
         self.handle_declare_children_request().or_report_err();
-        let Some(state) = with_system(|system| system.current_children_update.take()) else {
+        let Some(state) = self
+            .base()
+            .app()
+            .with_current_children_update(|state| state.take())
+        else {
             error!("missing widgets_created_in_current_children_update after handle_declare_children_request");
             return;
         };
@@ -448,14 +458,14 @@ pub trait WidgetExt: Widget {
             return self;
         }
         self.base_mut().set_geometry(geometry.clone());
-        let had_layout_state = with_system(|system| {
-            if let Some(layout_state) = &mut system.layout_state {
+        let had_layout_state = self.base().app().with_current_layout_state(|state| {
+            if let Some(layout_state) = state {
                 layout_state
                     .changed_size_hints
                     .push(self.base().address().clone());
                 return true;
             }
-            system.layout_state = Some(LayoutState {
+            *state = Some(LayoutState {
                 changed_size_hints: Vec::new(),
             });
             false
@@ -467,11 +477,11 @@ pub trait WidgetExt: Widget {
                 }
                 .into(),
             );
-            with_system(|system| {
-                if system.layout_state.is_none() {
+            self.base().app().with_current_layout_state(|state| {
+                if state.is_none() {
                     warn!("WidgetExt::set_geometry: layout state is missing in system data");
                 }
-                system.layout_state = None;
+                *state = None;
             });
         }
         self

@@ -7,7 +7,6 @@ use {
     tracing_subscriber::EnvFilter,
     widgem::{
         impl_widget_base,
-        system::add_interval,
         widgets::{
             Button, Column, Label, NewWidget, ScrollArea, TextInput, Widget, WidgetBaseOf,
             WidgetExt, WidgetId, Window,
@@ -112,7 +111,7 @@ impl NewWidget for RootWidget {
     type Arg = ();
 
     fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        let id = base.id();
+        let callbacks = base.callback_creator();
 
         let window = base.add_child::<Window>("example".into());
 
@@ -145,18 +144,18 @@ impl NewWidget for RootWidget {
             .base_mut()
             .add_child::<Button>("btn1".into())
             .set_auto_repeat(true)
-            .on_triggered(id.callback(|this, event| this.button_clicked(event, 1)))
+            .on_triggered(callbacks.create(|this, event| this.button_clicked(event, 1)))
             .id();
 
         root.base_mut()
             .add_child::<Button>("btn2".into())
-            .on_triggered(id.callback(|this, event| this.button_clicked(event, 2)));
+            .on_triggered(callbacks.create(|this, event| this.button_clicked(event, 2)));
 
         let column2 = root.base_mut().add_child::<Column>(());
         let button21_id = column2
             .base_mut()
             .add_child::<Button>("btn21".into())
-            .on_triggered(id.callback(|_, _| {
+            .on_triggered(callbacks.create(|_, _| {
                 println!("click!");
                 Ok(())
             }))
@@ -177,7 +176,10 @@ impl NewWidget for RootWidget {
                 .add_child::<Button>(format!("btn btn btn btn btn btn btn btn btn btn{i}"));
         }
 
-        add_interval(Duration::from_secs(2), id.callback(|this, _| this.inc()));
+        base.app().add_interval(
+            Duration::from_secs(2),
+            callbacks.create(|this, _| this.inc()),
+        );
 
         RootWidget {
             base,

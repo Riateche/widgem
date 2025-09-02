@@ -553,7 +553,8 @@ impl NewWidget for ScrollBar {
             Axis::Y => Layout::VerticalFirst,
         });
 
-        let id = base.id();
+        let callbacks = base.callback_creator();
+
         let mut this = Self {
             base,
             axis,
@@ -578,7 +579,7 @@ impl NewWidget for ScrollBar {
             .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .base_mut()
-            .install_event_filter(id.raw(), move |event| {
+            .install_event_filter(callbacks.id().raw(), move |event| {
                 match event {
                     Event::MouseInput(e) => {
                         if e.button == MouseButton::Left {
@@ -622,7 +623,7 @@ impl NewWidget for ScrollBar {
         pager_button.on_triggered(pager_triggered_callback);
         pager_button
             .base_mut()
-            .install_event_filter(id.raw(), move |event| {
+            .install_event_filter(callbacks.id().raw(), move |event| {
                 match event {
                     Event::MouseInput(e) => {
                         if e.button == MouseButton::Left && e.state == ElementState::Pressed {

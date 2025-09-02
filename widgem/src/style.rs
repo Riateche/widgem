@@ -19,6 +19,7 @@ use {
     std::{
         any::{Any, TypeId},
         borrow::Cow,
+        cell::RefCell,
         collections::HashMap,
         fmt::Debug,
         hash::Hash,
@@ -93,12 +94,14 @@ pub enum StyleSource {
     },
 }
 
-#[derive(Debug)]
-pub struct Style {
-    pub css: StyleSheet<'static, 'static>,
-    pub source: StyleSource,
+type CacheKey = (StyleSelector, OrderedFloat<f32>, TypeId);
 
-    cache: HashMap<(StyleSelector, OrderedFloat<f32>, TypeId), Box<dyn Any>>,
+#[derive(Debug, Clone)]
+pub struct Style {
+    pub css: Rc<StyleSheet<'static, 'static>>,
+    pub source: Rc<StyleSource>,
+
+    cache: Rc<RefCell<HashMap<CacheKey, Box<dyn Any>>>>,
 }
 
 fn find_rules<'a>(
@@ -145,11 +148,11 @@ impl Style {
         files: impl IntoIterator<Item = (&'static str, &'static [u8])>,
     ) -> Result<Self> {
         Ok(Self {
-            css: load_css(css)?,
-            source: StyleSource::Bundle {
+            css: Rc::new(load_css(css)?),
+            source: Rc::new(StyleSource::Bundle {
                 files: files.into_iter().collect(),
-            },
-            cache: HashMap::new(),
+            }),
+            cache: Default::default(),
         })
     }
 
@@ -157,14 +160,14 @@ impl Style {
         let css = fs_err::read_to_string(css_path)?;
 
         Ok(Self {
-            css: load_css(&css)?,
-            source: StyleSource::File {
+            css: Rc::new(load_css(&css)?),
+            source: Rc::new(StyleSource::File {
                 parent_dir: css_path
                     .parent()
                     .context("invalid css path (couldn't get parent)")?
                     .into(),
-            },
-            cache: HashMap::new(),
+            }),
+            cache: Default::default(),
         })
     }
 
@@ -199,7 +202,7 @@ impl Style {
     }
 
     pub fn load_resource(&self, path: &str) -> Result<Cow<'static, [u8]>> {
-        match &self.source {
+        match &*self.source {
             // TODO: forbid "../", allow only simple paths
             StyleSource::File { parent_dir } => {
                 let path = parent_dir.join(path);
@@ -250,11 +253,13 @@ impl Style {
         }
         let type_id = TypeId::of::<T>();
         let key = (element.clone(), OrderedFloat(scale), type_id);
-        if let Some(data) = self.cache.get(&key) {
-            return data
-                .downcast_ref::<Rc<T>>()
-                .expect("style cache type mismatch")
-                .clone();
+        {
+            if let Some(data) = self.cache.borrow().get(&key) {
+                return data
+                    .downcast_ref::<Rc<T>>()
+                    .expect("style cache type mismatch")
+                    .clone();
+            }
         }
         let style = Rc::new(T::new(
             &Styles {
@@ -265,7 +270,7 @@ impl Style {
             scale,
         ));
         let style_clone = style.clone();
-        self.cache.insert(key, Box::new(style));
+        self.cache.borrow_mut().insert(key, Box::new(style));
         style_clone
     }
 }

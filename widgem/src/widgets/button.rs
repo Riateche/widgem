@@ -8,13 +8,11 @@ use {
         },
         impl_widget_base,
         layout::Layout,
-        shared_window::SetFocusRequest,
         style::{
             common::ComputedElementStyle,
             css::{convert_content_url, convert_zoom, PseudoClass, StyleSelector},
             Styles,
         },
-        system::{add_interval, add_timer, send_window_request, with_system},
         text_editor::Text,
         timer::TimerId,
         widgets::widget_trait::NewWidget,
@@ -119,9 +117,9 @@ impl Button {
             if self.trigger_on_press && !suppress_trigger {
                 self.trigger();
             }
-            let delay = with_system(|s| s.config.auto_repeat_delay);
+            let delay = self.base.app().config().auto_repeat_delay;
             if self.auto_repeat {
-                let id = add_timer(
+                let id = self.base.app().add_timer(
                     delay,
                     self.callback(|this, _| {
                         this.start_auto_repeat();
@@ -132,10 +130,10 @@ impl Button {
             }
         } else {
             if let Some(id) = self.auto_repeat_delay_timer.take() {
-                id.cancel();
+                self.base.app().cancel_timer(id);
             }
             if let Some(id) = self.auto_repeat_interval.take() {
-                id.cancel();
+                self.base.app().cancel_timer(id);
             }
             if !self.trigger_on_press && !suppress_trigger {
                 self.trigger();
@@ -148,8 +146,8 @@ impl Button {
             return;
         }
         self.trigger();
-        let interval = with_system(|s| s.config.auto_repeat_interval);
-        let id = add_interval(
+        let interval = self.base.app().config().auto_repeat_interval;
+        let id = self.base.app().add_interval(
             interval,
             self.callback(|this, _| {
                 if this.base.is_enabled() {
@@ -231,15 +229,8 @@ impl Widget for Button {
             if event.state.is_pressed() {
                 self.set_pressed(true, false);
                 if !self.base.is_focused() {
-                    let window = self.base.window_or_err()?;
                     if self.base.is_focusable() {
-                        send_window_request(
-                            window.id(),
-                            SetFocusRequest {
-                                widget_id: self.base.id().into(),
-                                reason: FocusReason::Mouse,
-                            },
-                        );
+                        self.base.set_focus(FocusReason::Mouse);
                     }
                 }
             } else {
@@ -272,14 +263,7 @@ impl Widget for Button {
         match event.action {
             Action::Click => self.trigger(),
             Action::Focus => {
-                send_window_request(
-                    self.base.window_or_err()?.id(),
-                    SetFocusRequest {
-                        widget_id: self.base.id().into(),
-                        // TODO: separate reason?
-                        reason: FocusReason::Mouse,
-                    },
-                );
+                self.base.set_focus(FocusReason::Mouse);
             }
             _ => {}
         }

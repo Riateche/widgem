@@ -39,13 +39,14 @@ impl NewWidget for RootWidget {
     type Arg = ();
 
     fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        let id = base.id();
+        let callbacks = base.callback_creator();
+
         let window = base.add_child::<Window>(module_path!().into());
 
         let button_id = window
             .base_mut()
             .add_child::<Button>("Open menu".into())
-            .on_triggered(id.callback(Self::on_triggered))
+            .on_triggered(callbacks.create(Self::on_triggered))
             .id();
 
         Self { base, button_id }

@@ -40,11 +40,19 @@ pub use self::{
     widget_trait::{NewWidget, Widget},
 };
 
-use {crate::system::address, anyhow::Result, std::fmt::Debug, thiserror::Error, tracing::warn};
+use {anyhow::Result, std::fmt::Debug, thiserror::Error, tracing::warn};
 
 #[derive(Debug, Error)]
 #[error("widget not found")]
 pub struct WidgetNotFound;
+
+pub fn get_widget_by_id_mut(
+    root_widget: &mut dyn Widget,
+    id: RawWidgetId,
+) -> Result<&mut dyn Widget, WidgetNotFound> {
+    let address = root_widget.base().app().address(id).ok_or(WidgetNotFound)?;
+    get_widget_by_address_mut(root_widget, &address)
+}
 
 pub fn get_widget_by_address_mut<'a>(
     root_widget: &'a mut dyn Widget,
@@ -65,14 +73,6 @@ pub fn get_widget_by_address_mut<'a>(
             .map_err(|_| WidgetNotFound)?;
     }
     Ok(current_widget)
-}
-
-pub fn get_widget_by_id_mut(
-    root_widget: &mut dyn Widget,
-    id: RawWidgetId,
-) -> Result<&mut dyn Widget, WidgetNotFound> {
-    let address = address(id).ok_or(WidgetNotFound)?;
-    get_widget_by_address_mut(root_widget, &address)
 }
 
 pub fn invalidate_size_hint_cache(widget: &mut dyn Widget, pending: &[WidgetAddress]) {

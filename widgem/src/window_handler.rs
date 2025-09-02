@@ -6,7 +6,7 @@ use {
             MouseScrollEvent, WindowFocusChangeEvent,
         },
         shared_window::{MouseEventState, SharedWindow, WindowRequest},
-        system::{address, with_system, LayoutState, ReportError},
+        system::{LayoutState, ReportError},
         types::{PhysicalPixels, Point, Size},
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
@@ -50,7 +50,7 @@ impl<'a> WindowHandler<'a> {
 
         match event {
             WindowEvent::RedrawRequested => {
-                if let Some(draw_event) = self.window.prepare_draw() {
+                if let Some(draw_event) = self.window.prepare_draw(self.root_widget.base().app()) {
                     self.root_widget.dispatch(draw_event.into());
                 }
                 self.window.finalize_draw();
@@ -258,17 +258,7 @@ impl<'a> WindowHandler<'a> {
                 }
 
                 // TODO: only if event is not accepted above
-                let mut triggered_callbacks = Vec::new();
-                with_system(|system| {
-                    for shortcut in &system.application_shortcuts {
-                        if shortcut.key_combinations.matches(&event) {
-                            triggered_callbacks.push(shortcut.callback.clone());
-                        }
-                    }
-                });
-                for callback in triggered_callbacks {
-                    callback.invoke(());
-                }
+                self.root_widget.base().app().trigger_shortcuts(&event);
             }
             WindowEvent::Ime(ime) => {
                 trace!("IME event: {ime:?}");
@@ -427,29 +417,35 @@ impl<'a> WindowHandler<'a> {
             }
         }
 
-        with_system(|system| {
-            if system.layout_state.is_some() {
-                warn!("WindowHandler::layout: layout is already in progress");
-            }
-            system.layout_state = Some(LayoutState { changed_size_hints });
-        });
+        self.root_widget
+            .base()
+            .app()
+            .with_current_layout_state(|state| {
+                if state.is_some() {
+                    warn!("WindowHandler::layout: layout is already in progress");
+                }
+                *state = Some(LayoutState { changed_size_hints });
+            });
         // TODO: set geometry to `None` when window is hidden.
         let new_geometry = Some(WidgetGeometry::root(inner_size));
         self.root_widget.set_geometry(new_geometry.clone());
         self.root_widget
             .dispatch(LayoutEvent { new_geometry }.into());
-        with_system(|system| {
-            if system.layout_state.is_none() {
-                warn!("WindowHandler::layout: layout state is missing in system data");
-            }
-            system.layout_state = None;
-        });
+        self.root_widget
+            .base()
+            .app()
+            .with_current_layout_state(|state| {
+                if state.is_none() {
+                    warn!("WindowHandler::layout: layout state is missing in system data");
+                }
+                *state = None;
+            });
     }
 
     pub fn handle_request(&mut self, request: WindowRequest) {
         match request {
             WindowRequest::SetFocus(request) => {
-                let Some(addr) = address(request.widget_id) else {
+                let Some(addr) = self.root_widget.base().app().address(request.widget_id) else {
                     warn!("cannot focus unmounted widget");
                     return;
                 };
@@ -465,7 +461,7 @@ impl<'a> WindowHandler<'a> {
                 self.set_focus(pair, request.reason);
             }
             WindowRequest::ScrollToRect(request) => {
-                if let Some(address) = address(request.widget_id) {
+                if let Some(address) = self.root_widget.base().app().address(request.widget_id) {
                     self.root_widget.scroll_to_rect(ScrollToRectRequest {
                         address,
                         rect: request.rect,

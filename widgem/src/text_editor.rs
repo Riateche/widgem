@@ -8,7 +8,6 @@ use {
         },
         impl_widget_base,
         layout::SizeHint,
-        shared_window::{ScrollToRectRequest, SetFocusRequest},
         shortcut::standard_shortcuts,
         style::{
             common::ComputedElementStyle,
@@ -18,7 +17,7 @@ use {
             },
             defaults, Styles,
         },
-        system::{add_interval, report_error, send_window_request, with_system, ReportError},
+        system::{report_error, ReportError},
         text::{
             action::Action,
             edit::Edit,
@@ -172,11 +171,11 @@ impl Text {
         {
             return;
         }
-        with_system(|system| {
+        self.base.app().with_font_system(|font_system| {
             self.editor.with_buffer_mut(|buffer| {
                 let changed = buffer.metrics() != metrics;
                 if changed {
-                    buffer.set_metrics(&mut system.font_system, metrics);
+                    buffer.set_metrics(font_system, metrics);
                 }
                 changed
             });
@@ -190,9 +189,9 @@ impl Text {
             return;
         }
 
-        with_system(|system| {
+        self.base.app().with_font_system(|font_system| {
             self.editor
-                .with_buffer_mut(|buffer| buffer.set_wrap(&mut system.font_system, wrap));
+                .with_buffer_mut(|buffer| buffer.set_wrap(font_system, wrap));
         });
         self.adjust_size();
         self.request_scroll();
@@ -226,9 +225,6 @@ impl Text {
         let Some(visible_rect) = self.base.visible_rect_in_self() else {
             return;
         };
-        let Some(window_id) = self.base.window_id() else {
-            return;
-        };
         // TODO: cursor width?
         let rect = Rect::from_pos_size(
             cursor_position,
@@ -237,17 +233,9 @@ impl Text {
                 PhysicalPixels::from_i32(self.line_height().ceil() as i32),
             ),
         );
-        let needs_scroll = visible_rect.intersect(rect).is_empty();
-        if !needs_scroll {
-            return;
+        if visible_rect.intersect(rect).is_empty() {
+            self.base.ensure_rect_visible(rect);
         }
-        send_window_request(
-            window_id,
-            ScrollToRectRequest {
-                widget_id: self.base.id().into(),
-                rect,
-            },
-        );
     }
 
     #[allow(clippy::if_same_then_else)]
@@ -280,8 +268,7 @@ impl Text {
         } else if shortcuts.copy.matches(&event) {
             self.copy_to_clipboard();
         } else if shortcuts.paste.matches(&event) {
-            let r = with_system(|system| system.clipboard.get_text());
-            match r {
+            match self.base.app().clipboard_text() {
                 Ok(text) => {
                     let text = self.sanitize(&text);
                     self.insert_string(&text, None);
@@ -403,9 +390,9 @@ impl Text {
             return;
         }
 
-        with_system(|system| {
+        self.base.app().with_font_system(|font_system| {
             self.editor.with_buffer_mut(|buffer| {
-                buffer.set_text(&mut system.font_system, &text, &attrs, Shaping::Advanced)
+                buffer.set_text(font_system, &text, &attrs, Shaping::Advanced)
             });
         });
         self.adjust_size();
@@ -444,7 +431,10 @@ impl Text {
                 unix,
                 not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
             ))]
-            self.copy_selection();
+            self.base
+                .app()
+                .set_linux_primary_selection(&self.selected_text)
+                .or_report_err();
         }
         self.request_scroll();
     }
@@ -453,39 +443,11 @@ impl Text {
         unix,
         not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
     ))]
-    fn copy_selection(&self) {
-        use arboard::{LinuxClipboardKind, SetExtLinux};
-
-        if !self.selected_text.is_empty() {
-            with_system(|system| {
-                system
-                    .clipboard
-                    .set()
-                    .clipboard(LinuxClipboardKind::Primary)
-                    .text(&self.selected_text)
-            })
-            .or_report_err();
-        }
-    }
-
-    #[cfg(all(
-        unix,
-        not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
-    ))]
     fn paste_selection(&mut self) {
-        use arboard::{GetExtLinux, LinuxClipboardKind};
-
         if self.is_mouse_interaction_forbidden() {
             return;
         }
-        let text = with_system(|system| {
-            system
-                .clipboard
-                .get()
-                .clipboard(LinuxClipboardKind::Primary)
-                .text()
-        })
-        .or_report_err();
+        let text = self.base.app().linux_primary_selection().or_report_err();
         if let Some(text) = text {
             let text = self.sanitize(&text);
             self.insert_string(&text, None);
@@ -494,18 +456,18 @@ impl Text {
 
     fn copy_to_clipboard(&mut self) {
         if let Some(text) = self.selected_text() {
-            with_system(|system| system.clipboard.set_text(text)).or_report_err();
+            self.base.app().set_clipboard_text(&text).or_report_err();
         }
     }
 
     fn reset_blink_timer(&mut self) {
         if let Some(id) = self.blink_timer.take() {
-            id.cancel();
+            self.base.app().cancel_timer(id);
         }
         self.editor
             .set_cursor_hidden(!self.is_host_focused || !self.is_editable);
         if self.is_host_focused && self.is_editable {
-            let id = add_interval(
+            let id = self.base.app().add_interval(
                 CURSOR_BLINK_INTERVAL,
                 self.callback(|this, _| this.toggle_cursor_hidden()),
             );
@@ -713,7 +675,9 @@ impl Text {
     }
 
     pub fn shape_as_needed(&mut self) {
-        with_system(|system| self.editor.shape_as_needed(&mut system.font_system, false));
+        self.base
+            .app()
+            .with_font_system(|font_system| self.editor.shape_as_needed(font_system, false));
         self.request_scroll();
     }
 
@@ -734,49 +698,51 @@ impl Text {
             let size_y = max(1, buffer_height.unwrap_or(0.).ceil() as u32);
 
             let mut pixmap = Pixmap::new(size_x, size_y).expect("failed to create pixmap");
-            with_system(|system| {
-                self.editor.draw(
-                    &mut system.font_system,
-                    &mut system.swash_cache,
-                    &EditorDrawStyle {
-                        text_color: convert_color(self.style.text_color),
-                        cursor_color: convert_color(self.style.text_color), // TODO: cursor color,
-                        selection_color: convert_color(self.style.selected_text_background),
-                        selected_text_color: convert_color(self.style.selected_text_color),
-                    },
-                    |x, y, w, h, c| {
-                        // let color = PremultipliedColorU8::from_rgba(
-                        //     min(c.a(), c.r()),
-                        //     min(c.a(), c.g()),
-                        //     min(c.a(), c.b()),
-                        //     c.a(),
-                        // )
-                        // .expect("RGB components must be <= alpha");
+            self.base
+                .app()
+                .with_font_system_and_swash_cache(|font_system, swash_cache| {
+                    self.editor.draw(
+                        font_system,
+                        swash_cache,
+                        &EditorDrawStyle {
+                            text_color: convert_color(self.style.text_color),
+                            cursor_color: convert_color(self.style.text_color), // TODO: cursor color,
+                            selection_color: convert_color(self.style.selected_text_background),
+                            selected_text_color: convert_color(self.style.selected_text_color),
+                        },
+                        |x, y, w, h, c| {
+                            // let color = PremultipliedColorU8::from_rgba(
+                            //     min(c.a(), c.r()),
+                            //     min(c.a(), c.g()),
+                            //     min(c.a(), c.b()),
+                            //     c.a(),
+                            // )
+                            // .expect("RGB components must be <= alpha");
 
-                        // for iy in y..(y + h as i32) {
-                        //     for ix in x..(x + w as i32) {
-                        //         if ix >= 0 && ix < pixmap_width && iy >= 0 && iy < pixmap_height {
-                        //             pixels[(ix + iy * pixmap_width) as usize] = color;
-                        //         }
-                        //     }
-                        // }
+                            // for iy in y..(y + h as i32) {
+                            //     for ix in x..(x + w as i32) {
+                            //         if ix >= 0 && ix < pixmap_width && iy >= 0 && iy < pixmap_height {
+                            //             pixels[(ix + iy * pixmap_width) as usize] = color;
+                            //         }
+                            //     }
+                            // }
 
-                        let color = Color::from_rgba8(c.r(), c.g(), c.b(), c.a());
-                        let paint = Paint {
-                            shader: Shader::SolidColor(color),
-                            anti_alias: false,
-                            ..Paint::default()
-                        };
-                        pixmap.fill_rect(
-                            tiny_skia::Rect::from_xywh(x as f32, y as f32, w as f32, h as f32)
-                                .unwrap(),
-                            &paint,
-                            Transform::default(),
-                            None,
-                        );
-                    },
-                );
-            });
+                            let color = Color::from_rgba8(c.r(), c.g(), c.b(), c.a());
+                            let paint = Paint {
+                                shader: Shader::SolidColor(color),
+                                anti_alias: false,
+                                ..Paint::default()
+                            };
+                            pixmap.fill_rect(
+                                tiny_skia::Rect::from_xywh(x as f32, y as f32, w as f32, h as f32)
+                                    .unwrap(),
+                                &paint,
+                                Transform::default(),
+                                None,
+                            );
+                        },
+                    );
+                });
             let mut alg = LineGenerator::new(LineType::Underline);
             let mut lines = Vec::new();
             let line_height = self
@@ -861,7 +827,9 @@ impl Text {
                 return;
             }
         }
-        with_system(|system| self.editor.action(&mut system.font_system, action));
+        self.base
+            .app()
+            .with_font_system(|font_system| self.editor.action(font_system, action));
         self.adjust_size();
         self.base.update();
         self.request_scroll();
@@ -924,12 +892,11 @@ impl Text {
     }
 
     fn adjust_size(&mut self) {
-        let size = with_system(|system| {
+        let size = self.base.app().with_font_system(|font_system| {
             self.editor.with_buffer_mut(|buffer| {
-                let new_size =
-                    unrestricted_text_size(&mut buffer.borrow_with(&mut system.font_system));
+                let new_size = unrestricted_text_size(&mut buffer.borrow_with(font_system));
                 buffer.set_size(
-                    &mut system.font_system,
+                    font_system,
                     Some(new_size.x().to_i32() as f32),
                     Some(new_size.y().to_i32() as f32),
                 );
@@ -973,13 +940,9 @@ impl Text {
 
         if !self.base.is_focused() {
             if let Some(host_id) = self.host_id {
-                send_window_request(
-                    window.id(),
-                    SetFocusRequest {
-                        widget_id: host_id,
-                        reason: FocusReason::Mouse,
-                    },
-                );
+                self.base
+                    .app()
+                    .set_focus(window.id(), host_id, FocusReason::Mouse);
             }
         }
 
@@ -1027,8 +990,8 @@ impl NewWidget for Text {
     type Arg = (String, Rc<TextStyle>);
 
     fn new(base: WidgetBaseOf<Self>, (text, style): (String, Rc<TextStyle>)) -> Self {
-        let editor = with_system(|system| {
-            Editor::new(Buffer::new(&mut system.font_system, style.font_metrics))
+        let editor = base.app().with_font_system(|font_system| {
+            Editor::new(Buffer::new(font_system, style.font_metrics))
         });
         let mut t = Self {
             editor,
@@ -1166,18 +1129,10 @@ impl Widget for Text {
     }
 
     fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
-        let window = self.base.window_or_err()?;
-
         match event.action {
             accesskit::Action::Click => {
-                send_window_request(
-                    window.id(),
-                    SetFocusRequest {
-                        widget_id: self.base.id().into(),
-                        // TODO: separate reason?
-                        reason: FocusReason::Mouse,
-                    },
-                );
+                // TODO: separate reason?
+                self.base.set_focus(FocusReason::Mouse);
             }
             accesskit::Action::SetTextSelection => {
                 let Some(ActionData::SetTextSelection(data)) = event.data else {

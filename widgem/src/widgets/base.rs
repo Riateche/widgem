@@ -1,9 +1,9 @@
 use {
-    super::{address, RawWidgetId, Widget, WidgetAddress, WidgetId, WidgetNotFound},
+    super::{RawWidgetId, Widget, WidgetAddress, WidgetId, WidgetNotFound},
     crate::{
-        callback::{widget_callback, Callback},
+        callback::Callback,
         child_key::ChildKey,
-        event::Event,
+        event::{Event, FocusReason},
         event_loop::with_active_event_loop,
         layout::{Layout, LayoutItemOptions, SizeHint},
         shared_window::{SharedWindow, WindowId},
@@ -13,12 +13,10 @@ use {
             css::{PseudoClass, StyleSelector},
             load_css,
         },
-        system::{
-            register_address, request_children_update, unregister_address, with_system,
-            ChildrenUpdateState, ReportError,
-        },
+        system::{ChildrenUpdateState, ReportError},
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::{widget_trait::NewWidget, WidgetExt},
+        App,
     },
     anyhow::{Context, Result},
     derivative::Derivative,
@@ -36,8 +34,8 @@ use {
     winit::window::CursorIcon,
 };
 
-fn default_scale() -> f32 {
-    if let Some(scale) = with_system(|system| system.config.fixed_scale) {
+fn default_scale(app: &App) -> f32 {
+    if let Some(scale) = app.config().fixed_scale {
         return scale;
     }
     with_active_event_loop(|event_loop| {
@@ -53,11 +51,12 @@ fn default_scale() -> f32 {
     })
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct WidgetCreationContext {
     parent_id: Option<RawWidgetId>,
     address: WidgetAddress,
     window: Option<SharedWindow>,
+    app: App,
     parent_scale: f32,
     is_parent_enabled: bool,
     is_window_root: bool,
@@ -223,6 +222,7 @@ pub struct WidgetBase {
     parent_id: Option<RawWidgetId>,
     address: WidgetAddress,
     window: Option<SharedWindow>,
+    app: App,
 
     parent_scale: f32,
     self_scale: Option<f32>,
@@ -260,21 +260,24 @@ pub struct WidgetBase {
 
 impl Drop for WidgetBase {
     fn drop(&mut self) {
-        if self.is_window_root() {
-            if let Some(window) = &self.window {
-                window.deregister();
-            } else {
-                error!("missing window for a window root widget");
-            }
-        }
-        unregister_address(self.id);
         // Drop and unmount children before unmounting self.
         self.children.clear();
         self.remove_accessibility_node();
+        self.app.unregister_address(self.id);
         for shortcut in self.shortcuts.values() {
             // TODO: deregister widget/window shortcuts
             if shortcut.scope == ShortcutScope::Application {
-                with_system(|system| system.application_shortcuts.retain(|s| s.id != shortcut.id));
+                self.app.remove_shortcut(shortcut.id);
+            }
+        }
+        if self.is_window_root() {
+            if let Some(window) = self.window.take() {
+                self.app.remove_window(&window);
+                if !window.try_remove() {
+                    error!("window root widget has been deleted, but there are remaining references to SharedWindow");
+                }
+            } else {
+                error!("missing window for a window root widget");
             }
         }
     }
@@ -287,25 +290,24 @@ fn last_path_part(str: &str) -> &str {
 }
 
 fn get_computed_style<T: ComputedElementStyle>(
+    app: &App,
     element: &StyleSelector,
     scale: f32,
     custom_style: Option<&CustomStyle>,
 ) -> Rc<T> {
-    with_system(|system| {
-        system
-            .style
-            .get(element, scale, custom_style.map(|s| &s.style_sheet))
-    })
+    app.style()
+        .get(element, scale, custom_style.map(|s| &s.style_sheet))
 }
 
 // Various private impls.
 impl WidgetBase {
-    pub(crate) fn new_root<T: Widget>() -> WidgetBaseOf<T> {
+    pub(crate) fn new_root<T: Widget>(app: App) -> WidgetBaseOf<T> {
         let id = RawWidgetId::new_unique();
         Self::new(WidgetCreationContext {
             parent_id: None,
             address: WidgetAddress::root(id),
             window: None,
+            app,
             // Scale doesn't matter for root widget. Window will set scale for its content.
             parent_scale: 1.0,
             is_parent_enabled: true,
@@ -316,17 +318,18 @@ impl WidgetBase {
     #[allow(clippy::new_ret_no_self)]
     fn new<T: Widget>(ctx: WidgetCreationContext) -> WidgetBaseOf<T> {
         let id = ctx.address.widget_id();
-        register_address(id, ctx.address.clone());
+        ctx.app.register_address(id, ctx.address.clone());
 
         let type_name = T::type_name();
         let style_selector = StyleSelector::new(last_path_part(type_name).into())
             .with_pseudo_class(PseudoClass::Enabled);
         let self_scale = if ctx.is_window_root {
-            Some(default_scale())
+            Some(default_scale(&ctx.app))
         } else {
             None
         };
         let common_style = get_computed_style(
+            &ctx.app,
             &style_selector,
             self_scale.unwrap_or(ctx.parent_scale),
             None,
@@ -351,6 +354,7 @@ impl WidgetBase {
             parent_id: ctx.parent_id,
             address: ctx.address,
             window: ctx.window,
+            app: ctx.app,
             parent_scale: ctx.parent_scale,
             self_scale,
             geometry: None,
@@ -423,6 +427,7 @@ impl WidgetBase {
             address: self.address.clone().join(key, new_id),
             is_window_root: root_of_window.is_some(),
             window: root_of_window.or_else(|| self.window.clone()),
+            app: self.app.create_app_handle(),
             parent_scale: self.scale(),
             is_parent_enabled: self.is_enabled(),
         }
@@ -593,6 +598,10 @@ impl WidgetBase {
         self.window.as_ref().map(|w| w.id())
     }
 
+    pub fn app(&self) -> &App {
+        &self.app
+    }
+
     // TODO: revise behavior on hidden windows
 
     /// True if this widget is currently visible.
@@ -668,13 +677,11 @@ impl WidgetBase {
     }
 
     pub fn compute_style<T: ComputedElementStyle>(&self) -> Rc<T> {
-        with_system(|system| {
-            system.style.get(
-                &self.style_selector,
-                self.scale(),
-                self.style.as_ref().map(|s| &s.style_sheet),
-            )
-        })
+        self.app.style().get(
+            &self.style_selector,
+            self.scale(),
+            self.style.as_ref().map(|s| &s.style_sheet),
+        )
     }
 
     /// True if this widget is a root widget of an OS window.
@@ -991,7 +998,32 @@ impl WidgetBase {
             window.request_redraw();
             window.request_accessibility_update(self.address.clone());
         };
-        request_children_update(self.address.clone());
+        self.app.request_children_update(self.address.clone());
+    }
+
+    pub fn ensure_visible(&self) {
+        let Some(rect) = self.rect_in_self() else {
+            warn!("ensure_visible: no geometry");
+            return;
+        };
+        self.ensure_rect_visible(rect);
+    }
+
+    pub fn ensure_rect_visible(&self, rect: Rect) {
+        let Some(window) = &self.window else {
+            warn!("scroll_to_rect: no window");
+            return;
+        };
+        // TODO: rename
+        self.app.scroll_to_rect(window.id(), self.id, rect);
+    }
+
+    pub fn set_focus(&self, reason: FocusReason) {
+        let Some(window) = &self.window else {
+            warn!("set_focus: no window");
+            return;
+        };
+        self.app.set_focus(window.id(), self.id, reason);
     }
 }
 
@@ -1037,8 +1069,8 @@ impl WidgetBase {
     /// `declare_child` automatically assigns a unique key to each widget based on the order of `declare_child` calls. To assign a key explicitly,
     /// use [declare_child_with_key](Self::declare_child_with_key).
     pub fn declare_child<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
-        let key = with_system(|system| {
-            let Some(state) = system.current_children_update.as_mut() else {
+        let key = self.app.with_current_children_update(|state| {
+            let Some(state) = state else {
                 warn!("declare_child called outside of handle_update_children");
                 return 0;
             };
@@ -1076,8 +1108,8 @@ impl WidgetBase {
                 .and_then(|c| c.downcast_mut::<T>())
             {
                 old_widget.handle_declared(arg);
-                with_system(|system| {
-                    if let Some(state) = &mut system.current_children_update {
+                self.app.with_current_children_update(|state| {
+                    if let Some(state) = state {
                         state.declared_children.insert(old_widget.base().id);
                     } else {
                         warn!("declare_child shouldn't be used outside of declare_children()");
@@ -1095,7 +1127,8 @@ impl WidgetBase {
 
         let new_id = new_id.unwrap_or_else(RawWidgetId::new_unique);
         let ctx = if T::is_window_root_type() {
-            let new_window = SharedWindow::new(new_id);
+            let new_window = SharedWindow::new(new_id, &self.app);
+            self.app.add_window(&new_window);
             self.new_creation_context(new_id, key.clone(), Some(new_window.clone()))
         } else {
             self.new_creation_context(new_id, key.clone(), None)
@@ -1108,8 +1141,8 @@ impl WidgetBase {
         self.size_hint_changed();
         let widget = self.children.get_mut(&key).unwrap();
         if declare {
-            with_system(|system| {
-                if let Some(state) = &mut system.current_children_update {
+            self.app.with_current_children_update(|state| {
+                if let Some(state) = state {
                     state.declared_children.insert(widget.base().id);
                 } else {
                     warn!("declare_child shouldn't be used outside of declare_children()");
@@ -1260,7 +1293,7 @@ impl WidgetBase {
             warn!("remove_child_by_id: cannot delete self");
             return Err(WidgetNotFound);
         }
-        let Some(address) = address(id) else {
+        let Some(address) = self.app.address(id) else {
             // Widget probably already deleted.
             return Err(WidgetNotFound);
         };
@@ -1546,7 +1579,7 @@ impl WidgetBase {
     pub fn add_shortcut(&mut self, shortcut: Shortcut) -> ShortcutId {
         let id = shortcut.id;
         if shortcut.scope == ShortcutScope::Application {
-            with_system(|system| system.application_shortcuts.push(shortcut.clone()));
+            self.app.add_shortcut(shortcut.clone());
         }
         // TODO: register widget/window shortcuts
         self.shortcuts.insert(id, shortcut);
@@ -1580,7 +1613,7 @@ impl<W> WidgetBaseOf<W> {
         F: Fn(&mut W, E) -> Result<()> + 'static,
         E: 'static,
     {
-        widget_callback(WidgetId::<W>::new(self.base.id), func)
+        self.base.app().create_widget_callback(self.id(), func)
     }
 
     // TODO: remove or extend
@@ -1618,6 +1651,15 @@ impl<W> WidgetBaseOf<W> {
         self.focusable_changed();
         self
     }
+
+    /// Creates a callback for the widget that received this `handle_declared` call.
+    pub fn callback_creator(&self) -> CallbackCreator<W> {
+        CallbackCreator {
+            widget_id: self.id(),
+            // TODO: weak handle
+            app: self.base.app.create_app_handle(),
+        }
+    }
 }
 
 impl<T> Deref for WidgetBaseOf<T> {
@@ -1637,5 +1679,30 @@ impl<T> DerefMut for WidgetBaseOf<T> {
 impl<T> From<WidgetBaseOf<T>> for WidgetBase {
     fn from(value: WidgetBaseOf<T>) -> Self {
         value.base
+    }
+}
+
+pub struct CallbackCreator<W> {
+    pub(crate) widget_id: WidgetId<W>,
+    pub(crate) app: App,
+}
+
+impl<W> CallbackCreator<W> {
+    pub fn app(&self) -> &App {
+        &self.app
+    }
+
+    pub fn id(&self) -> WidgetId<W> {
+        self.widget_id
+    }
+
+    /// Creates a callback for the widget that received this `handle_declared` call.
+    pub fn create<E, F>(&self, func: F) -> Callback<E>
+    where
+        W: Widget,
+        F: Fn(&mut W, E) -> anyhow::Result<()> + 'static,
+        E: 'static,
+    {
+        self.app.create_widget_callback(self.widget_id, func)
     }
 }

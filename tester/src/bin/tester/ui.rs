@@ -97,7 +97,7 @@ impl Widget for TesterUi {
     impl_widget_base!();
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
-        let id = self.base.id();
+        let callbacks = self.base.callback_creator();
 
         let window = self
             .base
@@ -135,7 +135,7 @@ impl Widget for TesterUi {
 
         row.base_mut()
             .declare_child::<Button>("First test".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.go_to_first_test_case();
                 w.base.update();
                 Ok(())
@@ -143,21 +143,21 @@ impl Widget for TesterUi {
 
         row.base_mut()
             .declare_child::<Button>("Previous test".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.go_to_previous_test_case();
                 w.base.update();
                 Ok(())
             }));
         row.base_mut()
             .declare_child::<Button>("Next test".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.go_to_next_test_case();
                 w.base.update();
                 Ok(())
             }));
         row.base_mut()
             .declare_child::<Button>("Last test".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.go_to_last_test_case();
                 w.base.update();
                 Ok(())
@@ -165,7 +165,7 @@ impl Widget for TesterUi {
 
         row.base_mut()
             .declare_child::<Button>("Refresh list".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.refresh()?;
                 w.base.update();
                 Ok(())
@@ -181,13 +181,13 @@ impl Widget for TesterUi {
         row.base_mut()
             .declare_child::<Button>("Run test subject".into())
             .set_enabled(self.reviewer.current_test_case_name().is_some())
-            .on_triggered(id.callback(move |w, _e| w.reviewer.run_test_subject()));
+            .on_triggered(callbacks.create(move |w, _e| w.reviewer.run_test_subject()));
 
-        let test_finished = id.callback(move |w, _e: ()| w.test_finished());
+        let test_finished = callbacks.create(move |w, _e: ()| w.test_finished());
         row.base_mut()
             .declare_child::<Button>("Run test".into())
             .set_enabled(self.reviewer.current_test_case_name().is_some())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 let mut child = w.reviewer.run_test()?;
                 info!("spawned process with pid: {:?}", child.id());
                 let test_finished = test_finished.clone();
@@ -242,14 +242,14 @@ impl Widget for TesterUi {
 
         row.base_mut()
             .declare_child::<Button>("Previous snapshot".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.go_to_previous_snapshot();
                 w.base.update();
                 Ok(())
             }));
         row.base_mut()
             .declare_child::<Button>("Next snapshot".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.go_to_next_snapshot();
                 w.base.update();
                 Ok(())
@@ -279,7 +279,7 @@ impl Widget for TesterUi {
                 .base_mut()
                 .declare_child::<Button>(format!("{}{}", star, mode_ui_name(mode)))
                 .set_enabled(self.reviewer.is_mode_allowed(mode))
-                .on_triggered(id.callback(move |w, _e| w.set_mode(mode)));
+                .on_triggered(callbacks.create(move |w, _e| w.set_mode(mode)));
         }
 
         let pixmap = self.reviewer.pixmap().or_report_err().flatten();
@@ -318,28 +318,28 @@ impl Widget for TesterUi {
 
         row.base_mut()
             .declare_child::<Button>("100%".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 1.0;
                 w.base.update();
                 Ok(())
             }));
         row.base_mut()
             .declare_child::<Button>("200%".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 2.0;
                 w.base.update();
                 Ok(())
             }));
         row.base_mut()
             .declare_child::<Button>("400%".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 4.0;
                 w.base.update();
                 Ok(())
             }));
         row.base_mut()
             .declare_child::<Button>("800%".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 8.0;
                 w.base.update();
                 Ok(())
@@ -357,11 +357,12 @@ impl Widget for TesterUi {
             .set_scale(Some(self.image_scale));
         current_row += 1;
 
-        let image_mouse_move = id.callback(Self::image_mouse_move);
+        let image_mouse_move = callbacks.create(Self::image_mouse_move);
         let image_id = image.id();
         image
             .base_mut()
-            .install_event_filter(id.raw(), move |event| {
+            // TODO: special event filter object like `Callback`
+            .install_event_filter(callbacks.id().raw(), move |event| {
                 match event {
                     Event::MouseMove(event) => {
                         image_mouse_move.invoke((image_id, Some(event.pos())));
@@ -389,7 +390,7 @@ impl Widget for TesterUi {
         approve_and_skip
             .base_mut()
             .declare_child::<Button>("Approve".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.approve()?;
                 w.base_mut().update();
                 Ok(())
@@ -397,7 +398,7 @@ impl Widget for TesterUi {
         approve_and_skip
             .base_mut()
             .declare_child::<Button>("Skip snapshot".into())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 if !w.reviewer.go_to_next_unconfirmed_snapshot() {
                     widgem::exit();
                 }
@@ -409,7 +410,7 @@ impl Widget for TesterUi {
             .base_mut()
             .declare_child::<Button>("Skip test".into())
             .set_enabled(self.reviewer.has_unconfirmed())
-            .on_triggered(id.callback(move |w, _e| {
+            .on_triggered(callbacks.create(move |w, _e| {
                 w.reviewer.go_to_next_test_case();
                 if !w.reviewer.has_unconfirmed() {
                     if !w.reviewer.go_to_next_unconfirmed_snapshot() {

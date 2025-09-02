@@ -4,16 +4,14 @@ use {
         callback::{CallbackId, InvokeCallbackEvent},
         shared_window::{WindowId, WindowRequest},
         style::defaults::default_style,
-        system::{
-            address, take_pending_children_updates, with_system, ReportError,
-            SharedSystemDataInner, SystemConfig, SYSTEM,
-        },
+        system::{ReportError, SharedSystemDataInner, SystemConfig},
         timer::Timers,
         widgets::{
             get_widget_by_address_mut, get_widget_by_id_mut, RawWidgetId, RootWidget, Widget,
             WidgetBase, WidgetExt,
         },
         window_handler::WindowHandler,
+        App,
     },
     arboard::Clipboard,
     cosmic_text::{fontdb, FontSystem, SwashCache},
@@ -23,6 +21,7 @@ use {
         any::Any,
         collections::HashMap,
         fmt::Debug,
+        rc::Rc,
         time::{Duration, Instant},
     },
     tracing::warn,
@@ -33,8 +32,9 @@ use {
     },
 };
 
+// TODO: private
 #[derive(Debug, From)]
-pub(crate) enum UserEvent {
+pub enum UserEvent {
     InvokeCallback(InvokeCallbackEvent),
     WindowRequest(WindowId, WindowRequest),
     Accesskit(accesskit_winit::Event),
@@ -48,25 +48,6 @@ where
     F: FnOnce(&ActiveEventLoop) -> R,
 {
     ACTIVE_EVENT_LOOP.with(f)
-}
-
-fn dispatch_widget_callback(
-    root_widget: &mut dyn Widget,
-    callback_id: CallbackId,
-    event: Box<dyn Any + Send>,
-) {
-    let Some(callback) = with_system(|s| s.widget_callbacks.get(&callback_id).cloned()) else {
-        warn!("unknown widget callback id");
-        return;
-    };
-    let Some(address) = address(callback.widget_id) else {
-        return;
-    };
-    let Ok(widget) = get_widget_by_address_mut(root_widget, &address) else {
-        return;
-    };
-    (callback.func)(widget, event).or_report_err();
-    widget.update_accessibility_node();
 }
 
 type BoxInitFn = Box<dyn FnOnce(&mut RootWidget) -> anyhow::Result<()>>;
@@ -95,38 +76,36 @@ impl Handler {
     }
 
     fn before_handler(&mut self) {
-        if self.is_initialized {
-            while let Some(timer) = with_system(|system| system.timers.pop()) {
+        if let Some(root_widget) = &self.root_widget {
+            while let Some(timer) = root_widget.base().app().next_ready_timer() {
                 timer.callback.invoke(Instant::now());
             }
         }
     }
 
     fn after_widget_activity(&mut self) {
+        let Some(root_widget) = &mut self.root_widget else {
+            return;
+        };
         loop {
-            let mut addrs = take_pending_children_updates();
+            let mut addrs = root_widget.base().app().take_pending_children_updates();
             if addrs.is_empty() {
                 break;
             }
             // Update upper layers first.
             addrs.sort_unstable_by_key(|addr| addr.len());
             for addr in addrs {
-                if let Ok(widget) =
-                    get_widget_by_address_mut(self.root_widget.as_mut().unwrap().as_mut(), &addr)
-                {
+                if let Ok(widget) = get_widget_by_address_mut(root_widget.as_mut(), &addr) {
                     widget.update_children();
                 }
             }
         }
-        let windows = with_system(|s| s.windows.clone());
+        let windows = root_widget.base().app().windows();
         //println!("after widget activity1");
         for (_, window) in windows {
             //println!("root_widget_id {:?}", window.root_widget_id);
-            if let Some(window_root_widget) = get_widget_by_id_mut(
-                self.root_widget.as_mut().unwrap().as_mut(),
-                window.root_widget_id,
-            )
-            .or_report_err()
+            if let Some(window_root_widget) =
+                get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id).or_report_err()
             {
                 WindowHandler::new(window.shared_window, window_root_widget)
                     .after_widget_activity();
@@ -134,10 +113,7 @@ impl Handler {
         }
         //println!("after widget activity1 ok");
 
-        let exit = with_system(|s| {
-            s.had_any_windows && s.windows.is_empty() && s.config.exit_after_last_window_closes
-        });
-        if exit {
+        if root_widget.base().app().should_exit() {
             with_active_event_loop(|event_loop| event_loop.exit());
         }
     }
@@ -156,18 +132,18 @@ impl ApplicationHandler<UserEvent> for Handler {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
             self.before_handler();
 
-            let Some(window) = with_system(|s| s.windows_by_winit_id.get(&window_id).cloned())
-            else {
-                if !matches!(event, WindowEvent::Destroyed | WindowEvent::RedrawRequested) {
-                    warn!("missing window object when dispatching event: {:?}", event);
-                }
-                return;
-            };
             let Some(root_widget) = &mut self.root_widget else {
                 warn!(
                     "cannot dispatch event when root widget doesn't exist: {:?}",
                     event
                 );
+                return;
+            };
+
+            let Some(window) = root_widget.base().app().window_for_winit_id(window_id) else {
+                if !matches!(event, WindowEvent::Destroyed | WindowEvent::RedrawRequested) {
+                    warn!("missing window object when dispatching event: {:?}", event);
+                }
                 return;
             };
 
@@ -203,7 +179,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                 FontSystem::new_with_locale_and_db(FontSystem::new().locale().to_string(), db);
 
             let shared_system_data = SharedSystemDataInner {
-                config: SystemConfig {
+                config: Rc::new(SystemConfig {
                     exit_after_last_window_closes: true,
                     // TODO: should we fetch system settings instead?
                     auto_repeat_delay: self
@@ -215,7 +191,7 @@ impl ApplicationHandler<UserEvent> for Handler {
                         .auto_repeat_interval
                         .unwrap_or(DEFAULT_AUTO_REPEAT_INTERVAL),
                     fixed_scale: self.app_builder.fixed_scale,
-                },
+                }),
                 address_book: HashMap::new(),
                 font_system,
                 swash_cache: SwashCache::new(),
@@ -231,13 +207,10 @@ impl ApplicationHandler<UserEvent> for Handler {
                 application_shortcuts: Vec::new(),
                 pending_children_updates: Vec::new(),
                 current_children_update: None,
-                layout_state: None,
+                current_layout_state: None,
             };
-            SYSTEM.with(|system| {
-                *system.0.borrow_mut() = Some(shared_system_data);
-            });
-
-            let mut root_widget = RootWidget::new(WidgetBase::new_root());
+            let app = App::init(shared_system_data);
+            let mut root_widget = RootWidget::new(WidgetBase::new_root(app));
             self.init.take().expect("double init")(&mut root_widget).or_report_err();
             self.root_widget = Some(Box::new(root_widget));
 
@@ -267,7 +240,7 @@ impl ApplicationHandler<UserEvent> for Handler {
             };
             match event {
                 UserEvent::WindowRequest(window_id, request) => {
-                    let Some(window) = with_system(|s| s.windows.get(&window_id).cloned()) else {
+                    let Some(window) = root_widget.base().app().window(window_id) else {
                         warn!("missing window object when dispatching WindowRequest");
                         return;
                     };
@@ -286,8 +259,10 @@ impl ApplicationHandler<UserEvent> for Handler {
                     dispatch_widget_callback(root_widget.as_mut(), event.callback_id, event.event);
                 }
                 UserEvent::Accesskit(event) => {
-                    let Some(window) =
-                        with_system(|s| s.windows_by_winit_id.get(&event.window_id).cloned())
+                    let Some(window) = root_widget
+                        .base()
+                        .app()
+                        .window_for_winit_id(event.window_id)
                     else {
                         warn!("missing window object when dispatching Accesskit event");
                         return;
@@ -305,28 +280,8 @@ impl ApplicationHandler<UserEvent> for Handler {
                     if id == root_widget.base().id() {
                         self.root_widget = None;
                         with_active_event_loop(|event_loop| event_loop.exit());
-                    } else if let Some(address) = address(id) {
-                        if let Some(parent_id) = address.parent_widget_id() {
-                            if let Ok(parent) =
-                                get_widget_by_id_mut(root_widget.as_mut(), parent_id)
-                            {
-                                match parent
-                                    .base_mut()
-                                    .remove_child(&address.path.last().unwrap().0)
-                                {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        warn!("failed to remove widget: {:?}", err);
-                                    }
-                                }
-                            } else {
-                                warn!("DeleteWidget: failed to get parent widget");
-                            }
-                        } else {
-                            warn!("DeleteWidget: no parent");
-                        }
-                    } else {
-                        warn!("DeleteWidget: no address");
+                    } else if let Err(err) = root_widget.base_mut().remove_child_by_id(id) {
+                        warn!("failed to remove widget: {:?}", err);
                     }
                 }
             }
@@ -337,7 +292,10 @@ impl ApplicationHandler<UserEvent> for Handler {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         ACTIVE_EVENT_LOOP.set(event_loop, || {
             self.before_handler();
-            let next_timer = with_system(|system| system.timers.next_instant());
+            let next_timer = self
+                .root_widget
+                .as_ref()
+                .and_then(|w| w.base().app().next_timer_instant());
             if let Some(next_timer) = next_timer {
                 event_loop.set_control_flow(ControlFlow::WaitUntil(next_timer));
             } else {
@@ -346,4 +304,23 @@ impl ApplicationHandler<UserEvent> for Handler {
             self.after_widget_activity();
         })
     }
+}
+
+fn dispatch_widget_callback(
+    root_widget: &mut dyn Widget,
+    callback_id: CallbackId,
+    event: Box<dyn Any + Send>,
+) {
+    let Some(callback) = root_widget.base().app().widget_callback(callback_id) else {
+        warn!("unknown widget callback id");
+        return;
+    };
+    let Some(address) = root_widget.base().app().address(callback.widget_id) else {
+        return;
+    };
+    let Ok(widget) = get_widget_by_address_mut(root_widget, &address) else {
+        return;
+    };
+    (callback.func)(widget, event).or_report_err();
+    widget.update_accessibility_node();
 }

@@ -5,9 +5,9 @@ use {
         draw::DrawEvent,
         event::FocusReason,
         event_loop::{with_active_event_loop, UserEvent},
-        system::with_system,
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
+        App,
     },
     accesskit::NodeId,
     anyhow::{bail, Context},
@@ -30,6 +30,7 @@ use {
     winit::{
         dpi::{PhysicalPosition, PhysicalSize},
         event::{ElementState, MouseButton, WindowEvent},
+        event_loop::EventLoopProxy,
         keyboard::ModifiersState,
         window::{
             CursorIcon, Fullscreen, Icon, Theme, WindowAttributes, WindowButtons, WindowLevel,
@@ -118,6 +119,7 @@ pub struct SharedWindowInner {
     pub is_delete_widget_on_close_enabled: bool,
 
     pub attributes: Attributes,
+    pub event_loop_proxy: EventLoopProxy<UserEvent>,
 }
 
 #[derive(Debug)]
@@ -174,8 +176,8 @@ impl Default for Attributes {
 pub struct SharedWindow(Rc<RefCell<SharedWindowInner>>);
 
 impl SharedWindow {
-    pub(crate) fn new(root_widget_id: RawWidgetId) -> Self {
-        let window = SharedWindow(Rc::new(RefCell::new(SharedWindowInner {
+    pub(crate) fn new(root_widget_id: RawWidgetId, app: &App) -> Self {
+        SharedWindow(Rc::new(RefCell::new(SharedWindowInner {
             id: WindowId(RawWidgetId::new_unique()),
             root_widget_id,
             cursor_position: None,
@@ -209,20 +211,12 @@ impl SharedWindow {
             // This is updated in `init_window`
             preferred_inner_size: Size::default(),
             attributes: Attributes::default(),
-        })));
+            event_loop_proxy: app.event_loop_proxy(),
+        })))
+    }
 
-        let info = WindowInfo {
-            id: window.id(),
-            root_widget_id,
-            shared_window: window.clone(),
-        };
-        // TODO: when to remove?
-        with_system(|system| {
-            system.windows.insert(info.id, info);
-            system.had_any_windows = true;
-        });
-
-        window
+    pub fn try_remove(self) -> bool {
+        Rc::try_unwrap(self.0).is_ok()
     }
 
     pub fn has_winit_window(&self) -> bool {
@@ -356,7 +350,7 @@ impl SharedWindow {
             accesskit_winit::Adapter::with_event_loop_proxy(
                 event_loop,
                 &winit_window,
-                with_system(|system| system.event_loop_proxy.clone()),
+                root_widget.base().app().event_loop_proxy(),
             )
         });
         winit_window.set_visible(inner.attributes.visible);
@@ -367,16 +361,11 @@ impl SharedWindow {
         inner.accesskit_adapter = Some(Mutex::new(accesskit_adapter));
         drop(inner_guard);
 
-        let window_info = WindowInfo {
-            id: self.id(),
-            root_widget_id: self.root_widget_id(),
-            shared_window: self.clone(),
-        };
-        // TODO: when to remove?
-        with_system(|system| {
-            system.windows_by_winit_id.insert(winit_id, window_info);
-        });
-        if with_system(|system| system.config.fixed_scale).is_none() {
+        root_widget
+            .base()
+            .app()
+            .add_winit_window(winit_id, self.id());
+        if root_widget.base().app().config().fixed_scale.is_none() {
             if root_widget.base().self_scale().is_some_and(|widget_scale| {
                 (widget_scale - winit_window.scale_factor() as f32).abs() >= 0.1
             }) {
@@ -396,6 +385,10 @@ impl SharedWindow {
 
     pub fn id(&self) -> WindowId {
         self.0.borrow().id
+    }
+
+    pub(crate) fn winit_id(&self) -> Option<winit::window::WindowId> {
+        self.0.borrow().winit_window.as_ref().map(|w| w.id())
     }
 
     pub fn root_widget_id(&self) -> RawWidgetId {
@@ -514,9 +507,7 @@ impl SharedWindow {
         // TODO: add option to confirm close or do something else
         if self.is_delete_widget_on_close_enabled() {
             let event = UserEvent::DeleteWidget(self.root_widget_id());
-            with_system(|system| {
-                let _ = system.event_loop_proxy.send_event(event);
-            });
+            let _ = self.0.borrow().event_loop_proxy.send_event(event);
         }
     }
 
@@ -595,7 +586,7 @@ impl SharedWindow {
         }
     }
 
-    pub(crate) fn prepare_draw(&self) -> Option<DrawEvent> {
+    pub(crate) fn prepare_draw(&self, app: &App) -> Option<DrawEvent> {
         let this = &mut *self.0.borrow_mut();
         if this.winit_window.is_none() {
             warn!("cannot draw without a window");
@@ -640,7 +631,7 @@ impl SharedWindow {
             ),
         );
         // TODO: option to turn off background, allow customizing with classes or inline style
-        let color = with_system(|system| system.style.root_background_color());
+        let color = app.style().root_background_color();
         this.pixmap.borrow_mut().fill(color);
         this.pending_redraw = false;
         Some(draw_event)
@@ -1069,19 +1060,6 @@ impl SharedWindow {
             }
             this.attributes.skip_windows_taskbar = Some(value);
         }
-    }
-
-    pub(crate) fn deregister(&self) {
-        let this = self.0.borrow();
-        let id = this.id;
-        let winit_id = this.winit_window.as_ref().map(|w| w.id());
-        drop(this);
-        with_system(|system| {
-            system.windows.remove(&id);
-            if let Some(winit_id) = winit_id {
-                system.windows_by_winit_id.remove(&winit_id);
-            }
-        });
     }
 }
 

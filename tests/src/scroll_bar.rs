@@ -78,7 +78,7 @@ impl Widget for RootWidget {
     impl_widget_base!();
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
-        let id = self.base.id();
+        let callbacks = self.base.callback_creator();
 
         let window = self.base.declare_child::<Window>(module_path!().into());
 
@@ -88,7 +88,7 @@ impl Widget for RootWidget {
             .set_value_range(self.range.clone())
             .set_focusable(self.focusable)
             .set_value(self.value)
-            .on_value_changed(id.callback(Self::on_scroll_bar_value_changed));
+            .on_value_changed(callbacks.create(Self::on_scroll_bar_value_changed));
 
         window
             .base_mut()
