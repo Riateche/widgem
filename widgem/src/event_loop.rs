@@ -114,7 +114,7 @@ impl Handler {
         //println!("after widget activity1 ok");
 
         if root_widget.base().app().should_exit() {
-            with_active_event_loop(|event_loop| event_loop.exit());
+            root_widget.base().app().exit();
         }
     }
 }

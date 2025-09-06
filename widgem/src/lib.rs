@@ -25,7 +25,6 @@ pub mod widgets;
 mod window_handler;
 
 use crate::types::Rect;
-use event_loop::with_active_event_loop;
 
 pub use {
     crate::{
@@ -41,10 +40,6 @@ pub use {
         WidgetId, WidgetNotFound, Window,
     },
 };
-
-pub fn exit() {
-    with_active_event_loop(|event_loop| event_loop.exit());
-}
 
 #[derive(Debug, Clone)]
 pub struct ScrollToRectRequest {

@@ -9,13 +9,13 @@ use std::{
 use anyhow::{anyhow, Context as _};
 use cosmic_text::{FontSystem, SwashCache};
 use tracing::warn;
-use winit::event_loop::EventLoopProxy;
+use winit::{event_loop::EventLoopProxy, monitor::MonitorHandle};
 
 use crate::{
     app_builder::AppBuilder,
     callback::{Callback, CallbackId, WidgetCallbackData},
     event::{FocusReason, KeyboardInputEvent},
-    event_loop::UserEvent,
+    event_loop::{with_active_event_loop, UserEvent},
     shared_window::{
         ScrollToRectRequest, SetFocusRequest, SharedWindow, WindowId, WindowInfo, WindowRequest,
     },
@@ -250,6 +250,11 @@ impl App {
         data.had_any_windows && data.windows.is_empty() && data.config.exit_after_last_window_closes
     }
 
+    /// Trigger shutdown of the application.
+    pub fn exit(&self) {
+        with_active_event_loop(|event_loop| event_loop.exit());
+    }
+
     pub(crate) fn event_loop_proxy(&self) -> EventLoopProxy<UserEvent> {
         let data = self.data.borrow();
         data.event_loop_proxy.clone()
@@ -364,5 +369,13 @@ impl App {
     {
         let mut data = self.data.borrow_mut();
         f(&mut data.current_layout_state)
+    }
+
+    pub fn available_monitors(&self) -> impl Iterator<Item = MonitorHandle> {
+        with_active_event_loop(|e| e.available_monitors())
+    }
+
+    pub fn primary_monitor(&self) -> Option<MonitorHandle> {
+        with_active_event_loop(|e| e.primary_monitor())
     }
 }

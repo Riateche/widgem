@@ -400,7 +400,7 @@ impl Widget for TesterUi {
             .declare_child::<Button>("Skip snapshot".into())
             .on_triggered(callbacks.create(move |w, _e| {
                 if !w.reviewer.go_to_next_unconfirmed_snapshot() {
-                    widgem::exit();
+                    w.base.app().exit();
                 }
                 w.base.update();
                 Ok(())
@@ -414,7 +414,7 @@ impl Widget for TesterUi {
                 w.reviewer.go_to_next_test_case();
                 if !w.reviewer.has_unconfirmed() {
                     if !w.reviewer.go_to_next_unconfirmed_snapshot() {
-                        widgem::exit();
+                        w.base.app().exit();
                     }
                 }
                 w.base.update();

@@ -4,7 +4,6 @@ use {
         callback::Callback,
         child_key::ChildKey,
         event::{Event, FocusReason},
-        event_loop::with_active_event_loop,
         layout::{Layout, LayoutItemOptions, SizeHint},
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
@@ -38,17 +37,15 @@ fn default_scale(app: &App) -> f32 {
     if let Some(scale) = app.config().fixed_scale {
         return scale;
     }
-    with_active_event_loop(|event_loop| {
-        let monitor = event_loop
-            .primary_monitor()
-            .or_else(|| event_loop.available_monitors().next());
-        if let Some(monitor) = monitor {
-            monitor.scale_factor() as f32
-        } else {
-            warn!("unable to find any monitors");
-            1.0
-        }
-    })
+    let monitor = app
+        .primary_monitor()
+        .or_else(|| app.available_monitors().next());
+    if let Some(monitor) = monitor {
+        monitor.scale_factor() as f32
+    } else {
+        warn!("unable to find any monitors");
+        1.0
+    }
 }
 
 #[derive(Debug)]

@@ -7,7 +7,7 @@ use {
         event_loop::{with_active_event_loop, UserEvent},
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
-        App,
+        App, MonitorExt,
     },
     accesskit::NodeId,
     anyhow::{bail, Context},
@@ -232,27 +232,29 @@ impl SharedWindow {
 
         let mut monitor_scale = None;
         let mut monitor_rect = None;
-        with_active_event_loop(|event_loop| {
-            if let Some(outer_position) = inner.attributes.outer_position {
-                for monitor in event_loop.available_monitors() {
-                    let rect =
-                        Rect::from_pos_size(monitor.position().into(), monitor.size().into());
-                    if rect.contains(outer_position) {
-                        monitor_scale = Some(monitor.scale_factor() as f32);
-                        monitor_rect = Some(rect);
-                        return;
-                    }
+        if let Some(outer_position) = inner.attributes.outer_position {
+            for monitor in root_widget.base().app().available_monitors() {
+                let rect = monitor.rect();
+                if rect.contains(outer_position) {
+                    monitor_scale = Some(monitor.scale_factor() as f32);
+                    monitor_rect = Some(rect);
+                    break;
                 }
             }
-            if let Some(monitor) = event_loop
+        }
+        if monitor_scale.is_none() || monitor_rect.is_none() {
+            if let Some(monitor) = root_widget
+                .base()
+                .app()
                 .primary_monitor()
-                .or_else(|| event_loop.available_monitors().next())
+                .or_else(|| root_widget.base().app().available_monitors().next())
             {
                 let rect = Rect::from_pos_size(monitor.position().into(), monitor.size().into());
                 monitor_scale = Some(monitor.scale_factor() as f32);
                 monitor_rect = Some(rect);
             }
-        });
+        }
+
         if let Some(monitor_scale) = monitor_scale {
             root_widget.set_scale(Some(monitor_scale));
         }
