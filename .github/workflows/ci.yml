@@ -29,17 +29,8 @@ jobs:
             libxcb1-dev libxrandr-dev \
             libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
             libgbm-dev
-      - name: Build tests
-        run: |
-          cargo build --package widgem_tests --locked
-      - name: Build test environment Docker image
-        run: |
-          docker build --file tests/scripts/xfce.Dockerfile --tag widgem_xfce tests/scripts
       - name: Run UI tests
-        run: |
-          docker run --name widgem_xfce \
-            --mount "type=bind,source=$PWD,target=/app" \
-            widgem_xfce /app/target/debug/widgem_tests test
+        run: ./tests/scripts/run_tests.sh
       - name: Upload test snapshots on failure
         if: failure()
         uses: actions/upload-artifact@v4

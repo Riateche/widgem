@@ -13,8 +13,8 @@ if [[ "$OSTYPE" =~ ^darwin ]]; then
         --stderr ./target/stderr \
         --stdout ./target/stdout \
         --args \
-        "$PWD/tests" --run-script "$PWD/tests/scripts/run_in_docker.sh"
+        "$PWD/tests" --run-script "$PWD/tests/scripts/run_tests.sh"
     tail -f ./target/stderr ./target/stdout
 else
-    cargo run --bin widgem_tester -- tests --run-script tests/scripts/run_in_docker.sh
+    cargo run --bin widgem_tester -- tests --run-script tests/scripts/run_tests.sh
 fi

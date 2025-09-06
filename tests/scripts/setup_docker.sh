@@ -7,10 +7,12 @@ set -ex -o pipefail
 
 cd "$(dirname "$0")/../.."
 
-# widgem_builder image is used to build test binaries for widgem_xfce environment while
-# keeping cache and build artifacts in target/docker, not relying on the docker's cache.
-mkdir -p target/.empty
-docker build --file tests/scripts/builder.Dockerfile --tag widgem_builder target/.empty
+if [[ -z "$CI" ]]; then
+    # widgem_builder image is used to build test binaries for widgem_xfce environment while
+    # keeping cache and build artifacts in target/docker, not relying on the docker's cache.
+    mkdir -p target/.empty
+    docker build --file tests/scripts/builder.Dockerfile --tag widgem_builder target/.empty
+fi
 
 # widgem_xfce is an Ubuntu image with XFCE environment and a VNC server.
 # It's used to run tests in a reproducible way.
