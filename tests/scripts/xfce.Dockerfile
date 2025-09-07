@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
     chmod +x /root/.vnc/xstartup && \
     echo "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd && \
     chmod 0600 /root/.vnc/passwd && \
-    touch /root/.Xauthority
+    touch /root/.Xauthority && \
+    echo "Xft.dpi: 96" > /root/.Xresources
+
 COPY xfce_entrypoint.sh /entrypoint
 ENTRYPOINT ["/entrypoint"]

@@ -42,18 +42,52 @@ else
     BIN_DIR="/app/target/$BUILD_MODE"
 fi
 
-# Run test binary in the widgem_xfce container.
+# Run test binaries in the widgem_xfce container.
 if [[ $# -gt 0 ]]; then
     docker exec widgem_xfce "$BIN_DIR/widgem_tests" $*
 else
     docker exec widgem_xfce "$BIN_DIR/widgem_tests" test
-    RESULT=$(docker exec widgem_xfce "$BIN_DIR/work_area")
+
+    # Run extra tests
+
+    RESULT="$(docker exec widgem_xfce "$BIN_DIR/work_area")"
     EXPECTED="[(0, 27, 1600, 873)]"
-    if [ "$RESULT" = "$EXPECTED" ]; then
-        echo "Correct"
-    else
+    { set +x; } 2>/dev/null
+    if [ "$RESULT" != "$EXPECTED" ]; then
         echo "Expected '$EXPECTED', got '$RESULT'"
         exit 1
     fi
-fi
+    set -x
 
+    test_work_area() {
+        CONFIG="$1"
+        EXPECTED="$2"
+        RESULT="$(
+            docker run --rm \
+                --name widgem_xfce2 \
+                --mount "type=bind,source=$PWD,target=/app" \
+                --mount "type=bind,source=$PWD/tests/xfce/xfce4-panel-$CONFIG.xml,target=/root/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml" \
+                --publish 25902:5901 \
+                widgem_xfce \
+                "$BIN_DIR/work_area" \
+            | tail -1
+        )"
+        { set +x; } 2>/dev/null
+        if [ "$RESULT" != "$EXPECTED" ]; then
+            echo "Expected '$EXPECTED', got '$RESULT'"
+            exit 1
+        fi
+        set -x
+    }
+
+    test_work_area top50 "[(0, 51, 1600, 849)]"
+    # 900 - 51 - 26 = 823
+    test_work_area top50-bottom25 "[(0, 51, 1600, 823)]"
+
+    test_work_area left26-bottom48 "[(27, 0, 1573, 851)]"
+    test_work_area right26-bottom48 "[(0, 0, 1573, 851)]"
+    test_work_area middle-vertical-bottom48 "[(0, 0, 1600, 851)]"
+fi
+{ set +x; } 2>/dev/null
+echo "extra tests succeeded"
+set -x
