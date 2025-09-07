@@ -293,7 +293,7 @@ pub trait Widget: Any {
     /// the focused widget within that window is still considered focused.
     /// Use [handle_window_focus_change](Self::handle_window_focus_change) to track window focus.
     ///
-    /// You should not call this function directly. Use [send_window_request](crate::system::send_window_request)
+    /// You should not call this function directly. Use [WidgetBase::set_focus](WidgetBase::set_focus)
     /// to request focus for a widget.
     ///
     /// Implement this function to perform a custom action when your widget gains focus or if you're interested
@@ -322,7 +322,7 @@ pub trait Widget: Any {
     /// the focused widget within that window is still considered focused.
     /// Use [handle_window_focus_change](Self::handle_window_focus_change) to track window focus.
     ///
-    /// You should not call this function directly. Use [send_window_request](crate::system::send_window_request)
+    /// You should not call this function directly. Use [WidgetBase::set_focus](WidgetBase::set_focus)
     /// to request focus for a widget.
     ///
     /// Implement this function to perform a custom action when your widget loses focus.
@@ -560,7 +560,7 @@ pub trait Widget: Any {
     /// is delivered to all the parents of the widget that requested it, starting from the root widget.
     ///
     /// You should not call this function directly. To trigger it,
-    /// use [send_window_request](crate::system::send_window_request).
+    /// use [WidgetBase::ensure_rect_visible](WidgetBase::ensure_rect_visible).
     ///
     /// Implement this function in a rare case that your widget implements a container with a custom layout which may
     /// position children outside of its boundary. You don't need to implement this function if you're

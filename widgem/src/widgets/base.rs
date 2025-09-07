@@ -848,7 +848,7 @@ impl WidgetBase {
     /// layout, drawing, and event processing ([crate::types::PhysicalPixels]).
     ///
     /// By default, scale is determined by the scale factor reported by the OS for the OS window
-    /// that contains the widget. Scale may be overriden with [App::set_scale](crate::App::with_scale),
+    /// that contains the widget. Scale may be overriden with [AppBuilder::set_scale](crate::AppBuilder::with_scale),
     /// in which case the OS scale is ignored.
     ///
     /// Scale can be changed manually for any widget
