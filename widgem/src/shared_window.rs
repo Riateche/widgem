@@ -5,7 +5,7 @@ use {
         draw::DrawEvent,
         event::FocusReason,
         event_loop::{with_active_event_loop, UserEvent},
-        types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
+        types::{PhysicalPixels, Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
         App, MonitorExt,
     },
@@ -231,27 +231,25 @@ impl SharedWindow {
         }
 
         let mut monitor_scale = None;
-        let mut monitor_rect = None;
+        let mut monitor_work_area = None;
         if let Some(outer_position) = inner.attributes.outer_position {
             for monitor in root_widget.base().app().available_monitors() {
-                let rect = monitor.rect();
-                if rect.contains(outer_position) {
+                if monitor.rect().contains(outer_position) {
                     monitor_scale = Some(monitor.scale_factor() as f32);
-                    monitor_rect = Some(rect);
+                    monitor_work_area = Some(monitor.work_area());
                     break;
                 }
             }
         }
-        if monitor_scale.is_none() || monitor_rect.is_none() {
+        if monitor_scale.is_none() || monitor_work_area.is_none() {
             if let Some(monitor) = root_widget
                 .base()
                 .app()
                 .primary_monitor()
                 .or_else(|| root_widget.base().app().available_monitors().next())
             {
-                let rect = Rect::from_pos_size(monitor.position().into(), monitor.size().into());
                 monitor_scale = Some(monitor.scale_factor() as f32);
-                monitor_rect = Some(rect);
+                monitor_work_area = Some(monitor.work_area());
             }
         }
 
@@ -261,7 +259,7 @@ impl SharedWindow {
 
         let size_hints_x = root_widget.size_hint_x(None);
 
-        let size_x = if let Some(monitor_rect) = monitor_rect {
+        let size_x = if let Some(monitor_rect) = monitor_work_area {
             max(
                 size_hints_x.min(),
                 min(size_hints_x.preferred(), monitor_rect.size_x()),
@@ -274,26 +272,38 @@ impl SharedWindow {
         let size_hint_y_preferred = root_widget
             .size_hint_y(size_hints_x.preferred())
             .preferred();
-        let size_y = if let Some(monitor_rect) = monitor_rect {
+        let size_y = if let Some(monitor_rect) = monitor_work_area {
             max(
                 size_hint_y_min,
-                min(size_hint_y_preferred, monitor_rect.size_y() - 200.ppx()), // TMP!
+                min(size_hint_y_preferred, monitor_rect.size_y()),
             )
         } else {
             max(size_hint_y_min, size_hint_y_preferred)
         };
         let min_size = Size::new(size_hints_x.min(), size_hint_y_min);
 
+        info!(
+            "requested window position: {:?}",
+            inner.attributes.outer_position
+        );
         let position = inner.attributes.outer_position.take().map(|position| {
-            if let Some(monitor_rect) = monitor_rect {
+            if let Some(monitor_rect) = monitor_work_area {
                 Point::new(
-                    min(position.x(), monitor_rect.right() - size_x),
-                    min(position.y(), monitor_rect.bottom() - 100.ppx() - size_y), // TMP!
+                    position
+                        .x()
+                        .clamp(monitor_rect.left(), monitor_rect.right() - size_x),
+                    position
+                        .y()
+                        .clamp(monitor_rect.top(), monitor_rect.bottom() - size_y),
                 )
             } else {
                 position
             }
         });
+        info!(
+            "window position adjusted to monitor work area: {:?}",
+            position
+        );
 
         let mut attrs = WindowAttributes::default()
             .with_inner_size(PhysicalSize::from(Size::new(size_x, size_y)))
@@ -356,6 +366,10 @@ impl SharedWindow {
             )
         });
         winit_window.set_visible(inner.attributes.visible);
+        info!(
+            "real window position after creation: {:?}",
+            winit_window.outer_position(),
+        );
         let winit_id = winit_window.id();
         inner.winit_window = Some(winit_window.clone());
         inner.softbuffer_context = Some(softbuffer_context);
