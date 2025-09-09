@@ -24,7 +24,9 @@ pub mod types;
 pub mod widgets;
 mod window_handler;
 
-use crate::types::Rect;
+use winit::monitor::MonitorHandle;
+
+use crate::types::{Point, Rect, Size};
 
 pub use {
     crate::{
@@ -45,4 +47,17 @@ pub use {
 pub struct ScrollToRectRequest {
     pub address: WidgetAddress,
     pub rect: Rect,
+}
+
+#[derive(Debug, Clone)]
+pub struct WindowRectRequest {
+    pub suggested_position: Option<Point>,
+    pub suggested_size: Size,
+    pub monitor: Option<MonitorHandle>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WindowRectResponse {
+    pub position: Option<Point>,
+    pub size: Option<Size>,
 }

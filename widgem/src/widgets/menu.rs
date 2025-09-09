@@ -8,9 +8,9 @@ use {
         shared_window::X11WindowType,
         system::ReportError,
         text_editor::{Text, TextStyle},
-        types::{PhysicalPixels, Point},
+        types::{PhysicalPixels, Point, PpxSuffix, Size},
         widgets::{widget_trait::NewWidget, Column, ScrollArea},
-        WidgetExt,
+        WidgetExt, WindowRectRequest, WindowRectResponse,
     },
     tracing::error,
     winit::window::WindowLevel,
@@ -113,6 +113,16 @@ impl Widget for Menu {
     fn handle_layout(&mut self, _event: LayoutEvent) -> anyhow::Result<()> {
         default_layout(self);
         Ok(())
+    }
+
+    fn handle_window_rect_request(
+        &mut self,
+        _request: WindowRectRequest,
+    ) -> anyhow::Result<WindowRectResponse> {
+        Ok(WindowRectResponse {
+            position: Some(Point::new(100.ppx(), 100.ppx())),
+            size: Some(Size::new(500.ppx(), 500.ppx())),
+        })
     }
 }
 

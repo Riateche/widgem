@@ -5,9 +5,10 @@ use {
         draw::DrawEvent,
         event::FocusReason,
         event_loop::{with_active_event_loop, UserEvent},
+        system::ReportError,
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::{RawWidgetId, Widget, WidgetAddress, WidgetExt},
-        App, MonitorExt,
+        App, MonitorExt, WindowRectRequest,
     },
     accesskit::NodeId,
     anyhow::{bail, Context},
@@ -230,35 +231,29 @@ impl SharedWindow {
             return;
         }
 
-        let mut monitor_scale = None;
-        let mut monitor_work_area = None;
+        let mut monitor = None;
         if let Some(outer_position) = inner.attributes.outer_position {
             for monitor in root_widget.base().app().available_monitors() {
                 if monitor.rect().contains(outer_position) {
-                    monitor_scale = Some(monitor.scale_factor() as f32);
-                    monitor_work_area = Some(monitor.work_area());
                     break;
                 }
             }
         }
-        if monitor_scale.is_none() || monitor_work_area.is_none() {
-            if let Some(monitor) = root_widget
+        if monitor.is_none() {
+            monitor = root_widget
                 .base()
                 .app()
                 .primary_monitor()
-                .or_else(|| root_widget.base().app().available_monitors().next())
-            {
-                monitor_scale = Some(monitor.scale_factor() as f32);
-                monitor_work_area = Some(monitor.work_area());
-            }
+                .or_else(|| root_widget.base().app().available_monitors().next());
         }
 
-        if let Some(monitor_scale) = monitor_scale {
-            root_widget.set_scale(Some(monitor_scale));
+        if let Some(monitor) = &monitor {
+            root_widget.set_scale(Some(monitor.scale_factor() as f32));
         }
 
         let size_hints_x = root_widget.size_hint_x(None);
 
+        let monitor_work_area = monitor.as_ref().map(|m| m.work_area());
         let size_x = if let Some(monitor_rect) = monitor_work_area {
             max(
                 size_hints_x.min(),
@@ -280,21 +275,22 @@ impl SharedWindow {
         } else {
             max(size_hint_y_min, size_hint_y_preferred)
         };
+        let mut size = Size::new(size_x, size_y);
         let min_size = Size::new(size_hints_x.min(), size_hint_y_min);
 
         info!(
             "requested window position: {:?}",
             inner.attributes.outer_position
         );
-        let position = inner.attributes.outer_position.take().map(|position| {
+        let mut position = inner.attributes.outer_position.take().map(|position| {
             if let Some(monitor_rect) = monitor_work_area {
                 Point::new(
                     position
                         .x()
-                        .clamp(monitor_rect.left(), monitor_rect.right() - size_x),
+                        .clamp(monitor_rect.left(), monitor_rect.right() - size.x()),
                     position
                         .y()
-                        .clamp(monitor_rect.top(), monitor_rect.bottom() - size_y),
+                        .clamp(monitor_rect.top(), monitor_rect.bottom() - size.y()),
                 )
             } else {
                 position
@@ -305,8 +301,24 @@ impl SharedWindow {
             position
         );
 
+        if let Some(window_rect_response) = root_widget
+            .handle_window_rect_request(WindowRectRequest {
+                suggested_position: position,
+                suggested_size: size,
+                monitor,
+            })
+            .or_report_err()
+        {
+            if let Some(new_position) = window_rect_response.position {
+                position = Some(new_position);
+            }
+            if let Some(new_size) = window_rect_response.size {
+                size = new_size;
+            }
+        }
+
         let mut attrs = WindowAttributes::default()
-            .with_inner_size(PhysicalSize::from(Size::new(size_x, size_y)))
+            .with_inner_size(PhysicalSize::from(size))
             .with_min_inner_size(PhysicalSize::from(min_size))
             .with_resizable(inner.attributes.resizable)
             .with_enabled_buttons(inner.attributes.enabled_buttons)

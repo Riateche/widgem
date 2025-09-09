@@ -9,7 +9,7 @@ use {
         },
         layout::{self, default_layout, default_size_hint_y, SizeHint},
         types::PhysicalPixels,
-        ScrollToRectRequest,
+        ScrollToRectRequest, WindowRectRequest, WindowRectResponse,
     },
     anyhow::Result,
     std::any::Any,
@@ -570,6 +570,17 @@ pub trait Widget: Any {
         // (in case there are multiple nested scroll areas)
         let _ = request;
         Ok(false)
+    }
+
+    fn handle_window_rect_request(
+        &mut self,
+        request: WindowRectRequest,
+    ) -> Result<WindowRectResponse> {
+        let _ = request;
+        Ok(WindowRectResponse {
+            position: None,
+            size: None,
+        })
     }
 }
 
