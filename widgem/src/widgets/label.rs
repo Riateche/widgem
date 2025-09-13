@@ -1,10 +1,6 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{
-        impl_widget_base,
-        text_editor::Text,
-        widgets::widget_trait::{NewWidget, WidgetInitializer},
-    },
+    crate::{impl_widget_base, text_editor::Text, widgets::widget_trait::WidgetInitializer},
     cosmic_text::Attrs,
     std::fmt::Display,
 };
@@ -52,21 +48,6 @@ impl WidgetInitializer for Initializer {
 
     fn reinit(self, widget: &mut Self::Output) {
         widget.set_text(self.text);
-    }
-}
-
-impl NewWidget for Label {
-    type Arg = String;
-
-    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
-        let id = base.id().raw();
-        let text_style = base.compute_style();
-        base.add_child(Text::init(arg, text_style)).set_host_id(id);
-        Self { base }
-    }
-
-    fn handle_declared(&mut self, arg: Self::Arg) {
-        self.set_text(arg);
     }
 }
 

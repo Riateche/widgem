@@ -5,6 +5,7 @@ edition = "2021"
 description = "Tests for widgem widget toolkit"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Riateche/widgem"
+default-run = "widgem_tests"
 
 [package.metadata.bundle.bin.widgem_tests]
 identifier = "io.github.Riateche.widgem.tests"

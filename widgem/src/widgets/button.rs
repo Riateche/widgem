@@ -15,7 +15,7 @@ use {
         },
         text_editor::Text,
         timer::TimerId,
-        widgets::widget_trait::{NewWidget, WidgetInitializer},
+        widgets::widget_trait::WidgetInitializer,
         Pixmap,
     },
     accesskit::{Action, Role},
@@ -206,38 +206,6 @@ impl WidgetInitializer for Initializer {
 
     fn reinit(self, widget: &mut Self::Output) {
         widget.set_text(self.text);
-    }
-}
-
-impl NewWidget for Button {
-    type Arg = String;
-
-    fn new(mut base: WidgetBaseOf<Self>, text: Self::Arg) -> Self {
-        base.set_supports_focus(true);
-        base.set_layout(Layout::HorizontalFirst);
-        base.add_child(Image::init(None)).set_visible(false);
-        let id = base.id().raw();
-        let text_style = base.compute_style();
-        base.add_child(Text::init(text, text_style)).set_host_id(id);
-        let mut b = Self {
-            style: base.compute_style(),
-            auto_repeat: false,
-            is_mouse_leave_sensitive: true,
-            trigger_on_press: false,
-            on_triggered: Callbacks::default(),
-            is_pressed: false,
-            was_pressed_but_moved_out: false,
-            base,
-            auto_repeat_delay_timer: None,
-            auto_repeat_interval: None,
-        };
-        // TODO: remove and use declare_children
-        b.refresh_style();
-        b
-    }
-
-    fn handle_declared(&mut self, arg: Self::Arg) {
-        self.set_text(arg);
     }
 }
 

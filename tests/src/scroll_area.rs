@@ -9,17 +9,17 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         let content = r
             .base_mut()
-            .add_child::<Window>(module_path!().into())
+            .add_child(Window::init(module_path!().into()))
             .set_padding_enabled(false)
             .base_mut()
-            .add_child::<ScrollArea>(())
+            .add_child(ScrollArea::init())
             .set_size_x_fixed(Some(false))
-            .set_content::<Column>(());
+            .set_content(Column::init());
 
         for i in 0..20 {
             content
                 .base_mut()
-                .add_child::<Label>(format!("text item {i}"));
+                .add_child(Label::init(format!("text item {i}")));
         }
         Ok(())
     })?;
@@ -57,20 +57,20 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn layout(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        let window = r.base_mut().add_child::<Window>(module_path!().into());
-        window.base_mut().add_child::<Label>("before".into());
+        let window = r.base_mut().add_child(Window::init(module_path!().into()));
+        window.base_mut().add_child(Label::init("before".into()));
         let content = window
             .base_mut()
-            .add_child::<ScrollArea>(())
-            .set_content::<Column>(())
+            .add_child(ScrollArea::init())
+            .set_content(Column::init())
             .set_padding_enabled(false);
 
         for i in 0..20 {
             content
                 .base_mut()
-                .add_child::<Label>(format!("text item {i}"));
+                .add_child(Label::init(format!("text item {i}")));
         }
-        window.base_mut().add_child::<Label>("after".into());
+        window.base_mut().add_child(Label::init("after".into()));
         Ok(())
     })?;
 

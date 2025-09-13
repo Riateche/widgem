@@ -16,7 +16,7 @@ use {
         system::ReportError,
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
-        widgets::{widget_trait::WidgetInitializer, NewWidget},
+        widgets::widget_trait::WidgetInitializer,
         ScrollToRectRequest,
     },
     anyhow::Result,
@@ -30,13 +30,20 @@ struct Viewport {
     base: WidgetBaseOf<Self>,
 }
 
-impl NewWidget for Viewport {
-    type Arg = ();
+impl Viewport {
+    fn init() -> impl WidgetInitializer<Output = Self> {
+        struct Initializer;
 
-    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        Self { base }
+        impl WidgetInitializer for Initializer {
+            type Output = Viewport;
+            fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
+                Viewport { base }
+            }
+            fn reinit(self, _widget: &mut Self::Output) {}
+        }
+
+        Initializer
     }
-    fn handle_declared(&mut self, (): Self::Arg) {}
 }
 
 impl Widget for Viewport {
@@ -161,13 +168,13 @@ impl WidgetInitializer for Initializer {
         base.set_cursor_icon(CursorIcon::Text);
         let host_id = base.id();
         let text_style = base.compute_style();
-        let viewport = base.add_child_with_key::<Viewport>(0, ());
+        let viewport = base.add_child_with_key(0, Viewport::init());
         viewport.base_mut().set_receives_all_mouse_events(true);
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
         viewport.base_mut().set_layout(Layout::ExplicitGrid);
         let editor = viewport
             .base_mut()
-            .add_child_with_key::<Text>(0, (String::new(), text_style))
+            .add_child_with_key(0, Text::init(String::new(), text_style))
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into());
@@ -179,34 +186,6 @@ impl WidgetInitializer for Initializer {
     }
 
     fn reinit(self, _widget: &mut Self::Output) {}
-}
-
-impl NewWidget for TextInput {
-    // TODO: name or label ref?
-    type Arg = ();
-
-    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        base.set_supports_focus(true);
-        base.set_cursor_icon(CursorIcon::Text);
-        let host_id = base.id();
-        let text_style = base.compute_style();
-        let viewport = base.add_child_with_key::<Viewport>(0, ());
-        viewport.base_mut().set_receives_all_mouse_events(true);
-        viewport.base_mut().set_cursor_icon(CursorIcon::Text);
-        viewport.base_mut().set_layout(Layout::ExplicitGrid);
-        let editor = viewport
-            .base_mut()
-            .add_child_with_key::<Text>(0, (String::new(), text_style))
-            .set_multiline(false)
-            .set_editable(true)
-            .set_host_id(host_id.into());
-        editor.base_mut().set_receives_all_mouse_events(true);
-        Self {
-            style: base.compute_style(),
-            base,
-        }
-    }
-    fn handle_declared(&mut self, (): Self::Arg) {}
 }
 
 impl Widget for TextInput {

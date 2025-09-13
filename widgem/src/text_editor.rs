@@ -26,7 +26,7 @@ use {
         },
         timer::TimerId,
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
-        widgets::{NewWidget, RawWidgetId, Widget, WidgetBaseOf, WidgetExt, WidgetInitializer},
+        widgets::{RawWidgetId, Widget, WidgetBaseOf, WidgetExt, WidgetInitializer},
     },
     accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
     anyhow::Result,
@@ -1034,50 +1034,6 @@ impl WidgetInitializer for Initializer {
     fn reinit(self, widget: &mut Self::Output) {
         widget.set_text(self.text, Attrs::new());
         widget.set_text_style(self.style);
-    }
-}
-
-impl NewWidget for Text {
-    // TODO: config struct?
-    type Arg = (String, Rc<TextStyle>);
-
-    fn new(base: WidgetBaseOf<Self>, (text, style): (String, Rc<TextStyle>)) -> Self {
-        let editor = base.app().with_font_system(|font_system| {
-            Editor::new(Buffer::new(font_system, style.font_metrics))
-        });
-        let mut t = Self {
-            editor,
-            pixmap: None,
-            style,
-            size: Size::default(),
-            is_multiline: true,
-            is_editable: false,
-            is_cursor_hidden: true,
-            is_host_focused: false,
-            host_id: None,
-            forbid_mouse_interaction: false,
-            blink_timer: None,
-            selected_text: String::new(),
-            line_accessibility_node_id: new_accessibility_node_id(),
-            base,
-        };
-        if let Some(window) = t.base.window() {
-            window.remove_accessibility_node(
-                Some(t.base.id().into()),
-                t.line_accessibility_node_id,
-                0.into(),
-            );
-        }
-        t.editor.set_cursor_hidden(true);
-        t.set_text(text, Attrs::new());
-        t.reset_blink_timer();
-        t.request_scroll();
-        t
-    }
-
-    fn handle_declared(&mut self, (text, style): (String, Rc<TextStyle>)) {
-        self.set_text(text, Attrs::new());
-        self.set_text_style(style);
     }
 }
 

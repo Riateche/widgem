@@ -5,7 +5,7 @@ use {
         impl_widget_base,
         layout::SizeHint,
         types::{PhysicalPixels, Point, PpxSuffix},
-        widgets::widget_trait::{NewWidget, WidgetInitializer},
+        widgets::widget_trait::{WidgetInitializer},
         Pixmap,
     },
     anyhow::Result,
@@ -95,23 +95,6 @@ impl WidgetInitializer for Initializer {
 
     fn reinit(self, widget: &mut Self::Output) {
         widget.set_pixmap(self.pixmap);
-    }
-}
-
-impl NewWidget for Image {
-    type Arg = Option<Pixmap>;
-
-    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
-        Self {
-            base,
-            pixmap: arg,
-            is_prescaled: false,
-            scale: None,
-        }
-    }
-
-    fn handle_declared(&mut self, arg: Self::Arg) {
-        self.set_pixmap(arg);
     }
 }
 

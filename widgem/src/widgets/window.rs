@@ -1,10 +1,8 @@
 use {
     super::{Widget, WidgetBaseOf},
     crate::{
-        impl_widget_base,
-        shared_window::X11WindowType,
-        types::Point,
-        widgets::widget_trait::{NewWidget, WidgetInitializer},
+        impl_widget_base, shared_window::X11WindowType, types::Point,
+        widgets::widget_trait::WidgetInitializer,
     },
     std::fmt::Display,
     winit::window::WindowLevel,
@@ -65,20 +63,6 @@ impl WidgetInitializer for Initializer {
 
     fn reinit(self, widget: &mut Self::Output) {
         widget.set_title(self.title);
-    }
-}
-
-impl NewWidget for Window {
-    type Arg = String;
-
-    fn new(base: WidgetBaseOf<Self>, title: Self::Arg) -> Self {
-        let mut w = Self { base };
-        w.set_title(title);
-        w
-    }
-
-    fn handle_declared(&mut self, title: Self::Arg) {
-        self.set_title(title);
     }
 }
 

@@ -1,7 +1,7 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{NewWidget, TextInput, Widget, WidgetBaseOf, Window},
+        widgets::{TextInput, Widget, WidgetBaseOf, WidgetInitializer, Window},
     },
     widgem_tester::context::Context,
 };
@@ -10,20 +10,29 @@ pub struct RootWidget {
     base: WidgetBaseOf<Self>,
 }
 
-impl NewWidget for RootWidget {
-    type Arg = ();
+impl RootWidget {
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        Initializer
+    }
+}
 
-    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        let window = base.add_child::<Window>(module_path!().into());
+struct Initializer;
+
+impl WidgetInitializer for Initializer {
+    type Output = RootWidget;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        let window = base.add_child(Window::init(module_path!().into()));
 
         window
             .base_mut()
-            .add_child::<TextInput>(())
+            .add_child(TextInput::init())
             .set_text("Hello world");
 
-        Self { base }
+        RootWidget { base }
     }
-    fn handle_declared(&mut self, (): Self::Arg) {}
+
+    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for RootWidget {
@@ -33,7 +42,7 @@ impl Widget for RootWidget {
 #[widgem_tester::test]
 pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>(());
+        r.base_mut().add_child(RootWidget::init());
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -91,7 +100,7 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>(());
+        r.base_mut().add_child(RootWidget::init());
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -120,7 +129,7 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>(());
+        r.base_mut().add_child(RootWidget::init());
         Ok(())
     })?;
     ctx.set_blinking_expected(true);

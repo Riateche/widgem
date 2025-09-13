@@ -26,7 +26,6 @@ pub use self::{
     row::Row,
     scroll_area::{ScrollArea, ScrollBarPolicy},
     scroll_bar::ScrollBar,
-    stack::Stack,
     text_input::TextInput,
     window::Window,
 };
@@ -37,7 +36,7 @@ pub use self::{
     base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetGeometry},
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId},
-    widget_trait::{NewWidget, Widget, WidgetInitializer},
+    widget_trait::{Widget, WidgetInitializer},
 };
 
 use {anyhow::Result, std::fmt::Debug, thiserror::Error, tracing::warn};

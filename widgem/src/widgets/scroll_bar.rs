@@ -9,7 +9,7 @@ use {
         layout::{default_layout, Layout, SizeHint},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
-        widgets::widget_trait::{NewWidget, WidgetInitializer},
+        widgets::widget_trait::WidgetInitializer,
     },
     anyhow::Result,
     ordered_float::NotNan,
@@ -93,6 +93,10 @@ impl ScrollBar {
         if self.axis == axis {
             return self;
         }
+        self.set_axis_inner(axis)
+    }
+
+    fn set_axis_inner(&mut self, axis: Axis) -> &mut Self {
         self.axis = axis;
         self.set_layout(match axis {
             Axis::X => Layout::HorizontalFirst,
@@ -513,7 +517,7 @@ impl WidgetInitializer for Initializer {
         base.set_supports_focus(true).set_focusable(false);
         // TODO: localized name
 
-        base.add_child_with_key::<Button>(INDEX_DECREASE, names::SCROLL_LEFT.into())
+        base.add_child_with_key(INDEX_DECREASE, Button::init(names::SCROLL_LEFT.into()))
             // TODO: implement accessibility for scroll bar itself
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
@@ -522,14 +526,15 @@ impl WidgetInitializer for Initializer {
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
 
-        let axis = Axis::X;
         let pager = base
-            .add_child_with_key::<Pager>(INDEX_PAGER, ())
-            .set_axis(axis)
+            .add_child_with_key(INDEX_PAGER, Pager::init(self.axis))
             .set_layout(Layout::ExplicitGrid);
         pager
             .base
-            .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER, names::SCROLL_PAGER.into())
+            .add_child_with_key(
+                INDEX_BUTTON_IN_PAGER,
+                Button::init(names::SCROLL_PAGER.into()),
+            )
             .set_grid_cell(0, 0)
             .set_size_x_fixed(Some(false))
             .set_size_y_fixed(Some(false))
@@ -541,14 +546,14 @@ impl WidgetInitializer for Initializer {
             .set_trigger_on_press(true);
         pager
             .base
-            .add_child_with_key::<Button>(INDEX_GRIP_IN_PAGER, names::SCROLL_GRIP.into())
+            .add_child_with_key(INDEX_GRIP_IN_PAGER, Button::init(names::SCROLL_GRIP.into()))
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_grip_x".into())
             .set_text_visible(false)
             .set_mouse_leave_sensitive(false);
 
-        base.add_child_with_key::<Button>(INDEX_INCREASE, names::SCROLL_RIGHT.into())
+        base.add_child_with_key(INDEX_INCREASE, Button::init(names::SCROLL_RIGHT.into()))
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_right".into())
@@ -556,7 +561,7 @@ impl WidgetInitializer for Initializer {
             .set_auto_repeat(true)
             .set_trigger_on_press(true);
 
-        base.set_layout(match axis {
+        base.set_layout(match self.axis {
             Axis::X => Layout::HorizontalFirst,
             Axis::Y => Layout::VerticalFirst,
         });
@@ -565,7 +570,7 @@ impl WidgetInitializer for Initializer {
 
         let mut this = ScrollBar {
             base,
-            axis,
+            axis: self.axis,
             current_grip_pos: 0.ppx(),
             max_slider_pos: 0.ppx(),
             grip_size: Size::default(),
@@ -644,161 +649,13 @@ impl WidgetInitializer for Initializer {
                 Ok(false)
             });
 
-        this.set_axis(self.axis);
+        this.set_axis_inner(self.axis);
         this.update_decrease_increase();
         this
     }
 
     fn reinit(self, widget: &mut Self::Output) {
         widget.set_axis(self.axis);
-    }
-}
-
-impl NewWidget for ScrollBar {
-    type Arg = Axis;
-
-    fn new(mut base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self {
-        base.set_supports_focus(true).set_focusable(false);
-        // TODO: localized name
-
-        base.add_child_with_key::<Button>(INDEX_DECREASE, names::SCROLL_LEFT.into())
-            // TODO: implement accessibility for scroll bar itself
-            .set_accessibility_node_enabled(false)
-            .set_focusable(false)
-            .add_class("scroll_left".into())
-            .set_text_visible(false)
-            .set_auto_repeat(true)
-            .set_trigger_on_press(true);
-
-        let axis = Axis::X;
-        let pager = base
-            .add_child_with_key::<Pager>(INDEX_PAGER, ())
-            .set_axis(axis)
-            .set_layout(Layout::ExplicitGrid);
-        pager
-            .base
-            .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER, names::SCROLL_PAGER.into())
-            .set_grid_cell(0, 0)
-            .set_size_x_fixed(Some(false))
-            .set_size_y_fixed(Some(false))
-            .set_accessibility_node_enabled(false)
-            .set_focusable(false)
-            .add_class("scroll_pager".into())
-            .set_text_visible(false)
-            .set_auto_repeat(true)
-            .set_trigger_on_press(true);
-        pager
-            .base
-            .add_child_with_key::<Button>(INDEX_GRIP_IN_PAGER, names::SCROLL_GRIP.into())
-            .set_accessibility_node_enabled(false)
-            .set_focusable(false)
-            .add_class("scroll_grip_x".into())
-            .set_text_visible(false)
-            .set_mouse_leave_sensitive(false);
-
-        base.add_child_with_key::<Button>(INDEX_INCREASE, names::SCROLL_RIGHT.into())
-            .set_accessibility_node_enabled(false)
-            .set_focusable(false)
-            .add_class("scroll_right".into())
-            .set_text_visible(false)
-            .set_auto_repeat(true)
-            .set_trigger_on_press(true);
-
-        base.set_layout(match axis {
-            Axis::X => Layout::HorizontalFirst,
-            Axis::Y => Layout::VerticalFirst,
-        });
-
-        let callbacks = base.callback_creator();
-
-        let mut this = Self {
-            base,
-            axis,
-            current_grip_pos: 0.ppx(),
-            max_slider_pos: 0.ppx(),
-            grip_size: Size::default(),
-            value_range: 0..=100,
-            current_value: 0,
-            step: 5,
-            slider_grab_pos: None,
-            value_changed: Default::default(),
-            pager_direction: 0,
-            pager_mouse_pos_in_window: Point::default(),
-        };
-
-        let slider_pressed = this.callback(Self::slider_pressed);
-        let slider_moved = this.callback(Self::slider_moved);
-        this.base
-            .get_dyn_child_mut(INDEX_PAGER)
-            .unwrap()
-            .base_mut()
-            .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
-            .unwrap()
-            .base_mut()
-            .install_event_filter(callbacks.id().raw(), move |event| {
-                match event {
-                    Event::MouseInput(e) => {
-                        if e.button == MouseButton::Left {
-                            slider_pressed.invoke((e.pos_in_window, e.state));
-                        }
-                    }
-                    Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window),
-                    _ => {}
-                }
-                Ok(false)
-            });
-
-        let decrease_callback = this.callback(|this, _| {
-            this.decrease_internal(false);
-            Ok(())
-        });
-        this.base
-            .get_child_mut::<Button>(INDEX_DECREASE)
-            .unwrap()
-            .on_triggered(decrease_callback);
-
-        let increase_callback = this.callback(|this, _| {
-            this.increase_internal(false);
-            Ok(())
-        });
-        this.base
-            .get_child_mut::<Button>(INDEX_INCREASE)
-            .unwrap()
-            .on_triggered(increase_callback);
-
-        let pager_triggered_callback = this.callback(|this, _| this.pager_triggered());
-        let pager_pressed = this.callback(Self::pager_pressed);
-        let pager_mouse_moved = this.callback(Self::pager_mouse_move);
-        let pager_button = this
-            .base
-            .get_dyn_child_mut(INDEX_PAGER)
-            .unwrap()
-            .base_mut()
-            .get_child_mut::<Button>(INDEX_BUTTON_IN_PAGER)
-            .unwrap();
-        pager_button.on_triggered(pager_triggered_callback);
-        pager_button
-            .base_mut()
-            .install_event_filter(callbacks.id().raw(), move |event| {
-                match event {
-                    Event::MouseInput(e) => {
-                        if e.button == MouseButton::Left && e.state == ElementState::Pressed {
-                            pager_pressed.invoke(e.pos_in_window);
-                        }
-                    }
-                    Event::MouseMove(e) => pager_mouse_moved.invoke(e.pos_in_window),
-                    _ => {}
-                }
-                Ok(false)
-            });
-
-        this.set_axis(arg);
-        this.update_decrease_increase();
-        this
-    }
-
-    fn handle_declared(&mut self, arg: Self::Arg) {
-        self.set_axis(arg);
     }
 }
 
@@ -900,6 +757,29 @@ struct Pager {
 }
 
 impl Pager {
+    fn init(axis: Axis) -> impl WidgetInitializer<Output = Self> {
+        struct Initializer {
+            axis: Axis,
+        }
+
+        impl WidgetInitializer for Initializer {
+            type Output = Pager;
+            fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
+                let mut t = Pager {
+                    base,
+                    axis: self.axis,
+                };
+                t.set_padding_enabled(false);
+                t
+            }
+            fn reinit(self, widget: &mut Self::Output) {
+                widget.set_axis(self.axis);
+            }
+        }
+
+        Initializer { axis }
+    }
+
     pub fn set_axis(&mut self, axis: Axis) -> &mut Self {
         self.axis = axis;
         self.base.size_hint_changed();
@@ -908,20 +788,6 @@ impl Pager {
 }
 
 const PAGER_SIZE_HINT_MULTIPLIER: i32 = 2;
-
-impl NewWidget for Pager {
-    type Arg = ();
-
-    fn new(base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
-        let mut t = Self {
-            base,
-            axis: Axis::X,
-        };
-        t.set_padding_enabled(false);
-        t
-    }
-    fn handle_declared(&mut self, (): Self::Arg) {}
-}
 
 impl Widget for Pager {
     impl_widget_base!();

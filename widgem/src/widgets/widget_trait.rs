@@ -16,15 +16,9 @@ use {
     tracing::warn,
 };
 
+// TODO: update these docs
 pub trait WidgetInitializer {
     type Output: Widget;
-    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output;
-    fn reinit(self, widget: &mut Self::Output);
-}
-
-pub trait NewWidget: Widget + Sized {
-    type Arg;
-
     /// Creates a new widget. The `base` argument provides all available information about the context in which
     /// the widget is being created. `arg` may provide additional configuration, depending on the widget type.
     ///
@@ -39,7 +33,7 @@ pub trait NewWidget: Widget + Sized {
     /// As a convention, you should store it in the widget's field named `common`.
     /// Your implementations of [base](Widget::base) and [base_mut](Widget::base_mut) must return a reference to that object.
     ///
-    fn new(base: WidgetBaseOf<Self>, arg: Self::Arg) -> Self;
+    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output;
 
     /// Handles a repeated declaration of the widget.
     ///
@@ -49,7 +43,7 @@ pub trait NewWidget: Widget + Sized {
     /// use `arg` to update the state of the widget in the same way as it would be used in [NewWidget::new].
     /// For example, if the argument of [NewWidget::new] sets the displayed text then `handle_declared`
     /// should also set the displayed text.
-    fn handle_declared(&mut self, arg: Self::Arg);
+    fn reinit(self, widget: &mut Self::Output);
 }
 
 pub trait Widget: Any {

@@ -8,11 +8,8 @@ use {
         shared_window::X11WindowType,
         system::ReportError,
         text_editor::{Text, TextStyle},
-        types::{PhysicalPixels, Point, PpxSuffix, Size},
-        widgets::{
-            widget_trait::{NewWidget, WidgetInitializer},
-            Column, ScrollArea,
-        },
+        types::{PhysicalPixels, Point},
+        widgets::{widget_trait::WidgetInitializer, Column, ScrollArea},
         WidgetExt, WindowRectRequest, WindowRectResponse,
     },
     tracing::error,
@@ -96,41 +93,6 @@ impl WidgetInitializer for Initializer {
     }
 }
 
-impl NewWidget for Menu {
-    type Arg = Point;
-
-    fn new(mut base: WidgetBaseOf<Self>, position: Self::Arg) -> Self {
-        if let Some(window) = base.window() {
-            window.set_title("Menu"); // TODO: translations
-            window.set_decorations(false);
-            window.set_has_macos_shadow(false);
-            window.set_resizable(false);
-            window.set_window_level(WindowLevel::AlwaysOnTop);
-            window.set_x11_window_type(vec![X11WindowType::PopupMenu]);
-            window.set_skip_windows_taskbar(true);
-            window.set_outer_position(position);
-        } else {
-            error!("Menu::new: missing window");
-        }
-        base.add_child_with_key(SCROLL_AREA_KEY, ScrollArea::init())
-            .set_content::<Column>(())
-            .add_class("menu".into());
-        Self {
-            base,
-            window_was_focused: false,
-            //delete_on_close: false,
-        }
-    }
-
-    fn handle_declared(&mut self, position: Self::Arg) {
-        if let Some(window) = self.base.window() {
-            window.set_outer_position(position);
-        } else {
-            error!("Menu::new: missing window");
-        }
-    }
-}
-
 impl Widget for Menu {
     impl_widget_base!();
 
@@ -164,9 +126,13 @@ impl Widget for Menu {
         &mut self,
         _request: WindowRectRequest,
     ) -> anyhow::Result<WindowRectResponse> {
+        // Ok(WindowRectResponse {
+        //     position: Some(Point::new(100.ppx(), 100.ppx())),
+        //     size: Some(Size::new(500.ppx(), 500.ppx())),
+        // })
         Ok(WindowRectResponse {
-            position: Some(Point::new(100.ppx(), 100.ppx())),
-            size: Some(Size::new(500.ppx(), 500.ppx())),
+            position: None,
+            size: None,
         })
     }
 }
@@ -178,6 +144,30 @@ pub struct MenuItem {
 }
 
 impl MenuItem {
+    pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
+        struct Initializer {
+            text: String,
+        }
+
+        impl WidgetInitializer for Initializer {
+            type Output = MenuItem;
+
+            fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
+                MenuItem {
+                    base,
+                    text: self.text,
+                    clicked: Default::default(),
+                }
+            }
+
+            fn reinit(self, widget: &mut Self::Output) {
+                widget.set_text(&self.text);
+            }
+        }
+
+        Initializer { text }
+    }
+
     pub fn set_text(&mut self, text: &str) -> &mut Self {
         self.text = text.into();
         self
@@ -189,29 +179,13 @@ impl MenuItem {
     }
 }
 
-impl NewWidget for MenuItem {
-    type Arg = String;
-
-    fn new(base: WidgetBaseOf<Self>, text: Self::Arg) -> Self {
-        Self {
-            base,
-            text,
-            clicked: Default::default(),
-        }
-    }
-
-    fn handle_declared(&mut self, text: Self::Arg) {
-        self.set_text(&text);
-    }
-}
-
 impl Widget for MenuItem {
     impl_widget_base!();
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
         let text_style = self.base.compute_style::<TextStyle>();
         self.base
-            .declare_child::<Text>((self.text.clone(), text_style))
+            .declare_child(Text::init(self.text.clone(), text_style))
             .set_multiline(false);
         Ok(())
     }

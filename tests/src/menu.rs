@@ -2,7 +2,7 @@ use {
     anyhow::{ensure, Context as _},
     widgem::{
         impl_widget_base,
-        widgets::{Button, Menu, MenuItem, NewWidget, Widget, WidgetBaseOf, Window},
+        widgets::{Button, Menu, MenuItem, Widget, WidgetBaseOf, WidgetInitializer, Window},
         WidgetExt, WidgetId,
     },
     widgem_tester::context::Context,
@@ -23,11 +23,12 @@ impl RootWidget {
             .unwrap_or_else(|| rect.bottom_right());
         let global_pos = window.inner_position()? + pos_in_window;
 
-        let menu = self.base.add_child::<Menu>(global_pos).content_mut();
+        let menu = self.base.add_child(Menu::init(global_pos)).content_mut();
 
-        menu.base_mut().add_child::<MenuItem>("Item 1".into());
-        menu.base_mut().add_child::<MenuItem>("Item 2".into());
-        menu.base_mut().add_child::<MenuItem>("Long item 3".into());
+        menu.base_mut().add_child(MenuItem::init("Item 1".into()));
+        menu.base_mut().add_child(MenuItem::init("Item 2".into()));
+        menu.base_mut()
+            .add_child(MenuItem::init("Long item 3".into()));
         // for i in 4..100 {
         //     menu.base_mut().add_child::<MenuItem>(format!("Item {i}"));
         // }
@@ -35,23 +36,32 @@ impl RootWidget {
     }
 }
 
-impl NewWidget for RootWidget {
-    type Arg = ();
+impl RootWidget {
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        Initializer
+    }
+}
 
-    fn new(mut base: WidgetBaseOf<Self>, (): Self::Arg) -> Self {
+struct Initializer;
+
+impl WidgetInitializer for Initializer {
+    type Output = RootWidget;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
         let callbacks = base.callback_creator();
 
-        let window = base.add_child::<Window>(module_path!().into());
+        let window = base.add_child(Window::init(module_path!().into()));
 
         let button_id = window
             .base_mut()
-            .add_child::<Button>("Open menu".into())
-            .on_triggered(callbacks.create(Self::on_triggered))
+            .add_child(Button::init("Open menu".into()))
+            .on_triggered(callbacks.create(RootWidget::on_triggered))
             .id();
 
-        Self { base, button_id }
+        RootWidget { base, button_id }
     }
-    fn handle_declared(&mut self, (): Self::Arg) {}
+
+    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for RootWidget {
@@ -61,7 +71,7 @@ impl Widget for RootWidget {
 #[widgem_tester::test]
 fn menu(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child::<RootWidget>(());
+        r.base_mut().add_child(RootWidget::init());
         Ok(())
     })?;
     let main_window = ctx.wait_for_window_by_pid()?;

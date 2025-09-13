@@ -49,7 +49,7 @@ pub fn main() -> anyhow::Result<()> {
         run_script: args.run_script,
     })?;
     widgem::run(move |w| {
-        w.base_mut().add_child::<TesterUi>(reviewer);
+        w.base_mut().add_child(TesterUi::init(reviewer));
         Ok(())
     })
 }
