@@ -2,7 +2,12 @@ use {
     super::{Widget, WidgetBaseOf},
     crate::{
         impl_widget_base,
-        widgets::widget_trait::{WidgetInitializer},
+        items::{
+            with_index::ItemsMut,
+            with_key::{ItemsWithKey, ItemsWithKeyMut},
+        },
+        widgets::widget_trait::WidgetInitializer,
+        ChildKey, WidgetBase,
     },
 };
 
@@ -14,6 +19,18 @@ pub struct Column {
 impl Column {
     pub fn init() -> impl WidgetInitializer<Output = Self> {
         Initializer
+    }
+
+    pub fn items_mut(&mut self) -> ItemsMut<'_> {
+        ItemsMut::new(&mut self.base)
+    }
+
+    pub fn items_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
+        ItemsWithKey::new(&self.base)
+    }
+
+    pub fn items_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
+        ItemsWithKeyMut::new(&mut self.base)
     }
 }
 
@@ -32,40 +49,3 @@ impl WidgetInitializer for Initializer {
 impl Widget for Column {
     impl_widget_base!();
 }
-
-/*
-pub struct ColumnChildrenWithKeyHandle<'a, ChildKeyType: Into<ChildKey>> {
-    base: &'a mut WidgetBase,
-    already_set: HashSet<ChildKey>,
-    _marker: PhantomData<fn() -> ChildKeyType>,
-}
-
-impl<'a, ChildKeyType: Into<ChildKey>> ColumnChildrenWithKeyHandle<'a, ChildKeyType> {
-    pub fn add_child<T: NewWidget>(&mut self, _key: ChildKeyType, _arg: T::Arg) -> &mut T {
-        todo!()
-    }
-
-    pub fn has_child(&mut self, _key: &ChildKeyType) -> bool {
-        todo!()
-    }
-
-    pub fn remove_child(&mut self, _key: &ChildKeyType) {
-        todo!()
-    }
-
-    pub fn remove_others(&mut self) {}
-}
-
-pub struct ColumnChildrenHandle<'a> {
-    base: &'a mut WidgetBase,
-    index: usize,
-}
-
-impl<'a> ColumnChildrenHandle<'a> {
-    pub fn add_child<T: NewWidget>(&mut self, _arg: T::Arg) -> &mut T {
-        todo!()
-    }
-
-    pub fn remove_others(&mut self) {}
-}
-*/

@@ -10,6 +10,7 @@ mod child_key;
 mod draw;
 pub mod event;
 mod event_loop;
+pub mod items;
 pub mod layout;
 mod monitor;
 mod pixmap;

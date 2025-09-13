@@ -19,6 +19,7 @@ use {
     },
     anyhow::{Context, Result},
     derivative::Derivative,
+    itertools::Itertools,
     lightningcss::stylesheet::StyleSheet,
     std::{
         cell::RefCell,
@@ -1274,7 +1275,7 @@ impl WidgetBase {
     }
 
     /// Returns an iterator over the widget's children and associated keys.
-    pub fn children_mut_with_keys(&mut self) -> impl Iterator<Item = (&ChildKey, &mut dyn Widget)> {
+    pub fn children_with_keys_mut(&mut self) -> impl Iterator<Item = (&ChildKey, &mut dyn Widget)> {
         self.children.iter_mut().map(|(k, v)| (k, &mut **v))
     }
 
@@ -1338,6 +1339,18 @@ impl WidgetBase {
         }
         error!("remove_child_by_id: did not reach parent widget");
         Err(WidgetNotFound)
+    }
+
+    pub(crate) fn remove_children_except(&mut self, except: &HashSet<ChildKey>) {
+        let keys = self
+            .children
+            .keys()
+            .filter(|key| !except.contains(key))
+            .cloned()
+            .collect_vec();
+        for key in keys {
+            self.remove_child(key).or_report_err();
+        }
     }
 }
 
