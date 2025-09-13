@@ -1,11 +1,32 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, widgets::widget_trait::NewWidget},
+    crate::{
+        impl_widget_base,
+        widgets::widget_trait::{NewWidget, WidgetInitializer},
+    },
 };
 
 pub struct Column {
     // TODO: add layout options
     base: WidgetBaseOf<Self>,
+}
+
+impl Column {
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        Initializer
+    }
+}
+
+struct Initializer;
+
+impl WidgetInitializer for Initializer {
+    type Output = Column;
+
+    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        Column { base }
+    }
+
+    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl NewWidget for Column {

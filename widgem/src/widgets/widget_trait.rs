@@ -16,6 +16,12 @@ use {
     tracing::warn,
 };
 
+pub trait WidgetInitializer {
+    type Output: Widget;
+    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output;
+    fn reinit(self, widget: &mut Self::Output);
+}
+
 pub trait NewWidget: Widget + Sized {
     type Arg;
 

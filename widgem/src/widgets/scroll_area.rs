@@ -5,7 +5,7 @@ use {
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
-        widgets::widget_trait::NewWidget,
+        widgets::widget_trait::{NewWidget, WidgetInitializer},
     },
     anyhow::Result,
     std::cmp::{max, min},
@@ -34,6 +34,10 @@ const KEY_CONTENT_IN_VIEWPORT: u64 = 0;
 
 #[impl_with]
 impl ScrollArea {
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        Initializer
+    }
+
     fn has_content(&self) -> bool {
         self.base
             .get_dyn_child(INDEX_VIEWPORT)
@@ -306,6 +310,35 @@ impl ScrollArea {
         }
         Ok(())
     }
+}
+
+struct Initializer;
+
+impl WidgetInitializer for Initializer {
+    type Output = ScrollArea;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        let relayout = base.callback(|this, _| this.relayout());
+        base.set_layout(Layout::ExplicitGrid);
+
+        // TODO: icons, localized name
+        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X, Axis::X)
+            .set_grid_cell(0, 1)
+            .on_value_changed(relayout.clone());
+        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y, Axis::Y)
+            .set_grid_cell(1, 0)
+            .on_value_changed(relayout);
+        base.add_child_with_key::<Viewport>(INDEX_VIEWPORT, ())
+            .set_grid_cell(0, 0)
+            .set_layout(Layout::ExplicitGrid);
+        ScrollArea {
+            base,
+            x_policy: ScrollBarPolicy::default(),
+            y_policy: ScrollBarPolicy::default(),
+        }
+    }
+
+    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl NewWidget for ScrollArea {

@@ -16,7 +16,7 @@ use {
         system::ReportError,
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
-        widgets::NewWidget,
+        widgets::{widget_trait::WidgetInitializer, NewWidget},
         ScrollToRectRequest,
     },
     anyhow::Result,
@@ -62,6 +62,10 @@ pub struct TextInput {
 }
 
 impl TextInput {
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        Initializer
+    }
+
     fn text_widget(&self) -> &Text {
         self.base
             .get_dyn_child(0)
@@ -144,6 +148,37 @@ impl TextInput {
                 .set_geometry(Some(WidgetGeometry::new(&geometry, new_rect)));
         }
     }
+}
+
+// TODO: name or label ref?
+struct Initializer;
+
+impl WidgetInitializer for Initializer {
+    type Output = TextInput;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        base.set_supports_focus(true);
+        base.set_cursor_icon(CursorIcon::Text);
+        let host_id = base.id();
+        let text_style = base.compute_style();
+        let viewport = base.add_child_with_key::<Viewport>(0, ());
+        viewport.base_mut().set_receives_all_mouse_events(true);
+        viewport.base_mut().set_cursor_icon(CursorIcon::Text);
+        viewport.base_mut().set_layout(Layout::ExplicitGrid);
+        let editor = viewport
+            .base_mut()
+            .add_child_with_key::<Text>(0, (String::new(), text_style))
+            .set_multiline(false)
+            .set_editable(true)
+            .set_host_id(host_id.into());
+        editor.base_mut().set_receives_all_mouse_events(true);
+        TextInput {
+            style: base.compute_style(),
+            base,
+        }
+    }
+
+    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl NewWidget for TextInput {

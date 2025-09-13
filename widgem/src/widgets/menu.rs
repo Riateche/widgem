@@ -9,7 +9,10 @@ use {
         system::ReportError,
         text_editor::{Text, TextStyle},
         types::{PhysicalPixels, Point, PpxSuffix, Size},
-        widgets::{widget_trait::NewWidget, Column, ScrollArea},
+        widgets::{
+            widget_trait::{NewWidget, WidgetInitializer},
+            Column, ScrollArea,
+        },
         WidgetExt, WindowRectRequest, WindowRectResponse,
     },
     tracing::error,
@@ -22,6 +25,10 @@ pub struct Menu {
 }
 
 impl Menu {
+    pub fn init(position: Point) -> impl WidgetInitializer<Output = Self> {
+        Initializer { position }
+    }
+
     pub fn content(&self) -> &dyn Widget {
         self.base
             .get_child::<ScrollArea>(SCROLL_AREA_KEY)
@@ -50,6 +57,44 @@ impl Menu {
 }
 
 const SCROLL_AREA_KEY: u64 = 0;
+
+struct Initializer {
+    position: Point,
+}
+
+impl WidgetInitializer for Initializer {
+    type Output = Menu;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        if let Some(window) = base.window() {
+            window.set_title("Menu"); // TODO: translations
+            window.set_decorations(false);
+            window.set_has_macos_shadow(false);
+            window.set_resizable(false);
+            window.set_window_level(WindowLevel::AlwaysOnTop);
+            window.set_x11_window_type(vec![X11WindowType::PopupMenu]);
+            window.set_skip_windows_taskbar(true);
+            window.set_outer_position(self.position);
+        } else {
+            error!("Menu::new: missing window");
+        }
+        base.add_child_with_key::<ScrollArea>(SCROLL_AREA_KEY, ())
+            .set_content::<Column>(())
+            .add_class("menu".into());
+        Menu {
+            base,
+            window_was_focused: false,
+        }
+    }
+
+    fn reinit(self, widget: &mut Self::Output) {
+        if let Some(window) = widget.base.window() {
+            window.set_outer_position(self.position);
+        } else {
+            error!("Menu::new: missing window");
+        }
+    }
+}
 
 impl NewWidget for Menu {
     type Arg = Point;

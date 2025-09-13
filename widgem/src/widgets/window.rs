@@ -1,8 +1,10 @@
 use {
     super::{Widget, WidgetBaseOf},
     crate::{
-        impl_widget_base, shared_window::X11WindowType, types::Point,
-        widgets::widget_trait::NewWidget,
+        impl_widget_base,
+        shared_window::X11WindowType,
+        types::Point,
+        widgets::widget_trait::{NewWidget, WidgetInitializer},
     },
     std::fmt::Display,
     winit::window::WindowLevel,
@@ -13,6 +15,10 @@ pub struct Window {
 }
 
 impl Window {
+    pub fn init(title: String) -> impl WidgetInitializer<Output = Self> {
+        Initializer { title }
+    }
+
     pub fn set_title(&mut self, title: impl Display) -> &mut Self {
         self.base.window().unwrap().set_title(title);
         self
@@ -41,6 +47,24 @@ impl Window {
     pub fn set_outer_position(&mut self, position: Point) -> &mut Self {
         self.base.window().unwrap().set_outer_position(position);
         self
+    }
+}
+
+struct Initializer {
+    title: String,
+}
+
+impl WidgetInitializer for Initializer {
+    type Output = Window;
+
+    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        let mut w = Window { base };
+        w.set_title(self.title);
+        w
+    }
+
+    fn reinit(self, widget: &mut Self::Output) {
+        widget.set_title(self.title);
     }
 }
 

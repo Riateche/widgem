@@ -15,7 +15,7 @@ use {
         },
         text_editor::Text,
         timer::TimerId,
-        widgets::widget_trait::NewWidget,
+        widgets::widget_trait::{NewWidget, WidgetInitializer},
         Pixmap,
     },
     accesskit::{Action, Role},
@@ -45,6 +45,10 @@ pub struct Button {
 
 #[impl_with]
 impl Button {
+    pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
+        Initializer { text }
+    }
+
     #[allow(dead_code)]
     fn image_widget(&self) -> &Image {
         self.base.get_child::<Image>(0).unwrap()
@@ -165,6 +169,43 @@ impl Button {
         self.image_widget_mut().set_visible(icon.is_some());
         self.image_widget_mut().set_prescaled(true);
         self.image_widget_mut().set_pixmap(icon);
+    }
+}
+
+struct Initializer {
+    text: String,
+}
+
+impl WidgetInitializer for Initializer {
+    type Output = Button;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        base.set_supports_focus(true);
+        base.set_layout(Layout::HorizontalFirst);
+        base.add_child::<Image>(None).set_visible(false);
+        let id = base.id().raw();
+        let text_style = base.compute_style();
+        base.add_child::<Text>((self.text, text_style))
+            .set_host_id(id);
+        let mut b = Button {
+            style: base.compute_style(),
+            auto_repeat: false,
+            is_mouse_leave_sensitive: true,
+            trigger_on_press: false,
+            on_triggered: Callbacks::default(),
+            is_pressed: false,
+            was_pressed_but_moved_out: false,
+            base,
+            auto_repeat_delay_timer: None,
+            auto_repeat_interval: None,
+        };
+        // TODO: remove and use declare_children
+        b.refresh_style();
+        b
+    }
+
+    fn reinit(self, widget: &mut Self::Output) {
+        widget.set_text(self.text);
     }
 }
 

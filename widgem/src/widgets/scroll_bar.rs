@@ -9,7 +9,7 @@ use {
         layout::{default_layout, Layout, SizeHint},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
-        widgets::widget_trait::NewWidget,
+        widgets::widget_trait::{NewWidget, WidgetInitializer},
     },
     anyhow::Result,
     ordered_float::NotNan,
@@ -59,6 +59,10 @@ const INDEX_GRIP_IN_PAGER: u64 = 1;
 // TODO: support other value types
 #[impl_with]
 impl ScrollBar {
+    pub fn init(axis: Axis) -> impl WidgetInitializer<Output = Self> {
+        Initializer { axis }
+    }
+
     pub fn increase(&mut self) {
         self.increase_internal(true)
     }
@@ -495,6 +499,158 @@ impl ScrollBar {
             }
         }
         Ok(())
+    }
+}
+
+struct Initializer {
+    axis: Axis,
+}
+
+impl WidgetInitializer for Initializer {
+    type Output = ScrollBar;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        base.set_supports_focus(true).set_focusable(false);
+        // TODO: localized name
+
+        base.add_child_with_key::<Button>(INDEX_DECREASE, names::SCROLL_LEFT.into())
+            // TODO: implement accessibility for scroll bar itself
+            .set_accessibility_node_enabled(false)
+            .set_focusable(false)
+            .add_class("scroll_left".into())
+            .set_text_visible(false)
+            .set_auto_repeat(true)
+            .set_trigger_on_press(true);
+
+        let axis = Axis::X;
+        let pager = base
+            .add_child_with_key::<Pager>(INDEX_PAGER, ())
+            .set_axis(axis)
+            .set_layout(Layout::ExplicitGrid);
+        pager
+            .base
+            .add_child_with_key::<Button>(INDEX_BUTTON_IN_PAGER, names::SCROLL_PAGER.into())
+            .set_grid_cell(0, 0)
+            .set_size_x_fixed(Some(false))
+            .set_size_y_fixed(Some(false))
+            .set_accessibility_node_enabled(false)
+            .set_focusable(false)
+            .add_class("scroll_pager".into())
+            .set_text_visible(false)
+            .set_auto_repeat(true)
+            .set_trigger_on_press(true);
+        pager
+            .base
+            .add_child_with_key::<Button>(INDEX_GRIP_IN_PAGER, names::SCROLL_GRIP.into())
+            .set_accessibility_node_enabled(false)
+            .set_focusable(false)
+            .add_class("scroll_grip_x".into())
+            .set_text_visible(false)
+            .set_mouse_leave_sensitive(false);
+
+        base.add_child_with_key::<Button>(INDEX_INCREASE, names::SCROLL_RIGHT.into())
+            .set_accessibility_node_enabled(false)
+            .set_focusable(false)
+            .add_class("scroll_right".into())
+            .set_text_visible(false)
+            .set_auto_repeat(true)
+            .set_trigger_on_press(true);
+
+        base.set_layout(match axis {
+            Axis::X => Layout::HorizontalFirst,
+            Axis::Y => Layout::VerticalFirst,
+        });
+
+        let callbacks = base.callback_creator();
+
+        let mut this = ScrollBar {
+            base,
+            axis,
+            current_grip_pos: 0.ppx(),
+            max_slider_pos: 0.ppx(),
+            grip_size: Size::default(),
+            value_range: 0..=100,
+            current_value: 0,
+            step: 5,
+            slider_grab_pos: None,
+            value_changed: Default::default(),
+            pager_direction: 0,
+            pager_mouse_pos_in_window: Point::default(),
+        };
+
+        let slider_pressed = this.callback(ScrollBar::slider_pressed);
+        let slider_moved = this.callback(ScrollBar::slider_moved);
+        this.base
+            .get_dyn_child_mut(INDEX_PAGER)
+            .unwrap()
+            .base_mut()
+            .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
+            .unwrap()
+            .base_mut()
+            .install_event_filter(callbacks.id().raw(), move |event| {
+                match event {
+                    Event::MouseInput(e) => {
+                        if e.button == MouseButton::Left {
+                            slider_pressed.invoke((e.pos_in_window, e.state));
+                        }
+                    }
+                    Event::MouseMove(e) => slider_moved.invoke(e.pos_in_window),
+                    _ => {}
+                }
+                Ok(false)
+            });
+
+        let decrease_callback = this.callback(|this, _| {
+            this.decrease_internal(false);
+            Ok(())
+        });
+        this.base
+            .get_child_mut::<Button>(INDEX_DECREASE)
+            .unwrap()
+            .on_triggered(decrease_callback);
+
+        let increase_callback = this.callback(|this, _| {
+            this.increase_internal(false);
+            Ok(())
+        });
+        this.base
+            .get_child_mut::<Button>(INDEX_INCREASE)
+            .unwrap()
+            .on_triggered(increase_callback);
+
+        let pager_triggered_callback = this.callback(|this, _| this.pager_triggered());
+        let pager_pressed = this.callback(ScrollBar::pager_pressed);
+        let pager_mouse_moved = this.callback(ScrollBar::pager_mouse_move);
+        let pager_button = this
+            .base
+            .get_dyn_child_mut(INDEX_PAGER)
+            .unwrap()
+            .base_mut()
+            .get_child_mut::<Button>(INDEX_BUTTON_IN_PAGER)
+            .unwrap();
+        pager_button.on_triggered(pager_triggered_callback);
+        pager_button
+            .base_mut()
+            .install_event_filter(callbacks.id().raw(), move |event| {
+                match event {
+                    Event::MouseInput(e) => {
+                        if e.button == MouseButton::Left && e.state == ElementState::Pressed {
+                            pager_pressed.invoke(e.pos_in_window);
+                        }
+                    }
+                    Event::MouseMove(e) => pager_mouse_moved.invoke(e.pos_in_window),
+                    _ => {}
+                }
+                Ok(false)
+            });
+
+        this.set_axis(self.axis);
+        this.update_decrease_increase();
+        this
+    }
+
+    fn reinit(self, widget: &mut Self::Output) {
+        widget.set_axis(self.axis);
     }
 }
 

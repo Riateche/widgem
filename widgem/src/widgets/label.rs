@@ -1,6 +1,10 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, text_editor::Text, widgets::widget_trait::NewWidget},
+    crate::{
+        impl_widget_base,
+        text_editor::Text,
+        widgets::widget_trait::{NewWidget, WidgetInitializer},
+    },
     cosmic_text::Attrs,
     std::fmt::Display,
 };
@@ -10,6 +14,10 @@ pub struct Label {
 }
 
 impl Label {
+    pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
+        Initializer { text }
+    }
+
     #[allow(dead_code)]
     fn text_widget(&self) -> &Text {
         self.base.get_child::<Text>(0).unwrap()
@@ -24,6 +32,26 @@ impl Label {
         self.base.size_hint_changed();
         self.base.update();
         self
+    }
+}
+
+struct Initializer {
+    text: String,
+}
+
+impl WidgetInitializer for Initializer {
+    type Output = Label;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        let id = base.id().raw();
+        let text_style = base.compute_style();
+        base.add_child::<Text>((self.text, text_style))
+            .set_host_id(id);
+        Label { base }
+    }
+
+    fn reinit(self, widget: &mut Self::Output) {
+        widget.set_text(self.text);
     }
 }
 
@@ -45,3 +73,26 @@ impl NewWidget for Label {
 impl Widget for Label {
     impl_widget_base!();
 }
+/*
+
+    pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
+        Initializer { text }
+    }
+
+struct Initializer {
+    text: String,
+}
+
+impl WidgetInitializer for Initializer {
+    type Output = Label;
+
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+
+    }
+
+    fn reinit(self, widget: &mut Self::Output) {
+        widget.set_text(self.text);
+    }
+}
+
+*/
