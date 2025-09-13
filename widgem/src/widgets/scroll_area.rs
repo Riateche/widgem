@@ -5,7 +5,7 @@ use {
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
-        widgets::widget_trait::{WidgetInitializer},
+        widgets::widget_trait::WidgetInitializer,
     },
     anyhow::Result,
     std::cmp::{max, min},
@@ -46,21 +46,12 @@ impl ScrollArea {
             .has_child(KEY_CONTENT_IN_VIEWPORT)
     }
 
-    // TODO: naming?
     pub fn set_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
         self.base
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
             .base_mut()
             .add_child_with_key(KEY_CONTENT_IN_VIEWPORT, initializer)
-    }
-
-    pub fn declare_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
-        self.base
-            .get_dyn_child_mut(INDEX_VIEWPORT)
-            .unwrap()
-            .base_mut()
-            .declare_child_with_key(KEY_CONTENT_IN_VIEWPORT, initializer)
     }
 
     pub fn remove_content(&mut self) -> &mut Self {

@@ -21,7 +21,7 @@ pub use self::{
     column::Column,
     image::Image,
     label::Label,
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuAction},
     root::RootWidget,
     row::Row,
     scroll_area::{ScrollArea, ScrollBarPolicy},

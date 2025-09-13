@@ -4,13 +4,17 @@ use {
         callback::{Callback, Callbacks},
         event::{LayoutEvent, WindowFocusChangeEvent},
         impl_widget_base,
+        items::{
+            with_index::{Items, ItemsMut},
+            with_key::{ItemsWithKey, ItemsWithKeyMut},
+        },
         layout::{default_layout, default_size_hint_x, default_size_hint_y},
         shared_window::X11WindowType,
         system::ReportError,
         text_editor::{Text, TextStyle},
         types::{PhysicalPixels, Point},
         widgets::{widget_trait::WidgetInitializer, Column, ScrollArea},
-        WidgetExt, WindowRectRequest, WindowRectResponse,
+        ChildKey, WidgetBase, WidgetExt, WindowRectRequest, WindowRectResponse,
     },
     tracing::error,
     winit::window::WindowLevel,
@@ -26,21 +30,50 @@ impl Menu {
         Initializer { position }
     }
 
-    pub fn content(&self) -> &dyn Widget {
-        self.base
+    pub fn items(&self) -> Items<&WidgetBase> {
+        let content_base = self
+            .base
             .get_child::<ScrollArea>(SCROLL_AREA_KEY)
             .expect("missing scroll area child widget in menu")
             .dyn_content()
             .expect("missing scroll area content in menu")
+            .base();
+        Items::new(content_base)
     }
 
-    pub fn content_mut(&mut self) -> &mut dyn Widget {
-        self.base
+    pub fn items_mut(&mut self) -> ItemsMut<'_> {
+        let content_base = self
+            .base
             .get_child_mut::<ScrollArea>(SCROLL_AREA_KEY)
             .expect("missing scroll area child widget in menu")
             .dyn_content_mut()
             .expect("missing scroll area content in menu")
+            .base_mut();
+        ItemsMut::new(content_base)
     }
+
+    pub fn items_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
+        let content_base = self
+            .base
+            .get_child::<ScrollArea>(SCROLL_AREA_KEY)
+            .expect("missing scroll area child widget in menu")
+            .dyn_content()
+            .expect("missing scroll area content in menu")
+            .base();
+        ItemsWithKey::new(content_base)
+    }
+
+    pub fn items_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
+        let content_base = self
+            .base
+            .get_child_mut::<ScrollArea>(SCROLL_AREA_KEY)
+            .expect("missing scroll area child widget in menu")
+            .dyn_content_mut()
+            .expect("missing scroll area content in menu")
+            .base_mut();
+        ItemsWithKeyMut::new(content_base)
+    }
+
     // pub fn delete_on_close(&self) -> bool {
     //     self.delete_on_close
     // }
@@ -137,23 +170,23 @@ impl Widget for Menu {
     }
 }
 
-pub struct MenuItem {
+pub struct MenuAction {
     base: WidgetBaseOf<Self>,
     text: String,
     clicked: Callbacks<()>,
 }
 
-impl MenuItem {
+impl MenuAction {
     pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
         struct Initializer {
             text: String,
         }
 
         impl WidgetInitializer for Initializer {
-            type Output = MenuItem;
+            type Output = MenuAction;
 
             fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-                MenuItem {
+                MenuAction {
                     base,
                     text: self.text,
                     clicked: Default::default(),
@@ -179,7 +212,7 @@ impl MenuItem {
     }
 }
 
-impl Widget for MenuItem {
+impl Widget for MenuAction {
     impl_widget_base!();
 
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {

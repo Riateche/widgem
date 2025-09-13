@@ -2,7 +2,7 @@ use {
     anyhow::{ensure, Context as _},
     widgem::{
         impl_widget_base,
-        widgets::{Button, Menu, MenuItem, Widget, WidgetBaseOf, WidgetInitializer, Window},
+        widgets::{Button, Menu, MenuAction, Widget, WidgetBaseOf, WidgetInitializer, Window},
         WidgetExt, WidgetId,
     },
     widgem_tester::context::Context,
@@ -23,12 +23,10 @@ impl RootWidget {
             .unwrap_or_else(|| rect.bottom_right());
         let global_pos = window.inner_position()? + pos_in_window;
 
-        let menu = self.base.add_child(Menu::init(global_pos)).content_mut();
-
-        menu.base_mut().add_child(MenuItem::init("Item 1".into()));
-        menu.base_mut().add_child(MenuItem::init("Item 2".into()));
-        menu.base_mut()
-            .add_child(MenuItem::init("Long item 3".into()));
+        let mut menu = self.base.add_child(Menu::init(global_pos)).items_mut();
+        menu.set_next_item(MenuAction::init("Item 1".into()));
+        menu.set_next_item(MenuAction::init("Item 2".into()));
+        menu.set_next_item(MenuAction::init("Long item 3".into()));
         // for i in 4..100 {
         //     menu.base_mut().add_child::<MenuItem>(format!("Item {i}"));
         // }

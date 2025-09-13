@@ -3,7 +3,7 @@ use {
     crate::{
         impl_widget_base,
         items::{
-            with_index::ItemsMut,
+            with_index::{Items, ItemsMut},
             with_key::{ItemsWithKey, ItemsWithKeyMut},
         },
         widgets::widget_trait::WidgetInitializer,
@@ -19,6 +19,10 @@ pub struct Column {
 impl Column {
     pub fn init() -> impl WidgetInitializer<Output = Self> {
         Initializer
+    }
+
+    pub fn items(&self) -> Items<&WidgetBase> {
+        Items::new(&self.base)
     }
 
     pub fn items_mut(&mut self) -> ItemsMut<'_> {

@@ -361,7 +361,7 @@ impl Widget for TesterUi {
             .base_mut()
             .declare_child(ScrollArea::init())
             .set_grid_cell(2, current_row)
-            .declare_content(Column::init())
+            .set_content(Column::init())
             .set_style("Column { background: #55c080; padding: 2px; }")
             .base_mut()
             .declare_child(Image::init(pixmap))

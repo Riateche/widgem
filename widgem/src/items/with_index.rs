@@ -4,7 +4,7 @@ use {
 };
 
 pub struct Items<BaseRef: Borrow<WidgetBase>> {
-    base: BaseRef,
+    pub base: BaseRef,
 }
 
 impl<BaseRef: Borrow<WidgetBase>> Items<BaseRef> {
@@ -41,7 +41,7 @@ impl<BaseRef: Borrow<WidgetBase>> Items<BaseRef> {
 
 pub struct ItemsMut<'a> {
     inner: Items<&'a mut WidgetBase>,
-    index: u32,
+    next_index: u32,
     already_set: HashSet<ChildKey>,
 }
 
@@ -57,16 +57,16 @@ impl<'a> ItemsMut<'a> {
     pub fn new(base: &'a mut WidgetBase) -> Self {
         Self {
             inner: Items::new(base),
-            index: 0,
+            next_index: 0,
             already_set: HashSet::new(),
         }
     }
 
     pub fn set_next_item<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
-        let key = ChildKey::from(self.index);
+        let key = ChildKey::from(self.next_index);
         let output = self.inner.base.add_child_with_key(key.clone(), initializer);
         self.already_set.insert(key);
-        self.index += 1;
+        self.next_index += 1;
         output
     }
 
@@ -78,7 +78,7 @@ impl<'a> ItemsMut<'a> {
         let key = ChildKey::from(index);
         let output = self.inner.base.add_child_with_key(key.clone(), initializer);
         self.already_set.insert(key);
-        self.index = index + 1;
+        self.next_index = index + 1;
         output
     }
 
@@ -108,5 +108,9 @@ impl<'a> ItemsMut<'a> {
         &mut self,
     ) -> impl Iterator<Item = (&ChildKey, &mut dyn Widget)> {
         self.inner.base.children_with_keys_mut()
+    }
+
+    pub fn next_index(&self) -> u32 {
+        self.next_index
     }
 }
