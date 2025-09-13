@@ -22,11 +22,11 @@ impl WidgetInitializer for Initializer {
     type Output = RootWidget;
 
     fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let window = base.add_child(Window::init(module_path!().into()));
+        let window = base.set_child(0, Window::init(module_path!().into()));
 
         window
             .base_mut()
-            .add_child(TextInput::init())
+            .set_child(0, TextInput::init())
             .set_text("Hello world");
 
         RootWidget { base }
@@ -42,7 +42,7 @@ impl Widget for RootWidget {
 #[widgem_tester::test]
 pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child(RootWidget::init());
+        r.base_mut().set_child(0, RootWidget::init());
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -100,7 +100,7 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child(RootWidget::init());
+        r.base_mut().set_child(0, RootWidget::init());
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -129,7 +129,7 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child(RootWidget::init());
+        r.base_mut().set_child(0, RootWidget::init());
         Ok(())
     })?;
     ctx.set_blinking_expected(true);

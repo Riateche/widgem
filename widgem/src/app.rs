@@ -21,7 +21,7 @@ use crate::{
     },
     shortcut::{Shortcut, ShortcutId},
     style::Style,
-    system::{ChildrenUpdateState, LayoutState, SharedSystemDataInner, SystemConfig},
+    system::{LayoutState, SharedSystemDataInner, SystemConfig},
     timer::{Timer, TimerId},
     types::Rect,
     RawWidgetId, Widget, WidgetAddress, WidgetId,
@@ -351,15 +351,6 @@ impl App {
         for callback in triggered_callbacks {
             callback.invoke(());
         }
-    }
-
-    // TODO: remove
-    pub(crate) fn with_current_children_update<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&mut Option<ChildrenUpdateState>) -> R,
-    {
-        let mut data = self.data.borrow_mut();
-        f(&mut data.current_children_update)
     }
 
     // TODO: remove

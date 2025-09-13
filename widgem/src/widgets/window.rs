@@ -1,8 +1,15 @@
 use {
     super::{Widget, WidgetBaseOf},
     crate::{
-        impl_widget_base, shared_window::X11WindowType, types::Point,
+        impl_widget_base,
+        items::{
+            with_index::{Items, ItemsMut},
+            with_key::{ItemsWithKey, ItemsWithKeyMut},
+        },
+        shared_window::X11WindowType,
+        types::Point,
         widgets::widget_trait::WidgetInitializer,
+        ChildKey, WidgetBase,
     },
     std::fmt::Display,
     winit::window::WindowLevel,
@@ -45,6 +52,22 @@ impl Window {
     pub fn set_outer_position(&mut self, position: Point) -> &mut Self {
         self.base.window().unwrap().set_outer_position(position);
         self
+    }
+
+    pub fn items(&self) -> Items<&WidgetBase> {
+        Items::new(&self.base)
+    }
+
+    pub fn items_mut(&mut self) -> ItemsMut<'_> {
+        ItemsMut::new(&mut self.base)
+    }
+
+    pub fn items_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
+        ItemsWithKey::new(&self.base)
+    }
+
+    pub fn items_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
+        ItemsWithKeyMut::new(&mut self.base)
     }
 }
 

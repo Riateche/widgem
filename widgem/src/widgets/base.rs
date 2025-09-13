@@ -4,6 +4,10 @@ use {
         callback::Callback,
         child_key::ChildKey,
         event::{Event, FocusReason},
+        items::{
+            with_index::{Items, ItemsMut},
+            with_key::{ItemsWithKey, ItemsWithKeyMut},
+        },
         layout::{Layout, LayoutItemOptions, SizeHint},
         shared_window::{SharedWindow, WindowId},
         shortcut::{Shortcut, ShortcutId, ShortcutScope},
@@ -12,7 +16,7 @@ use {
             css::{PseudoClass, StyleSelector},
             load_css,
         },
-        system::{ChildrenUpdateState, ReportError},
+        system::ReportError,
         types::{PhysicalPixels, Point, Rect, Size},
         widgets::{widget_trait::WidgetInitializer, WidgetExt},
         App,
@@ -26,7 +30,6 @@ use {
         collections::{BTreeMap, HashMap, HashSet},
         fmt::Debug,
         marker::PhantomData,
-        mem,
         ops::{Deref, DerefMut},
         rc::Rc,
     },
@@ -246,13 +249,6 @@ pub struct WidgetBase {
     base_style: Rc<BaseComputedStyle>,
     style: Option<CustomStyle>,
 
-    // Counter used for assigning auto keys in `add_child`.
-    // It never resets.
-    num_added_children: u32,
-    // Direct and indirect children created by last call of this widget's
-    // `handle_declare_children_request`.
-    declared_children: HashSet<RawWidgetId>,
-
     cache: RefCell<Cache>,
 }
 
@@ -364,8 +360,6 @@ impl WidgetBase {
             style_selector,
             style: None,
             base_style: common_style,
-            num_added_children: 0,
-            declared_children: Default::default(),
             layout: Layout::default(),
             cache: RefCell::new(Cache::default()),
         };
@@ -1034,106 +1028,37 @@ impl WidgetBase {
     }
     // TODO: auto add sorting key as well, or create a key that sorts correctly.
 
-    // pub fn build_children(&mut self) -> AutoKeyChildrenBuilder<'_> {
-    //     todo!()
-    // }
-
-    // pub fn build_children_with_key<ChildKeyType: ChildKeySpecifier>(
-    //     &mut self,
-    // ) -> ChildrenBuilder<ChildKeyType> {
-    //     todo!()
-    // }
-
-    /// Adds a child widget of type `T`. `arg` is passed to the child widget's constructor.
+    /// Creates a child widget of type `T` associated with `key` or returns an existing widget that has the same type and key.
     ///
-    /// `add_child` automatically assigns a unique key to each widget. To assign a key explicitly,
-    /// use [add_child_with_key](Self::add_child_with_key).
-    pub fn add_child<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
-        let key = self.num_added_children;
-        self.num_added_children += 1;
-        self.add_child_common(key.into(), false, None, initializer)
-    }
-
-    /// Adds or replaces a child widget of type `T` associated with `key`. `arg` is passed to the child widget's constructor.
+    /// If there was no child with this `key`, a new child widget will be created and inserted into this widget.
+    /// `set_child` will return a reference to the created widget.
     ///
-    /// If a child with the same key already exists, it will be immediately deleted. If this is undesirable,
-    /// use [has_child](Self::has_child) to check before calling this function.
-    /// In any case, it returns a mutable reference to the new child widget.
-    pub fn add_child_with_key<WI: WidgetInitializer>(
+    /// If there was a child with this `key` and type `T`, `set_child` returns the reference to that child.
+    ///
+    /// If there was a child with this `key` but with a type other than `T`, the existing child will be deleted,
+    /// and a new child widget will be created and inserted into this widget.
+    pub fn set_child<WI: WidgetInitializer>(
         &mut self,
         key: impl Into<ChildKey>,
         initializer: WI,
     ) -> &mut WI::Output {
-        self.add_child_common(key.into(), false, None, initializer)
-    }
-
-    // TODO: link to declaring doc page
-
-    /// Declares a child widget of type `T`.
-    ///
-    /// If the child widget doesn't already exist, a new child widget will be created, and `arg` will be passed to the child widget's constructor.
-    /// In any case, it returns a mutable reference to the child widget.
-    ///
-    /// `declare_child` automatically assigns a unique key to each widget based on the order of `declare_child` calls. To assign a key explicitly,
-    /// use [declare_child_with_key](Self::declare_child_with_key).
-    pub fn declare_child<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
-        let key = self.app.with_current_children_update(|state| {
-            let Some(state) = state else {
-                warn!("declare_child called outside of handle_update_children");
-                return 0;
-            };
-            let num = state.num_declared_children.entry(self.id).or_default();
-            let key = *num;
-            *num += 1;
-            key
-        });
-        self.add_child_common(key.into(), true, None, initializer)
-    }
-
-    /// Declares a child widget of type `T` associated with `key`.
-    ///
-    /// If the child widget doesn't already exist, a new child widget will be created, and `arg` will be passed to the child widget's constructor.
-    /// In any case, it returns a mutable reference to the child widget.
-    pub fn declare_child_with_key<WI: WidgetInitializer>(
-        &mut self,
-        key: impl Into<ChildKey>,
-        initializer: WI,
-    ) -> &mut WI::Output {
-        self.add_child_common(key.into(), true, None, initializer)
-    }
-
-    fn add_child_common<WI: WidgetInitializer>(
-        &mut self,
-        key: ChildKey,
-        declare: bool,
-        new_id: Option<RawWidgetId>,
-        initializer: WI,
-    ) -> &mut WI::Output {
-        if declare {
-            if let Some(old_widget) = self
+        let key = key.into();
+        if let Some(old_widget) = self
+            .children
+            .get_mut(&key)
+            .and_then(|c| c.downcast_mut::<WI::Output>())
+        {
+            initializer.reinit(old_widget);
+            // Should be `return old_widget` but borrow checker is not smart enough.
+            // Should we use `polonius-the-crab` crate?
+            return self
                 .children
                 .get_mut(&key)
                 .and_then(|c| c.downcast_mut::<WI::Output>())
-            {
-                initializer.reinit(old_widget);
-                self.app.with_current_children_update(|state| {
-                    if let Some(state) = state {
-                        state.declared_children.insert(old_widget.base().id);
-                    } else {
-                        warn!("declare_child shouldn't be used outside of declare_children()");
-                    }
-                });
-                // Should be `return old_widget` but borrow checker is not smart enough.
-                // Should we use `polonius-the-crab` crate?
-                return self
-                    .children
-                    .get_mut(&key)
-                    .and_then(|c| c.downcast_mut::<WI::Output>())
-                    .unwrap();
-            }
+                .unwrap();
         }
 
-        let new_id = new_id.unwrap_or_else(RawWidgetId::new_unique);
+        let new_id = RawWidgetId::new_unique();
         let ctx = if WI::Output::is_window_root_type() {
             let new_window = SharedWindow::new(new_id, &self.app);
             self.app.add_window(&new_window);
@@ -1147,17 +1072,7 @@ impl WidgetBase {
             Box::new(initializer.init(WidgetBase::new::<WI::Output>(ctx))),
         );
         self.size_hint_changed();
-        let widget = self.children.get_mut(&key).unwrap();
-        if declare {
-            self.app.with_current_children_update(|state| {
-                if let Some(state) = state {
-                    state.declared_children.insert(widget.base().id);
-                } else {
-                    warn!("declare_child shouldn't be used outside of declare_children()");
-                }
-            });
-        }
-        widget.downcast_mut().unwrap()
+        self.children.get_mut(&key).unwrap().downcast_mut().unwrap()
     }
 
     /// Get a dyn reference to the direct child associated with `key`.
@@ -1549,15 +1464,6 @@ impl WidgetBase {
     pub(crate) fn set_size_hint_y_cache(&self, size_x: PhysicalPixels, value: SizeHint) {
         self.cache.borrow_mut().size_hint_y.insert(size_x, value);
     }
-
-    pub(crate) fn after_declare_children(&mut self, state: ChildrenUpdateState) {
-        let previous = mem::take(&mut self.declared_children);
-        let to_delete = previous.difference(&state.declared_children);
-        for id in to_delete {
-            let _ = self.remove_child_by_id(*id);
-        }
-        self.declared_children = state.declared_children;
-    }
 }
 
 /// <h2>Shortcuts and event filters</h2>
@@ -1636,16 +1542,20 @@ impl<W> WidgetBaseOf<W> {
         self.base.app().create_widget_callback(self.id(), func)
     }
 
-    // TODO: remove or extend
-    pub fn add_child<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
-        self.base.add_child(initializer)
+    pub fn children(&self) -> Items<&WidgetBase> {
+        Items::new(self)
     }
-    pub fn add_child_with_key<WI: WidgetInitializer>(
-        &mut self,
-        key: impl Into<ChildKey>,
-        initializer: WI,
-    ) -> &mut WI::Output {
-        self.base.add_child_with_key(key, initializer)
+
+    pub fn children_mut(&mut self) -> ItemsMut<'_> {
+        ItemsMut::new(self)
+    }
+
+    pub fn children_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
+        ItemsWithKey::new(self)
+    }
+
+    pub fn children_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
+        ItemsWithKeyMut::new(self)
     }
 
     /// Report the widget as supporting (or not supporting) focus.

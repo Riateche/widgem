@@ -8,7 +8,6 @@ use {
     clap::Parser,
     std::{path::PathBuf, process::Command},
     tracing_subscriber::{filter::LevelFilter, EnvFilter},
-    widgem::Widget,
 };
 
 #[derive(Parser)]
@@ -49,7 +48,7 @@ pub fn main() -> anyhow::Result<()> {
         run_script: args.run_script,
     })?;
     widgem::run(move |w| {
-        w.base_mut().add_child(TesterUi::init(reviewer));
+        w.items_mut().set_next_item(TesterUi::init(reviewer));
         Ok(())
     })
 }

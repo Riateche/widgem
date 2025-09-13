@@ -106,14 +106,14 @@ impl Widget for TesterUi {
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
         let callbacks = self.base.callback_creator();
 
-        let window = self
+        let mut window_items = self
             .base
-            .declare_child(Window::init("widgem snapshot review".into()));
-        window.set_layout(Layout::ExplicitGrid);
+            .set_child(0, Window::init("widgem snapshot review".into()))
+            .set_layout(Layout::ExplicitGrid)
+            .items_mut();
         let mut current_row = 1;
-        window
-            .base_mut()
-            .declare_child(Label::init("Test:".into()))
+        window_items
+            .set_next_item(Label::init("Test:".into()))
             .set_grid_cell(1, current_row);
         let test_case_name = self
             .tester_logic
@@ -127,72 +127,71 @@ impl Widget for TesterUi {
                 ))
             })
             .unwrap_or_else(|| "none".into());
-        window
-            .base_mut()
-            .declare_child(Label::init(test_case_name))
+        window_items
+            .set_next_item(Label::init(test_case_name))
             .set_grid_cell(2, current_row);
         current_row += 1;
 
-        let row = window
-            .base_mut()
-            .declare_child(Row::init())
+        let mut row_items = window_items
+            .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
+            .set_padding_enabled(false)
+            .items_mut();
         current_row += 1;
 
-        row.base_mut()
-            .declare_child(Button::init("First test".into()))
+        row_items
+            .set_next_item(Button::init("First test".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_first_test_case();
                 w.base.update();
                 Ok(())
             }));
 
-        row.base_mut()
-            .declare_child(Button::init("Previous test".into()))
+        row_items
+            .set_next_item(Button::init("Previous test".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_previous_test_case();
                 w.base.update();
                 Ok(())
             }));
-        row.base_mut()
-            .declare_child(Button::init("Next test".into()))
+        row_items
+            .set_next_item(Button::init("Next test".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_next_test_case();
                 w.base.update();
                 Ok(())
             }));
-        row.base_mut()
-            .declare_child(Button::init("Last test".into()))
+        row_items
+            .set_next_item(Button::init("Last test".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_last_test_case();
                 w.base.update();
                 Ok(())
             }));
 
-        row.base_mut()
-            .declare_child(Button::init("Refresh list".into()))
+        row_items
+            .set_next_item(Button::init("Refresh list".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.refresh()?;
                 w.base.update();
                 Ok(())
             }));
 
-        let row = window
-            .base_mut()
-            .declare_child(Row::init())
+        let mut row_items = window_items
+            .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
+            .set_padding_enabled(false)
+            .items_mut();
         current_row += 1;
 
-        row.base_mut()
-            .declare_child(Button::init("Run test subject".into()))
+        row_items
+            .set_next_item(Button::init("Run test subject".into()))
             .set_enabled(self.tester_logic.current_test_case_name().is_some())
             .on_triggered(callbacks.create(move |w, _e| w.tester_logic.run_test_subject()));
 
         let test_finished = callbacks.create(move |w, _e: ()| w.test_finished());
-        row.base_mut()
-            .declare_child(Button::init("Run test".into()))
+        row_items
+            .set_next_item(Button::init("Run test".into()))
             .set_enabled(self.tester_logic.current_test_case_name().is_some())
             .on_triggered(callbacks.create(move |w, _e| {
                 let mut child = w.tester_logic.run_test()?;
@@ -212,9 +211,8 @@ impl Widget for TesterUi {
                 Ok(())
             }));
 
-        window
-            .base_mut()
-            .declare_child(Label::init("Snapshot:".into()))
+        window_items
+            .set_next_item(Label::init("Snapshot:".into()))
             .set_grid_cell(1, current_row);
 
         let snapshot_name = match self.tester_logic.mode() {
@@ -237,45 +235,43 @@ impl Widget for TesterUi {
             ))
         })
         .unwrap_or_else(|| "none".into());
-        window
-            .base_mut()
-            .declare_child(Label::init(snapshot_name))
+        window_items
+            .set_next_item(Label::init(snapshot_name))
             .set_grid_cell(2, current_row);
         current_row += 1;
 
-        let row = window
-            .base_mut()
-            .declare_child(Row::init())
+        let mut row_items = window_items
+            .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
+            .set_padding_enabled(false)
+            .items_mut();
         current_row += 1;
 
-        row.base_mut()
-            .declare_child(Button::init("Previous snapshot".into()))
+        row_items
+            .set_next_item(Button::init("Previous snapshot".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_previous_snapshot();
                 w.base.update();
                 Ok(())
             }));
-        row.base_mut()
-            .declare_child(Button::init("Next snapshot".into()))
+        row_items
+            .set_next_item(Button::init("Next snapshot".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_next_snapshot();
                 w.base.update();
                 Ok(())
             }));
 
-        window
-            .base_mut()
-            .declare_child(Label::init("Display mode:".into()))
+        window_items
+            .set_next_item(Label::init("Display mode:".into()))
             .set_grid_cell(1, current_row);
 
         // TODO: radio buttons
-        let modes_row = window
-            .base_mut()
-            .declare_child(Row::init())
+        let mut modes_row_items = window_items
+            .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
+            .set_padding_enabled(false)
+            .items_mut();
         current_row += 1;
 
         for mode in Mode::iter() {
@@ -285,22 +281,19 @@ impl Widget for TesterUi {
             } else {
                 ""
             };
-            modes_row
-                .base_mut()
-                .declare_child(Button::init(format!("{}{}", star, mode_ui_name(mode))))
+            modes_row_items
+                .set_next_item(Button::init(format!("{}{}", star, mode_ui_name(mode))))
                 .set_enabled(self.tester_logic.is_mode_allowed(mode))
                 .on_triggered(callbacks.create(move |w, _e| w.set_mode(mode)));
         }
 
         let pixmap = self.tester_logic.pixmap().or_report_err().flatten();
 
-        window
-            .base_mut()
-            .declare_child(Label::init("Snapshot size:".into()))
+        window_items
+            .set_next_item(Label::init("Snapshot size:".into()))
             .set_grid_cell(1, current_row);
-        window
-            .base_mut()
-            .declare_child(Label::init({
+        window_items
+            .set_next_item(Label::init({
                 if let Some(pixmap) = &pixmap {
                     format!(
                         "{} x {}",
@@ -314,57 +307,54 @@ impl Widget for TesterUi {
             .set_grid_cell(2, current_row);
         current_row += 1;
 
-        window
-            .base_mut()
-            .declare_child(Label::init("Zoom:".into()))
+        window_items
+            .set_next_item(Label::init("Zoom:".into()))
             .set_grid_cell(1, current_row);
 
-        let row = window
-            .base_mut()
-            .declare_child(Row::init())
+        let mut row_items = window_items
+            .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
+            .set_padding_enabled(false)
+            .items_mut();
         current_row += 1;
 
-        row.base_mut()
-            .declare_child(Button::init("100%".into()))
+        row_items
+            .set_next_item(Button::init("100%".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 1.0;
                 w.base.update();
                 Ok(())
             }));
-        row.base_mut()
-            .declare_child(Button::init("200%".into()))
+        row_items
+            .set_next_item(Button::init("200%".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 2.0;
                 w.base.update();
                 Ok(())
             }));
-        row.base_mut()
-            .declare_child(Button::init("400%".into()))
+        row_items
+            .set_next_item(Button::init("400%".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 4.0;
                 w.base.update();
                 Ok(())
             }));
-        row.base_mut()
-            .declare_child(Button::init("800%".into()))
+        row_items
+            .set_next_item(Button::init("800%".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.image_scale = 8.0;
                 w.base.update();
                 Ok(())
             }));
-        row.base_mut()
-            .declare_child(Label::init(self.coords.clone()));
+        row_items.set_next_item(Label::init(self.coords.clone()));
 
-        let image = window
-            .base_mut()
-            .declare_child(ScrollArea::init())
+        let image = window_items
+            .set_next_item(ScrollArea::init())
             .set_grid_cell(2, current_row)
             .set_content(Column::init())
             .set_style("Column { background: #55c080; padding: 2px; }")
             .base_mut()
-            .declare_child(Image::init(pixmap))
+            .set_child(0, Image::init(pixmap))
             .set_scale(Some(self.image_scale));
         current_row += 1;
 
@@ -386,29 +376,26 @@ impl Widget for TesterUi {
                 Ok(false)
             });
 
-        window
-            .base_mut()
-            .declare_child(Label::init("Actions:".into()))
+        window_items
+            .set_next_item(Label::init("Actions:".into()))
             .set_grid_cell(1, current_row);
 
-        let approve_and_skip = window
-            .base_mut()
-            .declare_child(Row::init())
+        let mut approve_and_skip_items = window_items
+            .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
-            .set_padding_enabled(false);
+            .set_padding_enabled(false)
+            .items_mut();
         current_row += 1;
 
-        approve_and_skip
-            .base_mut()
-            .declare_child(Button::init("Approve".into()))
+        approve_and_skip_items
+            .set_next_item(Button::init("Approve".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.approve()?;
                 w.base_mut().update();
                 Ok(())
             }));
-        approve_and_skip
-            .base_mut()
-            .declare_child(Button::init("Skip snapshot".into()))
+        approve_and_skip_items
+            .set_next_item(Button::init("Skip snapshot".into()))
             .on_triggered(callbacks.create(move |w, _e| {
                 if !w.tester_logic.go_to_next_unconfirmed_snapshot() {
                     w.base.app().exit();
@@ -417,9 +404,8 @@ impl Widget for TesterUi {
                 Ok(())
             }));
         #[allow(clippy::collapsible_if)]
-        approve_and_skip
-            .base_mut()
-            .declare_child(Button::init("Skip test".into()))
+        approve_and_skip_items
+            .set_next_item(Button::init("Skip test".into()))
             .set_enabled(self.tester_logic.has_unconfirmed())
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_next_test_case();
@@ -433,9 +419,8 @@ impl Widget for TesterUi {
             }));
 
         let unconfirmed_count = self.tester_logic.tests().unconfirmed_snapshot_count();
-        window
-            .base_mut()
-            .declare_child(Label::init(if unconfirmed_count > 0 {
+        window_items
+            .set_next_item(Label::init(if unconfirmed_count > 0 {
                 format!("Unconfirmed snapshots remaining: {}", unconfirmed_count)
             } else {
                 "No unconfirmed snapshots.".into()

@@ -1,25 +1,25 @@
 use widgem::{
     widgets::{Column, Label, ScrollArea},
-    Widget, WidgetExt, Window,
+    WidgetExt, Window,
 };
 use widgem_tester::context::Context;
 
 #[widgem_tester::test]
 pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run(|r| {
-        let content = r
-            .base_mut()
-            .add_child(Window::init(module_path!().into()))
+    ctx.run(|root| {
+        let mut root_items = root.items_mut();
+        let mut window_items = root_items
+            .set_next_item(Window::init(module_path!().into()))
             .set_padding_enabled(false)
-            .base_mut()
-            .add_child(ScrollArea::init())
+            .items_mut();
+        let mut content_items = window_items
+            .set_next_item(ScrollArea::init())
             .set_size_x_fixed(Some(false))
-            .set_content(Column::init());
+            .set_content(Column::init())
+            .items_mut();
 
         for i in 0..20 {
-            content
-                .base_mut()
-                .add_child(Label::init(format!("text item {i}")));
+            content_items.set_next_item(Label::init(format!("text item {i}")));
         }
         Ok(())
     })?;
@@ -56,21 +56,22 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
 
 #[widgem_tester::test]
 pub fn layout(ctx: &mut Context) -> anyhow::Result<()> {
-    ctx.run(|r| {
-        let window = r.base_mut().add_child(Window::init(module_path!().into()));
-        window.base_mut().add_child(Label::init("before".into()));
-        let content = window
-            .base_mut()
-            .add_child(ScrollArea::init())
+    ctx.run(|root| {
+        let mut root_items = root.items_mut();
+        let mut window_items = root_items
+            .set_next_item(Window::init(module_path!().into()))
+            .items_mut();
+        window_items.set_next_item(Label::init("before".into()));
+        let mut content = window_items
+            .set_next_item(ScrollArea::init())
             .set_content(Column::init())
-            .set_padding_enabled(false);
+            .set_padding_enabled(false)
+            .items_mut();
 
         for i in 0..20 {
-            content
-                .base_mut()
-                .add_child(Label::init(format!("text item {i}")));
+            content.set_next_item(Label::init(format!("text item {i}")));
         }
-        window.base_mut().add_child(Label::init("after".into()));
+        window_items.set_next_item(Label::init("after".into()));
         Ok(())
     })?;
 

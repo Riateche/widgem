@@ -11,7 +11,7 @@ use {
     },
     anyhow::Result,
     std::borrow::Cow,
-    tracing::{error, warn},
+    tracing::warn,
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
@@ -286,27 +286,7 @@ pub trait WidgetExt: Widget {
         if !self.base().has_declare_children_override() {
             return;
         }
-        let in_progress = self
-            .base()
-            .app()
-            .with_current_children_update(|state| state.is_some());
-        if in_progress {
-            error!("attempted to call update_children while another update_children is running");
-            return;
-        }
-        self.base().app().with_current_children_update(|state| {
-            *state = Some(Default::default());
-        });
         self.handle_declare_children_request().or_report_err();
-        let Some(state) = self
-            .base()
-            .app()
-            .with_current_children_update(|state| state.take())
-        else {
-            error!("missing widgets_created_in_current_children_update after handle_declare_children_request");
-            return;
-        };
-        self.base_mut().after_declare_children(state);
     }
 
     fn size_hint_x(&self, size_y: Option<PhysicalPixels>) -> SizeHint {

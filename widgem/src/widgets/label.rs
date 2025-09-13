@@ -41,7 +41,7 @@ impl WidgetInitializer for Initializer {
     fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
         let id = base.id().raw();
         let text_style = base.compute_style();
-        base.add_child(Text::init(self.text, text_style))
+        base.set_child(0, Text::init(self.text, text_style))
             .set_host_id(id);
         Label { base }
     }

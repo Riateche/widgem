@@ -158,11 +158,11 @@ Column.menu {
     padding: 0;
     gap: 0;
 }
-MenuItem {
+MenuAction {
     padding: 4px 7px;
     border: 1px solid transparent;
 }
-MenuItem:hover {
+MenuAction:hover {
     border-color: #26709e;
     background: #308cc6;
     color: white;

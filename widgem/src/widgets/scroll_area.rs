@@ -51,7 +51,7 @@ impl ScrollArea {
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
             .base_mut()
-            .add_child_with_key(KEY_CONTENT_IN_VIEWPORT, initializer)
+            .set_child(KEY_CONTENT_IN_VIEWPORT, initializer)
     }
 
     pub fn remove_content(&mut self) -> &mut Self {
@@ -313,13 +313,13 @@ impl WidgetInitializer for Initializer {
         base.set_layout(Layout::ExplicitGrid);
 
         // TODO: icons, localized name
-        base.add_child_with_key(INDEX_SCROLL_BAR_X, ScrollBar::init(Axis::X))
+        base.set_child(INDEX_SCROLL_BAR_X, ScrollBar::init(Axis::X))
             .set_grid_cell(0, 1)
             .on_value_changed(relayout.clone());
-        base.add_child_with_key(INDEX_SCROLL_BAR_Y, ScrollBar::init(Axis::Y))
+        base.set_child(INDEX_SCROLL_BAR_Y, ScrollBar::init(Axis::Y))
             .set_grid_cell(1, 0)
             .on_value_changed(relayout);
-        base.add_child_with_key(INDEX_VIEWPORT, ViewportInitializer)
+        base.set_child(INDEX_VIEWPORT, ViewportInitializer)
             .set_grid_cell(0, 0)
             .set_layout(Layout::ExplicitGrid);
         ScrollArea {

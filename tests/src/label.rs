@@ -22,9 +22,9 @@ impl WidgetInitializer for Initializer {
     type Output = RootWidget;
 
     fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let window = base.add_child(Window::init(module_path!().into()));
+        let window = base.set_child(0, Window::init(module_path!().into()));
 
-        window.base_mut().add_child(Label::init("Test".into()));
+        window.base_mut().set_child(0, Label::init("Test".into()));
 
         RootWidget { base }
     }
@@ -39,7 +39,7 @@ impl Widget for RootWidget {
 #[widgem_tester::test]
 pub fn label(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().add_child(RootWidget::init());
+        r.base_mut().set_child(0, RootWidget::init());
         Ok(())
     })?;
     let window = ctx.wait_for_window_by_pid()?;

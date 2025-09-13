@@ -168,13 +168,13 @@ impl WidgetInitializer for Initializer {
         base.set_cursor_icon(CursorIcon::Text);
         let host_id = base.id();
         let text_style = base.compute_style();
-        let viewport = base.add_child_with_key(0, Viewport::init());
+        let viewport = base.set_child(0, Viewport::init());
         viewport.base_mut().set_receives_all_mouse_events(true);
         viewport.base_mut().set_cursor_icon(CursorIcon::Text);
         viewport.base_mut().set_layout(Layout::ExplicitGrid);
         let editor = viewport
             .base_mut()
-            .add_child_with_key(0, Text::init(String::new(), text_style))
+            .set_child(0, Text::init(String::new(), text_style))
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into());

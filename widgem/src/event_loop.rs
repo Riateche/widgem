@@ -206,7 +206,6 @@ impl ApplicationHandler<UserEvent> for Handler {
                 widget_callbacks: HashMap::new(),
                 application_shortcuts: Vec::new(),
                 pending_children_updates: Vec::new(),
-                current_children_update: None,
                 current_layout_state: None,
             };
             let app = App::init(shared_system_data);

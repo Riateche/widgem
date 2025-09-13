@@ -11,11 +11,7 @@ use {
     anyhow::Result,
     arboard::Clipboard,
     cosmic_text::{FontSystem, SwashCache},
-    std::{
-        collections::{HashMap, HashSet},
-        rc::Rc,
-        time::Duration,
-    },
+    std::{collections::HashMap, rc::Rc, time::Duration},
     tracing::warn,
     winit::event_loop::EventLoopProxy,
 };
@@ -43,20 +39,12 @@ pub struct SharedSystemDataInner {
     pub widget_callbacks: HashMap<CallbackId, WidgetCallbackData>,
     pub application_shortcuts: Vec<Shortcut>,
     pub pending_children_updates: Vec<WidgetAddress>,
-    pub current_children_update: Option<ChildrenUpdateState>,
     pub current_layout_state: Option<LayoutState>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct LayoutState {
     pub changed_size_hints: Vec<WidgetAddress>,
-}
-
-#[derive(Debug, Default)]
-pub struct ChildrenUpdateState {
-    // hashmap key is parent id
-    pub num_declared_children: HashMap<RawWidgetId, u32>,
-    pub declared_children: HashSet<RawWidgetId>,
 }
 
 pub fn report_error(error: impl Into<anyhow::Error>) {

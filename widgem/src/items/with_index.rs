@@ -64,7 +64,7 @@ impl<'a> ItemsMut<'a> {
 
     pub fn set_next_item<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
         let key = ChildKey::from(self.next_index);
-        let output = self.inner.base.add_child_with_key(key.clone(), initializer);
+        let output = self.inner.base.set_child(key.clone(), initializer);
         self.already_set.insert(key);
         self.next_index += 1;
         output
@@ -76,7 +76,7 @@ impl<'a> ItemsMut<'a> {
         initializer: WI,
     ) -> &mut WI::Output {
         let key = ChildKey::from(index);
-        let output = self.inner.base.add_child_with_key(key.clone(), initializer);
+        let output = self.inner.base.set_child(key.clone(), initializer);
         self.already_set.insert(key);
         self.next_index = index + 1;
         output

@@ -182,10 +182,12 @@ impl WidgetInitializer for Initializer {
     fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
         base.set_supports_focus(true);
         base.set_layout(Layout::HorizontalFirst);
-        base.add_child(Image::init(None)).set_visible(false);
         let id = base.id().raw();
         let text_style = base.compute_style();
-        base.add_child(Text::init(self.text, text_style))
+        let mut children = base.children_mut();
+        children.set_next_item(Image::init(None)).set_visible(false);
+        children
+            .set_next_item(Text::init(self.text, text_style))
             .set_host_id(id);
         let mut b = Button {
             style: base.compute_style(),

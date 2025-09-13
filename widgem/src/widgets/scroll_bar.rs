@@ -517,7 +517,7 @@ impl WidgetInitializer for Initializer {
         base.set_supports_focus(true).set_focusable(false);
         // TODO: localized name
 
-        base.add_child_with_key(INDEX_DECREASE, Button::init(names::SCROLL_LEFT.into()))
+        base.set_child(INDEX_DECREASE, Button::init(names::SCROLL_LEFT.into()))
             // TODO: implement accessibility for scroll bar itself
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
@@ -527,11 +527,11 @@ impl WidgetInitializer for Initializer {
             .set_trigger_on_press(true);
 
         let pager = base
-            .add_child_with_key(INDEX_PAGER, Pager::init(self.axis))
+            .set_child(INDEX_PAGER, Pager::init(self.axis))
             .set_layout(Layout::ExplicitGrid);
         pager
             .base
-            .add_child_with_key(
+            .set_child(
                 INDEX_BUTTON_IN_PAGER,
                 Button::init(names::SCROLL_PAGER.into()),
             )
@@ -546,14 +546,14 @@ impl WidgetInitializer for Initializer {
             .set_trigger_on_press(true);
         pager
             .base
-            .add_child_with_key(INDEX_GRIP_IN_PAGER, Button::init(names::SCROLL_GRIP.into()))
+            .set_child(INDEX_GRIP_IN_PAGER, Button::init(names::SCROLL_GRIP.into()))
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_grip_x".into())
             .set_text_visible(false)
             .set_mouse_leave_sensitive(false);
 
-        base.add_child_with_key(INDEX_INCREASE, Button::init(names::SCROLL_RIGHT.into()))
+        base.set_child(INDEX_INCREASE, Button::init(names::SCROLL_RIGHT.into()))
             .set_accessibility_node_enabled(false)
             .set_focusable(false)
             .add_class("scroll_right".into())

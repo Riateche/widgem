@@ -71,7 +71,7 @@ impl<'a, ChildKeyType: Into<ChildKey>> ItemsWithKeyMut<'a, ChildKeyType> {
         key: ChildKeyType,
         initializer: WI,
     ) -> &mut WI::Output {
-        self.inner.base.add_child_with_key(key, initializer)
+        self.inner.base.set_child(key, initializer)
     }
 
     pub fn remove_item(&mut self, key: ChildKeyType) -> Result<(), WidgetNotFound> {

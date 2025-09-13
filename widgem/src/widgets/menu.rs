@@ -108,7 +108,7 @@ impl WidgetInitializer for Initializer {
         } else {
             error!("Menu::new: missing window");
         }
-        base.add_child_with_key(SCROLL_AREA_KEY, ScrollArea::init())
+        base.set_child(SCROLL_AREA_KEY, ScrollArea::init())
             .set_content(Column::init())
             .add_class("menu".into());
         Menu {
@@ -218,7 +218,8 @@ impl Widget for MenuAction {
     fn handle_declare_children_request(&mut self) -> anyhow::Result<()> {
         let text_style = self.base.compute_style::<TextStyle>();
         self.base
-            .declare_child(Text::init(self.text.clone(), text_style))
+            .children_mut()
+            .set_next_item(Text::init(self.text.clone(), text_style))
             .set_multiline(false);
         Ok(())
     }
