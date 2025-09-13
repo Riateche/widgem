@@ -37,7 +37,7 @@ pub use self::{
     base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetGeometry},
     ext::WidgetExt,
     id::{RawWidgetId, WidgetId},
-    widget_trait::{NewWidget, Widget},
+    widget_trait::{NewWidget, Widget, WidgetInitializer},
 };
 
 use {anyhow::Result, std::fmt::Debug, thiserror::Error, tracing::warn};

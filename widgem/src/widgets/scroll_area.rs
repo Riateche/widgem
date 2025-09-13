@@ -47,20 +47,20 @@ impl ScrollArea {
     }
 
     // TODO: naming?
-    pub fn set_content<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
+    pub fn set_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
         self.base
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
             .base_mut()
-            .add_child_with_key::<T>(KEY_CONTENT_IN_VIEWPORT, arg)
+            .add_child_with_key(KEY_CONTENT_IN_VIEWPORT, initializer)
     }
 
-    pub fn declare_content<T: NewWidget>(&mut self, arg: T::Arg) -> &mut T {
+    pub fn declare_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
         self.base
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
             .base_mut()
-            .declare_child_with_key::<T>(KEY_CONTENT_IN_VIEWPORT, arg)
+            .declare_child_with_key(KEY_CONTENT_IN_VIEWPORT, initializer)
     }
 
     pub fn remove_content(&mut self) -> &mut Self {
@@ -322,13 +322,13 @@ impl WidgetInitializer for Initializer {
         base.set_layout(Layout::ExplicitGrid);
 
         // TODO: icons, localized name
-        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X, Axis::X)
+        base.add_child_with_key(INDEX_SCROLL_BAR_X, ScrollBar::init(Axis::X))
             .set_grid_cell(0, 1)
             .on_value_changed(relayout.clone());
-        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y, Axis::Y)
+        base.add_child_with_key(INDEX_SCROLL_BAR_Y, ScrollBar::init(Axis::Y))
             .set_grid_cell(1, 0)
             .on_value_changed(relayout);
-        base.add_child_with_key::<Viewport>(INDEX_VIEWPORT, ())
+        base.add_child_with_key(INDEX_VIEWPORT, ViewportInitializer)
             .set_grid_cell(0, 0)
             .set_layout(Layout::ExplicitGrid);
         ScrollArea {
@@ -349,13 +349,13 @@ impl NewWidget for ScrollArea {
         base.set_layout(Layout::ExplicitGrid);
 
         // TODO: icons, localized name
-        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_X, Axis::X)
+        base.add_child_with_key(INDEX_SCROLL_BAR_X, ScrollBar::init(Axis::X))
             .set_grid_cell(0, 1)
             .on_value_changed(relayout.clone());
-        base.add_child_with_key::<ScrollBar>(INDEX_SCROLL_BAR_Y, Axis::Y)
+        base.add_child_with_key(INDEX_SCROLL_BAR_Y, ScrollBar::init(Axis::Y))
             .set_grid_cell(1, 0)
             .on_value_changed(relayout);
-        base.add_child_with_key::<Viewport>(INDEX_VIEWPORT, ())
+        base.add_child_with_key(INDEX_VIEWPORT, ViewportInitializer)
             .set_grid_cell(0, 0)
             .set_layout(Layout::ExplicitGrid);
         Self {
@@ -555,6 +555,18 @@ impl Widget for ScrollArea {
 
 pub struct Viewport {
     base: WidgetBaseOf<Self>,
+}
+
+struct ViewportInitializer;
+
+impl WidgetInitializer for ViewportInitializer {
+    type Output = Viewport;
+
+    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
+        Viewport { base }
+    }
+
+    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl NewWidget for Viewport {

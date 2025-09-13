@@ -78,8 +78,8 @@ impl WidgetInitializer for Initializer {
         } else {
             error!("Menu::new: missing window");
         }
-        base.add_child_with_key::<ScrollArea>(SCROLL_AREA_KEY, ())
-            .set_content::<Column>(())
+        base.add_child_with_key(SCROLL_AREA_KEY, ScrollArea::init())
+            .set_content(Column::init())
             .add_class("menu".into());
         Menu {
             base,
@@ -112,7 +112,7 @@ impl NewWidget for Menu {
         } else {
             error!("Menu::new: missing window");
         }
-        base.add_child_with_key::<ScrollArea>(SCROLL_AREA_KEY, ())
+        base.add_child_with_key(SCROLL_AREA_KEY, ScrollArea::init())
             .set_content::<Column>(())
             .add_class("menu".into());
         Self {
