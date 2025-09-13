@@ -1033,6 +1033,16 @@ impl WidgetBase {
     }
     // TODO: auto add sorting key as well, or create a key that sorts correctly.
 
+    // pub fn build_children(&mut self) -> AutoKeyChildrenBuilder<'_> {
+    //     todo!()
+    // }
+
+    // pub fn build_children_with_key<ChildKeyType: ChildKeySpecifier>(
+    //     &mut self,
+    // ) -> ChildrenBuilder<ChildKeyType> {
+    //     todo!()
+    // }
+
     /// Adds a child widget of type `T`. `arg` is passed to the child widget's constructor.
     ///
     /// `add_child` automatically assigns a unique key to each widget. To assign a key explicitly,
