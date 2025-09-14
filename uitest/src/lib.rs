@@ -1,6 +1,16 @@
+#[cfg(all(unix, not(target_os = "macos")))]
 mod linux;
+use std::sync::Mutex;
 
+#[cfg(all(unix, not(target_os = "macos")))]
 use self::linux as imp;
+
+#[cfg(target_os = "windows")]
+mod windows;
+#[cfg(target_os = "windows")]
+use self::windows as imp;
+
+use enigo::{Enigo, Mouse};
 
 mod window;
 
@@ -20,6 +30,7 @@ const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(5);
 
 struct ContextData {
     imp: imp::Context,
+    enigo: Mutex<Enigo>,
     wait_duration: Duration,
 }
 
@@ -31,6 +42,7 @@ impl Context {
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self(Arc::new(ContextData {
             imp: imp::Context::new()?,
+            enigo: Mutex::new(Enigo::new(&enigo::Settings::default())?),
             wait_duration: DEFAULT_WAIT_DURATION,
         })))
     }
@@ -128,6 +140,12 @@ impl Context {
     }
 
     pub fn mouse_move_global(&self, x: u32, y: u32) -> anyhow::Result<()> {
-        self.0.imp.mouse_move_global(x, y)
+        self.0
+            .enigo
+            .lock()
+            .unwrap()
+            .move_mouse(x as i32, y as i32, enigo::Coordinate::Abs)?;
+        // self.0.imp.mouse_move_global(x, y)
+        Ok(())
     }
 }

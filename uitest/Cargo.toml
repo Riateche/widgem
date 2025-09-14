@@ -11,3 +11,7 @@ xcap = { workspace = true }
 x11rb = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
+enigo = { workspace = true }
+
+[target.'cfg(target_os="windows")'.dependencies]
+windows-sys = { workspace = true }
