@@ -5,7 +5,7 @@ use {
         impl_widget_base,
         layout::SizeHint,
         types::{PhysicalPixels, Point, PpxSuffix},
-        widgets::widget_trait::{WidgetInitializer},
+        widgets::widget_trait::WidgetInitializer,
         Pixmap,
     },
     anyhow::Result,
