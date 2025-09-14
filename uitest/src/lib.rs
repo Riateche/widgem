@@ -1,14 +1,13 @@
+mod linux;
+
+use self::linux as imp;
+
 use {
-    anyhow::{bail, Context},
+    anyhow::bail,
     std::{
-        process::Command,
         sync::Arc,
         thread::sleep,
         time::{Duration, Instant},
-    },
-    x11rb::{
-        protocol::xproto::{Atom, ConnectionExt},
-        rust_connection::RustConnection,
     },
     xcap::{image::RgbaImage, XCapResult},
 };
@@ -17,35 +16,18 @@ const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);
 const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(5);
 
 struct ConnectionInner {
-    connection: RustConnection,
-    net_wm_pid: Atom,
-    cardinal: Atom,
+    imp: imp::Context,
     wait_duration: Duration,
 }
 
 #[derive(Clone)]
 pub struct Connection(Arc<ConnectionInner>);
 
-fn get_or_intern_atom(conn: &RustConnection, name: &[u8]) -> Atom {
-    let result = conn
-        .intern_atom(false, name)
-        .expect("Failed to intern atom")
-        .reply()
-        .expect("Failed receive interned atom");
-
-    result.atom
-}
-
 impl Connection {
     #[allow(clippy::new_without_default)]
     pub fn new() -> anyhow::Result<Self> {
-        let (connection, _screen_num) = x11rb::connect(None)?;
-        let net_wm_pid = get_or_intern_atom(&connection, b"_NET_WM_PID");
-        let cardinal = get_or_intern_atom(&connection, b"CARDINAL");
         Ok(Self(Arc::new(ConnectionInner {
-            connection,
-            net_wm_pid,
-            cardinal,
+            imp: imp::Context::new()?,
             wait_duration: DEFAULT_WAIT_DURATION,
         })))
     }
@@ -53,7 +35,7 @@ impl Connection {
     pub fn all_windows(&self) -> anyhow::Result<Vec<Window>> {
         xcap::Window::all()?
             .into_iter()
-            .map(|w| Window::new(self, w))
+            .map(|w| Window::new(self.clone(), w))
             .collect()
     }
 
@@ -101,29 +83,11 @@ impl Connection {
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
-        let output = Command::new("xdotool")
-            .arg("getactivewindow")
-            .output()
-            .with_context(|| "failed to execute command: xdotool getactivewindow")?;
-        if !output.status.success() {
-            bail!("xdotool failed: {:?}", output);
-        }
-        Ok(String::from_utf8(output.stdout)?.trim().parse()?)
-    }
-
-    fn run_xdotool(&self, args: &[&str]) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .args(args)
-            .status()
-            .with_context(|| format!("failed to execute command: xdotool {:?}", args))?;
-        if !status.success() {
-            bail!("xdotool failed with status {:?}", status);
-        }
-        Ok(())
+        self.0.imp.active_window_id()
     }
 
     pub fn mouse_click(&self, button: u32) -> anyhow::Result<()> {
-        self.run_xdotool(&["click", &button.to_string()])
+        self.0.imp.mouse_click(button)
     }
 
     pub fn mouse_scroll_up(&self) -> anyhow::Result<()> {
@@ -143,34 +107,25 @@ impl Connection {
     }
 
     pub fn mouse_down(&self, button: u32) -> anyhow::Result<()> {
-        self.run_xdotool(&["mousedown", &button.to_string()])
+        self.0.imp.mouse_down(button)
     }
 
     pub fn mouse_up(&self, button: u32) -> anyhow::Result<()> {
-        self.run_xdotool(&["mouseup", &button.to_string()])
+        self.0.imp.mouse_up(button)
     }
 
     // https://wiki.linuxquestions.org/wiki/List_of_keysyms
     // https://manpages.ubuntu.com/manpages/trusty/man1/xdotool.1.html
     pub fn key(&self, key: &str) -> anyhow::Result<()> {
-        self.run_xdotool(&["key", key])
+        self.0.imp.key(key)
     }
 
     pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
-        self.run_xdotool(&["type", text])
+        self.0.imp.type_text(text)
     }
 
     pub fn mouse_move_global(&self, x: u32, y: u32) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("mousemove")
-            .arg("--sync")
-            .arg(x.to_string())
-            .arg(y.to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-        Ok(())
+        self.0.imp.mouse_move_global(x, y)
     }
 }
 
@@ -179,28 +134,18 @@ pub struct Window {
     id: u32,
     pid: u32,
     inner: xcap::Window,
+    #[allow(dead_code)]
+    connection: Connection,
 }
 
 impl Window {
-    fn new(connection: &Connection, inner: xcap::Window) -> anyhow::Result<Self> {
-        let pid = connection
-            .0
-            .connection
-            .get_property(
-                false,
-                inner.id()?,
-                connection.0.net_wm_pid,
-                connection.0.cardinal,
-                0,
-                u32::MAX,
-            )?
-            .reply()?
-            .value32()
-            .unwrap()
-            .next()
-            .unwrap();
-        let id = inner.id()?;
-        Ok(Self { id, pid, inner })
+    fn new(connection: Connection, inner: xcap::Window) -> anyhow::Result<Self> {
+        Ok(Self {
+            id: inner.id()?,
+            pid: inner.pid()?,
+            inner,
+            connection,
+        })
     }
 
     pub fn pid(&self) -> u32 {
@@ -249,76 +194,22 @@ impl Window {
     }
 
     pub fn activate(&self) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("windowactivate")
-            .arg("--sync")
-            .arg(self.id().to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-
-        // let status = Command::new("xdotool")
-        //     .arg("windowraise")
-        //     .arg(self.id().to_string())
-        //     .status()?;
-        // if !status.success() {
-        //     bail!("xdotool failed: {:?}", status);
-        // }
-        Ok(())
+        self.connection.0.imp.activate_window(self)
     }
 
     pub fn mouse_move(&self, x: u32, y: u32) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("mousemove")
-            .arg("--window")
-            .arg(self.id().to_string())
-            .arg("--sync")
-            .arg(x.to_string())
-            .arg(y.to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-        Ok(())
+        self.connection.0.imp.mouse_move(self, x, y)
     }
 
     pub fn minimize(&self) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("windowminimize")
-            .arg("--sync")
-            .arg(self.id().to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-        Ok(())
+        self.connection.0.imp.minimize_window(self)
     }
 
     pub fn close(&self) -> anyhow::Result<()> {
-        // `xdotool windowclose` doesn't work properly
-        let status = Command::new("wmctrl")
-            .arg("-i")
-            .arg("-c")
-            .arg(self.id().to_string())
-            .status()?;
-        if !status.success() {
-            bail!("wmctrl failed: {:?}", status);
-        }
-        Ok(())
+        self.connection.0.imp.close_window(self)
     }
 
     pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("windowsize")
-            .arg("--sync")
-            .arg(self.id().to_string())
-            .arg(width.to_string())
-            .arg(height.to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-        Ok(())
+        self.connection.0.imp.resize_window(self, width, height)
     }
 }
