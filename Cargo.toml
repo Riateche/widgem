@@ -70,3 +70,6 @@ debug = false
 debug-assertions = false
 overflow-checks = false
 codegen-units = 16
+
+[patch.crates-io]
+winit = { git = "https://github.com/Riateche/winit.git", rev = "25c76cdf" }
