@@ -130,7 +130,7 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     window.snapshot("scroll bar")?;
-    ctx.ui().key(Key::F)?;
+    ctx.ui().key(Key::Unicode('f'))?;
     window.snapshot("focused")?;
     ctx.ui().key(Key::Unicode('1'))?;
     window.snapshot("increased range")?;
@@ -279,7 +279,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     window.resize(300, 5)?;
     window.snapshot("min y size")?;
 
-    ctx.ui().key(Key::R)?;
+    ctx.ui().key(Key::Unicode('r'))?;
     window.snapshot("changed to vertical scroll bar")?;
 
     window.resize(1, 1)?;

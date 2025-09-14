@@ -33,17 +33,6 @@ impl Context {
         })
     }
 
-    fn run_xdotool(&self, args: &[&str]) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .args(args)
-            .status()
-            .with_context(|| format!("failed to execute command: xdotool {:?}", args))?;
-        if !status.success() {
-            bail!("xdotool failed with status {:?}", status);
-        }
-        Ok(())
-    }
-
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
         let output = Command::new("xdotool")
             .arg("getactivewindow")
@@ -55,56 +44,11 @@ impl Context {
         Ok(String::from_utf8(output.stdout)?.trim().parse()?)
     }
 
-    pub fn mouse_click(&self, button: u32) -> anyhow::Result<()> {
-        self.run_xdotool(&["click", &button.to_string()])
-    }
-
-    pub fn mouse_down(&self, button: u32) -> anyhow::Result<()> {
-        self.run_xdotool(&["mousedown", &button.to_string()])
-    }
-
-    pub fn mouse_up(&self, button: u32) -> anyhow::Result<()> {
-        self.run_xdotool(&["mouseup", &button.to_string()])
-    }
-
-    // https://wiki.linuxquestions.org/wiki/List_of_keysyms
-    // https://manpages.ubuntu.com/manpages/trusty/man1/xdotool.1.html
-    pub fn key(&self, key: &str) -> anyhow::Result<()> {
-        self.run_xdotool(&["key", key])
-    }
-
-    pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
-        self.run_xdotool(&["type", text])
-    }
-
     pub fn activate_window(&self, window: &crate::Window) -> anyhow::Result<()> {
         let status = Command::new("xdotool")
             .arg("windowactivate")
             .arg("--sync")
             .arg(window.id().to_string())
-            .status()?;
-        if !status.success() {
-            bail!("xdotool failed: {:?}", status);
-        }
-
-        // let status = Command::new("xdotool")
-        //     .arg("windowraise")
-        //     .arg(self.id().to_string())
-        //     .status()?;
-        // if !status.success() {
-        //     bail!("xdotool failed: {:?}", status);
-        // }
-        Ok(())
-    }
-
-    pub fn mouse_move(&self, window: &crate::Window, x: u32, y: u32) -> anyhow::Result<()> {
-        let status = Command::new("xdotool")
-            .arg("mousemove")
-            .arg("--window")
-            .arg(window.id().to_string())
-            .arg("--sync")
-            .arg(x.to_string())
-            .arg(y.to_string())
             .status()?;
         if !status.success() {
             bail!("xdotool failed: {:?}", status);

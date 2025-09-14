@@ -1,5 +1,3 @@
-#![allow(unused_variables)]
-
 use {
     anyhow::bail,
     std::ffi::c_void,

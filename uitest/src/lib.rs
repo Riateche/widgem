@@ -1,6 +1,5 @@
 #[cfg(all(unix, not(target_os = "macos")))]
 mod linux;
-use std::sync::Mutex;
 
 #[cfg(all(unix, not(target_os = "macos")))]
 use self::linux as imp;
@@ -10,7 +9,11 @@ mod windows;
 #[cfg(target_os = "windows")]
 use self::windows as imp;
 
-use enigo::{Axis, Direction, Enigo, Keyboard, Mouse};
+#[cfg(target_os = "macos")]
+mod macos;
+
+#[cfg(target_os = "macos")]
+use self::macos as imp;
 
 mod window;
 
@@ -21,8 +24,9 @@ pub use {
 
 use {
     anyhow::bail,
+    enigo::{Axis, Direction, Enigo, Keyboard, Mouse},
     std::{
-        sync::Arc,
+        sync::{Arc, Mutex},
         thread::sleep,
         time::{Duration, Instant},
     },

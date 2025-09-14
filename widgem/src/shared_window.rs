@@ -27,7 +27,7 @@ use {
         time::{Duration, Instant},
     },
     tiny_skia::Pixmap,
-    tracing::{info, warn},
+    tracing::{info, trace, warn},
     winit::{
         dpi::{PhysicalPosition, PhysicalSize},
         event::{ElementState, MouseButton, WindowEvent},
@@ -278,7 +278,7 @@ impl SharedWindow {
         let mut size = Size::new(size_x, size_y);
         let min_size = Size::new(size_hints_x.min(), size_hint_y_min);
 
-        info!(
+        trace!(
             "requested window position: {:?}",
             inner.attributes.outer_position
         );
@@ -296,7 +296,7 @@ impl SharedWindow {
                 position
             }
         });
-        info!(
+        trace!(
             "window position adjusted to monitor work area: {:?}",
             position
         );
@@ -379,7 +379,7 @@ impl SharedWindow {
             )
         });
         winit_window.set_visible(inner.attributes.visible);
-        info!(
+        trace!(
             "real window position after creation: {:?}",
             winit_window.outer_position(),
         );
