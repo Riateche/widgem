@@ -1,7 +1,7 @@
 pub mod context;
 
 use {
-    crate::context::{Context, SnapshotMode},
+    crate::context::SnapshotMode,
     anyhow::{bail, Context as _},
     clap::Parser,
     fs_err::read_dir,
@@ -23,7 +23,7 @@ use {
 #[doc(hidden)]
 pub use ctor as __ctor;
 
-pub use {uitest::*, widgem_macros::test};
+pub use {crate::context::Context, uitest::Window, widgem_macros::test};
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
 
@@ -173,7 +173,7 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
             let exe_path = env::args_os()
                 .next()
                 .context("failed to get current executable path")?;
-            let connection = Connection::new()?;
+            let uitest_context = uitest::Context::new()?;
             let mut all_fails = Vec::new();
             let mut num_total = 0;
             let mut num_failed = 0;
@@ -189,10 +189,10 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 if !matches_filter {
                     continue;
                 }
-                connection.mouse_move_global(1, 1)?;
+                uitest_context.mouse_move_global(1, 1)?;
                 println!("running test: {}", test_name);
                 let mut ctx = Context::new_check(
-                    connection.clone(),
+                    uitest_context.clone(),
                     test_name.clone(),
                     test_snapshots_dir(&snapshots_dir, &test_name),
                     mode,

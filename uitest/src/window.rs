@@ -1,6 +1,6 @@
 use xcap::{image::RgbaImage, XCapResult};
 
-use crate::Connection;
+use crate::Context;
 
 #[derive(Clone)]
 pub struct Window {
@@ -8,11 +8,11 @@ pub struct Window {
     pid: u32,
     inner: xcap::Window,
     #[allow(dead_code)]
-    connection: Connection,
+    connection: Context,
 }
 
 impl Window {
-    pub(crate) fn new(connection: Connection, inner: xcap::Window) -> anyhow::Result<Self> {
+    pub(crate) fn new(connection: Context, inner: xcap::Window) -> anyhow::Result<Self> {
         Ok(Self {
             id: inner.id()?,
             pid: inner.pid()?,

@@ -18,18 +18,18 @@ use {
 const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);
 const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(5);
 
-struct ConnectionInner {
+struct ContextData {
     imp: imp::Context,
     wait_duration: Duration,
 }
 
 #[derive(Clone)]
-pub struct Connection(Arc<ConnectionInner>);
+pub struct Context(Arc<ContextData>);
 
-impl Connection {
+impl Context {
     #[allow(clippy::new_without_default)]
     pub fn new() -> anyhow::Result<Self> {
-        Ok(Self(Arc::new(ConnectionInner {
+        Ok(Self(Arc::new(ContextData {
             imp: imp::Context::new()?,
             wait_duration: DEFAULT_WAIT_DURATION,
         })))

@@ -16,7 +16,6 @@ use {
         thread::sleep,
         time::{Duration, Instant},
     },
-    uitest::Connection,
     widgem::{widgets::RootWidget, AppBuilder},
 };
 
@@ -31,7 +30,7 @@ pub enum SnapshotMode {
 }
 
 pub(crate) struct CheckContext {
-    connection: Connection,
+    uitest_context: uitest::Context,
     test_name: String,
     test_case_dir: PathBuf,
     last_snapshot_index: u32,
@@ -48,7 +47,7 @@ pub(crate) struct CheckContext {
 
 impl CheckContext {
     pub fn new(
-        connection: Connection,
+        uitest_context: uitest::Context,
         test_name: String,
         test_case_dir: PathBuf,
         snapshot_mode: SnapshotMode,
@@ -56,7 +55,7 @@ impl CheckContext {
     ) -> anyhow::Result<Self> {
         Ok(Self {
             unverified_files: discover_snapshots(&test_case_dir)?,
-            connection,
+            uitest_context,
             test_name,
             test_case_dir,
             exe_path,
@@ -269,12 +268,13 @@ impl CheckContext {
         num_windows: usize,
     ) -> anyhow::Result<Vec<uitest::Window>> {
         let pid = self.pid.context("app has not been run yet")?;
-        self.connection.wait_for_windows_by_pid(pid, num_windows)
+        self.uitest_context
+            .wait_for_windows_by_pid(pid, num_windows)
     }
 
     pub fn wait_for_window_by_pid(&self) -> anyhow::Result<uitest::Window> {
         let pid = self.pid.context("app has not been run yet")?;
-        let mut windows = self.connection.wait_for_windows_by_pid(pid, 1)?;
+        let mut windows = self.uitest_context.wait_for_windows_by_pid(pid, 1)?;
         if windows.len() != 1 {
             bail!("expected 1 window, got {}", windows.len());
         }
@@ -307,7 +307,7 @@ pub struct Context(Arc<Mutex<ContextInner>>);
 
 impl Context {
     pub(crate) fn new_check(
-        connection: Connection,
+        uitest_context: uitest::Context,
         test_name: String,
         test_case_dir: PathBuf,
         snapshot_mode: SnapshotMode,
@@ -315,7 +315,7 @@ impl Context {
     ) -> anyhow::Result<Self> {
         Ok(Context(Arc::new(Mutex::new(ContextInner::Check(
             CheckContext::new(
-                connection,
+                uitest_context,
                 test_name,
                 test_case_dir,
                 snapshot_mode,
@@ -390,8 +390,8 @@ impl Context {
         })
     }
 
-    pub fn connection(&self) -> Connection {
-        self.check(|c| c.connection.clone())
+    pub fn ui(&self) -> uitest::Context {
+        self.check(|c| c.uitest_context.clone())
     }
 }
 
