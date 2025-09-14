@@ -16,33 +16,34 @@ use {
     tracing::warn,
 };
 
-// TODO: update these docs
 pub trait WidgetInitializer {
     type Output: Widget;
     /// Creates a new widget. The `base` argument provides all available information about the context in which
-    /// the widget is being created. `arg` may provide additional configuration, depending on the widget type.
+    /// the widget is being created.
     ///
     /// You don't need to call this function directly. It's automatically invoked when you create a widget using
     /// one of the following functions on [WidgetBase] of the parent widget:
-    /// - [add_child](WidgetBase::add_child)
-    /// - [add_child_with_key](WidgetBase::add_child_with_key)
-    /// - [declare_child](WidgetBase::declare_child)
-    /// - [declare_child_with_key](WidgetBase::declare_child_with_key)
+    /// - [WidgetBase::set_child]
+    /// - [crate::items::with_index::ItemsMut::set_item_at]
+    /// - [crate::items::with_index::ItemsMut::set_next_item]
+    /// - [crate::items::with_key::ItemsWithKeyMut::set_item]
     ///
     /// When implementing this function, you should always store the `common` argument value inside your widget object.
     /// As a convention, you should store it in the widget's field named `common`.
     /// Your implementations of [base](Widget::base) and [base_mut](Widget::base_mut) must return a reference to that object.
-    ///
     fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output;
 
     /// Handles a repeated declaration of the widget.
     ///
-    /// This function is called when [declare_child](WidgetBase::declare_child) or
-    /// [declare_child_with_key](WidgetBase::declare_child_with_key) is called and `self`
-    /// is an existing widget corresponding to that declaration. When implementing this function,
-    /// use `arg` to update the state of the widget in the same way as it would be used in [NewWidget::new].
-    /// For example, if the argument of [NewWidget::new] sets the displayed text then `handle_declared`
-    /// should also set the displayed text.
+    /// This function may be called from the following functions when the corresponding widget already exist:
+    ///
+    /// - [WidgetBase::set_child]
+    /// - [crate::items::with_index::ItemsMut::set_item_at]
+    /// - [crate::items::with_index::ItemsMut::set_next_item]
+    /// - [crate::items::with_key::ItemsWithKeyMut::set_item]
+    ///
+    /// When implementing this function, update the configuration of the widget based on the data stored in the initializer.
+    /// For example, `Label`'s initializer contains the text property, so its implementation of `reinit` calls `Label::set_text`.
     fn reinit(self, widget: &mut Self::Output);
 }
 
@@ -436,33 +437,13 @@ pub trait Widget: Any {
     /// You should not call this function directly. Use
     /// [WidgetBase::update](crate::widgets::WidgetBase::update) to schedule an update of the widget.
     ///
-    /// Implement this function to update the widget's children in a declarative way.
-    /// Inside this implementation, you can use
-    /// [declare_child](crate::widgets::WidgetBase::declare_child) and
-    /// [declare_child_with_key](crate::widgets::WidgetBase::declare_child_with_key)
-    /// functions to declare the children (note: these functions should only be used from within
-    /// a `handle_declare_children_request` call). Both direct and indirect children can be declared this way.
+    /// Implement this function to update the widget's children.
     ///
-    /// When you call `declare_*` functions, it can either return a reference to an existing child or
+    /// When you call `set_*` functions, it can either return a reference to an existing child or
     /// create a new child and return a reference to it.
     /// Use the returned references to update **all** properties of the
     /// child that may change.
     ///
-    /// After `handle_declare_children_request` has finished, any previously declared children that
-    /// were not declared during that call will be deleted. This means that in you want a child widget
-    /// to keep existing, you need to declare it in *every* call to `handle_declare_children_request`.
-    ///
-    /// Implementing this function is the easiest and the most convenient way to manage the content of your widget.
-    /// However, it entails a performance cost of iterating over all the children you want to declare and
-    /// recalculating all values for their dynamic properties. There is an alternative way of dealing with this task.
-    /// You can explicitly create children using [add_child](crate::widgets::WidgetBase::add_child) and
-    /// [add_child_with_key](crate::widgets::WidgetBase::add_child_with_key),
-    /// get a reference to an existing child with [get_child](crate::widgets::WidgetBase::get_child) and
-    /// [get_child_mut](crate::widgets::WidgetBase::get_child_mut), and explicitly remove children with
-    /// [remove_child](crate::widgets::WidgetBase::remove_child). These functions can be called at any time,
-    /// from any function within your widget (or even from outside), so they don't have such restrictions as
-    /// `declare_*` functions have. This approach can be more error-prone, but it can also be much more
-    /// efficient if your widget has a lot of children or some properties are expensive to calculate.
     /// (Note however that if you need to present many objects in your UI, you should use *virtual rendering* instead of
     /// creating all the widgets at once.)
     ///
