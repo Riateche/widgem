@@ -139,12 +139,12 @@ impl Context {
         self.0.imp.type_text(text)
     }
 
-    pub fn mouse_move_global(&self, x: u32, y: u32) -> anyhow::Result<()> {
+    pub fn mouse_move_global(&self, x: i32, y: i32) -> anyhow::Result<()> {
         self.0
             .enigo
             .lock()
             .unwrap()
-            .move_mouse(x as i32, y as i32, enigo::Coordinate::Abs)?;
+            .move_mouse(x, y, enigo::Coordinate::Abs)?;
         // self.0.imp.mouse_move_global(x, y)
         Ok(())
     }

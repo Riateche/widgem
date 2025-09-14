@@ -70,8 +70,10 @@ impl Window {
         self.connection.0.imp.activate_window(self)
     }
 
-    pub fn mouse_move(&self, x: u32, y: u32) -> anyhow::Result<()> {
-        self.connection.0.imp.mouse_move(self, x, y)
+    pub fn mouse_move(&self, x: i32, y: i32) -> anyhow::Result<()> {
+        let global_x = self.x()? + x;
+        let global_y = self.y()? + y;
+        self.connection.mouse_move_global(global_x, global_y)
     }
 
     pub fn minimize(&self) -> anyhow::Result<()> {
