@@ -177,27 +177,35 @@ pub fn mouse_scroll(ctx: &mut Context) -> anyhow::Result<()> {
     window.mouse_move(100, 20)?;
     window.snapshot("highlighted pager")?;
 
+    println!("scroll down 1");
     ctx.ui().mouse_scroll_down()?;
     window.snapshot("scrolled down")?;
 
+    println!("scroll down 2");
     ctx.ui().mouse_scroll_down()?;
     window.snapshot("scrolled down")?;
 
+    println!("scroll up 3");
     ctx.ui().mouse_scroll_up()?;
     window.snapshot("scrolled up")?;
 
+    println!("scroll up 4");
     ctx.ui().mouse_scroll_up()?;
     window.snapshot("scrolled up")?;
 
+    println!("scroll right 5");
     ctx.ui().mouse_scroll_right()?;
     window.snapshot("scrolled down")?;
 
+    println!("scroll right 6");
     ctx.ui().mouse_scroll_right()?;
     window.snapshot("scrolled down")?;
 
+    println!("scroll left 7");
     ctx.ui().mouse_scroll_left()?;
     window.snapshot("scrolled up")?;
 
+    println!("scroll left 8");
     ctx.ui().mouse_scroll_left()?;
     window.snapshot("scrolled up")?;
 

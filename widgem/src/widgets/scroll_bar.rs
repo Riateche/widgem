@@ -669,6 +669,7 @@ impl Widget for ScrollBar {
     }
 
     fn handle_mouse_scroll(&mut self, event: MouseScrollEvent) -> Result<bool> {
+        println!("handle_mouse_scroll: delta={:?}", event.delta);
         let delta = event.unified_delta(&self.base);
         let max_delta = if NotNan::new(delta.x.abs())? > NotNan::new(delta.y.abs())? {
             delta.x
