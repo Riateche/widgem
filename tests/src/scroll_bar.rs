@@ -6,7 +6,7 @@ use {
         types::Axis,
         widgets::{Label, ScrollBar, Widget, WidgetBaseOf, WidgetExt, WidgetInitializer, Window},
     },
-    widgem_tester::context::Context,
+    widgem_tester::{context::Context, Key},
 };
 
 pub struct RootWidget {
@@ -130,34 +130,34 @@ pub fn keyboard(ctx: &mut Context) -> anyhow::Result<()> {
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     window.snapshot("scroll bar")?;
-    ctx.ui().key("f")?;
+    ctx.ui().key(Key::F)?;
     window.snapshot("focused")?;
-    ctx.ui().key("1")?;
+    ctx.ui().key(Key::Unicode('1'))?;
     window.snapshot("increased range")?;
 
-    ctx.ui().key("Down")?;
+    ctx.ui().key(Key::DownArrow)?;
     window.snapshot("step down")?;
-    ctx.ui().key("Down")?;
+    ctx.ui().key(Key::DownArrow)?;
     window.snapshot("step down")?;
 
-    ctx.ui().key("Page_Down")?;
+    ctx.ui().key(Key::PageDown)?;
     window.snapshot("page down")?;
-    ctx.ui().key("Page_Down")?;
+    ctx.ui().key(Key::PageDown)?;
     window.snapshot("page down")?;
 
-    ctx.ui().key("Up")?;
+    ctx.ui().key(Key::UpArrow)?;
     window.snapshot("step up")?;
-    ctx.ui().key("Up")?;
+    ctx.ui().key(Key::UpArrow)?;
     window.snapshot("step up")?;
 
-    ctx.ui().key("Page_Up")?;
+    ctx.ui().key(Key::PageUp)?;
     window.snapshot("page up")?;
-    ctx.ui().key("Page_Up")?;
+    ctx.ui().key(Key::PageUp)?;
     window.snapshot("page up")?;
 
-    ctx.ui().key("End")?;
+    ctx.ui().key(Key::End)?;
     window.snapshot("end")?;
-    ctx.ui().key("Home")?;
+    ctx.ui().key(Key::Home)?;
     window.snapshot("home")?;
 
     window.close()?;
@@ -217,35 +217,35 @@ pub fn pager(ctx: &mut Context) -> anyhow::Result<()> {
 
     window.mouse_move(100, 20)?;
     window.snapshot("highlighted pager")?;
-    ctx.ui().mouse_click(1)?;
+    ctx.ui().mouse_left_click()?;
     window.snapshot("page right")?;
     window.mouse_move(0, 0)?;
     window.snapshot("no highlight")?;
 
     window.mouse_move(43, 20)?;
     window.snapshot("highlighted pager")?;
-    ctx.ui().mouse_click(1)?;
+    ctx.ui().mouse_left_click()?;
     window.snapshot("page left")?;
     window.mouse_move(0, 0)?;
     window.snapshot("no highlight")?;
 
-    ctx.ui().key("1")?;
+    ctx.ui().key(Key::Unicode('1'))?;
     window.snapshot("increase range")?;
     window.mouse_move(100, 20)?;
     window.snapshot("highlighted pager")?;
 
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("page right")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     ctx.set_changing_expected(false);
     window.snapshot("released pager - no auto repeat")?;
     ctx.set_changing_expected(true);
 
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("page right")?;
     window.snapshot("page right - first auto repeat")?;
     window.snapshot("page right - second auto repeat")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     ctx.set_changing_expected(false);
     window.snapshot("released pager - no more auto repeats")?;
     ctx.set_changing_expected(true);
@@ -279,7 +279,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     window.resize(300, 5)?;
     window.snapshot("min y size")?;
 
-    ctx.ui().key("r")?;
+    ctx.ui().key(Key::R)?;
     window.snapshot("changed to vertical scroll bar")?;
 
     window.resize(1, 1)?;
@@ -310,17 +310,17 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("scroll bar")?;
     window.mouse_move(142, 22)?;
     window.snapshot("highlighted right arrow")?;
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("pressed right arrow - step right by 5")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     window.snapshot("released right arrow - no auto repeat")?;
 
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("pressed right arrow - step right by 5")?;
     window.snapshot("first auto repeat")?;
     window.snapshot("second auto repeat")?;
     window.snapshot("third auto repeat")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     window.snapshot("released right arrow - no more auto repeats")?;
 
     window.close()?;
@@ -339,15 +339,15 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
 
     window.mouse_move(60, 20)?;
     window.snapshot("highlighted slider")?;
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("grabbed slider")?;
     window.mouse_move(300, 24)?;
     window.snapshot("dragged all the way right")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     window.snapshot("released slider - no highlight")?;
 
     window.mouse_move(90, 24)?;
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("grabbed slider")?;
     window.mouse_move(0, 20)?;
     window.snapshot("dragged all the way left")?;
@@ -357,7 +357,7 @@ pub fn slider_extremes(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.set_changing_expected(true);
     window.mouse_move(58, 20)?;
     window.snapshot("no longer all the way left")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     window.snapshot("released slider")?;
 
     window.close()?;
@@ -376,26 +376,26 @@ pub fn slider(ctx: &mut Context) -> anyhow::Result<()> {
 
     window.mouse_move(40, 20)?;
     window.snapshot("highlighted slider")?;
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("grabbed slider")?;
     window.mouse_move(50, 20)?;
     window.snapshot("moved slider by 10 px")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     window.snapshot("released slider")?;
     window.mouse_move(15, 15)?;
     window.snapshot("highlighted left arrow")?;
-    ctx.ui().mouse_click(1)?;
+    ctx.ui().mouse_left_click()?;
     window.snapshot("step left by 5")?;
 
     window.mouse_move(60, 18)?;
     window.snapshot("highlighted slider")?;
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("grabbed slider")?;
     window.mouse_move(60, 88)?;
     window.snapshot("dragged down and outside - no effect")?;
     window.mouse_move(50, 88)?;
     window.snapshot("dragged left")?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     window.snapshot("released slider - no highlight")?;
 
     window.close()?;

@@ -14,4 +14,4 @@ tracing = { workspace = true }
 enigo = { workspace = true }
 
 [target.'cfg(target_os="windows")'.dependencies]
-windows-sys = { workspace = true }
+windows-sys = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse"] }

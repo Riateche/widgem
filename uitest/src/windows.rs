@@ -7,9 +7,11 @@ use {
         Foundation::{GetLastError, RECT},
         UI::{
             HiDpi::{AdjustWindowRectExForDpi, GetDpiForWindow},
+            Input::KeyboardAndMouse::GetActiveWindow,
             WindowsAndMessaging::{
-                GetMenu, GetWindowLongW, PostMessageW, SetWindowPos, GWL_EXSTYLE, GWL_STYLE,
-                SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, WM_CLOSE,
+                GetMenu, GetWindowLongW, PostMessageW, SetForegroundWindow, SetWindowPos,
+                GWL_EXSTYLE, GWL_STYLE, SC_MINIMIZE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER,
+                WM_CLOSE, WM_SYSCOMMAND,
             },
         },
     },
@@ -23,39 +25,26 @@ impl Context {
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
-        todo!()
-    }
-
-    pub fn mouse_click(&self, button: u32) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    pub fn mouse_down(&self, button: u32) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    pub fn mouse_up(&self, button: u32) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    pub fn key(&self, key: &str) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
-        todo!()
+        let ret = unsafe { GetActiveWindow() };
+        self.check_winapi_error(!ret.is_null())?;
+        Ok(ret as u32)
     }
 
     pub fn activate_window(&self, window: &crate::Window) -> anyhow::Result<()> {
-        todo!()
-    }
-
-    pub fn mouse_move(&self, window: &crate::Window, x: u32, y: u32) -> anyhow::Result<()> {
-        todo!()
+        let ret = unsafe { SetForegroundWindow(window.id() as *mut c_void) };
+        self.check_winapi_error(ret != 0)
     }
 
     pub fn minimize_window(&self, window: &crate::Window) -> anyhow::Result<()> {
-        todo!()
+        let ret = unsafe {
+            PostMessageW(
+                window.id() as *mut c_void,
+                WM_SYSCOMMAND,
+                SC_MINIMIZE as usize,
+                0,
+            )
+        };
+        self.check_winapi_error(ret != 0)
     }
 
     fn check_winapi_error(&self, success: bool) -> anyhow::Result<()> {

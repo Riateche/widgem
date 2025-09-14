@@ -29,7 +29,7 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("resized 150x150")?;
     // scroll down button
     window.mouse_move(146, 146)?;
-    ctx.ui().mouse_click(1)?;
+    ctx.ui().mouse_left_click()?;
     window.snapshot("step down")?;
     ctx.ui().mouse_scroll_down()?;
     window.snapshot("scroll down")?;
@@ -39,9 +39,9 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("resized 100x150")?;
     // horizontal scroll slider
     window.mouse_move(30, 145)?;
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.mouse_move(100, 145)?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     window.snapshot("scroll right")?;
     window.resize(160, 150)?;
     window.snapshot("resized 160x150")?;

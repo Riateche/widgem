@@ -404,16 +404,50 @@ impl<'a> WindowHandler<'a> {
             self.root_widget.size_hint_y(hints_x.min()).min(),
         );
         self.window.set_min_inner_size(min_size);
+        trace!("window layout start, inner_size={:?}", inner_size);
+        let mut resize_requested = false;
         if min_size != old_min_size || preferred_size != old_preferred_size {
+            // Size hint of the widget changed.
             self.window.set_preferred_inner_size(preferred_size);
             if inner_size.x() < preferred_size.x() || inner_size.y() < preferred_size.y() {
                 let new_size = Size::new(
                     max(inner_size.x(), preferred_size.x()),
                     max(inner_size.y(), preferred_size.y()),
                 );
+                trace!(
+                    "requesting resize based on preferred size: \
+                    inner_size={:?}, preferred_size={:?}, new_size={:?}",
+                    inner_size,
+                    preferred_size,
+                    new_size
+                );
                 if let Some(response) = self.window.request_inner_size(new_size) {
                     inner_size = response;
+                    trace!("resized to {:?}", inner_size);
+                } else {
+                    trace!("resize unsuccessful or deferred");
                 }
+                resize_requested = true;
+            }
+        }
+        // Window somehow ended up smaller than the min size.
+        if !resize_requested && (inner_size.x() < min_size.x() || inner_size.y() < min_size.y()) {
+            let new_size = Size::new(
+                max(inner_size.x(), min_size.x()),
+                max(inner_size.y(), min_size.y()),
+            );
+            trace!(
+                "requesting resize based on min size: \
+                inner_size={:?}, min_size={:?}, new_size={:?}",
+                inner_size,
+                preferred_size,
+                new_size
+            );
+            if let Some(response) = self.window.request_inner_size(new_size) {
+                inner_size = response;
+                trace!("resized to {:?}", inner_size);
+            } else {
+                trace!("resize unsuccessful or deferred");
             }
         }
 

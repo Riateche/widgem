@@ -10,11 +10,14 @@ mod windows;
 #[cfg(target_os = "windows")]
 use self::windows as imp;
 
-use enigo::{Enigo, Mouse};
+use enigo::{Axis, Direction, Enigo, Keyboard, Mouse};
 
 mod window;
 
-pub use crate::window::Window;
+pub use {
+    crate::window::Window,
+    enigo::{Button, Key},
+};
 
 use {
     anyhow::bail,
@@ -101,42 +104,95 @@ impl Context {
         self.0.imp.active_window_id()
     }
 
-    pub fn mouse_click(&self, button: u32) -> anyhow::Result<()> {
-        self.0.imp.mouse_click(button)
+    pub fn mouse_click(&self, button: Button) -> anyhow::Result<()> {
+        self.0
+            .enigo
+            .lock()
+            .unwrap()
+            .button(button, Direction::Click)?;
+        Ok(())
+    }
+
+    pub fn mouse_left_click(&self) -> anyhow::Result<()> {
+        self.mouse_click(Button::Left)
     }
 
     pub fn mouse_scroll_up(&self) -> anyhow::Result<()> {
-        self.mouse_click(4)
+        self.0.enigo.lock().unwrap().scroll(-1, Axis::Vertical)?;
+        Ok(())
     }
 
     pub fn mouse_scroll_down(&self) -> anyhow::Result<()> {
-        self.mouse_click(5)
+        self.0.enigo.lock().unwrap().scroll(1, Axis::Vertical)?;
+        Ok(())
     }
 
     pub fn mouse_scroll_left(&self) -> anyhow::Result<()> {
-        self.mouse_click(6)
+        self.0.enigo.lock().unwrap().scroll(-1, Axis::Horizontal)?;
+        Ok(())
     }
 
     pub fn mouse_scroll_right(&self) -> anyhow::Result<()> {
-        self.mouse_click(7)
+        self.0.enigo.lock().unwrap().scroll(1, Axis::Horizontal)?;
+        Ok(())
     }
 
-    pub fn mouse_down(&self, button: u32) -> anyhow::Result<()> {
-        self.0.imp.mouse_down(button)
+    pub fn mouse_down(&self, button: Button) -> anyhow::Result<()> {
+        self.0
+            .enigo
+            .lock()
+            .unwrap()
+            .button(button, Direction::Press)?;
+        Ok(())
     }
 
-    pub fn mouse_up(&self, button: u32) -> anyhow::Result<()> {
-        self.0.imp.mouse_up(button)
+    pub fn mouse_up(&self, button: Button) -> anyhow::Result<()> {
+        self.0
+            .enigo
+            .lock()
+            .unwrap()
+            .button(button, Direction::Release)?;
+        Ok(())
+    }
+
+    pub fn mouse_left_press(&self) -> anyhow::Result<()> {
+        self.0
+            .enigo
+            .lock()
+            .unwrap()
+            .button(Button::Left, Direction::Press)?;
+        Ok(())
+    }
+
+    pub fn mouse_left_release(&self) -> anyhow::Result<()> {
+        self.0
+            .enigo
+            .lock()
+            .unwrap()
+            .button(Button::Left, Direction::Release)?;
+        Ok(())
     }
 
     // https://wiki.linuxquestions.org/wiki/List_of_keysyms
     // https://manpages.ubuntu.com/manpages/trusty/man1/xdotool.1.html
-    pub fn key(&self, key: &str) -> anyhow::Result<()> {
-        self.0.imp.key(key)
+    pub fn key(&self, key: Key) -> anyhow::Result<()> {
+        self.0.enigo.lock().unwrap().key(key, Direction::Click)?;
+        Ok(())
+    }
+
+    pub fn key_combination(&self, keys: &[Key]) -> anyhow::Result<()> {
+        for key in keys {
+            self.0.enigo.lock().unwrap().key(*key, Direction::Press)?;
+        }
+        for key in keys.iter().rev() {
+            self.0.enigo.lock().unwrap().key(*key, Direction::Release)?;
+        }
+        Ok(())
     }
 
     pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
-        self.0.imp.type_text(text)
+        self.0.enigo.lock().unwrap().text(text)?;
+        Ok(())
     }
 
     pub fn mouse_move_global(&self, x: i32, y: i32) -> anyhow::Result<()> {

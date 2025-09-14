@@ -23,7 +23,11 @@ use {
 #[doc(hidden)]
 pub use ctor as __ctor;
 
-pub use {crate::context::Context, uitest::Window, widgem_macros::test};
+pub use {
+    crate::context::Context,
+    uitest::{Button, Key, Window},
+    widgem_macros::test,
+};
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
 

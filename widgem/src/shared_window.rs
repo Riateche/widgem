@@ -333,6 +333,7 @@ impl SharedWindow {
             .with_content_protected(inner.attributes.content_protected)
             .with_window_level(inner.attributes.window_level)
             .with_fullscreen(inner.attributes.fullscreen.clone());
+        inner.min_inner_size = min_size;
 
         if let Some(title) = &inner.attributes.title {
             attrs = attrs.with_title(title);

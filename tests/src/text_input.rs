@@ -3,7 +3,7 @@ use {
         impl_widget_base,
         widgets::{TextInput, Widget, WidgetBaseOf, WidgetInitializer, Window},
     },
-    widgem_tester::context::Context,
+    widgem_tester::{context::Context, Key},
 };
 
 pub struct RootWidget {
@@ -48,49 +48,50 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.set_blinking_expected(true);
     let window = ctx.wait_for_window_by_pid()?;
     window.snapshot("window with text input - text Hello world")?;
-    ctx.ui().key("Right")?;
+    ctx.ui().key(Key::RightArrow)?;
     window.snapshot("cursor moved to the right of H")?;
-    ctx.ui().key("Shift+Right")?;
+    ctx.ui().key_combination(&[Key::Shift, Key::RightArrow])?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected e")?;
-    ctx.ui().key("Right")?;
+    ctx.ui().key(Key::RightArrow)?;
     ctx.set_blinking_expected(true);
     window.snapshot("cleared selection and cursor moved to the right of He")?;
-    ctx.ui().key("Left")?;
+    ctx.ui().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of H")?;
-    ctx.ui().key("Ctrl+Right")?;
+    ctx.ui().key_combination(&[Key::Control, Key::RightArrow])?;
     window.snapshot("cursor moved to the right of Hello")?;
-    ctx.ui().key("Ctrl+Right")?;
+    ctx.ui().key_combination(&[Key::Control, Key::RightArrow])?;
     window.snapshot("cursor moved to the end")?;
-    ctx.ui().key("Ctrl+Left")?;
+    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
     window.snapshot("cursor moved to the right of Hello after space")?;
-    ctx.ui().key("Ctrl+Left")?;
+    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
     window.snapshot("cursor moved to the start")?;
-    ctx.ui().key("End")?;
+    ctx.ui().key(Key::End)?;
     window.snapshot("cursor moved to the end")?;
-    ctx.ui().key("Shift+Left")?;
+    ctx.ui().key_combination(&[Key::Shift, Key::LeftArrow])?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected d")?;
-    ctx.ui().key("Left")?;
+    ctx.ui().key(Key::LeftArrow)?;
     ctx.set_blinking_expected(true);
     window.snapshot("cleared selection and cursor moved to the right of worl")?;
-    ctx.ui().key("Ctrl+Shift+Left")?;
+    ctx.ui()
+        .key_combination(&[Key::Control, Key::Shift, Key::LeftArrow])?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected worl")?;
-    ctx.ui().key("End")?;
+    ctx.ui().key(Key::End)?;
     ctx.ui().type_text(" Lorem Ipsum")?;
     ctx.set_blinking_expected(true);
     window.snapshot("added space Lorem Ipsum to the end")?;
     // Checking horizontal scroll.
-    ctx.ui().key("Ctrl+Left")?;
-    ctx.ui().key("Ctrl+Left")?;
-    ctx.ui().key("Ctrl+Left")?;
+    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
+    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
+    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
     window.snapshot("cursor moved to the right of Hello after space")?;
-    ctx.ui().key("Left")?;
+    ctx.ui().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of Hello and scrolled")?;
-    ctx.ui().key("Left")?;
+    ctx.ui().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of Hell and scrolled")?;
-    ctx.ui().key("Left")?;
+    ctx.ui().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of Hel and scrolled")?;
 
     window.close()?;
@@ -107,18 +108,18 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     let window = ctx.wait_for_window_by_pid()?;
     window.snapshot("text input")?;
     window.mouse_move(48, 27)?;
-    ctx.ui().mouse_click(1)?;
+    ctx.ui().mouse_left_click()?;
     window.snapshot("cursor moved after hello")?;
     window.mouse_move(73, 29)?;
-    ctx.ui().mouse_down(1)?;
+    ctx.ui().mouse_left_press()?;
     window.snapshot("cursor moved after wor")?;
     window.mouse_move(52, 17)?;
-    ctx.ui().mouse_up(1)?;
+    ctx.ui().mouse_left_release()?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected wor")?;
     // Click on the border/padding.
     window.mouse_move(48, 14)?;
-    ctx.ui().mouse_click(1)?;
+    ctx.ui().mouse_left_click()?;
     ctx.set_blinking_expected(true);
     window.snapshot("cursor moved to beginning")?;
 
