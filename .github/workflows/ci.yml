@@ -1,82 +1,14 @@
 on: [push, pull_request]
 
-name: Continuous integration
+name: Continuous integration Matrix
 
 jobs:
-  test:
-    name: Unit tests (cargo test)
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y \
-            libxcb1-dev libxrandr-dev \
-            libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
-            libgbm-dev
-      - uses: actions/checkout@v2
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo test
-
-  ui-tests:
-    name: UI tests
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y \
-            libxcb1-dev libxrandr-dev \
-            libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
-            libgbm-dev
-      - name: Run UI tests
-        run: ./tests/scripts/run_tests.sh
-      - name: Upload test snapshots on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test_snapshots
-          path: tests/snapshots
-
-  fmt:
-    name: Formatting (rustfmt)
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: rustfmt
-      - uses: actions-rust-lang/rustfmt@v1
-
-  clippy:
-    name: Lints (clippy)
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y \
-            libxcb1-dev libxrandr-dev \
-            libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
-            libgbm-dev
-      - uses: actions/checkout@v2
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: clippy
-      - run: cargo clippy --all-targets --all-features -- --deny warnings
-
-  doc:
-    name: Documentation (rustdoc)
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y \
-            libxcb1-dev libxrandr-dev \
-            libdbus-1-dev libpipewire-0.3-dev libwayland-dev libegl-dev \
-            libgbm-dev
-      - uses: actions/checkout@v2
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          components: rustfmt
-      - run: RUSTDOCFLAGS="--deny warnings" cargo doc
-
+  matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-24.04", "windows-2025"]
+    uses: "./.github/workflows/ci_item.yml"
+    with:
+      os: ${{ matrix.os }}
+    secrets: inherit

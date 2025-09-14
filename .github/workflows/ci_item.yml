@@ -1,0 +1,83 @@
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+
+name: Continuous integration
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Unit tests (cargo test)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - run: cargo test
+
+  ui-tests:
+    name: UI tests
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Set display resolution
+        if: "runner.os == 'Windows'"
+        shell: pwsh
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Run UI tests
+        run: |
+          if [[ $RUNNER_OS == "Linux" ]]; then
+            export RUN_IN_DOCKER=true
+          fi
+          ./tests/scripts/run_tests.sh
+      - name: Upload test snapshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_snapshots_${{ inputs.os }}
+          path: tests/snapshots
+
+  fmt:
+    name: Formatting (rustfmt)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+      - uses: actions-rust-lang/rustfmt@v1
+
+  clippy:
+    name: Lints (clippy)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+      - run: cargo clippy --all-targets --all-features -- --deny warnings
+
+  doc:
+    name: Documentation (rustdoc)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+      - run: RUSTDOCFLAGS="--deny warnings" cargo doc
+

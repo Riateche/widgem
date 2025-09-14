@@ -7,7 +7,7 @@ set -ex -o pipefail
 
 cd "$(dirname "$0")/../.."
 
-if [[ -z "$CI" ]]; then
+if [[ -z $CI ]]; then
     # widgem_builder image is used to build test binaries for widgem_xfce environment while
     # keeping cache and build artifacts in target/docker, not relying on the docker's cache.
     mkdir -p target/.empty
