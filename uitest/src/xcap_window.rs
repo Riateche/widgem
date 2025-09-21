@@ -7,17 +7,16 @@ pub struct Window {
     id: u32,
     pid: u32,
     inner: xcap::Window,
-    #[allow(dead_code)]
-    connection: Context,
+    context: Context,
 }
 
 impl Window {
-    pub(crate) fn new(connection: Context, inner: xcap::Window) -> anyhow::Result<Self> {
+    pub(crate) fn new(context: Context, inner: xcap::Window) -> anyhow::Result<Self> {
         Ok(Self {
             id: inner.id()?,
             pid: inner.pid()?,
             inner,
-            connection,
+            context,
         })
     }
 
@@ -67,24 +66,24 @@ impl Window {
     }
 
     pub fn activate(&self) -> anyhow::Result<()> {
-        self.connection.0.imp.activate_window(self)
+        self.context.0.imp.activate_window(self)
     }
 
     pub fn mouse_move(&self, x: i32, y: i32) -> anyhow::Result<()> {
         let global_x = self.x()? + x;
         let global_y = self.y()? + y;
-        self.connection.mouse_move_global(global_x, global_y)
+        self.context.mouse_move_global(global_x, global_y)
     }
 
     pub fn minimize(&self) -> anyhow::Result<()> {
-        self.connection.0.imp.minimize_window(self)
+        self.context.0.imp.minimize_window(self)
     }
 
     pub fn close(&self) -> anyhow::Result<()> {
-        self.connection.0.imp.close_window(self)
+        self.context.0.imp.close_window(self)
     }
 
     pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
-        self.connection.0.imp.resize_window(self, width, height)
+        self.context.0.imp.resize_window(self, width, height)
     }
 }

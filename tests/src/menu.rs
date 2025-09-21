@@ -82,6 +82,14 @@ fn menu(ctx: &mut Context) -> anyhow::Result<()> {
     main_window.snapshot("main window")?;
     main_window.mouse_move(50, 30)?;
     ctx.ui().mouse_left_click()?;
+
+    // Mouse events for a new window don't arrive until the mouse is moved.
+    #[cfg(target_os = "macos")]
+    {
+        main_window.mouse_move(51, 31)?;
+        main_window.mouse_move(50, 30)?;
+    }
+
     let windows = ctx.wait_for_windows_by_pid(2)?;
     ensure!(
         windows.iter().any(|w| w.id() == main_window.id()),

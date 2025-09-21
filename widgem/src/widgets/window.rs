@@ -34,6 +34,15 @@ impl Window {
         self
     }
 
+    pub fn set_resizable(&mut self, value: bool) -> &mut Self {
+        self.base.window().unwrap().set_resizable(value);
+        self
+    }
+
+    pub fn is_resizable(&self) -> bool {
+        self.base.window().unwrap().is_resizable()
+    }
+
     pub fn set_window_level(&mut self, value: WindowLevel) -> &mut Self {
         self.base.window().unwrap().set_window_level(value);
         self

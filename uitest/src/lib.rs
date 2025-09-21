@@ -2,25 +2,31 @@
 mod linux;
 
 #[cfg(all(unix, not(target_os = "macos")))]
-use self::linux as imp;
+use crate::linux as imp;
 
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-use self::windows as imp;
+use crate::windows as imp;
 
 #[cfg(target_os = "macos")]
 mod macos;
 
 #[cfg(target_os = "macos")]
-use self::macos as imp;
+use crate::macos as imp;
 
-mod window;
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+mod xcap_window;
 
-pub use {
-    crate::window::Window,
-    enigo::{Button, Key},
-};
+#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+pub use crate::xcap_window::Window;
+
+#[cfg(target_os = "macos")]
+pub use crate::macos::Window;
+
+use anyhow::Context as _;
+pub use enigo::{Button, Key};
+use image::{Rgba, RgbaImage};
 
 use {
     anyhow::bail,
@@ -33,13 +39,17 @@ use {
 };
 
 const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);
-const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(5);
+const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(15);
 
 struct ContextData {
     imp: imp::Context,
     enigo: Mutex<Enigo>,
     wait_duration: Duration,
 }
+
+// Placeholder for a pixel value that is not available because it was
+// obscured by a MacOS system window frame.
+pub const IGNORED_PIXEL: Rgba<u8> = Rgba([255, 0, 255, 255]);
 
 #[derive(Clone)]
 pub struct Context(Arc<ContextData>);
@@ -55,10 +65,7 @@ impl Context {
     }
 
     pub fn all_windows(&self) -> anyhow::Result<Vec<Window>> {
-        xcap::Window::all()?
-            .into_iter()
-            .map(|w| Window::new(self.clone(), w))
-            .collect()
+        self.0.imp.all_windows(self)
     }
 
     pub fn windows_by_pid(&self, pid: u32) -> anyhow::Result<Vec<Window>> {
@@ -114,6 +121,7 @@ impl Context {
             .lock()
             .unwrap()
             .button(button, Direction::Click)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -123,21 +131,25 @@ impl Context {
 
     pub fn mouse_scroll_up(&self) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().scroll(-1, Axis::Vertical)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
     pub fn mouse_scroll_down(&self) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().scroll(1, Axis::Vertical)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
     pub fn mouse_scroll_left(&self) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().scroll(-1, Axis::Horizontal)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
     pub fn mouse_scroll_right(&self) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().scroll(1, Axis::Horizontal)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -147,6 +159,7 @@ impl Context {
             .lock()
             .unwrap()
             .button(button, Direction::Press)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -156,6 +169,7 @@ impl Context {
             .lock()
             .unwrap()
             .button(button, Direction::Release)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -165,6 +179,7 @@ impl Context {
             .lock()
             .unwrap()
             .button(Button::Left, Direction::Press)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -174,6 +189,7 @@ impl Context {
             .lock()
             .unwrap()
             .button(Button::Left, Direction::Release)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -181,6 +197,7 @@ impl Context {
     // https://manpages.ubuntu.com/manpages/trusty/man1/xdotool.1.html
     pub fn key(&self, key: Key) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().key(key, Direction::Click)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -191,11 +208,13 @@ impl Context {
         for key in keys.iter().rev() {
             self.0.enigo.lock().unwrap().key(*key, Direction::Release)?;
         }
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
     pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().text(text)?;
+        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -205,7 +224,15 @@ impl Context {
             .lock()
             .unwrap()
             .move_mouse(x, y, enigo::Coordinate::Abs)?;
-        // self.0.imp.mouse_move_global(x, y)
+        sleep(Duration::from_millis(200));
         Ok(())
+    }
+
+    pub fn capture_full_screen(&self) -> anyhow::Result<RgbaImage> {
+        let image = xcap::Monitor::all()?
+            .first()
+            .context("no monitors found")?
+            .capture_image()?;
+        Ok(image)
     }
 }

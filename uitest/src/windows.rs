@@ -1,4 +1,5 @@
 use {
+    crate::xcap_window::Window,
     anyhow::bail,
     std::ffi::c_void,
     windows_sys::Win32::{
@@ -20,6 +21,13 @@ pub struct Context {}
 impl Context {
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self {})
+    }
+
+    pub fn all_windows(&self, context: &crate::Context) -> anyhow::Result<Vec<Window>> {
+        xcap::Window::all()?
+            .into_iter()
+            .map(|w| Window::new(context.clone(), w))
+            .collect()
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {

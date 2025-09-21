@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{ensure, Context as _};
 use tiny_skia::PremultipliedColorU8;
+use uitest::IGNORED_PIXEL;
 use widgem::Pixmap;
 use widgem_tester::{discover_snapshots, test_snapshots_dir, QueryAllResponse, SingleSnapshotFile};
 
@@ -496,6 +497,13 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
     let mut out =
         tiny_skia::Pixmap::new(max(a.width(), b.width()), max(a.height(), b.height())).unwrap();
     let width = out.width();
+    let ignored_pixel = PremultipliedColorU8::from_rgba(
+        IGNORED_PIXEL[0],
+        IGNORED_PIXEL[1],
+        IGNORED_PIXEL[2],
+        IGNORED_PIXEL[3],
+    )
+    .unwrap();
     for y in 0..out.height() {
         for x in 0..width {
             let pixel_a = if x < a.width() && y < a.height() {
@@ -513,8 +521,10 @@ fn pixmap_diff(a: &Pixmap, b: &Pixmap) -> Pixmap {
                 (None, Some(_)) => PremultipliedColorU8::from_rgba(0, 0, 255, 255).unwrap(),
                 (Some(_), None) => PremultipliedColorU8::from_rgba(255, 0, 255, 255).unwrap(),
                 (Some(pixel_a), Some(pixel_b)) => {
-                    if pixel_a == pixel_b {
+                    if pixel_a == pixel_b || pixel_b == ignored_pixel {
                         pixel_a
+                    } else if pixel_a == ignored_pixel {
+                        pixel_b
                     } else {
                         //     PremultipliedColorU8::from_rgba(
                         //         u8_diff(pixel_a.red(), pixel_b.red()),

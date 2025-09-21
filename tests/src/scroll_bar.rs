@@ -4,7 +4,10 @@ use {
         impl_widget_base,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
-        widgets::{Label, ScrollBar, Widget, WidgetBaseOf, WidgetExt, WidgetInitializer, Window},
+        widgets::{
+            Column, Label, Row, ScrollBar, Widget, WidgetBaseOf, WidgetExt, WidgetInitializer,
+            Window,
+        },
     },
     widgem_tester::{context::Context, Key},
 };
@@ -15,6 +18,7 @@ pub struct RootWidget {
     axis: Axis,
     focusable: bool,
     value: i32,
+    placeholder_visible: bool,
 }
 
 impl RootWidget {
@@ -53,13 +57,18 @@ impl WidgetInitializer for Initializer {
             this.base.update();
             Ok(())
         });
+        let on_t = base.callback(|this, _| {
+            this.placeholder_visible = !this.placeholder_visible;
+            this.base.update();
+            Ok(())
+        });
         base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("R").unwrap(),
             ShortcutScope::Application,
             on_r,
         ));
         base.add_shortcut(Shortcut::new(
-            KeyCombinations::from_str_portable("1").unwrap(),
+            KeyCombinations::from_str_portable("1; numpad1").unwrap(),
             ShortcutScope::Application,
             on_1,
         ));
@@ -68,6 +77,11 @@ impl WidgetInitializer for Initializer {
             ShortcutScope::Application,
             on_f,
         ));
+        base.add_shortcut(Shortcut::new(
+            KeyCombinations::from_str_portable("t").unwrap(),
+            ShortcutScope::Application,
+            on_t,
+        ));
 
         RootWidget {
             base,
@@ -75,6 +89,7 @@ impl WidgetInitializer for Initializer {
             axis: Axis::X,
             focusable: false,
             value: 0,
+            placeholder_visible: false,
         }
     }
 
@@ -92,14 +107,25 @@ impl Widget for RootWidget {
             .set_child(0, Window::init(module_path!().into()))
             .items_mut();
 
-        window
+        let mut row_items = window
+            .set_next_item(Row::init())
+            .set_padding_enabled(false)
+            .items_mut();
+        row_items
+            .set_next_item(Label::init("placeholder".into()))
+            .set_visible(self.placeholder_visible);
+        let mut column_items = row_items
+            .set_next_item(Column::init())
+            .set_padding_enabled(false)
+            .items_mut();
+        column_items
             .set_next_item(ScrollBar::init(self.axis))
             .set_value_range(self.range.clone())
             .set_focusable(self.focusable)
             .set_value(self.value)
             .on_value_changed(callbacks.create(Self::on_scroll_bar_value_changed));
 
-        window.set_next_item(Label::init(self.value.to_string()));
+        column_items.set_next_item(Label::init(self.value.to_string()));
 
         Ok(())
     }
@@ -269,22 +295,23 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
         Ok(())
     })?;
     let window = ctx.wait_for_window_by_pid()?;
-    window.resize(160, 66)?;
+    ctx.ui().key(Key::Unicode('t'))?;
+    window.resize(234, 66)?;
     window.snapshot("scroll bar")?;
 
     window.resize(1, 1)?;
     window.snapshot("min size")?;
 
-    window.resize(200, 66)?;
+    window.resize(274, 66)?;
     window.snapshot("resized")?;
 
-    window.resize(300, 66)?;
+    window.resize(374, 66)?;
     window.snapshot("resized")?;
 
-    window.resize(300, 200)?;
+    window.resize(374, 200)?;
     window.snapshot("no change - fixed y size")?;
 
-    window.resize(300, 5)?;
+    window.resize(374, 5)?;
     window.snapshot("min y size")?;
 
     ctx.ui().key(Key::Unicode('r'))?;
@@ -293,10 +320,10 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     window.resize(1, 1)?;
     window.snapshot("min size")?;
 
-    window.resize(200, 200)?;
+    window.resize(274, 200)?;
     window.snapshot("resized")?;
 
-    window.resize(200, 300)?;
+    window.resize(274, 300)?;
     window.snapshot("resized")?;
 
     window.resize(1, 300)?;
@@ -312,7 +339,6 @@ pub fn right_arrow(ctx: &mut Context) -> anyhow::Result<()> {
         r.base_mut().set_child(0, RootWidget::init());
         Ok(())
     })?;
-    ctx.ui().mouse_move_global(0, 0)?;
     let window = ctx.wait_for_window_by_pid()?;
     window.resize(160, 66)?;
     window.snapshot("scroll bar")?;

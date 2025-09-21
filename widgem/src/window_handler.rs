@@ -74,10 +74,10 @@ impl<'a> WindowHandler<'a> {
                 device_id,
                 ..
             } => {
+                // At least on macos, we have to do `floor` to match the way the mouse pointer is displayed.
                 let pos_in_window = Point::new(
-                    // TODO: is round() fine?
-                    PhysicalPixels::from_i32(position.x.round() as i32),
-                    PhysicalPixels::from_i32(position.y.round() as i32),
+                    PhysicalPixels::from_i32(position.x.floor() as i32),
+                    PhysicalPixels::from_i32(position.y.floor() as i32),
                 );
                 if !self.window.cursor_moved(pos_in_window) {
                     return;

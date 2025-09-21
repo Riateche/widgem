@@ -1,17 +1,30 @@
+use std::{thread::sleep, time::Duration};
+
 use widgem::{
+    shortcut::{KeyCombinations, Shortcut, ShortcutScope},
     widgets::{Column, Label, ScrollArea},
-    WidgetExt, Window,
+    Widget, WidgetExt, Window,
 };
-use widgem_tester::context::Context;
+use widgem_tester::{context::Context, Key};
 
 #[widgem_tester::test]
 pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|root| {
         let mut root_items = root.items_mut();
-        let mut window_items = root_items
+        let window = root_items
             .set_next_item(Window::init(module_path!().into()))
-            .set_padding_enabled(false)
-            .items_mut();
+            .set_padding_enabled(false);
+        let on_r = window.callback(move |window, _| {
+            let is_resizable = window.is_resizable();
+            window.set_resizable(!is_resizable);
+            Ok(())
+        });
+        window.base_mut().add_shortcut(Shortcut::new(
+            KeyCombinations::from_str_portable("R").unwrap(),
+            ShortcutScope::Application,
+            on_r,
+        ));
+        let mut window_items = window.items_mut();
         let mut content_items = window_items
             .set_next_item(ScrollArea::init())
             .set_size_x_fixed(Some(false))
@@ -27,16 +40,41 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("scroll area")?;
     window.resize(150, 150)?;
     window.snapshot("resized 150x150")?;
+
+    // Avoid conflict with macos window resizing
+    if cfg!(target_os = "macos") {
+        ctx.ui().key(Key::Unicode('r'))?;
+    }
     // scroll down button
     window.mouse_move(146, 146)?;
     ctx.ui().mouse_left_click()?;
+    if cfg!(target_os = "macos") {
+        ctx.ui().key(Key::Unicode('r'))?;
+    }
     window.snapshot("step down")?;
     ctx.ui().mouse_scroll_down()?;
     window.snapshot("scroll down")?;
     window.resize(110, 150)?;
+    if cfg!(target_os = "macos") {
+        ctx.ui().key(Key::Unicode('r'))?;
+    }
+    window.mouse_move(10, 10)?;
+    window.mouse_move(-100, -100)?;
     window.snapshot("resized 110x150")?;
+    if cfg!(target_os = "macos") {
+        ctx.ui().key(Key::Unicode('r'))?;
+        sleep(Duration::from_secs(1));
+    }
     window.resize(100, 150)?;
+    if cfg!(target_os = "macos") {
+        ctx.ui().key(Key::Unicode('r'))?;
+    }
+    window.mouse_move(-100, -100)?;
     window.snapshot("resized 100x150")?;
+    if cfg!(target_os = "macos") {
+        ctx.ui().key(Key::Unicode('r'))?;
+        sleep(Duration::from_secs(1));
+    }
     // horizontal scroll slider
     window.mouse_move(30, 145)?;
     ctx.ui().mouse_left_press()?;

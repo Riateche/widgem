@@ -1,14 +1,101 @@
-on: [push, pull_request]
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
 
-name: Continuous integration Matrix
+name: Continuous integration jobs
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  matrix:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ["ubuntu-24.04", "windows-2025"]
-    uses: "./.github/workflows/ci_item.yml"
-    with:
-      os: ${{ matrix.os }}
-    secrets: inherit
+  test:
+    name: Unit tests (cargo test)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+      - run: cargo test
+
+  ui-tests:
+    name: UI tests
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Set display resolution
+        if: "runner.os == 'Windows'"
+        shell: pwsh
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+      - name: Set display resolution
+        if: "runner.os == 'macOS'"
+        run: |
+          brew install screenresolution
+          screenresolution get
+          screenresolution list
+          screenresolution set 1600x1200x32@60
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+      - name: Run UI tests
+        run: |
+          if [[ $RUNNER_OS == "Linux" ]]; then
+            ./tests/scripts/run_tests_in_docker.sh
+          else
+            if [[ $RUNNER_OS == "macOS" ]]; then
+              cargo run --locked --bin fix_macos_ci
+            fi
+            cargo run --locked --bin widgem_tests -- test
+          fi
+      - name: Upload test snapshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_snapshots_${{ inputs.os }}
+          path: tests/snapshots
+
+  fmt:
+    name: Formatting (rustfmt)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+          rustflags: ""
+      - uses: actions-rust-lang/rustfmt@v1
+
+  clippy:
+    name: Lints (clippy)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+          rustflags: ""
+      - run: cargo clippy --all-targets --all-features -- --deny warnings
+
+  doc:
+    name: Documentation (rustdoc)
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install build dependencies
+        run: ./.github/workflows/install_dependencies.sh
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+          rustflags: ""
+      - run: RUSTDOCFLAGS="--deny warnings" cargo doc
+

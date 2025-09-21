@@ -1,7 +1,9 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{TextInput, Widget, WidgetBaseOf, WidgetInitializer, Window},
+        layout::Layout,
+        widgets::{Label, TextInput, Widget, WidgetBaseOf, WidgetInitializer, Window},
+        WidgetExt,
     },
     widgem_tester::{context::Context, Key},
 };
@@ -58,15 +60,31 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("cleared selection and cursor moved to the right of He")?;
     ctx.ui().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of H")?;
-    ctx.ui().key_combination(&[Key::Control, Key::RightArrow])?;
+
+    let word_jump_modifier = if cfg!(target_os = "macos") {
+        Key::Option
+    } else {
+        Key::Control
+    };
+    let end_of_line = if cfg!(target_os = "macos") {
+        vec![Key::Meta, Key::RightArrow]
+    } else {
+        vec![Key::End]
+    };
+
+    ctx.ui()
+        .key_combination(&[word_jump_modifier, Key::RightArrow])?;
     window.snapshot("cursor moved to the right of Hello")?;
-    ctx.ui().key_combination(&[Key::Control, Key::RightArrow])?;
+    ctx.ui()
+        .key_combination(&[word_jump_modifier, Key::RightArrow])?;
     window.snapshot("cursor moved to the end")?;
-    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
+    ctx.ui()
+        .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
     window.snapshot("cursor moved to the right of Hello after space")?;
-    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
+    ctx.ui()
+        .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
     window.snapshot("cursor moved to the start")?;
-    ctx.ui().key(Key::End)?;
+    ctx.ui().key_combination(&end_of_line)?;
     window.snapshot("cursor moved to the end")?;
     ctx.ui().key_combination(&[Key::Shift, Key::LeftArrow])?;
     ctx.set_blinking_expected(false);
@@ -75,17 +93,20 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.set_blinking_expected(true);
     window.snapshot("cleared selection and cursor moved to the right of worl")?;
     ctx.ui()
-        .key_combination(&[Key::Control, Key::Shift, Key::LeftArrow])?;
+        .key_combination(&[word_jump_modifier, Key::Shift, Key::LeftArrow])?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected worl")?;
-    ctx.ui().key(Key::End)?;
+    ctx.ui().key_combination(&end_of_line)?;
     ctx.ui().type_text(" Lorem Ipsum")?;
     ctx.set_blinking_expected(true);
     window.snapshot("added space Lorem Ipsum to the end")?;
     // Checking horizontal scroll.
-    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
-    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
-    ctx.ui().key_combination(&[Key::Control, Key::LeftArrow])?;
+    ctx.ui()
+        .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
+    ctx.ui()
+        .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
+    ctx.ui()
+        .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
     window.snapshot("cursor moved to the right of Hello after space")?;
     ctx.ui().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of Hello and scrolled")?;
@@ -130,20 +151,28 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().set_child(0, RootWidget::init());
+        let mut items = r
+            .base_mut()
+            .set_child(0, Window::init(module_path!().into()))
+            .set_layout(Layout::HorizontalFirst)
+            .items_mut();
+        items.set_next_item(Label::init("Placeholder".into()));
+        items
+            .set_next_item(TextInput::init())
+            .set_text("Hello world");
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
     let window = ctx.wait_for_window_by_pid()?;
     window.snapshot("text input")?;
 
-    window.resize(200, 50)?;
+    window.resize(280, 50)?;
     window.snapshot("expand horizontally")?;
 
-    window.resize(200, 10)?;
+    window.resize(280, 10)?;
     window.snapshot("min vertical size")?;
 
-    window.resize(100, 100)?;
+    window.resize(180, 100)?;
     window.snapshot("normal horizontal and not expanding vertical")?;
 
     window.resize(10, 100)?;

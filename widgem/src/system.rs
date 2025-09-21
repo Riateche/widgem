@@ -16,6 +16,7 @@ use {
     winit::event_loop::EventLoopProxy,
 };
 
+#[derive(Debug)]
 pub struct SystemConfig {
     pub auto_repeat_delay: Duration,
     pub auto_repeat_interval: Duration,

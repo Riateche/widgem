@@ -1,6 +1,7 @@
 use {
     crate::{discover_snapshots, SingleSnapshotFiles},
     anyhow::{bail, Context as _},
+    chrono::Utc,
     derive_more::Deref,
     fs_err::create_dir_all,
     image::{ImageReader, RgbaImage},
@@ -16,6 +17,7 @@ use {
         thread::sleep,
         time::{Duration, Instant},
     },
+    uitest::IGNORED_PIXEL,
     widgem::{widgets::RootWidget, AppBuilder},
 };
 
@@ -43,6 +45,20 @@ pub(crate) struct CheckContext {
     blinking_expected: bool,
     changing_expected: bool,
     last_snapshots: BTreeMap<u32, RgbaImage>,
+}
+
+impl Drop for CheckContext {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.take_child() {
+            println!(
+                "killing child with pid={} after abnormal test exit",
+                child.id(),
+            );
+            if let Err(err) = child.kill() {
+                println!("error while killing child: {err:?}");
+            }
+        }
+    }
 }
 
 impl CheckContext {
@@ -82,16 +98,30 @@ impl CheckContext {
         self.changing_expected = value;
     }
 
+    fn capture_full_screen(&self) -> anyhow::Result<()> {
+        let screenshot = self.uitest_context.capture_full_screen()?;
+        let path = self.test_case_dir.join(format!(
+            "full_screen_{}",
+            Utc::now().format("%d%m%Y%H%M%S.png")
+        ));
+        println!("saving full screen image to {path:?}");
+        screenshot.save(path)?;
+        Ok(())
+    }
+
     fn capture_changed(&mut self, window: &Window) -> anyhow::Result<RgbaImage> {
         let mut started = Instant::now();
         let mut image = None;
         while started.elapsed() < MAX_DURATION {
             let new_image = window.capture_image()?;
-            if self.last_snapshots.get(&window.pid()) != Some(&new_image) {
+            if self.last_snapshots.get(&window.id()) != Some(&new_image) {
                 image = Some(new_image);
                 break;
             }
             sleep(CAPTURE_INTERVAL);
+        }
+        if image.is_none() {
+            self.capture_full_screen()?;
         }
         let mut image =
             image.context("expected a new snapshot, but no changes were detected in the window")?;
@@ -104,7 +134,7 @@ impl CheckContext {
             }
             sleep(CAPTURE_INTERVAL);
         }
-        self.last_snapshots.insert(window.pid(), image.clone());
+        self.last_snapshots.insert(window.id(), image.clone());
         Ok(image)
     }
 
@@ -114,7 +144,7 @@ impl CheckContext {
         } else {
             sleep(Duration::from_millis(500));
             let new_image = window.capture_image()?;
-            self.last_snapshots.insert(window.pid(), new_image.clone());
+            self.last_snapshots.insert(window.id(), new_image.clone());
             Ok(new_image)
         }
     }
@@ -203,7 +233,7 @@ impl CheckContext {
         }
         if let Some(confirmed) = &files.confirmed {
             let confirmed_image = load_image(&self.test_case_dir.join(&confirmed.full_name))?;
-            if confirmed_image != new_image {
+            if !snapshot_matches(&confirmed_image, &new_image) {
                 let new_path = self.test_case_dir.join(&unconfirmed_snapshot_name);
                 new_image
                     .save(&new_path)
@@ -268,8 +298,13 @@ impl CheckContext {
         num_windows: usize,
     ) -> anyhow::Result<Vec<uitest::Window>> {
         let pid = self.pid.context("app has not been run yet")?;
-        self.uitest_context
-            .wait_for_windows_by_pid(pid, num_windows)
+        let r = self
+            .uitest_context
+            .wait_for_windows_by_pid(pid, num_windows);
+        if r.is_err() {
+            self.capture_full_screen()?;
+        }
+        r
     }
 
     pub fn wait_for_window_by_pid(&self) -> anyhow::Result<uitest::Window> {
@@ -406,4 +441,14 @@ impl Window {
     pub fn snapshot(&self, text: impl Display) -> anyhow::Result<()> {
         self.context.check(|c| c.snapshot(self, text))
     }
+}
+
+fn snapshot_matches(a: &RgbaImage, b: &RgbaImage) -> bool {
+    if a.dimensions() != b.dimensions() {
+        return false;
+    }
+
+    a.pixels()
+        .zip(b.pixels())
+        .all(|(a, b)| a == b || a == &IGNORED_PIXEL || b == &IGNORED_PIXEL)
 }

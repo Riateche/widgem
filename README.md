@@ -21,3 +21,22 @@ widgem is a lightweight cross-platform desktop widget toolkit. It aims to provid
 - Animations.
 - GPU-accelerated rendering.
 - Declarative UI.
+
+## Running snapshot tests
+
+You can run snapshot tests in Docker to ensure a controlled environment:
+```
+./tests/scripts/run_tests_in_docker.sh
+```
+
+It's also possible to run the tests directly on the host system (Linux, Windows, and MacOS are supported):
+```
+cargo run --locked --bin widgem_tests -- test
+```
+However, in this case, additional requirements must be met:
+
+* The display's resolution must be large enough to fit the test windows (1600x1200 or 1920x1080 will be enough).
+* On MacOS:
+    * The display scale must be 1 (i.e. it must not use a HiDPI resolution).
+    * The display's color profile must be set to sRGB.
+    * The test process must be granted the necessary permissions.

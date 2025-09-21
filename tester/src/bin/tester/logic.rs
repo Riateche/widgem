@@ -36,17 +36,6 @@ impl TesterLogic {
         Ok(this)
     }
 
-    fn adjust_mode(&mut self) {
-        if self.is_mode_allowed(self.mode) {
-            return;
-        }
-        self.mode = if self.has_unconfirmed() {
-            Mode::New
-        } else {
-            Mode::Confirmed
-        };
-    }
-
     #[allow(clippy::collapsible_if)]
     pub fn go_to_next_unconfirmed_snapshot(&mut self) -> bool {
         if let Some(pos) = self.tests.next_unconfirmed_pos(self.position.as_ref()) {
@@ -63,6 +52,17 @@ impl TesterLogic {
             self.position = Some(pos);
             self.adjust_mode();
         }
+    }
+
+    fn adjust_mode(&mut self) {
+        if self.is_mode_allowed(self.mode) {
+            return;
+        }
+        self.mode = if self.has_unconfirmed() {
+            Mode::New
+        } else {
+            Mode::Confirmed
+        };
     }
 
     pub fn go_to_previous_test_case(&mut self) {

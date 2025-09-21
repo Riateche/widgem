@@ -1,9 +1,11 @@
-use std::process::Command;
-
-use anyhow::{bail, Context as _};
-use x11rb::{
-    protocol::xproto::{Atom, ConnectionExt},
-    rust_connection::RustConnection,
+use {
+    crate::xcap_window::Window,
+    anyhow::{bail, Context as _},
+    std::process::Command,
+    x11rb::{
+        protocol::xproto::{Atom, ConnectionExt},
+        rust_connection::RustConnection,
+    },
 };
 
 pub struct Context {
@@ -31,6 +33,13 @@ impl Context {
             connection,
             cardinal,
         })
+    }
+
+    pub fn all_windows(&self, context: &crate::Context) -> anyhow::Result<Vec<Window>> {
+        xcap::Window::all()?
+            .into_iter()
+            .map(|w| Window::new(context.clone(), w))
+            .collect()
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {

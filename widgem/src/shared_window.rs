@@ -123,7 +123,7 @@ pub struct SharedWindowInner {
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Attributes {
     pub outer_position: Option<Point>,
     pub resizable: bool,
@@ -225,14 +225,13 @@ impl SharedWindow {
     }
 
     pub fn init_winit_window(&self, root_widget: &mut dyn Widget) {
-        let mut inner_guard = self.0.borrow_mut();
-        let inner = &mut *inner_guard;
-        if inner.winit_window.is_some() {
+        if self.0.borrow().winit_window.is_some() {
             return;
         }
+        let attributes: Attributes = self.0.borrow().attributes.clone();
 
         let mut monitor = None;
-        if let Some(outer_position) = inner.attributes.outer_position {
+        if let Some(outer_position) = attributes.outer_position {
             for monitor in root_widget.base().app().available_monitors() {
                 if monitor.rect().contains(outer_position) {
                     break;
@@ -248,7 +247,9 @@ impl SharedWindow {
         }
 
         if let Some(monitor) = &monitor {
-            root_widget.set_scale(Some(monitor.scale_factor() as f32));
+            if root_widget.base().app().config().fixed_scale.is_none() {
+                root_widget.set_scale(Some(monitor.scale_factor() as f32));
+            }
         }
 
         let size_hints_x = root_widget.size_hint_x(None);
@@ -277,12 +278,11 @@ impl SharedWindow {
         };
         let mut size = Size::new(size_x, size_y);
         let min_size = Size::new(size_hints_x.min(), size_hint_y_min);
+        trace!("window content min size hint: {min_size:?}");
+        trace!("window content preferred size hint: {size:?}");
 
-        trace!(
-            "requested window position: {:?}",
-            inner.attributes.outer_position
-        );
-        let mut position = inner.attributes.outer_position.take().map(|position| {
+        trace!("requested window position: {:?}", attributes.outer_position);
+        let mut position = attributes.outer_position.map(|position| {
             if let Some(monitor_rect) = monitor_work_area {
                 Point::new(
                     position
@@ -311,6 +311,10 @@ impl SharedWindow {
         {
             if let Some(new_position) = window_rect_response.position {
                 position = Some(new_position);
+                trace!(
+                    "window position adjusted to widget response: {:?}",
+                    position
+                );
             }
             if let Some(new_size) = window_rect_response.size {
                 size = new_size;
@@ -320,49 +324,48 @@ impl SharedWindow {
         let mut attrs = WindowAttributes::default()
             .with_inner_size(PhysicalSize::from(size))
             .with_min_inner_size(PhysicalSize::from(min_size))
-            .with_resizable(inner.attributes.resizable)
-            .with_enabled_buttons(inner.attributes.enabled_buttons)
-            .with_maximized(inner.attributes.maximized)
+            .with_resizable(attributes.resizable)
+            .with_enabled_buttons(attributes.enabled_buttons)
+            .with_maximized(attributes.maximized)
             // Window must be hidden until we initialize accesskit
             .with_visible(false)
-            .with_transparent(inner.attributes.transparent)
-            .with_blur(inner.attributes.blur)
-            .with_decorations(inner.attributes.decorations)
-            .with_window_icon(inner.attributes.window_icon.clone())
-            .with_theme(inner.attributes.preferred_theme)
-            .with_content_protected(inner.attributes.content_protected)
-            .with_window_level(inner.attributes.window_level)
-            .with_fullscreen(inner.attributes.fullscreen.clone());
-        inner.min_inner_size = min_size;
+            .with_transparent(attributes.transparent)
+            .with_blur(attributes.blur)
+            .with_decorations(attributes.decorations)
+            .with_window_icon(attributes.window_icon.clone())
+            .with_theme(attributes.preferred_theme)
+            .with_content_protected(attributes.content_protected)
+            .with_window_level(attributes.window_level)
+            .with_fullscreen(attributes.fullscreen.clone());
 
-        if let Some(title) = &inner.attributes.title {
+        if let Some(title) = &attributes.title {
             attrs = attrs.with_title(title);
         }
-        if let Some(active) = inner.attributes.active {
+        if let Some(active) = attributes.active {
             attrs = attrs.with_active(active);
         }
         if let Some(position) = position {
             attrs = attrs.with_position(PhysicalPosition::from(position));
         }
-        if let Some(resize_increments) = &inner.attributes.resize_increments {
-            attrs = attrs.with_resize_increments(PhysicalSize::from(*resize_increments));
+        if let Some(resize_increments) = attributes.resize_increments {
+            attrs = attrs.with_resize_increments(PhysicalSize::from(resize_increments));
         }
 
         #[cfg(target_os = "macos")]
         {
-            if let Some(has_shadow) = inner.attributes.has_macos_shadow {
+            if let Some(has_shadow) = attributes.has_macos_shadow {
                 attrs = attrs.with_has_shadow(has_shadow);
             }
         }
         #[cfg(all(unix, not(target_vendor = "apple")))]
         {
-            if let Some(v) = &inner.attributes.x11_window_type {
+            if let Some(v) = &attributes.x11_window_type {
                 attrs = attrs.with_x11_window_type(v.iter().copied().map(Into::into).collect());
             }
         }
         #[cfg(windows)]
         {
-            if let Some(v) = inner.attributes.skip_windows_taskbar {
+            if let Some(v) = attributes.skip_windows_taskbar {
                 attrs = attrs.with_skip_taskbar(v);
             }
         }
@@ -378,17 +381,21 @@ impl SharedWindow {
                 root_widget.base().app().event_loop_proxy(),
             )
         });
-        winit_window.set_visible(inner.attributes.visible);
+        winit_window.set_visible(attributes.visible);
         trace!(
             "real window position after creation: {:?}",
             winit_window.outer_position(),
         );
         let winit_id = winit_window.id();
-        inner.winit_window = Some(winit_window.clone());
-        inner.softbuffer_context = Some(softbuffer_context);
-        inner.surface = Some(surface);
-        inner.accesskit_adapter = Some(Mutex::new(accesskit_adapter));
-        drop(inner_guard);
+        {
+            let mut inner = self.0.borrow_mut();
+            inner.winit_window = Some(winit_window.clone());
+            inner.softbuffer_context = Some(softbuffer_context);
+            inner.surface = Some(surface);
+            inner.accesskit_adapter = Some(Mutex::new(accesskit_adapter));
+            inner.min_inner_size = min_size;
+            inner.attributes.outer_position = None;
+        }
 
         root_widget
             .base()
@@ -676,6 +683,7 @@ impl SharedWindow {
 
         {
             let pixmap = this.pixmap.borrow();
+
             let pixmap_data: &[u32] = bytemuck::cast_slice(pixmap.data());
             for (dest, src) in buffer.iter_mut().zip(pixmap_data) {
                 // tiny-skia uses an RGBA format, while softbuffer uses XRGB.
@@ -998,8 +1006,8 @@ impl SharedWindow {
     }
 
     pub fn set_title(&self, title: impl Display) {
-        let this = &mut *self.0.borrow_mut();
         let title = title.to_string();
+        let this = &mut *self.0.borrow_mut();
         if Some(&title) == this.attributes.title.as_ref() {
             return;
         }
@@ -1029,6 +1037,10 @@ impl SharedWindow {
             window.set_resizable(value);
         }
         this.attributes.resizable = value;
+    }
+
+    pub fn is_resizable(&self) -> bool {
+        self.0.borrow().attributes.resizable
     }
 
     pub fn set_window_level(&self, value: WindowLevel) {
