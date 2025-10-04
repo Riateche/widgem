@@ -10,9 +10,8 @@ use widgem_tester::{context::Context, Key};
 #[widgem_tester::test]
 pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|root| {
-        let mut root_items = root.items_mut();
-        let window = root_items
-            .set_next_item(Window::init(module_path!().into()))
+        let window = root
+            .set_main_content(Window::init(module_path!().into()))
             .set_padding_enabled(false);
         let on_r = window.callback(move |window, _| {
             let is_resizable = window.is_resizable();
@@ -24,12 +23,11 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
             ShortcutScope::Application,
             on_r,
         ));
-        let mut window_items = window.items_mut();
-        let mut content_items = window_items
-            .set_next_item(ScrollArea::init())
+        let mut content_items = window
+            .set_main_content(ScrollArea::init())
             .set_size_x_fixed(Some(false))
             .set_content(Column::init())
-            .items_mut();
+            .contents_mut();
 
         for i in 0..20 {
             content_items.set_next_item(Label::init(format!("text item {i}")));
@@ -95,21 +93,20 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn layout(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|root| {
-        let mut root_items = root.items_mut();
-        let mut window_items = root_items
-            .set_next_item(Window::init(module_path!().into()))
-            .items_mut();
-        window_items.set_next_item(Label::init("before".into()));
-        let mut content = window_items
+        let mut window_contents = root
+            .set_main_content(Window::init(module_path!().into()))
+            .contents_mut();
+        window_contents.set_next_item(Label::init("before".into()));
+        let mut content = window_contents
             .set_next_item(ScrollArea::init())
             .set_content(Column::init())
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
 
         for i in 0..20 {
             content.set_next_item(Label::init(format!("text item {i}")));
         }
-        window_items.set_next_item(Label::init("after".into()));
+        window_contents.set_next_item(Label::init("after".into()));
         Ok(())
     })?;
 

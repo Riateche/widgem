@@ -18,7 +18,8 @@ use {
         },
         system::ReportError,
         types::{PhysicalPixels, Point, Rect, Size},
-        widgets::{widget_trait::WidgetInitializer, WidgetExt},
+        widget_initializer::WidgetInitializer,
+        widgets::WidgetExt,
         App,
     },
     anyhow::{Context, Result},
@@ -36,6 +37,10 @@ use {
     tracing::{error, warn},
     winit::window::CursorIcon,
 };
+
+fn main_key() -> ChildKey {
+    "__main".into()
+}
 
 fn default_scale(app: &App) -> f32 {
     if let Some(scale) = app.config().fixed_scale {
@@ -1556,6 +1561,10 @@ impl<W> WidgetBaseOf<W> {
 
     pub fn children_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
         ItemsWithKeyMut::new(self)
+    }
+
+    pub fn set_main_child<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
+        self.set_child(main_key(), initializer)
     }
 
     /// Report the widget as supporting (or not supporting) focus.

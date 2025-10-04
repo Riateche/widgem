@@ -22,12 +22,14 @@ mod text;
 pub mod text_editor;
 pub mod timer;
 pub mod types;
+mod widget_initializer;
 pub mod widgets;
 mod window_handler;
 
-use winit::monitor::MonitorHandle;
-
-use crate::types::{Point, Rect, Size};
+use {
+    crate::types::{Point, Rect, Size},
+    winit::monitor::MonitorHandle,
+};
 
 pub use {
     crate::{
@@ -38,6 +40,7 @@ pub use {
         monitor::MonitorExt,
         pixmap::Pixmap,
     },
+    widget_initializer::{WidgetInitializer, WidgetInitializerNoArg, WidgetInitializerOneArg},
     widgets::{
         RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetBaseOf, WidgetExt, WidgetGeometry,
         WidgetId, WidgetNotFound, Window,

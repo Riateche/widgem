@@ -8,7 +8,7 @@ use {
         },
         shared_window::X11WindowType,
         types::Point,
-        widgets::widget_trait::WidgetInitializer,
+        widget_initializer::WidgetInitializer,
         ChildKey, WidgetBase,
     },
     std::fmt::Display,
@@ -63,19 +63,23 @@ impl Window {
         self
     }
 
-    pub fn items(&self) -> Items<&WidgetBase> {
+    pub fn set_main_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
+        self.base.set_main_child(initializer)
+    }
+
+    pub fn contents(&self) -> Items<&WidgetBase> {
         Items::new(&self.base)
     }
 
-    pub fn items_mut(&mut self) -> ItemsMut<'_> {
+    pub fn contents_mut(&mut self) -> ItemsMut<'_> {
         ItemsMut::new(&mut self.base)
     }
 
-    pub fn items_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
+    pub fn contents_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
         ItemsWithKey::new(&self.base)
     }
 
-    pub fn items_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
+    pub fn contents_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
         ItemsWithKeyMut::new(&mut self.base)
     }
 }

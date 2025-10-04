@@ -9,8 +9,9 @@ use {
         impl_widget_base,
         widgets::{
             Button, Column, Label, ScrollArea, TextInput, Widget, WidgetBaseOf, WidgetExt,
-            WidgetId, WidgetInitializer, Window,
+            WidgetId, Window,
         },
+        WidgetInitializer, WidgetInitializerNoArg,
     },
 };
 
@@ -20,36 +21,30 @@ struct AnotherWidget {
 }
 
 impl AnotherWidget {
+    fn new(base: WidgetBaseOf<Self>) -> Self {
+        let mut this = AnotherWidget { counter: 0, base };
+        let callback = this.callback(|this, _event| {
+            this.counter += 1;
+            println!("counter: {}", this.counter);
+            let window = this
+                .base
+                .set_child(("window", this.counter), Window::init("example".into()));
+            println!("window {:?}", window.id());
+            let label = window
+                .base_mut()
+                .set_child(0, Label::init(format!("counter: {}", this.counter)));
+            println!("label {:?}", label.id());
+            Ok(())
+        });
+        let button = this
+            .base_mut()
+            .set_child("button", Button::init("another button".into()));
+        button.on_triggered(callback);
+        this
+    }
+
     fn init() -> impl WidgetInitializer<Output = Self> {
-        struct Initializer;
-
-        impl WidgetInitializer for Initializer {
-            type Output = AnotherWidget;
-            fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-                let mut this = AnotherWidget { counter: 0, base };
-                let callback = this.callback(|this, _event| {
-                    this.counter += 1;
-                    println!("counter: {}", this.counter);
-                    let window = this
-                        .base
-                        .set_child(("window", this.counter), Window::init("example".into()));
-                    println!("window {:?}", window.id());
-                    let label = window
-                        .base_mut()
-                        .set_child(0, Label::init(format!("counter: {}", this.counter)));
-                    println!("label {:?}", label.id());
-                    Ok(())
-                });
-                let button = this
-                    .base_mut()
-                    .set_child("button", Button::init("another button".into()));
-                button.on_triggered(callback);
-                this
-            }
-            fn reinit(self, _widget: &mut Self::Output) {}
-        }
-
-        Initializer
+        WidgetInitializerNoArg::new(Self::new)
     }
 }
 
@@ -91,7 +86,10 @@ impl RootWidget {
 
                 let window = base.set_child(0, Window::init("example".into()));
 
-                let mut root_items = window.base_mut().set_child(0, Column::init()).items_mut();
+                let mut root_items = window
+                    .base_mut()
+                    .set_child(0, Column::init())
+                    .contents_mut();
 
                 root_items
                     .set_next_item(TextInput::init())
@@ -128,7 +126,7 @@ impl RootWidget {
 
                 let column2 = root_items.set_next_item(Column::init());
                 let column2_id = column2.id();
-                let mut column2_items = column2.items_mut();
+                let mut column2_items = column2.contents_mut();
                 let button21_id = column2_items
                     .set_next_item(Button::init("btn21".into()))
                     .on_triggered(callbacks.create(|_, _| {
@@ -146,7 +144,7 @@ impl RootWidget {
                 let label2_id = root_items.set_next_item(Label::init("ok".into())).id();
 
                 let scroll_area = root_items.set_next_item(ScrollArea::init());
-                let mut content_items = scroll_area.set_content(Column::init()).items_mut();
+                let mut content_items = scroll_area.set_content(Column::init()).contents_mut();
                 for i in 1..=80 {
                     content_items.set_next_item(Button::init(format!(
                         "btn btn btn btn btn btn btn btn btn btn{i}"

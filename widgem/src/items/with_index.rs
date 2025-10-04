@@ -1,5 +1,5 @@
 use {
-    crate::{widgets::WidgetInitializer, ChildKey, Widget, WidgetBase, WidgetNotFound},
+    crate::{widget_initializer::WidgetInitializer, ChildKey, Widget, WidgetBase, WidgetNotFound},
     std::{borrow::Borrow, collections::HashSet, ops::Deref},
 };
 

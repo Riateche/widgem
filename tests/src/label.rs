@@ -1,7 +1,8 @@
 use {
     widgem::{
         impl_widget_base,
-        widgets::{Label, Widget, WidgetBaseOf, WidgetInitializer, Window},
+        widgets::{Label, Widget, WidgetBaseOf, Window},
+        WidgetInitializer,
     },
     widgem_tester::context::Context,
 };
@@ -12,24 +13,23 @@ pub struct RootWidget {
 
 impl RootWidget {
     pub fn init() -> impl WidgetInitializer<Output = Self> {
+        struct Initializer;
+
+        impl WidgetInitializer for Initializer {
+            type Output = RootWidget;
+
+            fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+                let window = base.set_main_child(Window::init(module_path!().into()));
+                window.set_main_content(Label::init("Test".into()));
+
+                RootWidget { base }
+            }
+
+            fn reinit(self, _widget: &mut Self::Output) {}
+        }
+
         Initializer
     }
-}
-
-struct Initializer;
-
-impl WidgetInitializer for Initializer {
-    type Output = RootWidget;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let window = base.set_child(0, Window::init(module_path!().into()));
-
-        window.base_mut().set_child(0, Label::init("Test".into()));
-
-        RootWidget { base }
-    }
-
-    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for RootWidget {
@@ -39,7 +39,7 @@ impl Widget for RootWidget {
 #[widgem_tester::test]
 pub fn label(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().set_child(0, RootWidget::init());
+        r.set_main_content(RootWidget::init());
         Ok(())
     })?;
     let window = ctx.wait_for_window_by_pid()?;

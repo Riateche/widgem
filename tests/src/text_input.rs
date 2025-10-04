@@ -2,8 +2,8 @@ use {
     widgem::{
         impl_widget_base,
         layout::Layout,
-        widgets::{Label, TextInput, Widget, WidgetBaseOf, WidgetInitializer, Window},
-        WidgetExt,
+        widgets::{Label, TextInput, Widget, WidgetBaseOf, Window},
+        WidgetExt, WidgetInitializer,
     },
     widgem_tester::{context::Context, Key},
 };
@@ -155,7 +155,7 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
             .base_mut()
             .set_child(0, Window::init(module_path!().into()))
             .set_layout(Layout::HorizontalFirst)
-            .items_mut();
+            .contents_mut();
         items.set_next_item(Label::init("Placeholder".into()));
         items
             .set_next_item(TextInput::init())

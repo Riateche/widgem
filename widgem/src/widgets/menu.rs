@@ -13,7 +13,8 @@ use {
         system::ReportError,
         text_editor::{Text, TextStyle},
         types::{PhysicalPixels, Point},
-        widgets::{widget_trait::WidgetInitializer, Column, ScrollArea},
+        widget_initializer::WidgetInitializer,
+        widgets::{Column, ScrollArea},
         ChildKey, WidgetBase, WidgetExt, WindowRectRequest, WindowRectResponse,
     },
     tracing::error,
@@ -30,7 +31,7 @@ impl Menu {
         Initializer { position }
     }
 
-    pub fn items(&self) -> Items<&WidgetBase> {
+    pub fn contents(&self) -> Items<&WidgetBase> {
         let content_base = self
             .base
             .get_child::<ScrollArea>(SCROLL_AREA_KEY)
@@ -41,7 +42,7 @@ impl Menu {
         Items::new(content_base)
     }
 
-    pub fn items_mut(&mut self) -> ItemsMut<'_> {
+    pub fn contents_mut(&mut self) -> ItemsMut<'_> {
         let content_base = self
             .base
             .get_child_mut::<ScrollArea>(SCROLL_AREA_KEY)
@@ -52,7 +53,7 @@ impl Menu {
         ItemsMut::new(content_base)
     }
 
-    pub fn items_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
+    pub fn contents_with_key<K: Into<ChildKey>>(&self) -> ItemsWithKey<&WidgetBase, K> {
         let content_base = self
             .base
             .get_child::<ScrollArea>(SCROLL_AREA_KEY)
@@ -63,7 +64,7 @@ impl Menu {
         ItemsWithKey::new(content_base)
     }
 
-    pub fn items_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
+    pub fn contents_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
         let content_base = self
             .base
             .get_child_mut::<ScrollArea>(SCROLL_AREA_KEY)

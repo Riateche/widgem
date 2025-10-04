@@ -11,8 +11,9 @@ use {
         types::Point,
         widgets::{
             Button, Column, Image, Label, Row, ScrollArea, Widget, WidgetBaseOf, WidgetExt,
-            WidgetId, WidgetInitializer, Window,
+            WidgetId, Window,
         },
+        WidgetInitializer, WidgetInitializerOneArg,
     },
 };
 
@@ -34,14 +35,22 @@ fn mode_ui_name(mode: Mode) -> &'static str {
 }
 
 impl TesterUi {
-    pub fn init(tester_logic: TesterLogic) -> impl WidgetInitializer<Output = Self> {
-        Initializer { tester_logic }
+    fn new(base: WidgetBaseOf<Self>, tester_logic: TesterLogic) -> Self {
+        TesterUi {
+            base,
+            tester_logic,
+            coords: String::new(),
+            image_scale: 1.0,
+        }
     }
 
-    pub fn set_tester_logic(&mut self, reviewer: TesterLogic) -> anyhow::Result<()> {
+    pub fn init(tester_logic: TesterLogic) -> impl WidgetInitializer<Output = Self> {
+        WidgetInitializerOneArg::new(Self::new, Self::set_tester_logic, tester_logic)
+    }
+
+    pub fn set_tester_logic(&mut self, reviewer: TesterLogic) {
         self.tester_logic = reviewer;
         self.base.update();
-        Ok(())
     }
 
     fn set_mode(&mut self, mode: Mode) -> anyhow::Result<()> {
@@ -79,27 +88,6 @@ impl TesterUi {
     }
 }
 
-struct Initializer {
-    tester_logic: TesterLogic,
-}
-
-impl WidgetInitializer for Initializer {
-    type Output = TesterUi;
-
-    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        TesterUi {
-            base,
-            tester_logic: self.tester_logic,
-            coords: String::new(),
-            image_scale: 1.0,
-        }
-    }
-
-    fn reinit(self, widget: &mut Self::Output) {
-        widget.set_tester_logic(self.tester_logic).or_report_err();
-    }
-}
-
 impl Widget for TesterUi {
     impl_widget_base!();
 
@@ -110,7 +98,7 @@ impl Widget for TesterUi {
             .base
             .set_child(0, Window::init("widgem snapshot review".into()))
             .set_layout(Layout::ExplicitGrid)
-            .items_mut();
+            .contents_mut();
         let mut current_row = 1;
         window_items
             .set_next_item(Label::init("Test:".into()))
@@ -136,7 +124,7 @@ impl Widget for TesterUi {
             .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         current_row += 1;
 
         row_items
@@ -181,7 +169,7 @@ impl Widget for TesterUi {
             .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         current_row += 1;
 
         row_items
@@ -244,7 +232,7 @@ impl Widget for TesterUi {
             .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         current_row += 1;
 
         row_items
@@ -271,7 +259,7 @@ impl Widget for TesterUi {
             .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         current_row += 1;
 
         for mode in Mode::iter() {
@@ -315,7 +303,7 @@ impl Widget for TesterUi {
             .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         current_row += 1;
 
         row_items
@@ -384,7 +372,7 @@ impl Widget for TesterUi {
             .set_next_item(Row::init())
             .set_grid_cell(2, current_row)
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         current_row += 1;
 
         approve_and_skip_items

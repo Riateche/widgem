@@ -1,6 +1,6 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, text_editor::Text, widgets::widget_trait::WidgetInitializer},
+    crate::{impl_widget_base, text_editor::Text, widget_initializer::WidgetInitializer},
     cosmic_text::Attrs,
     std::fmt::Display,
 };

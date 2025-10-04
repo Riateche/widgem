@@ -16,7 +16,7 @@ use {
         system::ReportError,
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
-        widgets::widget_trait::WidgetInitializer,
+        widget_initializer::WidgetInitializer,
         ScrollToRectRequest,
     },
     anyhow::Result,

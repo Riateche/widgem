@@ -15,7 +15,7 @@ use {
         },
         text_editor::Text,
         timer::TimerId,
-        widgets::widget_trait::WidgetInitializer,
+        widget_initializer::WidgetInitializer,
         Pixmap,
     },
     accesskit::{Action, Role},

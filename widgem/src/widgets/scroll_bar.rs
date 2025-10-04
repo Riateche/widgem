@@ -9,7 +9,7 @@ use {
         layout::{default_layout, Layout, SizeHint},
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
-        widgets::widget_trait::WidgetInitializer,
+        widget_initializer::WidgetInitializer,
     },
     anyhow::Result,
     ordered_float::NotNan,

@@ -5,7 +5,7 @@ use {
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
-        widgets::widget_trait::WidgetInitializer,
+        widget_initializer::WidgetInitializer,
     },
     anyhow::Result,
     std::cmp::{max, min},

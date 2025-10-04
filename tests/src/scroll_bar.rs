@@ -4,10 +4,8 @@ use {
         impl_widget_base,
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
-        widgets::{
-            Column, Label, Row, ScrollBar, Widget, WidgetBaseOf, WidgetExt, WidgetInitializer,
-            Window,
-        },
+        widgets::{Column, Label, Row, ScrollBar, Widget, WidgetBaseOf, WidgetExt, Window},
+        WidgetInitializer, WidgetInitializerNoArg,
     },
     widgem_tester::{context::Context, Key},
 };
@@ -28,17 +26,7 @@ impl RootWidget {
         Ok(())
     }
 
-    pub fn init() -> impl WidgetInitializer<Output = Self> {
-        Initializer
-    }
-}
-
-struct Initializer;
-
-impl WidgetInitializer for Initializer {
-    type Output = RootWidget;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
         let on_r = base.callback(|this, _| {
             this.axis = match this.axis {
                 Axis::X => Axis::Y,
@@ -93,7 +81,9 @@ impl WidgetInitializer for Initializer {
         }
     }
 
-    fn reinit(self, _widget: &mut Self::Output) {}
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        WidgetInitializerNoArg::new(Self::new)
+    }
 }
 
 impl Widget for RootWidget {
@@ -105,19 +95,19 @@ impl Widget for RootWidget {
         let mut window = self
             .base
             .set_child(0, Window::init(module_path!().into()))
-            .items_mut();
+            .contents_mut();
 
         let mut row_items = window
             .set_next_item(Row::init())
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         row_items
             .set_next_item(Label::init("placeholder".into()))
             .set_visible(self.placeholder_visible);
         let mut column_items = row_items
             .set_next_item(Column::init())
             .set_padding_enabled(false)
-            .items_mut();
+            .contents_mut();
         column_items
             .set_next_item(ScrollBar::init(self.axis))
             .set_value_range(self.range.clone())
