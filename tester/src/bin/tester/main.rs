@@ -48,7 +48,7 @@ pub fn main() -> anyhow::Result<()> {
         run_script: args.run_script,
     })?;
     widgem::run(move |w| {
-        w.content_mut().set_next_item(TesterUi::init(reviewer));
+        w.set_main_content(TesterUi::init(reviewer))?;
         Ok(())
     })
 }

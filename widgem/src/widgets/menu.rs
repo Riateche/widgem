@@ -13,7 +13,7 @@ use {
         system::ReportError,
         text_editor::{Text, TextStyle},
         types::{PhysicalPixels, Point},
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
         widgets::{Column, ScrollArea},
         ChildKey, WidgetBase, WidgetExt, WindowRectRequest, WindowRectResponse,
     },
@@ -27,8 +27,39 @@ pub struct Menu {
 }
 
 impl Menu {
+    fn new(mut base: WidgetBaseOf<Self>, position: Point) -> anyhow::Result<Self> {
+        if let Some(window) = base.window() {
+            window.set_title("Menu"); // TODO: translations
+            window.set_decorations(false);
+            window.set_has_macos_shadow(false);
+            window.set_resizable(false);
+            window.set_window_level(WindowLevel::AlwaysOnTop);
+            window.set_x11_window_type(vec![X11WindowType::PopupMenu]);
+            window.set_skip_windows_taskbar(true);
+            window.set_outer_position(position);
+        } else {
+            error!("Menu::new: missing window");
+        }
+        base.set_child(SCROLL_AREA_KEY, ScrollArea::init())?
+            .set_content(Column::init())?
+            .add_class("menu".into());
+        Ok(Menu {
+            base,
+            window_was_focused: false,
+        })
+    }
+
+    fn set_position(&mut self, position: Point) -> &mut Self {
+        if let Some(window) = self.base.window() {
+            window.set_outer_position(position);
+        } else {
+            error!("Menu::new: missing window");
+        }
+        self
+    }
+
     pub fn init(position: Point) -> impl WidgetInitializer<Output = Self> {
-        Initializer { position }
+        widget_initializer::from_fallible_new_and_set(Self::new, Self::set_position, position)
     }
 
     pub fn contents(&self) -> Items<&WidgetBase> {
@@ -89,44 +120,6 @@ impl Menu {
 
 const SCROLL_AREA_KEY: u64 = 0;
 
-struct Initializer {
-    position: Point,
-}
-
-impl WidgetInitializer for Initializer {
-    type Output = Menu;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        if let Some(window) = base.window() {
-            window.set_title("Menu"); // TODO: translations
-            window.set_decorations(false);
-            window.set_has_macos_shadow(false);
-            window.set_resizable(false);
-            window.set_window_level(WindowLevel::AlwaysOnTop);
-            window.set_x11_window_type(vec![X11WindowType::PopupMenu]);
-            window.set_skip_windows_taskbar(true);
-            window.set_outer_position(self.position);
-        } else {
-            error!("Menu::new: missing window");
-        }
-        base.set_child(SCROLL_AREA_KEY, ScrollArea::init())
-            .set_content(Column::init())
-            .add_class("menu".into());
-        Menu {
-            base,
-            window_was_focused: false,
-        }
-    }
-
-    fn reinit(self, widget: &mut Self::Output) {
-        if let Some(window) = widget.base.window() {
-            window.set_outer_position(self.position);
-        } else {
-            error!("Menu::new: missing window");
-        }
-    }
-}
-
 impl Widget for Menu {
     impl_widget_base!();
 
@@ -178,32 +171,20 @@ pub struct MenuAction {
 }
 
 impl MenuAction {
-    pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
-        struct Initializer {
-            text: String,
+    fn new(base: WidgetBaseOf<Self>, text: String) -> Self {
+        MenuAction {
+            base,
+            text,
+            clicked: Default::default(),
         }
-
-        impl WidgetInitializer for Initializer {
-            type Output = MenuAction;
-
-            fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-                MenuAction {
-                    base,
-                    text: self.text,
-                    clicked: Default::default(),
-                }
-            }
-
-            fn reinit(self, widget: &mut Self::Output) {
-                widget.set_text(&self.text);
-            }
-        }
-
-        Initializer { text }
     }
 
-    pub fn set_text(&mut self, text: &str) -> &mut Self {
-        self.text = text.into();
+    pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
+        widget_initializer::from_new_and_set(Self::new, Self::set_text, text)
+    }
+
+    pub fn set_text(&mut self, text: String) -> &mut Self {
+        self.text = text;
         self
     }
 
@@ -220,7 +201,7 @@ impl Widget for MenuAction {
         let text_style = self.base.compute_style::<TextStyle>();
         self.base
             .children_mut()
-            .set_next_item(Text::init(self.text.clone(), text_style))
+            .set_next_item(Text::init(self.text.clone(), text_style))?
             .set_multiline(false);
         Ok(())
     }

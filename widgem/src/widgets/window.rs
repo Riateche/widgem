@@ -8,7 +8,7 @@ use {
         },
         shared_window::X11WindowType,
         types::Point,
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
         ChildKey, WidgetBase,
     },
     std::fmt::Display,
@@ -20,8 +20,14 @@ pub struct Window {
 }
 
 impl Window {
+    fn new(base: WidgetBaseOf<Self>, title: String) -> Self {
+        let mut w = Window { base };
+        w.set_title(title);
+        w
+    }
+
     pub fn init(title: String) -> impl WidgetInitializer<Output = Self> {
-        Initializer { title }
+        widget_initializer::from_new_and_set(Self::new, Self::set_title, title)
     }
 
     pub fn set_title(&mut self, title: impl Display) -> &mut Self {
@@ -63,7 +69,10 @@ impl Window {
         self
     }
 
-    pub fn set_main_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
+    pub fn set_main_content<WI: WidgetInitializer>(
+        &mut self,
+        initializer: WI,
+    ) -> anyhow::Result<&mut WI::Output> {
         self.base.set_main_child(initializer)
     }
 
@@ -81,24 +90,6 @@ impl Window {
 
     pub fn contents_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
         ItemsWithKeyMut::new(&mut self.base)
-    }
-}
-
-struct Initializer {
-    title: String,
-}
-
-impl WidgetInitializer for Initializer {
-    type Output = Window;
-
-    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let mut w = Window { base };
-        w.set_title(self.title);
-        w
-    }
-
-    fn reinit(self, widget: &mut Self::Output) {
-        widget.set_title(self.title);
     }
 }
 

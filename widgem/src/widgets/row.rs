@@ -7,7 +7,7 @@ use {
             with_key::{ItemsWithKey, ItemsWithKeyMut},
         },
         layout::Layout,
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
         ChildKey, WidgetBase,
     },
 };
@@ -18,13 +18,14 @@ pub struct Row {
 }
 
 impl Row {
-    pub fn init() -> impl WidgetInitializer<Output = Self> {
-        Initializer
+    fn new(mut base: WidgetBaseOf<Self>) -> Self {
+        base.set_layout(Layout::HorizontalFirst);
+        Self { base }
     }
 
-    // pub fn set_main_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
-    //     self.base.set_main_child(initializer)
-    // }
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        widget_initializer::from_new(Self::new)
+    }
 
     pub fn contents(&self) -> Items<&WidgetBase> {
         Items::new(&self.base)
@@ -41,19 +42,6 @@ impl Row {
     pub fn contents_with_key_mut<K: Into<ChildKey>>(&mut self) -> ItemsWithKeyMut<'_, K> {
         ItemsWithKeyMut::new(&mut self.base)
     }
-}
-
-struct Initializer;
-
-impl WidgetInitializer for Initializer {
-    type Output = Row;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        base.set_layout(Layout::HorizontalFirst);
-        Row { base }
-    }
-
-    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for Row {

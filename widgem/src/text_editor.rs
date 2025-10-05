@@ -26,7 +26,7 @@ use {
         },
         timer::TimerId,
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
         widgets::{RawWidgetId, Widget, WidgetBaseOf, WidgetExt},
     },
     accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
@@ -122,8 +122,48 @@ pub struct AccessibilityLine {
 
 #[impl_with]
 impl Text {
+    fn new(base: WidgetBaseOf<Self>, text: String, style: Rc<TextStyle>) -> Self {
+        let editor = base.app().with_font_system(|font_system| {
+            Editor::new(Buffer::new(font_system, style.font_metrics))
+        });
+        let mut t = Text {
+            editor,
+            pixmap: None,
+            style,
+            size: Size::default(),
+            is_multiline: true,
+            is_editable: false,
+            is_cursor_hidden: true,
+            is_host_focused: false,
+            host_id: None,
+            forbid_mouse_interaction: false,
+            blink_timer: None,
+            selected_text: String::new(),
+            line_accessibility_node_id: new_accessibility_node_id(),
+            base,
+        };
+        if let Some(window) = t.base.window() {
+            window.remove_accessibility_node(
+                Some(t.base.id().into()),
+                t.line_accessibility_node_id,
+                0.into(),
+            );
+        }
+        t.editor.set_cursor_hidden(true);
+        t.set_text(text);
+        t.reset_blink_timer();
+        t.request_scroll();
+        t
+    }
+
     pub fn init(text: String, style: Rc<TextStyle>) -> impl WidgetInitializer<Output = Self> {
-        Initializer { text, style }
+        widget_initializer::from_fallible_new_and_fallible_2_set(
+            |base, text, style| Ok(Self::new(base, text, style)),
+            |w, text| Ok(w.set_text(text)),
+            |w, style| Ok(w.set_text_style(style)),
+            text,
+            style,
+        )
     }
 
     pub fn set_editable(&mut self, editable: bool) -> &mut Self {
@@ -150,7 +190,7 @@ impl Text {
         let text = self.text();
         let sanitized = self.sanitize(&text);
         if text != sanitized {
-            self.set_text(sanitized, Attrs::new());
+            self.set_text(sanitized);
         }
         self.request_scroll();
         self
@@ -389,10 +429,10 @@ impl Text {
         Ok(true)
     }
 
-    pub fn set_text(&mut self, text: impl Display, attrs: Attrs) {
+    pub fn set_text_and_attrs(&mut self, text: impl Display, attrs: Attrs) -> &mut Self {
         let text = text.to_string();
         if self.text() == text {
-            return;
+            return self;
         }
 
         self.base.app().with_font_system(|font_system| {
@@ -405,6 +445,11 @@ impl Text {
         self.reset_blink_timer();
         self.base.update();
         self.request_scroll();
+        self
+    }
+
+    pub fn set_text(&mut self, text: impl Display) -> &mut Self {
+        self.set_text_and_attrs(text, Attrs::new())
     }
 
     pub fn text(&self) -> String {
@@ -987,54 +1032,6 @@ impl Text {
         self.base.update();
         self.request_scroll();
         Ok(())
-    }
-}
-
-struct Initializer {
-    text: String,
-    style: Rc<TextStyle>,
-}
-
-impl WidgetInitializer for Initializer {
-    type Output = Text;
-
-    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let editor = base.app().with_font_system(|font_system| {
-            Editor::new(Buffer::new(font_system, self.style.font_metrics))
-        });
-        let mut t = Text {
-            editor,
-            pixmap: None,
-            style: self.style,
-            size: Size::default(),
-            is_multiline: true,
-            is_editable: false,
-            is_cursor_hidden: true,
-            is_host_focused: false,
-            host_id: None,
-            forbid_mouse_interaction: false,
-            blink_timer: None,
-            selected_text: String::new(),
-            line_accessibility_node_id: new_accessibility_node_id(),
-            base,
-        };
-        if let Some(window) = t.base.window() {
-            window.remove_accessibility_node(
-                Some(t.base.id().into()),
-                t.line_accessibility_node_id,
-                0.into(),
-            );
-        }
-        t.editor.set_cursor_hidden(true);
-        t.set_text(self.text, Attrs::new());
-        t.reset_blink_timer();
-        t.request_scroll();
-        t
-    }
-
-    fn reinit(self, widget: &mut Self::Output) {
-        widget.set_text(self.text, Attrs::new());
-        widget.set_text_style(self.style);
     }
 }
 

@@ -20,7 +20,6 @@ use {
     },
     accesskit::{Action, Role},
     anyhow::Result,
-    cosmic_text::Attrs,
     std::{fmt::Display, rc::Rc},
     tracing::warn,
     widgem_macros::impl_with,
@@ -67,7 +66,7 @@ impl Button {
     }
 
     pub fn set_text(&mut self, text: impl Display) -> &mut Self {
-        self.text_widget_mut().set_text(text, Attrs::new());
+        self.text_widget_mut().set_text(text);
         self.base.size_hint_changed();
         self.base.update();
         self
@@ -179,15 +178,17 @@ struct Initializer {
 impl WidgetInitializer for Initializer {
     type Output = Button;
 
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
+    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> anyhow::Result<Self::Output> {
         base.set_supports_focus(true);
         base.set_layout(Layout::HorizontalFirst);
         let id = base.id().raw();
         let text_style = base.compute_style();
         let mut children = base.children_mut();
-        children.set_next_item(Image::init(None)).set_visible(false);
         children
-            .set_next_item(Text::init(self.text, text_style))
+            .set_next_item(Image::init(None))?
+            .set_visible(false);
+        children
+            .set_next_item(Text::init(self.text, text_style))?
             .set_host_id(id);
         let mut b = Button {
             style: base.compute_style(),
@@ -203,11 +204,12 @@ impl WidgetInitializer for Initializer {
         };
         // TODO: remove and use declare_children
         b.refresh_style();
-        b
+        Ok(b)
     }
 
-    fn reinit(self, widget: &mut Self::Output) {
+    fn reinit(self, widget: &mut Self::Output) -> anyhow::Result<()> {
         widget.set_text(self.text);
+        Ok(())
     }
 }
 

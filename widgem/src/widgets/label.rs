@@ -1,7 +1,10 @@
 use {
     super::{Widget, WidgetBaseOf},
-    crate::{impl_widget_base, text_editor::Text, widget_initializer::WidgetInitializer},
-    cosmic_text::Attrs,
+    crate::{
+        impl_widget_base,
+        text_editor::Text,
+        widget_initializer::{self, WidgetInitializer},
+    },
     std::fmt::Display,
 };
 
@@ -10,8 +13,16 @@ pub struct Label {
 }
 
 impl Label {
+    fn new(mut base: WidgetBaseOf<Self>, text: String) -> anyhow::Result<Self> {
+        let id = base.id().raw();
+        let text_style = base.compute_style();
+        base.set_child(0, Text::init(text, text_style))?
+            .set_host_id(id);
+        Ok(Label { base })
+    }
+
     pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
-        Initializer { text }
+        widget_initializer::from_fallible_new_and_set(Self::new, Self::set_text, text)
     }
 
     #[allow(dead_code)]
@@ -24,56 +35,13 @@ impl Label {
     }
 
     pub fn set_text(&mut self, text: impl Display) -> &mut Self {
-        self.text_widget_mut().set_text(text, Attrs::new());
+        self.text_widget_mut().set_text(text);
         self.base.size_hint_changed();
         self.base.update();
         self
     }
 }
 
-struct Initializer {
-    text: String,
-}
-
-impl WidgetInitializer for Initializer {
-    type Output = Label;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let id = base.id().raw();
-        let text_style = base.compute_style();
-        base.set_child(0, Text::init(self.text, text_style))
-            .set_host_id(id);
-        Label { base }
-    }
-
-    fn reinit(self, widget: &mut Self::Output) {
-        widget.set_text(self.text);
-    }
-}
-
 impl Widget for Label {
     impl_widget_base!();
 }
-/*
-
-    pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
-        Initializer { text }
-    }
-
-struct Initializer {
-    text: String,
-}
-
-impl WidgetInitializer for Initializer {
-    type Output = Label;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-
-    }
-
-    fn reinit(self, widget: &mut Self::Output) {
-        widget.set_text(self.text);
-    }
-}
-
-*/

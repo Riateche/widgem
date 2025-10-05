@@ -1046,21 +1046,21 @@ impl WidgetBase {
         &mut self,
         key: impl Into<ChildKey>,
         initializer: WI,
-    ) -> &mut WI::Output {
+    ) -> anyhow::Result<&mut WI::Output> {
         let key = key.into();
         if let Some(old_widget) = self
             .children
             .get_mut(&key)
             .and_then(|c| c.downcast_mut::<WI::Output>())
         {
-            initializer.reinit(old_widget);
+            initializer.reinit(old_widget)?;
             // Should be `return old_widget` but borrow checker is not smart enough.
             // Should we use `polonius-the-crab` crate?
-            return self
+            return Ok(self
                 .children
                 .get_mut(&key)
                 .and_then(|c| c.downcast_mut::<WI::Output>())
-                .unwrap();
+                .unwrap());
         }
 
         let new_id = RawWidgetId::new_unique();
@@ -1072,12 +1072,13 @@ impl WidgetBase {
             self.new_creation_context(new_id, key.clone(), None)
         };
         // This may delete the old widget.
+        // TODO: delete window?
         self.children.insert(
             key.clone(),
-            Box::new(initializer.init(WidgetBase::new::<WI::Output>(ctx))),
+            Box::new(initializer.init(WidgetBase::new::<WI::Output>(ctx))?),
         );
         self.size_hint_changed();
-        self.children.get_mut(&key).unwrap().downcast_mut().unwrap()
+        Ok(self.children.get_mut(&key).unwrap().downcast_mut().unwrap())
     }
 
     /// Get a dyn reference to the direct child associated with `key`.
@@ -1563,7 +1564,10 @@ impl<W> WidgetBaseOf<W> {
         ItemsWithKeyMut::new(self)
     }
 
-    pub fn set_main_child<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
+    pub fn set_main_child<WI: WidgetInitializer>(
+        &mut self,
+        initializer: WI,
+    ) -> anyhow::Result<&mut WI::Output> {
         self.set_child(main_key(), initializer)
     }
 

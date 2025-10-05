@@ -62,24 +62,27 @@ impl<'a> ItemsMut<'a> {
         }
     }
 
-    pub fn set_next_item<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
+    pub fn set_next_item<WI: WidgetInitializer>(
+        &mut self,
+        initializer: WI,
+    ) -> anyhow::Result<&mut WI::Output> {
         let key = ChildKey::from(self.next_index);
-        let output = self.inner.base.set_child(key.clone(), initializer);
+        let output = self.inner.base.set_child(key.clone(), initializer)?;
         self.already_set.insert(key);
         self.next_index += 1;
-        output
+        Ok(output)
     }
 
     pub fn set_item_at<WI: WidgetInitializer>(
         &mut self,
         index: u32,
         initializer: WI,
-    ) -> &mut WI::Output {
+    ) -> anyhow::Result<&mut WI::Output> {
         let key = ChildKey::from(index);
-        let output = self.inner.base.set_child(key.clone(), initializer);
+        let output = self.inner.base.set_child(key.clone(), initializer)?;
         self.already_set.insert(key);
         self.next_index = index + 1;
-        output
+        Ok(output)
     }
 
     pub fn remove_item(&mut self, index: u32) -> Result<(), WidgetNotFound> {

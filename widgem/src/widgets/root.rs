@@ -20,7 +20,10 @@ impl RootWidget {
         Self { base }
     }
 
-    pub fn set_main_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
+    pub fn set_main_content<WI: WidgetInitializer>(
+        &mut self,
+        initializer: WI,
+    ) -> anyhow::Result<&mut WI::Output> {
         self.base.set_main_child(initializer)
     }
 

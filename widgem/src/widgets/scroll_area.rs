@@ -5,7 +5,7 @@ use {
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
     },
     anyhow::Result,
     std::cmp::{max, min},
@@ -34,8 +34,29 @@ const KEY_CONTENT_IN_VIEWPORT: u64 = 0;
 
 #[impl_with]
 impl ScrollArea {
+    fn new(mut base: WidgetBaseOf<Self>) -> anyhow::Result<Self> {
+        let relayout = base.callback(|this, _| this.relayout());
+        base.set_layout(Layout::ExplicitGrid);
+
+        // TODO: icons, localized name
+        base.set_child(INDEX_SCROLL_BAR_X, ScrollBar::init(Axis::X))?
+            .set_grid_cell(0, 1)
+            .on_value_changed(relayout.clone());
+        base.set_child(INDEX_SCROLL_BAR_Y, ScrollBar::init(Axis::Y))?
+            .set_grid_cell(1, 0)
+            .on_value_changed(relayout);
+        base.set_child(INDEX_VIEWPORT, Viewport::init())?
+            .set_grid_cell(0, 0)
+            .set_layout(Layout::ExplicitGrid);
+        Ok(ScrollArea {
+            base,
+            x_policy: ScrollBarPolicy::default(),
+            y_policy: ScrollBarPolicy::default(),
+        })
+    }
+
     pub fn init() -> impl WidgetInitializer<Output = Self> {
-        Initializer
+        widget_initializer::from_fallible_new(Self::new)
     }
 
     fn has_content(&self) -> bool {
@@ -46,7 +67,10 @@ impl ScrollArea {
             .has_child(KEY_CONTENT_IN_VIEWPORT)
     }
 
-    pub fn set_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
+    pub fn set_content<WI: WidgetInitializer>(
+        &mut self,
+        initializer: WI,
+    ) -> anyhow::Result<&mut WI::Output> {
         self.base
             .get_dyn_child_mut(INDEX_VIEWPORT)
             .unwrap()
@@ -303,35 +327,6 @@ impl ScrollArea {
     }
 }
 
-struct Initializer;
-
-impl WidgetInitializer for Initializer {
-    type Output = ScrollArea;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let relayout = base.callback(|this, _| this.relayout());
-        base.set_layout(Layout::ExplicitGrid);
-
-        // TODO: icons, localized name
-        base.set_child(INDEX_SCROLL_BAR_X, ScrollBar::init(Axis::X))
-            .set_grid_cell(0, 1)
-            .on_value_changed(relayout.clone());
-        base.set_child(INDEX_SCROLL_BAR_Y, ScrollBar::init(Axis::Y))
-            .set_grid_cell(1, 0)
-            .on_value_changed(relayout);
-        base.set_child(INDEX_VIEWPORT, ViewportInitializer)
-            .set_grid_cell(0, 0)
-            .set_layout(Layout::ExplicitGrid);
-        ScrollArea {
-            base,
-            x_policy: ScrollBarPolicy::default(),
-            y_policy: ScrollBarPolicy::default(),
-        }
-    }
-
-    fn reinit(self, _widget: &mut Self::Output) {}
-}
-
 impl Widget for ScrollArea {
     impl_widget_base!();
 
@@ -522,16 +517,10 @@ pub struct Viewport {
     base: WidgetBaseOf<Self>,
 }
 
-struct ViewportInitializer;
-
-impl WidgetInitializer for ViewportInitializer {
-    type Output = Viewport;
-
-    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        Viewport { base }
+impl Viewport {
+    pub fn init() -> impl WidgetInitializer<Output = Self> {
+        widget_initializer::from_new(|base| Viewport { base })
     }
-
-    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for Viewport {

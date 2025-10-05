@@ -11,7 +11,7 @@ use widgem_tester::{context::Context, Key};
 pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|root| {
         let window = root
-            .set_main_content(Window::init(module_path!().into()))
+            .set_main_content(Window::init(module_path!().into()))?
             .set_padding_enabled(false);
         let on_r = window.callback(move |window, _| {
             let is_resizable = window.is_resizable();
@@ -24,13 +24,13 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
             on_r,
         ));
         let mut content_items = window
-            .set_main_content(ScrollArea::init())
+            .set_main_content(ScrollArea::init())?
             .set_size_x_fixed(Some(false))
-            .set_content(Column::init())
+            .set_content(Column::init())?
             .contents_mut();
 
         for i in 0..20 {
-            content_items.set_next_item(Label::init(format!("text item {i}")));
+            content_items.set_next_item(Label::init(format!("text item {i}")))?;
         }
         Ok(())
     })?;
@@ -94,19 +94,19 @@ pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
 pub fn layout(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|root| {
         let mut window_contents = root
-            .set_main_content(Window::init(module_path!().into()))
+            .set_main_content(Window::init(module_path!().into()))?
             .contents_mut();
-        window_contents.set_next_item(Label::init("before".into()));
+        window_contents.set_next_item(Label::init("before".into()))?;
         let mut content = window_contents
-            .set_next_item(ScrollArea::init())
-            .set_content(Column::init())
+            .set_next_item(ScrollArea::init())?
+            .set_content(Column::init())?
             .set_padding_enabled(false)
             .contents_mut();
 
         for i in 0..20 {
-            content.set_next_item(Label::init(format!("text item {i}")));
+            content.set_next_item(Label::init(format!("text item {i}")))?;
         }
-        window_contents.set_next_item(Label::init("after".into()));
+        window_contents.set_next_item(Label::init("after".into()))?;
         Ok(())
     })?;
 

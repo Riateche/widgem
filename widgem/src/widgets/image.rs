@@ -5,7 +5,7 @@ use {
         impl_widget_base,
         layout::SizeHint,
         types::{PhysicalPixels, Point, PpxSuffix},
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
         Pixmap,
     },
     anyhow::Result,
@@ -24,8 +24,17 @@ pub struct Image {
 
 #[impl_with]
 impl Image {
+    fn new(base: WidgetBaseOf<Self>, pixmap: Option<Pixmap>) -> Self {
+        Image {
+            base,
+            pixmap,
+            is_prescaled: false,
+            scale: None,
+        }
+    }
+
     pub fn init(pixmap: Option<Pixmap>) -> impl WidgetInitializer<Output = Self> {
-        Initializer { pixmap }
+        widget_initializer::from_new_and_set(Self::new, Self::set_pixmap, pixmap)
     }
 
     pub fn set_prescaled(&mut self, value: bool) {
@@ -38,13 +47,14 @@ impl Image {
         self.is_prescaled
     }
 
-    pub fn set_pixmap(&mut self, pixmap: Option<Pixmap>) {
+    pub fn set_pixmap(&mut self, pixmap: Option<Pixmap>) -> &mut Self {
         if self.pixmap == pixmap {
-            return;
+            return self;
         }
         self.pixmap = pixmap;
         self.base.size_hint_changed();
         self.base.update();
+        self
     }
 
     pub fn load_png<P: AsRef<Path>>(&mut self, path: P) -> anyhow::Result<()> {
@@ -74,27 +84,6 @@ impl Image {
     pub fn map_widget_pos_to_content_pos(&self, pos: Point) -> Point {
         let scale = self.total_scale();
         Point::new(pos.x().div_f32_round(scale), pos.y().div_f32_round(scale))
-    }
-}
-
-struct Initializer {
-    pixmap: Option<Pixmap>,
-}
-
-impl WidgetInitializer for Initializer {
-    type Output = Image;
-
-    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        Image {
-            base,
-            pixmap: self.pixmap,
-            is_prescaled: false,
-            scale: None,
-        }
-    }
-
-    fn reinit(self, widget: &mut Self::Output) {
-        widget.set_pixmap(self.pixmap);
     }
 }
 

@@ -22,7 +22,7 @@ mod text;
 pub mod text_editor;
 pub mod timer;
 pub mod types;
-mod widget_initializer;
+pub mod widget_initializer;
 pub mod widgets;
 mod window_handler;
 
@@ -40,7 +40,7 @@ pub use {
         monitor::MonitorExt,
         pixmap::Pixmap,
     },
-    widget_initializer::{WidgetInitializer, WidgetInitializerNoArg, WidgetInitializerOneArg},
+    widget_initializer::WidgetInitializer,
     widgets::{
         RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetBaseOf, WidgetExt, WidgetGeometry,
         WidgetId, WidgetNotFound, Window,

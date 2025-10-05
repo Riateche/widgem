@@ -6,7 +6,7 @@ use {
             with_index::{Items, ItemsMut},
             with_key::{ItemsWithKey, ItemsWithKeyMut},
         },
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
         ChildKey, WidgetBase,
     },
 };
@@ -17,8 +17,12 @@ pub struct Column {
 }
 
 impl Column {
+    fn new(base: WidgetBaseOf<Self>) -> Self {
+        Self { base }
+    }
+
     pub fn init() -> impl WidgetInitializer<Output = Self> {
-        Initializer
+        widget_initializer::from_new(Self::new)
     }
 
     pub fn contents(&self) -> Items<&WidgetBase> {
@@ -40,18 +44,6 @@ impl Column {
     // pub fn set_main_content<WI: WidgetInitializer>(&mut self, initializer: WI) -> &mut WI::Output {
     //     self.base.set_main_child(initializer)
     // }
-}
-
-struct Initializer;
-
-impl WidgetInitializer for Initializer {
-    type Output = Column;
-
-    fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        Column { base }
-    }
-
-    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for Column {

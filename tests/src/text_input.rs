@@ -2,6 +2,7 @@ use {
     widgem::{
         impl_widget_base,
         layout::Layout,
+        widget_initializer,
         widgets::{Label, TextInput, Widget, WidgetBaseOf, Window},
         WidgetExt, WidgetInitializer,
     },
@@ -14,27 +15,17 @@ pub struct RootWidget {
 
 impl RootWidget {
     pub fn init() -> impl WidgetInitializer<Output = Self> {
-        Initializer
+        widget_initializer::from_fallible_new(|mut base| {
+            let window = base.set_child(0, Window::init(module_path!().into()))?;
+
+            window
+                .base_mut()
+                .set_child(0, TextInput::init())?
+                .set_text("Hello world");
+
+            Ok(RootWidget { base })
+        })
     }
-}
-
-struct Initializer;
-
-impl WidgetInitializer for Initializer {
-    type Output = RootWidget;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        let window = base.set_child(0, Window::init(module_path!().into()));
-
-        window
-            .base_mut()
-            .set_child(0, TextInput::init())
-            .set_text("Hello world");
-
-        RootWidget { base }
-    }
-
-    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for RootWidget {
@@ -44,7 +35,7 @@ impl Widget for RootWidget {
 #[widgem_tester::test]
 pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().set_child(0, RootWidget::init());
+        r.base_mut().set_child(0, RootWidget::init())?;
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -122,7 +113,7 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 #[widgem_tester::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
-        r.base_mut().set_child(0, RootWidget::init());
+        r.base_mut().set_child(0, RootWidget::init())?;
         Ok(())
     })?;
     ctx.set_blinking_expected(true);
@@ -153,12 +144,12 @@ pub fn resize(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         let mut items = r
             .base_mut()
-            .set_child(0, Window::init(module_path!().into()))
+            .set_child(0, Window::init(module_path!().into()))?
             .set_layout(Layout::HorizontalFirst)
             .contents_mut();
-        items.set_next_item(Label::init("Placeholder".into()));
+        items.set_next_item(Label::init("Placeholder".into()))?;
         items
-            .set_next_item(TextInput::init())
+            .set_next_item(TextInput::init())?
             .set_text("Hello world");
         Ok(())
     })?;

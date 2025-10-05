@@ -6,12 +6,12 @@ use {
     tracing::level_filters::LevelFilter,
     tracing_subscriber::EnvFilter,
     widgem::{
-        impl_widget_base,
+        impl_widget_base, widget_initializer,
         widgets::{
             Button, Column, Label, ScrollArea, TextInput, Widget, WidgetBaseOf, WidgetExt,
             WidgetId, Window,
         },
-        WidgetInitializer, WidgetInitializerNoArg,
+        WidgetInitializer,
     },
 };
 
@@ -21,30 +21,30 @@ struct AnotherWidget {
 }
 
 impl AnotherWidget {
-    fn new(base: WidgetBaseOf<Self>) -> Self {
+    fn new(base: WidgetBaseOf<Self>) -> anyhow::Result<Self> {
         let mut this = AnotherWidget { counter: 0, base };
         let callback = this.callback(|this, _event| {
             this.counter += 1;
             println!("counter: {}", this.counter);
             let window = this
                 .base
-                .set_child(("window", this.counter), Window::init("example".into()));
+                .set_child(("window", this.counter), Window::init("example".into()))?;
             println!("window {:?}", window.id());
             let label = window
                 .base_mut()
-                .set_child(0, Label::init(format!("counter: {}", this.counter)));
+                .set_child(0, Label::init(format!("counter: {}", this.counter)))?;
             println!("label {:?}", label.id());
             Ok(())
         });
         let button = this
             .base_mut()
-            .set_child("button", Button::init("another button".into()));
+            .set_child("button", Button::init("another button".into()))?;
         button.on_triggered(callback);
-        this
+        Ok(this)
     }
 
     fn init() -> impl WidgetInitializer<Output = Self> {
-        WidgetInitializerNoArg::new(Self::new)
+        widget_initializer::from_fallible_new(Self::new)
     }
 }
 
@@ -76,102 +76,95 @@ struct RootWidget {
 }
 
 impl RootWidget {
-    fn init() -> impl WidgetInitializer<Output = Self> {
-        struct Initializer;
+    fn new(mut base: WidgetBaseOf<Self>) -> anyhow::Result<Self> {
+        let callbacks = base.callback_creator();
 
-        impl WidgetInitializer for Initializer {
-            type Output = RootWidget;
-            fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-                let callbacks = base.callback_creator();
+        let window = base.set_child(0, Window::init("example".into()))?;
 
-                let window = base.set_child(0, Window::init("example".into()));
+        let mut root_items = window
+            .base_mut()
+            .set_child(0, Column::init())?
+            .contents_mut();
 
-                let mut root_items = window
-                    .base_mut()
-                    .set_child(0, Column::init())
-                    .contents_mut();
+        root_items
+            .set_next_item(TextInput::init())?
+            .set_text("Hello, Rust! 🦀😂\n");
+        root_items
+            .set_next_item(TextInput::init())?
+            .set_text("Hebrew name Sarah: שרה.");
 
-                root_items
-                    .set_next_item(TextInput::init())
-                    .set_text("Hello, Rust! 🦀😂\n");
-                root_items
-                    .set_next_item(TextInput::init())
-                    .set_text("Hebrew name Sarah: שרה.");
+        /*
+        let btn = Button::new("btn1")
+            .with_icon(icon)
+            .with_alignment(Al::Right)
+            .with_on_clicked(slot)
+            .split_id()
+            .boxed();
+        root.add(btn.widget);
 
-                /*
-                let btn = Button::new("btn1")
-                    .with_icon(icon)
-                    .with_alignment(Al::Right)
-                    .with_on_clicked(slot)
-                    .split_id()
-                    .boxed();
-                root.add(btn.widget);
-
-                Self {
-                    btn_id: btn.id,
-                }
-
-
-                */
-
-                let button_id = root_items
-                    .set_next_item(Button::init("btn1".into()))
-                    .set_auto_repeat(true)
-                    .on_triggered(callbacks.create(|this, event| this.button_clicked(event, 1)))
-                    .id();
-
-                root_items
-                    .set_next_item(Button::init("btn2".into()))
-                    .on_triggered(callbacks.create(|this, event| this.button_clicked(event, 2)));
-
-                let column2 = root_items.set_next_item(Column::init());
-                let column2_id = column2.id();
-                let mut column2_items = column2.contents_mut();
-                let button21_id = column2_items
-                    .set_next_item(Button::init("btn21".into()))
-                    .on_triggered(callbacks.create(|_, _| {
-                        println!("click!");
-                        Ok(())
-                    }))
-                    .id();
-
-                let button22_id = column2_items
-                    .set_next_item(Button::init("btn22".into()))
-                    .id();
-
-                root_items.set_next_item(AnotherWidget::init());
-
-                let label2_id = root_items.set_next_item(Label::init("ok".into())).id();
-
-                let scroll_area = root_items.set_next_item(ScrollArea::init());
-                let mut content_items = scroll_area.set_content(Column::init()).contents_mut();
-                for i in 1..=80 {
-                    content_items.set_next_item(Button::init(format!(
-                        "btn btn btn btn btn btn btn btn btn btn{i}"
-                    )));
-                }
-
-                base.app().add_interval(
-                    Duration::from_secs(2),
-                    callbacks.create(|this, _| this.inc()),
-                );
-
-                RootWidget {
-                    base,
-                    button_id,
-                    column2_id,
-                    button21_id,
-                    button22_id,
-                    flag_column: true,
-                    flag_button21: true,
-                    i: 0,
-                    label2_id,
-                }
-            }
-            fn reinit(self, _widget: &mut Self::Output) {}
+        Self {
+            btn_id: btn.id,
         }
 
-        Initializer
+
+        */
+
+        let button_id = root_items
+            .set_next_item(Button::init("btn1".into()))?
+            .set_auto_repeat(true)
+            .on_triggered(callbacks.create(|this, event| this.button_clicked(event, 1)))
+            .id();
+
+        root_items
+            .set_next_item(Button::init("btn2".into()))?
+            .on_triggered(callbacks.create(|this, event| this.button_clicked(event, 2)));
+
+        let column2 = root_items.set_next_item(Column::init())?;
+        let column2_id = column2.id();
+        let mut column2_items = column2.contents_mut();
+        let button21_id = column2_items
+            .set_next_item(Button::init("btn21".into()))?
+            .on_triggered(callbacks.create(|_, _| {
+                println!("click!");
+                Ok(())
+            }))
+            .id();
+
+        let button22_id = column2_items
+            .set_next_item(Button::init("btn22".into()))?
+            .id();
+
+        root_items.set_next_item(AnotherWidget::init())?;
+
+        let label2_id = root_items.set_next_item(Label::init("ok".into()))?.id();
+
+        let scroll_area = root_items.set_next_item(ScrollArea::init())?;
+        let mut content_items = scroll_area.set_content(Column::init())?.contents_mut();
+        for i in 1..=80 {
+            content_items.set_next_item(Button::init(format!(
+                "btn btn btn btn btn btn btn btn btn btn{i}"
+            )))?;
+        }
+
+        base.app().add_interval(
+            Duration::from_secs(2),
+            callbacks.create(|this, _| this.inc()),
+        );
+
+        Ok(RootWidget {
+            base,
+            button_id,
+            column2_id,
+            button21_id,
+            button22_id,
+            flag_column: true,
+            flag_button21: true,
+            i: 0,
+            label2_id,
+        })
+    }
+    fn init() -> impl WidgetInitializer<Output = Self> {
+        widget_initializer::from_fallible_new(Self::new)
     }
 
     fn inc(&mut self) -> Result<()> {
@@ -226,7 +219,7 @@ fn main() {
         .init();
 
     widgem::run(|r| {
-        r.base_mut().set_child(0, RootWidget::init());
+        r.base_mut().set_child(0, RootWidget::init())?;
         Ok(())
     })
     .unwrap();

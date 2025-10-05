@@ -70,7 +70,7 @@ impl<'a, ChildKeyType: Into<ChildKey>> ItemsWithKeyMut<'a, ChildKeyType> {
         &mut self,
         key: ChildKeyType,
         initializer: WI,
-    ) -> &mut WI::Output {
+    ) -> anyhow::Result<&mut WI::Output> {
         self.inner.base.set_child(key, initializer)
     }
 

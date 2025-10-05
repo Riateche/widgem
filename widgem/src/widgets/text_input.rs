@@ -16,11 +16,10 @@ use {
         system::ReportError,
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
-        widget_initializer::WidgetInitializer,
+        widget_initializer::{self, WidgetInitializer},
         ScrollToRectRequest,
     },
     anyhow::Result,
-    cosmic_text::Attrs,
     std::{cmp::max, fmt::Display, rc::Rc},
     tracing::warn,
     winit::window::CursorIcon,
@@ -32,17 +31,7 @@ struct Viewport {
 
 impl Viewport {
     fn init() -> impl WidgetInitializer<Output = Self> {
-        struct Initializer;
-
-        impl WidgetInitializer for Initializer {
-            type Output = Viewport;
-            fn init(self, base: WidgetBaseOf<Self::Output>) -> Self::Output {
-                Viewport { base }
-            }
-            fn reinit(self, _widget: &mut Self::Output) {}
-        }
-
-        Initializer
+        widget_initializer::from_new(|base| Viewport { base })
     }
 }
 
@@ -69,8 +58,31 @@ pub struct TextInput {
 }
 
 impl TextInput {
+    fn new(mut base: WidgetBaseOf<Self>) -> anyhow::Result<Self> {
+        base.set_supports_focus(true);
+        base.set_cursor_icon(CursorIcon::Text);
+        let host_id = base.id();
+        let text_style = base.compute_style();
+        let viewport = base.set_child(0, Viewport::init())?;
+        viewport.base_mut().set_receives_all_mouse_events(true);
+        viewport.base_mut().set_cursor_icon(CursorIcon::Text);
+        viewport.base_mut().set_layout(Layout::ExplicitGrid);
+        let editor = viewport
+            .base_mut()
+            .set_child(0, Text::init(String::new(), text_style))?
+            .set_multiline(false)
+            .set_editable(true)
+            .set_host_id(host_id.into());
+        editor.base_mut().set_receives_all_mouse_events(true);
+        Ok(TextInput {
+            style: base.compute_style(),
+            base,
+        })
+    }
+
+    // TODO: name or label ref?
     pub fn init() -> impl WidgetInitializer<Output = Self> {
-        Initializer
+        widget_initializer::from_fallible_new(Self::new)
     }
 
     fn text_widget(&self) -> &Text {
@@ -92,7 +104,7 @@ impl TextInput {
     }
 
     pub fn set_text(&mut self, text: impl Display) {
-        self.text_widget_mut().set_text(text, Attrs::new());
+        self.text_widget_mut().set_text(text);
     }
 
     fn adjust_scroll(&mut self) {
@@ -155,37 +167,6 @@ impl TextInput {
                 .set_geometry(Some(WidgetGeometry::new(&geometry, new_rect)));
         }
     }
-}
-
-// TODO: name or label ref?
-struct Initializer;
-
-impl WidgetInitializer for Initializer {
-    type Output = TextInput;
-
-    fn init(self, mut base: WidgetBaseOf<Self::Output>) -> Self::Output {
-        base.set_supports_focus(true);
-        base.set_cursor_icon(CursorIcon::Text);
-        let host_id = base.id();
-        let text_style = base.compute_style();
-        let viewport = base.set_child(0, Viewport::init());
-        viewport.base_mut().set_receives_all_mouse_events(true);
-        viewport.base_mut().set_cursor_icon(CursorIcon::Text);
-        viewport.base_mut().set_layout(Layout::ExplicitGrid);
-        let editor = viewport
-            .base_mut()
-            .set_child(0, Text::init(String::new(), text_style))
-            .set_multiline(false)
-            .set_editable(true)
-            .set_host_id(host_id.into());
-        editor.base_mut().set_receives_all_mouse_events(true);
-        TextInput {
-            style: base.compute_style(),
-            base,
-        }
-    }
-
-    fn reinit(self, _widget: &mut Self::Output) {}
 }
 
 impl Widget for TextInput {
