@@ -111,7 +111,7 @@ impl Menu {
     // }
 
     // pub fn set_delete_on_close(&mut self, delete_on_close: bool) -> &mut Self {
-    //     if let Some(window) = self.base.window_or_err().or_report_err() {
+    //     if let Some(window) = self.base.window_or_err().or_warn() {
     //         window.set
     //     }
     //     self

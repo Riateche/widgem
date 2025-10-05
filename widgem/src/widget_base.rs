@@ -26,6 +26,7 @@ use {
     itertools::Itertools,
     lightningcss::stylesheet::StyleSheet,
     std::{
+        borrow::Cow,
         cell::RefCell,
         collections::{BTreeMap, HashMap, HashSet},
         fmt::Debug,
@@ -659,14 +660,87 @@ impl WidgetBase {
         self.style.as_ref().map(|s| s.code.as_str())
     }
 
-    pub(crate) fn set_style(&mut self, style: &str) -> &mut Self {
+    fn request_style_change_event(&mut self) {
+        if let Some(window) = &self.window {
+            window.request_style_change_event(self.address.clone());
+        }
+        self.update();
+    }
+
+    pub fn set_style(&mut self, style: &str) -> &mut Self {
         if self.style() == Some(style) {
             return self;
         }
+
+        // TODO: return error
         self.style = load_css(style).or_warn().map(|style_sheet| CustomStyle {
             style_sheet,
             code: style.into(),
         });
+        self.request_style_change_event();
+
+        self
+    }
+
+    pub fn add_class(&mut self, class: Cow<'static, str>) -> &mut Self {
+        if self.style_selector.has_class(&class) {
+            return self;
+        }
+        self.style_selector.add_class(class);
+        self.request_style_change_event();
+        self
+    }
+
+    pub fn remove_class(&mut self, class: Cow<'static, str>) -> &mut Self {
+        if !self.style_selector.has_class(&class) {
+            return self;
+        }
+        self.style_selector.remove_class(class);
+        self.request_style_change_event();
+        self
+    }
+
+    pub fn has_class(&self, class: &str) -> bool {
+        self.style_selector.has_class(class)
+    }
+
+    pub fn set_class(&mut self, class: Cow<'static, str>, present: bool) -> &mut Self {
+        if self.style_selector.has_class(&class) == present {
+            return self;
+        }
+        self.style_selector.set_class(class, present);
+        self.request_style_change_event();
+        self
+    }
+
+    pub fn add_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
+        if self.style_selector.has_pseudo_class(class.clone()) {
+            return self;
+        }
+        self.style_selector.add_pseudo_class(class);
+        self.request_style_change_event();
+        self
+    }
+
+    pub fn remove_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
+        if !self.style_selector.has_pseudo_class(class.clone()) {
+            return self;
+        }
+        self.style_selector.remove_pseudo_class(class);
+        self.request_style_change_event();
+        self
+    }
+
+    pub fn has_pseudo_class(&self, class: PseudoClass) -> bool {
+        self.style_selector.has_pseudo_class(class)
+    }
+
+    pub fn set_pseudo_class(&mut self, class: PseudoClass, present: bool) -> &mut Self {
+        if self.style_selector.has_pseudo_class(class.clone()) == present {
+            return self;
+        }
+        self.style_selector.set_pseudo_class(class, present);
+        self.request_style_change_event();
         self
     }
 
@@ -693,10 +767,6 @@ impl WidgetBase {
         self.flags.contains(Flags::self_enabled)
     }
 
-    pub(crate) fn is_parent_enabled(&self) -> bool {
-        self.flags.contains(Flags::parent_enabled)
-    }
-
     /// True if this widget is enabled.
     ///
     /// Disabled widgets do not receive input events and have an alternate (usually grayed out) appearance.
@@ -707,7 +777,7 @@ impl WidgetBase {
             .contains(Flags::self_enabled | Flags::parent_enabled)
     }
 
-    pub(crate) fn self_enabled_changed(&mut self, enabled: bool) -> &mut Self {
+    pub fn set_enabled(&mut self, enabled: bool) -> &mut Self {
         if self.flags.contains(Flags::self_enabled) == enabled {
             return self;
         }
@@ -721,7 +791,7 @@ impl WidgetBase {
         self
     }
 
-    pub(crate) fn parent_enabled_changed(&mut self, enabled: bool) -> &mut Self {
+    fn parent_enabled_changed(&mut self, enabled: bool) -> &mut Self {
         if self.flags.contains(Flags::parent_enabled) == enabled {
             return self;
         }
@@ -772,11 +842,14 @@ impl WidgetBase {
     }
 
     fn enabled_changed(&mut self) {
+        let new_enabled = self.is_enabled();
+        self.set_pseudo_class(PseudoClass::Enabled, new_enabled);
+        self.set_pseudo_class(PseudoClass::Disabled, !new_enabled);
         self.focusable_changed();
         // TODO: widget should receive MouseLeave even if it's disabled
         let is_enabled = self.is_enabled();
         for child in self.children.values_mut() {
-            child.set_parent_enabled(is_enabled);
+            child.base_mut().parent_enabled_changed(is_enabled);
         }
     }
 
@@ -832,10 +905,6 @@ impl WidgetBase {
     /// current classes and pseudoclasses.
     pub fn style_selector(&self) -> &StyleSelector {
         &self.style_selector
-    }
-
-    pub(crate) fn style_selector_mut(&mut self) -> &mut StyleSelector {
-        &mut self.style_selector
     }
 
     /// Scale of the widget.

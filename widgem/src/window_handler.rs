@@ -3,7 +3,7 @@ use {
         event::{
             AccessibilityActionEvent, FocusInEvent, FocusOutEvent, FocusReason, InputMethodEvent,
             KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent, MouseMoveEvent,
-            MouseScrollEvent, WindowFocusChangeEvent,
+            MouseScrollEvent, StyleChangeEvent, WindowFocusChangeEvent,
         },
         shared_window::{MouseEventState, SharedWindow, WindowRequest},
         system::{LayoutState, OrWarn},
@@ -300,6 +300,13 @@ impl<'a> WindowHandler<'a> {
 
     pub fn after_widget_activity(&mut self) {
         let mut should_layout = false;
+        let style_changes = self.window.take_pending_style_change_events();
+        for addr in style_changes {
+            let Some(widget) = get_widget_by_address_mut(self.root_widget, &addr).or_warn() else {
+                continue;
+            };
+            widget.dispatch(StyleChangeEvent { _empty: () }.into());
+        }
         if !self.window.has_winit_window() {
             self.window.init_winit_window(self.root_widget);
             should_layout = true;

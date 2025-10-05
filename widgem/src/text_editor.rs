@@ -481,7 +481,7 @@ impl Text {
             self.base
                 .app()
                 .set_linux_primary_selection(&self.selected_text)
-                .or_report_err();
+                .or_warn();
         }
         self.request_scroll();
     }
@@ -494,7 +494,7 @@ impl Text {
         if self.is_mouse_interaction_forbidden() {
             return;
         }
-        let text = self.base.app().linux_primary_selection().or_report_err();
+        let text = self.base.app().linux_primary_selection().or_warn();
         if let Some(text) = text {
             let text = self.sanitize(&text);
             self.insert_string(&text, None);

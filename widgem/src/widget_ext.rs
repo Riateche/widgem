@@ -61,11 +61,7 @@ pub trait WidgetExt: Widget {
     }
 
     fn set_style(&mut self, style: &str) -> &mut Self {
-        if self.base().style() == Some(style) {
-            return self;
-        }
         self.base_mut().set_style(style);
-        self.dispatch(StyleChangeEvent { _empty: () }.into());
         self
     }
 
@@ -307,11 +303,7 @@ pub trait WidgetExt: Widget {
     }
 
     fn add_class(&mut self, class: Cow<'static, str>) -> &mut Self {
-        if self.base().style_selector().has_class(&class) {
-            return self;
-        }
-        self.base_mut().style_selector_mut().add_class(class);
-        self.dispatch(StyleChangeEvent { _empty: () }.into());
+        self.base_mut().add_class(class);
         self
     }
 
@@ -320,11 +312,7 @@ pub trait WidgetExt: Widget {
     }
 
     fn remove_class(&mut self, class: Cow<'static, str>) -> &mut Self {
-        if !self.base().style_selector().has_class(&class) {
-            return self;
-        }
-        self.base_mut().style_selector_mut().remove_class(class);
-        self.dispatch(StyleChangeEvent { _empty: () }.into());
+        self.base_mut().remove_class(class);
         self
     }
 
@@ -333,64 +321,31 @@ pub trait WidgetExt: Widget {
     }
 
     fn set_class(&mut self, class: Cow<'static, str>, present: bool) -> &mut Self {
-        if self.base().style_selector().has_class(&class) == present {
-            return self;
-        }
-        self.base_mut()
-            .style_selector_mut()
-            .set_class(class, present);
-        self.dispatch(StyleChangeEvent { _empty: () }.into());
+        self.base_mut().set_class(class, present);
         self
     }
 
     fn add_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
-        if self.base().style_selector().has_pseudo_class(class.clone()) {
-            return self;
-        }
-        self.base_mut().style_selector_mut().add_pseudo_class(class);
-        self.dispatch(StyleChangeEvent { _empty: () }.into());
+        self.base_mut().add_pseudo_class(class);
         self
     }
 
     fn remove_pseudo_class(&mut self, class: PseudoClass) -> &mut Self {
-        if !self.base().style_selector().has_pseudo_class(class.clone()) {
-            return self;
-        }
-        self.base_mut()
-            .style_selector_mut()
-            .remove_pseudo_class(class);
-        self.dispatch(StyleChangeEvent { _empty: () }.into());
+        self.base_mut().remove_pseudo_class(class);
         self
     }
 
     fn has_pseudo_class(&self, class: PseudoClass) -> bool {
-        self.base().style_selector().has_pseudo_class(class)
+        self.base().has_pseudo_class(class)
     }
 
     fn set_pseudo_class(&mut self, class: PseudoClass, present: bool) -> &mut Self {
-        if self.base().style_selector().has_pseudo_class(class.clone()) == present {
-            return self;
-        }
-        self.base_mut()
-            .style_selector_mut()
-            .set_pseudo_class(class, present);
-        self.dispatch(StyleChangeEvent { _empty: () }.into());
+        self.base_mut().set_pseudo_class(class, present);
         self
     }
 
     fn set_enabled(&mut self, enabled: bool) -> &mut Self {
-        let new_enabled = enabled && self.base().is_parent_enabled();
-        self.set_pseudo_class(PseudoClass::Enabled, new_enabled);
-        self.set_pseudo_class(PseudoClass::Disabled, !new_enabled);
-        self.base_mut().self_enabled_changed(enabled);
-        self
-    }
-
-    fn set_parent_enabled(&mut self, enabled: bool) -> &mut Self {
-        let new_enabled = enabled && self.base().is_self_enabled();
-        self.set_pseudo_class(PseudoClass::Enabled, new_enabled);
-        self.set_pseudo_class(PseudoClass::Disabled, !new_enabled);
-        self.base_mut().parent_enabled_changed(enabled);
+        self.base_mut().set_enabled(enabled);
         self
     }
 

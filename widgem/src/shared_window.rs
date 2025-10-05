@@ -106,6 +106,7 @@ pub struct SharedWindowInner {
     pub pending_size_hint_invalidations: Vec<WidgetAddress>,
     pub pending_redraw: bool,
     pub pending_accessibility_updates: Vec<WidgetAddress>,
+    pub pending_style_change_events: Vec<WidgetAddress>,
 
     // TODO: refactor as struct
     pub focusable_widgets: Vec<(Vec<(ChildKey, RawWidgetId)>, RawWidgetId)>,
@@ -198,6 +199,7 @@ impl SharedWindow {
             pending_size_hint_invalidations: Vec::new(),
             pending_redraw: false,
             pending_accessibility_updates: Vec::new(),
+            pending_style_change_events: Vec::new(),
             focusable_widgets: Vec::new(),
             focusable_widgets_changed: false,
             focused_widget: None,
@@ -913,6 +915,15 @@ impl SharedWindow {
 
     pub(crate) fn take_pending_accessibility_updates(&self) -> Vec<WidgetAddress> {
         mem::take(&mut self.0.borrow_mut().pending_accessibility_updates)
+    }
+
+    pub(crate) fn request_style_change_event(&self, addr: WidgetAddress) {
+        let this = &mut *self.0.borrow_mut();
+        this.pending_style_change_events.push(addr);
+    }
+
+    pub(crate) fn take_pending_style_change_events(&self) -> Vec<WidgetAddress> {
+        mem::take(&mut self.0.borrow_mut().pending_style_change_events)
     }
 
     pub(crate) fn unset_focus(&self) -> Option<(Vec<(ChildKey, RawWidgetId)>, RawWidgetId)> {
