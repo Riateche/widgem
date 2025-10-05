@@ -1,14 +1,11 @@
-use {
-    super::{Widget, WidgetBaseOf},
-    crate::{
-        impl_widget_base,
-        items::{
-            with_index::{Items, ItemsMut},
-            with_key::{ItemsWithKey, ItemsWithKeyMut},
-        },
-        widget_initializer::{self, WidgetInitializer},
-        ChildKey, WidgetBase,
+use crate::{
+    impl_widget_base,
+    items::{
+        with_index::{Items, ItemsMut},
+        with_key::{ItemsWithKey, ItemsWithKeyMut},
     },
+    widget_initializer::{self, WidgetInitializer},
+    ChildKey, Widget, WidgetBase, WidgetBaseOf,
 };
 
 pub struct Column {

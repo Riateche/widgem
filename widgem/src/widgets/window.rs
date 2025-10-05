@@ -1,5 +1,4 @@
 use {
-    super::{Widget, WidgetBaseOf},
     crate::{
         impl_widget_base,
         items::{
@@ -9,7 +8,7 @@ use {
         shared_window::X11WindowType,
         types::Point,
         widget_initializer::{self, WidgetInitializer},
-        ChildKey, WidgetBase,
+        ChildKey, Widget, WidgetBase, WidgetBaseOf,
     },
     std::fmt::Display,
     winit::window::WindowLevel,

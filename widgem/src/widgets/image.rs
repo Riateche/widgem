@@ -1,12 +1,11 @@
 use {
-    super::{Widget, WidgetBaseOf},
     crate::{
         draw::DrawEvent,
         impl_widget_base,
         layout::SizeHint,
         types::{PhysicalPixels, Point, PpxSuffix},
         widget_initializer::{self, WidgetInitializer},
-        Pixmap,
+        Pixmap, Widget, WidgetBaseOf,
     },
     anyhow::Result,
     std::path::Path,

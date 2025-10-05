@@ -1,5 +1,4 @@
 use {
-    super::{button::Button, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         callback::{Callback, Callbacks},
         event::{
@@ -10,6 +9,8 @@ use {
         system::ReportError,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widget_initializer::{self, WidgetInitializer},
+        widgets::Button,
+        Widget, WidgetBaseOf, WidgetExt, WidgetGeometry,
     },
     anyhow::Result,
     ordered_float::NotNan,

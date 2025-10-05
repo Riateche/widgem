@@ -1,9 +1,9 @@
 use {
-    super::{Widget, WidgetBaseOf},
     crate::{
         impl_widget_base,
         text_editor::Text,
         widget_initializer::{self, WidgetInitializer},
+        Widget, WidgetBaseOf,
     },
     std::fmt::Display,
 };

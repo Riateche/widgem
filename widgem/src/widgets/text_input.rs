@@ -1,5 +1,4 @@
 use {
-    super::{Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         event::{
             FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
@@ -17,7 +16,7 @@ use {
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
         widget_initializer::{self, WidgetInitializer},
-        ScrollToRectRequest,
+        ScrollToRectRequest, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry,
     },
     anyhow::Result,
     std::{cmp::max, fmt::Display, rc::Rc},

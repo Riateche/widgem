@@ -10,11 +10,8 @@ use {
         system::ReportError,
         types::Point,
         widget_initializer,
-        widgets::{
-            Button, Column, Image, Label, Row, ScrollArea, Widget, WidgetBaseOf, WidgetExt,
-            WidgetId, Window,
-        },
-        WidgetInitializer,
+        widgets::{Button, Column, Image, Label, Row, ScrollArea, Window},
+        Widget, WidgetBaseOf, WidgetExt, WidgetId, WidgetInitializer,
     },
 };
 

@@ -1,11 +1,11 @@
 #![allow(clippy::new_without_default)]
 
 pub use crate::draw::DrawEvent;
-use crate::widgets::WidgetGeometry;
+
 use {
     crate::{
         types::{Point, Rect},
-        widgets::WidgetBase,
+        WidgetBase, WidgetGeometry,
     },
     accesskit::{Action, ActionData},
     derive_more::From,

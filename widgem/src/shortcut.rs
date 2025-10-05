@@ -5,7 +5,7 @@ use {
         callback::Callback,
         event::KeyboardInputEvent,
         shortcut::parse::{parse_key, parse_keycode},
-        widgets::RawWidgetId,
+        RawWidgetId,
     },
     anyhow::{anyhow, bail},
     bitflags::bitflags,

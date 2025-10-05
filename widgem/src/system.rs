@@ -6,7 +6,7 @@ use {
         shortcut::Shortcut,
         style::Style,
         timer::Timers,
-        widgets::{RawWidgetId, WidgetAddress},
+        RawWidgetId, WidgetAddress,
     },
     anyhow::Result,
     arboard::Clipboard,

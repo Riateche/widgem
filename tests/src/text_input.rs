@@ -3,8 +3,8 @@ use {
         impl_widget_base,
         layout::Layout,
         widget_initializer,
-        widgets::{Label, TextInput, Widget, WidgetBaseOf, Window},
-        WidgetExt, WidgetInitializer,
+        widgets::{Label, TextInput, Window},
+        Widget, WidgetBaseOf, WidgetExt, WidgetInitializer,
     },
     widgem_tester::{context::Context, Key},
 };

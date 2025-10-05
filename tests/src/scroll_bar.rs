@@ -5,8 +5,8 @@ use {
         shortcut::{KeyCombinations, Shortcut, ShortcutScope},
         types::Axis,
         widget_initializer,
-        widgets::{Column, Label, Row, ScrollBar, Widget, WidgetBaseOf, WidgetExt, Window},
-        WidgetInitializer,
+        widgets::{Column, Label, Row, ScrollBar, Window},
+        Widget, WidgetBaseOf, WidgetExt, WidgetInitializer,
     },
     widgem_tester::{context::Context, Key},
 };

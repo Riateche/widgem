@@ -1,8 +1,8 @@
 use {
     widgem::{
         impl_widget_base, widget_initializer,
-        widgets::{Label, Widget, WidgetBaseOf, Window},
-        WidgetInitializer,
+        widgets::{Label, Window},
+        Widget, WidgetBaseOf, WidgetInitializer,
     },
     widgem_tester::context::Context,
 };

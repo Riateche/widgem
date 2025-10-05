@@ -8,11 +8,8 @@ use {
         shared_window::{MouseEventState, SharedWindow, WindowRequest},
         system::{LayoutState, ReportError},
         types::{PhysicalPixels, Point, Size},
-        widgets::{
-            get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache,
-            RawWidgetId, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
-        },
-        ScrollToRectRequest,
+        widgets::{get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache},
+        RawWidgetId, ScrollToRectRequest, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
     },
     accesskit::ActionRequest,
     std::cmp::max,

@@ -27,7 +27,7 @@ use {
         timer::TimerId,
         types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widget_initializer::{self, WidgetInitializer},
-        widgets::{RawWidgetId, Widget, WidgetBaseOf, WidgetExt},
+        RawWidgetId, Widget, WidgetBaseOf, WidgetExt,
     },
     accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
     anyhow::Result,

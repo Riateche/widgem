@@ -3,6 +3,7 @@
 #![allow(clippy::comparison_chain)]
 
 mod accessibility;
+mod address;
 mod app;
 mod app_builder;
 mod callback;
@@ -10,6 +11,7 @@ mod child_key;
 mod draw;
 pub mod event;
 mod event_loop;
+mod id;
 pub mod items;
 pub mod layout;
 mod monitor;
@@ -22,7 +24,10 @@ mod text;
 pub mod text_editor;
 pub mod timer;
 pub mod types;
+mod widget_base;
+mod widget_ext;
 pub mod widget_initializer;
+mod widget_trait;
 pub mod widgets;
 mod window_handler;
 
@@ -34,17 +39,19 @@ use {
 pub use {
     crate::{
         accessibility::new_accessibility_node_id,
+        address::WidgetAddress,
         app::App,
         app_builder::{run, AppBuilder},
         child_key::ChildKey,
+        id::{RawWidgetId, WidgetId},
         monitor::MonitorExt,
         pixmap::Pixmap,
+        widget_base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetGeometry},
+        widget_ext::WidgetExt,
+        widget_trait::Widget,
     },
     widget_initializer::WidgetInitializer,
-    widgets::{
-        RawWidgetId, Widget, WidgetAddress, WidgetBase, WidgetBaseOf, WidgetExt, WidgetGeometry,
-        WidgetId, WidgetNotFound, Window,
-    },
+    widgets::{WidgetNotFound, Window},
 };
 
 #[derive(Debug, Clone)]

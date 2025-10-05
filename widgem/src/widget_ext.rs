@@ -1,5 +1,4 @@
 use {
-    super::{base::WidgetGeometry, Widget, WidgetId},
     crate::{
         callback::Callback,
         event::{Event, LayoutEvent, StyleChangeEvent},
@@ -7,7 +6,7 @@ use {
         style::css::PseudoClass,
         system::{LayoutState, ReportError},
         types::PhysicalPixels,
-        ScrollToRectRequest,
+        ScrollToRectRequest, Widget, WidgetGeometry, WidgetId,
     },
     anyhow::Result,
     std::borrow::Cow,

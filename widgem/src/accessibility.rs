@@ -1,5 +1,5 @@
 use {
-    crate::{child_key::ChildKey, widgets::RawWidgetId},
+    crate::{child_key::ChildKey, RawWidgetId},
     accesskit::{Node, NodeId, Role, Tree, TreeUpdate},
     derivative::Derivative,
     std::{

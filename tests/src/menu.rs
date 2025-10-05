@@ -2,8 +2,8 @@ use {
     anyhow::{ensure, Context as _},
     widgem::{
         impl_widget_base, widget_initializer,
-        widgets::{Button, Menu, MenuAction, Widget, WidgetBaseOf, Window},
-        WidgetExt, WidgetId, WidgetInitializer,
+        widgets::{Button, Menu, MenuAction, Window},
+        Widget, WidgetBaseOf, WidgetExt, WidgetId, WidgetInitializer,
     },
     widgem_tester::context::Context,
 };

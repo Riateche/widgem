@@ -1,5 +1,4 @@
 use {
-    super::{Widget, WidgetBaseOf},
     crate::{
         callback::{Callback, Callbacks},
         event::{LayoutEvent, WindowFocusChangeEvent},
@@ -15,7 +14,8 @@ use {
         types::{PhysicalPixels, Point},
         widget_initializer::{self, WidgetInitializer},
         widgets::{Column, ScrollArea},
-        ChildKey, WidgetBase, WidgetExt, WindowRectRequest, WindowRectResponse,
+        ChildKey, Widget, WidgetBase, WidgetBaseOf, WidgetExt, WindowRectRequest,
+        WindowRectResponse,
     },
     tracing::error,
     winit::window::WindowLevel,

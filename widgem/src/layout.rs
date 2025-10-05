@@ -1,8 +1,7 @@
 use {
     crate::{
         types::{PhysicalPixels, PpxSuffix, Rect, Size},
-        widgets::{Widget, WidgetExt, WidgetGeometry},
-        RawWidgetId,
+        RawWidgetId, Widget, WidgetExt, WidgetGeometry,
     },
     itertools::Itertools,
     std::{

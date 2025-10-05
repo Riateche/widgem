@@ -1,5 +1,4 @@
 use {
-    super::{image::Image, Widget, WidgetBaseOf, WidgetExt},
     crate::{
         callback::{Callback, Callbacks},
         event::{
@@ -16,7 +15,8 @@ use {
         text_editor::Text,
         timer::TimerId,
         widget_initializer::WidgetInitializer,
-        Pixmap,
+        widgets::Image,
+        Pixmap, Widget, WidgetBaseOf, WidgetExt,
     },
     accesskit::{Action, Role},
     anyhow::Result,

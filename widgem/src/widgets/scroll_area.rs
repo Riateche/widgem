@@ -1,11 +1,12 @@
 use {
-    super::{scroll_bar::ScrollBar, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry},
     crate::{
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
         widget_initializer::{self, WidgetInitializer},
+        widgets::ScrollBar,
+        Widget, WidgetBaseOf, WidgetExt, WidgetGeometry,
     },
     anyhow::Result,
     std::cmp::{max, min},

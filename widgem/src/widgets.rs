@@ -1,9 +1,5 @@
-mod address;
-mod base;
 mod button;
 mod column;
-mod ext;
-mod id;
 mod image;
 mod label;
 mod menu;
@@ -13,7 +9,6 @@ mod scroll_area;
 mod scroll_bar;
 mod stack;
 mod text_input;
-mod widget_trait;
 mod window;
 
 pub use self::{
@@ -30,16 +25,13 @@ pub use self::{
     window::Window,
 };
 
-// TODO: move out of this module?
-pub use self::{
-    address::WidgetAddress,
-    base::{EventFilterFn, WidgetBase, WidgetBaseOf, WidgetGeometry},
-    ext::WidgetExt,
-    id::{RawWidgetId, WidgetId},
-    widget_trait::Widget,
+use {
+    crate::{RawWidgetId, Widget, WidgetAddress},
+    anyhow::Result,
+    std::fmt::Debug,
+    thiserror::Error,
+    tracing::warn,
 };
-
-use {anyhow::Result, std::fmt::Debug, thiserror::Error, tracing::warn};
 
 #[derive(Debug, Error)]
 #[error("widget not found")]

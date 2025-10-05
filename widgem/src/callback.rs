@@ -1,8 +1,5 @@
 use {
-    crate::{
-        event_loop::UserEvent,
-        widgets::{RawWidgetId, Widget},
-    },
+    crate::{event_loop::UserEvent, RawWidgetId, Widget},
     anyhow::Result,
     std::{
         any::Any,

@@ -7,11 +7,8 @@ use {
     tracing_subscriber::EnvFilter,
     widgem::{
         impl_widget_base, widget_initializer,
-        widgets::{
-            Button, Column, Label, ScrollArea, TextInput, Widget, WidgetBaseOf, WidgetExt,
-            WidgetId, Window,
-        },
-        WidgetInitializer,
+        widgets::{Button, Column, Label, ScrollArea, TextInput, Window},
+        Widget, WidgetBaseOf, WidgetExt, WidgetId, WidgetInitializer,
     },
 };
 
