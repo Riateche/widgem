@@ -9,7 +9,7 @@ use {
     crate::{
         layout::Alignment,
         style::defaults,
-        system::ReportError,
+        system::OrWarn,
         types::{LogicalPixels, LpxSuffix, PhysicalPixels, Point},
     },
     anyhow::{bail, Context, Result},
@@ -322,22 +322,20 @@ pub fn convert_spacing(
     for property in properties {
         match property {
             Property::Gap(value) => {
-                if let Some(value) =
-                    convert_single_spacing(&value.column, font_size).or_report_err()
-                {
+                if let Some(value) = convert_single_spacing(&value.column, font_size).or_warn() {
                     x = Some(value);
                 }
-                if let Some(value) = convert_single_spacing(&value.row, font_size).or_report_err() {
+                if let Some(value) = convert_single_spacing(&value.row, font_size).or_warn() {
                     y = Some(value);
                 }
             }
             Property::ColumnGap(value) => {
-                if let Some(value) = convert_single_spacing(value, font_size).or_report_err() {
+                if let Some(value) = convert_single_spacing(value, font_size).or_warn() {
                     x = Some(value);
                 }
             }
             Property::RowGap(value) => {
-                if let Some(value) = convert_single_spacing(value, font_size).or_report_err() {
+                if let Some(value) = convert_single_spacing(value, font_size).or_warn() {
                     y = Some(value);
                 }
             }

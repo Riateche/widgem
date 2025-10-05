@@ -5,7 +5,7 @@ use {
         draw::DrawEvent,
         event::FocusReason,
         event_loop::{with_active_event_loop, UserEvent},
-        system::ReportError,
+        system::OrWarn,
         types::{PhysicalPixels, Point, Rect, Size},
         App, MonitorExt, RawWidgetId, Widget, WidgetAddress, WidgetExt, WindowRectRequest,
     },
@@ -306,7 +306,7 @@ impl SharedWindow {
                 suggested_size: size,
                 monitor,
             })
-            .or_report_err()
+            .or_warn()
         {
             if let Some(new_position) = window_rect_response.position {
                 position = Some(new_position);

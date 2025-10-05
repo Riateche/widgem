@@ -6,7 +6,7 @@ use {
         },
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
-        system::ReportError,
+        system::OrWarn,
         types::{Axis, PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widget_initializer::{self, WidgetInitializer},
         widgets::Button,
@@ -469,7 +469,7 @@ impl ScrollBar {
             return self;
         }
         self.value_range = range;
-        self.update_grip_size().or_report_err();
+        self.update_grip_size().or_warn();
         if self.current_value < *self.value_range.start()
             || self.current_value > *self.value_range.end()
         {

@@ -4,7 +4,7 @@ use {
         event::{Event, LayoutEvent, StyleChangeEvent},
         layout::{Layout, SizeHint, FALLBACK_SIZE_HINTS},
         style::css::PseudoClass,
-        system::{LayoutState, ReportError},
+        system::{LayoutState, OrWarn},
         types::PhysicalPixels,
         ScrollToRectRequest, Widget, WidgetGeometry, WidgetId,
     },
@@ -14,22 +14,22 @@ use {
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
-    let Some(window) = widget.base_mut().window_or_err().or_report_err() else {
+    let Some(window) = widget.base_mut().window_or_err().or_warn() else {
         return;
     };
     if window
         .current_mouse_event_state()
-        .or_report_err()
+        .or_warn()
         .is_some_and(|e| !e.is_accepted())
     {
-        let Some(rect_in_window) = widget.base().rect_in_window_or_err().or_report_err() else {
+        let Some(rect_in_window) = widget.base().rect_in_window_or_err().or_warn() else {
             return;
         };
-        let Some(window) = widget.base().window_or_err().or_report_err() else {
+        let Some(window) = widget.base().window_or_err().or_warn() else {
             return;
         };
         let id = widget.base().id();
-        window.accept_current_mouse_event(id).or_report_err();
+        window.accept_current_mouse_event(id).or_warn();
 
         window.set_cursor(widget.base().cursor_icon());
         if is_enter {
@@ -108,8 +108,7 @@ pub trait WidgetExt: Widget {
         match &event {
             Event::MouseMove(event) => {
                 if !accepted && should_dispatch {
-                    let is_enter = if let Some(window) = self.base().window_or_err().or_report_err()
-                    {
+                    let is_enter = if let Some(window) = self.base().window_or_err().or_warn() {
                         !window.is_mouse_entered(self.base().id())
                     } else {
                         false
@@ -141,24 +140,19 @@ pub trait WidgetExt: Widget {
             _ => (),
         }
         if !accepted && should_dispatch {
-            accepted = self
-                .handle_event(event.clone())
-                .or_report_err()
-                .unwrap_or(false);
+            accepted = self.handle_event(event.clone()).or_warn().unwrap_or(false);
         }
         match event {
             Event::MouseInput(_) | Event::MouseScroll(_) => {
                 if accepted {
                     let common = self.base_mut();
-                    if let Some(window) = common.window_or_err().or_report_err() {
+                    if let Some(window) = common.window_or_err().or_warn() {
                         if window
                             .current_mouse_event_state()
-                            .or_report_err()
+                            .or_warn()
                             .is_some_and(|e| !e.is_accepted())
                         {
-                            window
-                                .accept_current_mouse_event(common.id())
-                                .or_report_err();
+                            window.accept_current_mouse_event(common.id()).or_warn();
                         }
                     }
                 }
@@ -229,7 +223,7 @@ pub trait WidgetExt: Widget {
     fn scroll_to_rect(&mut self, request: ScrollToRectRequest) -> bool {
         let accepted = self
             .handle_scroll_to_rect_request(request.clone())
-            .or_report_err()
+            .or_warn()
             .unwrap_or(false);
         if accepted {
             // TODO: propagate to inner widgets anyway? how does it work with two scroll areas?
@@ -260,9 +254,7 @@ pub trait WidgetExt: Widget {
 
     fn update_accessibility_node(&mut self) {
         let node = if self.base().is_accessibility_node_enabled() {
-            self.handle_accessibility_node_request()
-                .or_report_err()
-                .flatten()
+            self.handle_accessibility_node_request().or_warn().flatten()
         } else {
             None
         };
@@ -285,7 +277,7 @@ pub trait WidgetExt: Widget {
         if !self.base().has_declare_children_override() {
             return;
         }
-        self.handle_declare_children_request().or_report_err();
+        self.handle_declare_children_request().or_warn();
     }
 
     fn size_hint_x(&self, size_y: Option<PhysicalPixels>) -> SizeHint {
@@ -294,7 +286,7 @@ pub trait WidgetExt: Widget {
         } else {
             let r = self
                 .handle_size_hint_x_request(size_y)
-                .or_report_err()
+                .or_warn()
                 .unwrap_or(FALLBACK_SIZE_HINTS);
             self.base().set_size_hint_x_cache(size_y, r);
             r
@@ -307,7 +299,7 @@ pub trait WidgetExt: Widget {
         } else {
             let r = self
                 .handle_size_hint_y_request(size_x)
-                .or_report_err()
+                .or_warn()
                 .unwrap_or(FALLBACK_SIZE_HINTS);
             self.base().set_size_hint_y_cache(size_x, r);
             r

@@ -12,7 +12,7 @@ use {
             defaults::{DEFAULT_MIN_WIDTH_EM, DEFAULT_PREFERRED_WIDTH_EM},
             Styles,
         },
-        system::ReportError,
+        system::OrWarn,
         text_editor::Text,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
         widget_initializer::{self, WidgetInitializer},
@@ -232,7 +232,7 @@ impl ComputedElementStyle for TextInputStyle {
         let properties = style.find_rules(|s| element.matches(s));
         let font = convert_font(&properties, Some(&style.root_font_style()));
         let preferred_width = convert_width(&properties, scale, font.font_size)
-            .or_report_err()
+            .or_warn()
             .flatten()
             .unwrap_or_else(|| {
                 warn!("missing width in text input css");
@@ -241,7 +241,7 @@ impl ComputedElementStyle for TextInputStyle {
 
         let min_properties = style.find_rules(|s| element_min.matches(s));
         let min_width = convert_width(&min_properties, scale, font.font_size)
-            .or_report_err()
+            .or_warn()
             .flatten()
             .unwrap_or_else(|| {
                 warn!("missing width in text input min css");

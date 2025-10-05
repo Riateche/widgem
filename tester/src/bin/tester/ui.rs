@@ -7,7 +7,7 @@ use {
         event::Event,
         impl_widget_base,
         layout::Layout,
-        system::ReportError,
+        system::OrWarn,
         types::Point,
         widget_initializer,
         widgets::{Button, Column, Image, Label, Row, ScrollArea, Window},
@@ -274,7 +274,7 @@ impl Widget for TesterUi {
                 .on_triggered(callbacks.create(move |w, _e| w.set_mode(mode)));
         }
 
-        let pixmap = self.tester_logic.pixmap().or_report_err().flatten();
+        let pixmap = self.tester_logic.pixmap().or_warn().flatten();
 
         window_items
             .set_next_item(Label::init("Snapshot size:".into()))?

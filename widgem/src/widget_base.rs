@@ -16,7 +16,7 @@ use {
             css::{PseudoClass, StyleSelector},
             load_css,
         },
-        system::ReportError,
+        system::OrWarn,
         types::{PhysicalPixels, Point, Rect, Size},
         widget_initializer::WidgetInitializer,
         App, WidgetExt,
@@ -490,7 +490,7 @@ impl WidgetBase {
                 self.refresh_common_style();
             }
             Event::Draw(event) => {
-                let Some(size) = self.size_or_err().or_report_err() else {
+                let Some(size) = self.size_or_err().or_warn() else {
                     return false;
                 };
 
@@ -507,7 +507,7 @@ impl WidgetBase {
         }
 
         for event_filter in self.event_filters.values_mut() {
-            let accepted = event_filter(event.clone()).or_report_err().unwrap_or(false);
+            let accepted = event_filter(event.clone()).or_warn().unwrap_or(false);
             if accepted {
                 return true;
             }
@@ -663,12 +663,10 @@ impl WidgetBase {
         if self.style() == Some(style) {
             return self;
         }
-        self.style = load_css(style)
-            .or_report_err()
-            .map(|style_sheet| CustomStyle {
-                style_sheet,
-                code: style.into(),
-            });
+        self.style = load_css(style).or_warn().map(|style_sheet| CustomStyle {
+            style_sheet,
+            code: style.into(),
+        });
         self
     }
 
@@ -1269,7 +1267,7 @@ impl WidgetBase {
             .cloned()
             .collect_vec();
         for key in keys {
-            self.remove_child(key).or_report_err();
+            self.remove_child(key).or_warn();
         }
     }
 }

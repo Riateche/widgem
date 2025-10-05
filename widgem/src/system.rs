@@ -11,7 +11,7 @@ use {
     anyhow::Result,
     arboard::Clipboard,
     cosmic_text::{FontSystem, SwashCache},
-    std::{collections::HashMap, rc::Rc, time::Duration},
+    std::{collections::HashMap, fmt::Debug, rc::Rc, time::Duration},
     tracing::warn,
     winit::event_loop::EventLoopProxy,
 };
@@ -48,23 +48,22 @@ pub struct LayoutState {
     pub changed_size_hints: Vec<WidgetAddress>,
 }
 
-pub fn report_error(error: impl Into<anyhow::Error>) {
-    // TODO: display popup error message or custom hook
-    warn!("{:?}", error.into());
-}
-
-pub trait ReportError {
+/// Provides `.or_warn()` method on `Result`.
+pub trait OrWarn {
     type Output;
-    fn or_report_err(self) -> Option<Self::Output>;
+
+    /// If `self` is `Err`, logs the warning and returns `None`.
+    /// Otherwise, returns `Some(value)`.
+    fn or_warn(self) -> Option<Self::Output>;
 }
 
-impl<T, E> ReportError for Result<T, E>
+impl<T, E> OrWarn for Result<T, E>
 where
-    E: Into<anyhow::Error>,
+    E: Debug,
 {
     type Output = T;
 
-    fn or_report_err(self) -> Option<Self::Output> {
-        self.map_err(|err| report_error(err)).ok()
+    fn or_warn(self) -> Option<Self::Output> {
+        self.map_err(|error| warn!(?error)).ok()
     }
 }

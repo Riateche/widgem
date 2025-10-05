@@ -6,7 +6,7 @@ use {
             MouseScrollEvent, WindowFocusChangeEvent,
         },
         shared_window::{MouseEventState, SharedWindow, WindowRequest},
-        system::{LayoutState, ReportError},
+        system::{LayoutState, OrWarn},
         types::{PhysicalPixels, Point, Size},
         widgets::{get_widget_by_address_mut, get_widget_by_id_mut, invalidate_size_hint_cache},
         RawWidgetId, ScrollToRectRequest, Widget, WidgetAddress, WidgetExt, WidgetGeometry,
@@ -81,7 +81,7 @@ impl<'a> WindowHandler<'a> {
                 }
                 self.dispatch_mouse_leave();
 
-                self.window.init_mouse_event_state().or_report_err();
+                self.window.init_mouse_event_state().or_warn();
                 if let Some(mouse_grabber_widget_id) = self.window.mouse_grabber_widget() {
                     if let Ok(mouse_grabber_widget) =
                         get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
@@ -108,7 +108,7 @@ impl<'a> WindowHandler<'a> {
                         .into(),
                     );
                 }
-                let state = self.window.take_mouse_event_state().or_report_err();
+                let state = self.window.take_mouse_event_state().or_warn();
                 if state.is_some_and(|state| !state.is_accepted()) {
                     self.window.set_cursor(CursorIcon::Default);
                 }
@@ -124,7 +124,7 @@ impl<'a> WindowHandler<'a> {
             } => {
                 self.window.mouse_input(state, button);
                 if let Some(pos_in_window) = self.window.cursor_position() {
-                    self.window.init_mouse_event_state().or_report_err();
+                    self.window.init_mouse_event_state().or_warn();
                     if let Some(mouse_grabber_widget_id) = self.window.mouse_grabber_widget() {
                         if let Ok(mouse_grabber_widget) =
                             get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
@@ -160,9 +160,7 @@ impl<'a> WindowHandler<'a> {
                         self.root_widget.dispatch(event.into());
                     }
                     {
-                        if let Some(event_state) =
-                            self.window.take_mouse_event_state().or_report_err()
-                        {
+                        if let Some(event_state) = self.window.take_mouse_event_state().or_warn() {
                             if state == ElementState::Pressed
                                 && self.window.mouse_grabber_widget().is_none()
                             {
@@ -185,7 +183,7 @@ impl<'a> WindowHandler<'a> {
                 phase,
             } => {
                 if let Some(pos_in_window) = self.window.cursor_position() {
-                    self.window.init_mouse_event_state().or_report_err();
+                    self.window.init_mouse_event_state().or_warn();
                     if let Some(mouse_grabber_widget_id) = self.window.mouse_grabber_widget() {
                         if let Ok(mouse_grabber_widget) =
                             get_widget_by_id_mut(self.root_widget, mouse_grabber_widget_id)
@@ -218,7 +216,7 @@ impl<'a> WindowHandler<'a> {
                         };
                         self.root_widget.dispatch(event.into());
                     }
-                    self.window.take_mouse_event_state().or_report_err();
+                    self.window.take_mouse_event_state().or_warn();
                     // TODO: should we dispatch to focused widget on Windows by default?
                     // Qt dispatches the event to focused widget if moused-over widget did not accept it.
                 } else {
@@ -308,8 +306,7 @@ impl<'a> WindowHandler<'a> {
         }
         let accessibility_updates = self.window.take_pending_accessibility_updates();
         for addr in accessibility_updates {
-            let Some(widget) = get_widget_by_address_mut(self.root_widget, &addr).or_report_err()
-            else {
+            let Some(widget) = get_widget_by_address_mut(self.root_widget, &addr).or_warn() else {
                 continue;
             };
             widget.update_accessibility_node();

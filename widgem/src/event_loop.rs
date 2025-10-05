@@ -4,7 +4,7 @@ use {
         callback::{CallbackId, InvokeCallbackEvent},
         shared_window::{WindowId, WindowRequest},
         style::defaults::default_style,
-        system::{ReportError, SharedSystemDataInner, SystemConfig},
+        system::{OrWarn, SharedSystemDataInner, SystemConfig},
         timer::Timers,
         widgets::{get_widget_by_address_mut, get_widget_by_id_mut, RootWidget},
         window_handler::WindowHandler,
@@ -102,7 +102,7 @@ impl Handler {
         for (_, window) in windows {
             //println!("root_widget_id {:?}", window.root_widget_id);
             if let Some(window_root_widget) =
-                get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id).or_report_err()
+                get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id).or_warn()
             {
                 WindowHandler::new(window.shared_window, window_root_widget)
                     .after_widget_activity();
@@ -145,7 +145,7 @@ impl ApplicationHandler<UserEvent> for Handler {
             };
 
             if let Some(window_root_widget) =
-                get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id).or_report_err()
+                get_widget_by_id_mut(root_widget.as_mut(), window.root_widget_id).or_warn()
             {
                 WindowHandler::new(window.shared_window, window_root_widget).handle_event(event);
             }
@@ -207,7 +207,7 @@ impl ApplicationHandler<UserEvent> for Handler {
             };
             let app = App::init(shared_system_data);
             let mut root_widget = RootWidget::new(WidgetBase::new_root(app));
-            self.init.take().expect("double init")(&mut root_widget).or_report_err();
+            self.init.take().expect("double init")(&mut root_widget).or_warn();
             self.root_widget = Some(Box::new(root_widget));
 
             self.is_initialized = true;
@@ -317,6 +317,6 @@ fn dispatch_widget_callback(
     let Ok(widget) = get_widget_by_address_mut(root_widget, &address) else {
         return;
     };
-    (callback.func)(widget, event).or_report_err();
+    (callback.func)(widget, event).or_warn();
     widget.update_accessibility_node();
 }

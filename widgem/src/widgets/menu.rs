@@ -9,7 +9,7 @@ use {
         },
         layout::{default_layout, default_size_hint_x, default_size_hint_y},
         shared_window::X11WindowType,
-        system::ReportError,
+        system::OrWarn,
         text_editor::{Text, TextStyle},
         types::{PhysicalPixels, Point},
         widget_initializer::{self, WidgetInitializer},
@@ -136,7 +136,7 @@ impl Widget for Menu {
         } else {
             if self.window_was_focused {
                 //self.set_visible(false);
-                if let Some(window) = self.base.window_or_err().or_report_err() {
+                if let Some(window) = self.base.window_or_err().or_warn() {
                     window.close();
                 }
             }

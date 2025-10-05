@@ -17,7 +17,7 @@ use {
             },
             defaults, Styles,
         },
-        system::{report_error, ReportError},
+        system::OrWarn,
         text::{
             action::Action,
             edit::Edit,
@@ -313,12 +313,9 @@ impl Text {
         } else if shortcuts.copy.matches(&event) {
             self.copy_to_clipboard();
         } else if shortcuts.paste.matches(&event) {
-            match self.base.app().clipboard_text() {
-                Ok(text) => {
-                    let text = self.sanitize(&text);
-                    self.insert_string(&text, None);
-                }
-                Err(err) => report_error(err),
+            if let Some(text) = self.base.app().clipboard_text().or_warn() {
+                let text = self.sanitize(&text);
+                self.insert_string(&text, None);
             }
         } else if shortcuts.undo.matches(&event) {
             // TODO
@@ -506,7 +503,7 @@ impl Text {
 
     fn copy_to_clipboard(&mut self) {
         if let Some(text) = self.selected_text() {
-            self.base.app().set_clipboard_text(&text).or_report_err();
+            self.base.app().set_clipboard_text(&text).or_warn();
         }
     }
 
