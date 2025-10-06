@@ -87,11 +87,7 @@ pub fn test(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[::widgem_tester::__ctor::ctor(crate_path = ::widgem_tester::__ctor)]
         fn #register_ident() {
             ::widgem_tester::add_test(
-                &format!(
-                    "{}::{}",
-                    module_path!().splitn(2, "::").nth(1).unwrap(),
-                    #ident_str,
-                ),
+                ::widgem_tester::test_name_from_module_path(module_path!(), #ident_str),
                 #ident,
             );
         }

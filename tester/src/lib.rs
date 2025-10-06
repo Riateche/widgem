@@ -9,7 +9,7 @@ use {
     serde::{Deserialize, Serialize},
     std::{
         collections::BTreeMap,
-        env,
+        env, iter,
         path::{Path, PathBuf},
         process::{self, Child},
         sync::{Mutex, OnceLock},
@@ -54,10 +54,10 @@ impl Registry {
 
     pub fn add_test(
         &mut self,
-        name: &str,
+        name: String,
         f: impl FnOnce(&mut Context) -> anyhow::Result<()> + Send + 'static,
     ) {
-        let old = self.tests.insert(name.into(), Box::new(f));
+        let old = self.tests.insert(name, Box::new(f));
         assert!(old.is_none(), "duplicate test name");
     }
 
@@ -70,8 +70,20 @@ fn default_registry() -> &'static Mutex<Registry> {
     REGISTRY.get_or_init(|| Mutex::new(Registry::default()))
 }
 
-pub fn add_test(name: &str, f: impl FnOnce(&mut Context) -> anyhow::Result<()> + Send + 'static) {
+pub fn add_test(name: String, f: impl FnOnce(&mut Context) -> anyhow::Result<()> + Send + 'static) {
     default_registry().lock().unwrap().add_test(name, f);
+}
+
+pub fn test_name_from_module_path(module_path: &str, fn_name: &str) -> String {
+    module_path
+        .split("::")
+        .skip(1)
+        .map(|part| {
+            let part = part.strip_suffix("_tests").unwrap_or(part);
+            part.strip_suffix("_test").unwrap_or(part)
+        })
+        .chain(iter::once(fn_name))
+        .join("::")
 }
 
 // TODO: lazy

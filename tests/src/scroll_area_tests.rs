@@ -8,7 +8,7 @@ use widgem::{
 use widgem_tester::{context::Context, Key};
 
 #[widgem_tester::test]
-pub fn scroll_area(ctx: &mut Context) -> anyhow::Result<()> {
+pub fn main(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|root| {
         let window = root
             .set_main_content(Window::init(module_path!().into()))?

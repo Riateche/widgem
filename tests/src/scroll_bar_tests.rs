@@ -123,7 +123,7 @@ impl Widget for RootWidget {
 }
 
 #[widgem_tester::test]
-pub fn basic(ctx: &mut Context) -> anyhow::Result<()> {
+pub fn main(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().set_child(0, RootWidget::init())?;
         Ok(())

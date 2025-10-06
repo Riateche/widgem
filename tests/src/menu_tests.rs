@@ -63,7 +63,7 @@ impl Widget for RootWidget {
 }
 
 #[widgem_tester::test]
-fn menu(ctx: &mut Context) -> anyhow::Result<()> {
+fn main(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.set_main_content(RootWidget::init())?;
         Ok(())

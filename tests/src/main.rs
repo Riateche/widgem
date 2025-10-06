@@ -1,9 +1,9 @@
-mod button;
-mod label;
-mod menu;
-mod scroll_area;
-mod scroll_bar;
-mod text_input;
+mod button_tests;
+mod label_tests;
+mod menu_tests;
+mod scroll_area_tests;
+mod scroll_bar_tests;
+mod text_input_tests;
 
 use std::{
     env,
