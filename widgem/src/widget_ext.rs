@@ -14,7 +14,8 @@ use {
 };
 
 fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
-    let Some(window) = widget.base_mut().window_or_err().or_warn() else {
+    let id = widget.base().id();
+    let Some(window) = widget.base_mut().window_or_err().or_warn().cloned() else {
         return;
     };
     if window
@@ -22,17 +23,12 @@ fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_ente
         .or_warn()
         .is_some_and(|e| !e.is_accepted())
     {
-        let Some(rect_in_window) = widget.base().rect_in_window_or_err().or_warn() else {
-            return;
-        };
-        let Some(window) = widget.base().window_or_err().or_warn() else {
-            return;
-        };
-        let id = widget.base().id();
         window.accept_current_mouse_event(id).or_warn();
 
         window.set_cursor(widget.base().cursor_icon());
-        if is_enter {
+    }
+    if is_enter {
+        if let Some(rect_in_window) = widget.base().rect_in_window_or_err().or_warn() {
             window.add_mouse_entered(rect_in_window, id);
         }
     }

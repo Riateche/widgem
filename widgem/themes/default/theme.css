@@ -162,7 +162,7 @@ MenuAction {
     padding: 4px 7px;
     border: 1px solid transparent;
 }
-MenuAction:hover {
+MenuAction:current {
     border-color: #26709e;
     background: #308cc6;
     color: white;

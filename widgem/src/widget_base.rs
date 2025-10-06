@@ -31,7 +31,7 @@ use {
         collections::{BTreeMap, HashMap, HashSet},
         fmt::Debug,
         marker::PhantomData,
-        ops::{Deref, DerefMut},
+        ops::{Bound, Deref, DerefMut},
         rc::Rc,
     },
     tracing::{error, warn},
@@ -1266,8 +1266,22 @@ impl WidgetBase {
         self.children.iter_mut().map(|(k, v)| (k, &mut **v))
     }
 
+    pub fn child_key_after(&self, key: &ChildKey) -> Option<&ChildKey> {
+        self.children
+            .range((Bound::Excluded(key), Bound::Unbounded))
+            .next()
+            .map(|(k, _v)| k)
+    }
+
+    pub fn child_key_before(&self, key: &ChildKey) -> Option<&ChildKey> {
+        self.children
+            .range((Bound::Unbounded, Bound::Excluded(key)))
+            .next_back()
+            .map(|(k, _v)| k)
+    }
+
     /// Returns an iterator over the keys of the widget's children.
-    pub fn child_keys(&self) -> impl Iterator<Item = &ChildKey> {
+    pub fn child_keys(&self) -> impl DoubleEndedIterator<Item = &ChildKey> {
         self.children.keys()
     }
 

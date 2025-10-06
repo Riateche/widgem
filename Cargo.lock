@@ -5122,6 +5122,7 @@ dependencies = [
  "scoped-tls",
  "serde",
  "serde-value",
+ "serde_json",
  "softbuffer",
  "strict-num 0.2.0",
  "stringcase",

@@ -833,21 +833,26 @@ pub fn is_selection(selector: &Selector) -> bool {
 pub enum PseudoClass {
     Hover,
     Focus,
+    // Button being currently held down.
     Active,
     Enabled,
     Disabled,
+    // Like current menu item.
+    Current,
     // TODO: add more relevant classes
     Custom(CowArcStr<'static>),
 }
 
 impl PseudoClass {
     fn from_css(value: &selector::PseudoClass<'static>) -> Option<Self> {
+        // println!("PseudoClass::from_css {:?}", serde_json::to_string(value));
         match value {
             selector::PseudoClass::Hover => Some(Self::Hover),
             selector::PseudoClass::Focus => Some(Self::Focus),
             selector::PseudoClass::Active => Some(Self::Active),
             selector::PseudoClass::Enabled => Some(Self::Enabled),
             selector::PseudoClass::Disabled => Some(Self::Disabled),
+            selector::PseudoClass::Current => Some(Self::Current),
             selector::PseudoClass::Custom { name } => Some(Self::Custom(name.clone())),
             _ => None,
         }

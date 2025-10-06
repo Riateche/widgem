@@ -50,6 +50,7 @@ pub(crate) struct BaseComputedStyle {
 impl ComputedElementStyle for BaseComputedStyle {
     fn new(style: &Styles, element: &StyleSelector, scale: f32) -> Self {
         let rules = style.find_rules(|s| element.matches(s));
+
         let mut rules_with_root = style.find_rules(is_root);
         rules_with_root.extend(rules.clone());
         let element_min = element

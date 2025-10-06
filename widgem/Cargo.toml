@@ -32,6 +32,7 @@ range-ext = { workspace = true }
 resvg = { workspace = true }
 scoped-tls = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 serde-value = { workspace = true }
 softbuffer = { workspace = true }
 strict-num = { workspace = true }
