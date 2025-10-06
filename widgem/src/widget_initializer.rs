@@ -6,8 +6,8 @@ pub trait WidgetInitializer {
     /// the widget is being created.
     ///
     /// You don't need to call this function directly. It's automatically invoked when you create a widget using
-    /// one of the following functions on [WidgetBase] of the parent widget:
-    /// - [WidgetBase::set_child]
+    /// one of the following functions on [WidgetBase](crate::WidgetBase) of the parent widget:
+    /// - [WidgetBase::set_child](crate::WidgetBase::set_child)
     /// - [crate::items::with_index::ItemsMut::set_item_at]
     /// - [crate::items::with_index::ItemsMut::set_next_item]
     /// - [crate::items::with_key::ItemsWithKeyMut::set_item]
@@ -21,7 +21,7 @@ pub trait WidgetInitializer {
     ///
     /// This function may be called from the following functions when the corresponding widget already exist:
     ///
-    /// - [WidgetBase::set_child]
+    /// - [WidgetBase::set_child](crate::WidgetBase::set_child)
     /// - [crate::items::with_index::ItemsMut::set_item_at]
     /// - [crate::items::with_index::ItemsMut::set_next_item]
     /// - [crate::items::with_key::ItemsWithKeyMut::set_item]

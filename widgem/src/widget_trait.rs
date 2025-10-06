@@ -57,7 +57,7 @@ pub trait Widget: Any {
     /// Handles a draw event.
     ///
     /// You should not call this function directly.
-    /// Call [WidgetBase::update](crate::widgets::WidgetBase::update) to request
+    /// Call [WidgetBase::update](crate::WidgetBase::update) to request
     /// a repaint of a widget.
     ///
     /// Implement this function to perform custom drawing in your widget.
@@ -177,14 +177,14 @@ pub trait Widget: Any {
     /// Handles a press or release of a keyboard button.
     ///
     /// Only the currently focused widget receives keyboard events. Note that the widget can only become focused
-    /// if it is [focusable](crate::widgets::WidgetBase::set_focusable).
+    /// if it is [focusable](crate::WidgetBase::set_focusable).
     ///
     /// You should not call this function directly.
     ///
     /// Implement this function to handle user input. Note that you should make your event focusable
-    /// by calling [set_focusable](crate::widgets::WidgetBase::set_focusable).
+    /// by calling [set_focusable](crate::WidgetBase::set_focusable).
     /// If your widget handles text input (as opposed to e.g. hotkeys), you should also
-    /// [enable input method editor](crate::widgets::WidgetBase::set_input_method_enabled) and implement
+    /// [enable input method editor](crate::WidgetBase::set_input_method_enabled) and implement
     /// [handle_input_method](Self::handle_input_method).
     fn handle_keyboard_input(&mut self, event: KeyboardInputEvent) -> Result<bool> {
         let _ = event;
@@ -195,14 +195,14 @@ pub trait Widget: Any {
     ///
     /// Only the currently focused widget receives input method events.
     /// Note that the widget can only become focused
-    /// if it is [focusable](crate::widgets::WidgetBase::set_focusable).
+    /// if it is [focusable](crate::WidgetBase::set_focusable).
     /// The input method will be enabled for the window only when the currently focused widget has
-    /// [set_input_method_enabled(true)](crate::widgets::WidgetBase::set_input_method_enabled).
+    /// [set_input_method_enabled(true)](crate::WidgetBase::set_input_method_enabled).
     ///
     /// You should not call this function directly.
     ///
     /// Implement this function to handle IME user input. Note that you should make your event focusable
-    /// by calling [set_focusable](crate::widgets::WidgetBase::set_focusable).
+    /// by calling [set_focusable](crate::WidgetBase::set_focusable).
     /// See also [handle_keyboard_input](Self::handle_keyboard_input) for handling keyboard input
     /// in absence of input method.
     fn handle_input_method(&mut self, event: InputMethodEvent) -> Result<bool> {
@@ -224,13 +224,13 @@ pub trait Widget: Any {
     /// or its visible area changes), and also when size hint is changed for this widget or any of its direct and indirect children.
     ///
     /// You should not call this function directly. To trigger a re-layout, call
-    /// [size_hint_changed](crate::widgets::WidgetBase::size_hint_changed).
+    /// [size_hint_changed](crate::WidgetBase::size_hint_changed).
     ///
     /// Implement this function to achieve a custom positioning of this widget's children that is not achievable
     /// through the default grid layout, or if you want to perform an action when the geometry of your widget changes
     /// (i.e. its position within the window, its size, or its visible area changes).
     ///
-    /// In this function, use [set_geometry](crate::widgets::WidgetExt::set_geometry)
+    /// In this function, use [set_geometry](crate::WidgetExt::set_geometry)
     /// to position the direct children of this widget. Note that this will immediately trigger a layout event
     /// for the child widget if the conditions listed above are met.
     ///
@@ -271,7 +271,7 @@ pub trait Widget: Any {
     ///
     /// Note that if you're only interested in the current state of
     /// the focus and do not need to perform custom actions when it changes,
-    /// you can use [is_focused](crate::widgets::WidgetBase::is_focused) instead. The widget is always updated
+    /// you can use [is_focused](crate::WidgetBase::is_focused) instead. The widget is always updated
     /// (including a redraw) when it gains or loses focus.
     fn handle_focus_in(&mut self, event: FocusInEvent) -> Result<()> {
         let _ = event;
@@ -299,7 +299,7 @@ pub trait Widget: Any {
     ///
     /// Note that if you're only interested in the current state of
     /// the focus and do not need to perform custom actions when it changes,
-    /// you can use [is_focused](crate::widgets::WidgetBase::is_focused) instead. The widget is always updated
+    /// you can use [is_focused](crate::WidgetBase::is_focused) instead. The widget is always updated
     /// (including a redraw) when it gains or loses focus.
     fn handle_focus_out(&mut self, event: FocusOutEvent) -> Result<()> {
         let _ = event;
@@ -364,8 +364,8 @@ pub trait Widget: Any {
     /// This event is handled by the parent widget first, then propagates to all affected children.
     ///
     /// You should not call this function directly. You can manipulate the widget's style using
-    /// an explicit setter, [add_class](crate::widgets::WidgetExt::add_class)
-    /// and [remove_class](crate::widgets::WidgetExt::remove_class).
+    /// an explicit setter, [add_class](crate::WidgetExt::add_class)
+    /// and [remove_class](crate::WidgetExt::remove_class).
     ///
     /// Implement this function if your widget needs to react to a style change. Possible examples include
     /// updating cached margins or regenerating pixmaps that depend on style. You don't need to implement it
@@ -400,11 +400,11 @@ pub trait Widget: Any {
     ///
     /// This function allows the widget to update its children in a declarative way.
     /// It's called after the widget's update has been requested by calling
-    /// [WidgetBase::update](crate::widgets::WidgetBase::update) or after
+    /// [WidgetBase::update](crate::WidgetBase::update) or after
     /// a relevant built-in property has been changed (e.g. focus state, enabled state, or widget style).
     ///
     /// You should not call this function directly. Use
-    /// [WidgetBase::update](crate::widgets::WidgetBase::update) to schedule an update of the widget.
+    /// [WidgetBase::update](crate::WidgetBase::update) to schedule an update of the widget.
     ///
     /// Implement this function to update the widget's children.
     ///
@@ -431,11 +431,11 @@ pub trait Widget: Any {
     /// Calculates size hint of this widget along the X axis.
     ///
     /// This function is typically called after widget creation and after
-    /// [size_hint_changed](crate::widgets::WidgetBase::size_hint_changed) has been called for this widget.
+    /// [size_hint_changed](crate::WidgetBase::size_hint_changed) has been called for this widget.
     /// The value is subsequently cached until `size_hint_changed` is called again.
     ///
     /// You should not call this function directly. Use
-    /// [size_hint_x](crate::widgets::WidgetExt::size_hint_x) to get the current size hint
+    /// [size_hint_x](crate::WidgetExt::size_hint_x) to get the current size hint
     /// (it can trigger a call to `handle_size_hint_x_request` internally if it hasn't been cached yet).
     ///
     /// The default implementation calls [`default_size_hint_x`](crate::layout::default_size_hint_x)`(self)`.
@@ -444,7 +444,7 @@ pub trait Widget: Any {
     /// your widget doesn't have any children but needs to have non-zero size; or if you want it
     /// to be sized differently from what the default grid layout offers.
     ///
-    /// Note that [set_layout_item_options](crate::widgets::WidgetBase::set_layout_item_options)
+    /// Note that [set_layout_item_options](crate::WidgetBase::set_layout_item_options)
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_x_request(&self, size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
@@ -454,7 +454,7 @@ pub trait Widget: Any {
     /// Calculates size hint of this widget along the Y axis, given the X size.
     ///
     /// This function is typically called after widget creation and after
-    /// [size_hint_changed](crate::widgets::WidgetBase::size_hint_changed) has been called for this widget.
+    /// [size_hint_changed](crate::WidgetBase::size_hint_changed) has been called for this widget.
     /// The value is subsequently cached (separately for each `size_x`) until `size_hint_changed` is called again.
     ///
     /// Note that this function is typically called during layout calculation, and the value of `size_x`
@@ -462,7 +462,7 @@ pub trait Widget: Any {
     /// to be notified about the final size assigned to your widget.
     ///
     /// You should not call this function directly. Use
-    /// [size_hint_y](crate::widgets::WidgetExt::size_hint_y) to get the current size hint
+    /// [size_hint_y](crate::WidgetExt::size_hint_y) to get the current size hint
     /// (it can trigger a call to `handle_size_hint_y_request` internally if it hasn't been cached yet).
     ///
     /// The default implementation calls [`default_size_hint_y`](crate::layout::default_size_hint_y)`(self, size_x)`.
@@ -471,7 +471,7 @@ pub trait Widget: Any {
     /// your widget doesn't have any children but needs to have non-zero size; or if you want it
     /// to be sized differently from what the default grid layout offers.
     ///
-    /// Note that [set_layout_item_options](crate::widgets::WidgetBase::set_layout_item_options)
+    /// Note that [set_layout_item_options](crate::WidgetBase::set_layout_item_options)
     /// offers many options that alter the size of the widget, which in many cases is sufficient,
     /// so reimplementing size hint methods may not be necessary.
     fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
@@ -483,7 +483,7 @@ pub trait Widget: Any {
     /// Calculates the accessibility node representing this widget.
     ///
     /// You should not call this function directly.
-    /// Call [WidgetBase::update](crate::widgets::WidgetBase::update) to request
+    /// Call [WidgetBase::update](crate::WidgetBase::update) to request
     /// an update of a widget. Note that `handle_accessibility_node_request` may not be called if
     /// no assistive technologies are enabled in the OS.
     ///

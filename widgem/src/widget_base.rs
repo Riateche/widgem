@@ -209,8 +209,8 @@ struct CustomStyle {
 
 /// The first building block of a widget.
 ///
-/// Any widget contains a `WidgetBase` object. You can obtain it by calling [base()](crate::widgets::Widget::base)
-/// or [base_mut()](crate::widgets::Widget::base_mut). As a convention, any widget has a private field
+/// Any widget contains a `WidgetBase` object. You can obtain it by calling [base()](crate::Widget::base)
+/// or [base_mut()](crate::Widget::base_mut). As a convention, any widget has a private field
 /// <code>base: [WidgetBaseOf]&lt;Self&gt;</code> which dereferences to a `WidgetBase`.
 ///
 /// `WidgetBase` stores some of the widget's state and handles some of the events dispatched to the widget.
@@ -561,7 +561,7 @@ impl WidgetBase {
     ///
     /// The parent ID of the widget cannot be changed.
     ///
-    /// Returns `None` for [crate::widgets::root::RootWidget].
+    /// Returns `None` for [crate::widgets::RootWidget].
     pub fn parent_id(&self) -> Option<RawWidgetId> {
         self.parent_id
     }
@@ -609,7 +609,7 @@ impl WidgetBase {
     /// - The parent can choose to hide any of its direct children when calculating its layout.
     ///   For example, a tab widget would hide widgets corresponding to the contents of inactive tabs.
     /// - A widget is not visible if it's out of bounds of its direct or indirect parents.
-    ///   This commonly occurs to widgets inside a [crate::widgets::scroll_area::ScrollArea].
+    ///   This commonly occurs to widgets inside a [crate::widgets::ScrollArea].
     /// - A widget is not visible if it doesn't belong to a window.
     ///
     /// The following cases do not count as hidden widgets:
@@ -918,7 +918,7 @@ impl WidgetBase {
     /// in which case the OS scale is ignored.
     ///
     /// Scale can be changed manually for any widget
-    /// with [WidgetExt::set_scale](crate::widgets::WidgetExt::set_scale).
+    /// with [WidgetExt::set_scale](crate::WidgetExt::set_scale).
     /// This value propagates to all child widgets.
     pub fn scale(&self) -> f32 {
         self.self_scale.unwrap_or(self.parent_scale)
@@ -938,7 +938,7 @@ impl WidgetBase {
     }
 
     /// Returns the value set with
-    /// [WidgetExt::set_scale](crate::widgets::WidgetExt::set_scale), if any.
+    /// [WidgetExt::set_scale](crate::WidgetExt::set_scale), if any.
     ///
     /// It returns `None` if `set_scale` hasn't been called for this widget.
     /// This value doesn't depend on the parent scale. In most cases, [scale](Self::scale) is more suitable,
