@@ -775,6 +775,10 @@ impl SharedWindow {
     pub(crate) fn pop_mouse_entered_widget(&self) -> Option<RawWidgetId> {
         let this = &mut *self.0.borrow_mut();
         let pos = this.cursor_position;
+        // println!(
+        //     "this.mouse_entered_widgets = {:?}",
+        //     this.mouse_entered_widgets
+        // );
         let list = &mut this.mouse_entered_widgets;
         let index = list.iter().position(|(rect, id)| {
             pos.is_none_or(|pos| !rect.contains(pos)) && Some(*id) != this.mouse_grabber_widget

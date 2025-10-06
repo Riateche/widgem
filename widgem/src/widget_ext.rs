@@ -13,27 +13,6 @@ use {
     tracing::warn,
 };
 
-fn accept_mouse_move_or_enter_event(widget: &mut (impl Widget + ?Sized), is_enter: bool) {
-    let id = widget.base().id();
-    let Some(window) = widget.base_mut().window_or_err().or_warn().cloned() else {
-        return;
-    };
-    if window
-        .current_mouse_event_state()
-        .or_warn()
-        .is_some_and(|e| !e.is_accepted())
-    {
-        window.accept_current_mouse_event(id).or_warn();
-
-        window.set_cursor(widget.base().cursor_icon());
-    }
-    if is_enter {
-        if let Some(rect_in_window) = widget.base().rect_in_window_or_err().or_warn() {
-            window.add_mouse_entered(rect_in_window, id);
-        }
-    }
-}
-
 pub trait WidgetExt: Widget {
     fn id(&self) -> WidgetId<Self>
     where
@@ -151,10 +130,25 @@ pub trait WidgetExt: Widget {
             }
             Event::MouseEnter(_) => {
                 // TODO: rename or rework to only accept if handler returned true
-                accept_mouse_move_or_enter_event(self, true);
+                if let Some(rect_in_window) = self.base().rect_in_window_or_err().or_warn() {
+                    if let Some(window) = self.base().window_or_err().or_warn() {
+                        window.add_mouse_entered(rect_in_window, self.base().id());
+                    }
+                }
             }
             Event::MouseMove(_) => {
-                accept_mouse_move_or_enter_event(self, false);
+                if let Some(window) = self.base_mut().window_or_err().or_warn().cloned() {
+                    if window
+                        .current_mouse_event_state()
+                        .or_warn()
+                        .is_some_and(|e| !e.is_accepted())
+                    {
+                        window
+                            .accept_current_mouse_event(self.base().id())
+                            .or_warn();
+                        window.set_cursor(self.base().cursor_icon());
+                    }
+                }
             }
             Event::Draw(event) => {
                 for child in self.base_mut().children_mut() {

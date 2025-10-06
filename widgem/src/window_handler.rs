@@ -35,7 +35,9 @@ impl<'a> WindowHandler<'a> {
     }
 
     pub(crate) fn dispatch_mouse_leave(&mut self) {
+        //println!("\n------dispatch_mouse_leave");
         while let Some(id) = self.window.pop_mouse_entered_widget() {
+            //println!("pop {id:?}");
             if let Ok(widget) = get_widget_by_id_mut(self.root_widget, id) {
                 widget.dispatch(MouseLeaveEvent { _empty: () }.into());
             }

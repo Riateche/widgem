@@ -124,16 +124,9 @@ pub trait Widget: Any {
     /// You should not call this function directly.
     ///
     /// Implement this function to detect when the mouse moves over the widget.
-    ///
-    /// If `false` is returned, the event will be discarded.
-    ///
-    /// If `true` is returned, the event will be consumed, and the `is_mouse_over`
-    /// status of the widget will change to `true`.
-    ///
-    /// Default implementation returns `false`, i.e. it doesn't consume the event.
-    fn handle_mouse_enter(&mut self, event: MouseEnterEvent) -> Result<bool> {
+    fn handle_mouse_enter(&mut self, event: MouseEnterEvent) -> Result<()> {
         let _ = event;
-        Ok(false)
+        Ok(())
     }
 
     /// Handles a mouse move event.
@@ -149,8 +142,7 @@ pub trait Widget: Any {
     /// If `false` is returned, the event will be propagated to overlapping sibling widgets (if any)
     /// and then to the parent widget.
     ///
-    /// If `true` is returned, the event will be consumed. Additionally,
-    /// `is_mouse_over` status of the widget will change to `true` if it was `false`.
+    /// If `true` is returned, the event will be consumed and won't be propagated to any other widget.
     ///
     /// Default implementation returns `false`, i.e. it doesn't consume the event.
     fn handle_mouse_move(&mut self, event: MouseMoveEvent) -> Result<bool> {
@@ -160,11 +152,13 @@ pub trait Widget: Any {
 
     /// Handles a mouse leave event.
     ///
-    /// This event is triggered when the mouse pointer leaves the widget's boundary or when it leaves
+    /// This event is dispatched when the mouse pointer leaves the widget's boundary or when it leaves
     /// the OS window's boundary.
+    ///
+    /// This event can only be dispatched if a `MouseEnterEvent` has been previously dispatched for this widget.
+    ///
     /// In the widget is the current *mouse grabber*, the mouse leave event will only be
     /// delivered after it stops being the mouse grabber (i.e. when all mouse buttons are released).
-    /// When this event is delivered, the `is_mouse_over` status of the widget will change to `false` if it was `true`.
     ///
     /// You should not call this function directly.
     ///
@@ -381,7 +375,7 @@ pub trait Widget: Any {
         match event {
             Event::MouseInput(e) => self.handle_mouse_input(e),
             Event::MouseScroll(e) => self.handle_mouse_scroll(e),
-            Event::MouseEnter(e) => self.handle_mouse_enter(e),
+            Event::MouseEnter(e) => self.handle_mouse_enter(e).map(|()| true),
             Event::MouseMove(e) => self.handle_mouse_move(e),
             Event::MouseLeave(e) => self.handle_mouse_leave(e).map(|()| true),
             Event::KeyboardInput(e) => self.handle_keyboard_input(e),
