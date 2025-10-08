@@ -504,7 +504,8 @@ impl WidgetBase {
             Event::KeyboardInput(_)
             | Event::InputMethod(_)
             | Event::Layout(_)
-            | Event::AccessibilityAction(_) => {}
+            | Event::AccessibilityAction(_)
+            | Event::Activate(_) => {}
         }
 
         for event_filter in self.event_filters.values_mut() {

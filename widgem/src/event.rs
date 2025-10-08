@@ -33,6 +33,7 @@ pub enum Event {
     WindowFocusChange(WindowFocusChangeEvent),
     AccessibilityAction(AccessibilityActionEvent),
     StyleChange(StyleChangeEvent),
+    Activate(ActivateEvent),
 }
 
 #[derive(Debug, Clone)]
@@ -297,5 +298,10 @@ impl AccessibilityActionEvent {
 
 #[derive(Debug, Clone)]
 pub struct StyleChangeEvent {
+    pub(crate) _empty: (),
+}
+
+#[derive(Debug, Clone)]
+pub struct ActivateEvent {
     pub(crate) _empty: (),
 }

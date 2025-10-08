@@ -2,8 +2,8 @@ use {
     crate::{
         callback::{Callback, Callbacks},
         event::{
-            KeyboardInputEvent, LayoutEvent, MouseLeaveEvent, MouseMoveEvent,
-            WindowFocusChangeEvent,
+            ActivateEvent, KeyboardInputEvent, LayoutEvent, MouseInputEvent, MouseLeaveEvent,
+            MouseMoveEvent, WindowFocusChangeEvent,
         },
         impl_widget_base,
         items::{
@@ -23,7 +23,7 @@ use {
     },
     tracing::error,
     winit::{
-        event::ElementState,
+        event::{ElementState, MouseButton},
         keyboard::{Key, NamedKey},
         window::WindowLevel,
     },
@@ -212,6 +212,25 @@ impl Menu {
             self.current_key = Some(new_key);
         }
     }
+
+    fn activate(&mut self) {
+        let Some(key) = self.checked_current_key() else {
+            return;
+        };
+        let contents_base = self.contents_base_mut();
+        let Ok(child) = contents_base.get_dyn_child_mut(key) else {
+            error!("checked_current_key returned invalid key");
+            return;
+        };
+        child.dispatch(ActivateEvent { _empty: () }.into());
+        self.close();
+    }
+
+    pub fn close(&mut self) {
+        if let Some(window) = self.base.window() {
+            window.close();
+        }
+    }
 }
 
 const SCROLL_AREA_KEY: u64 = 0;
@@ -265,8 +284,9 @@ impl Widget for Menu {
         }
         match event.info().logical_key {
             Key::Named(key) => match key {
-                NamedKey::Enter => {}
-                NamedKey::Space => {}
+                NamedKey::Enter | NamedKey::Space => {
+                    self.activate();
+                }
                 NamedKey::ArrowDown => {
                     self.arrow_down();
                 }
@@ -339,12 +359,41 @@ impl Widget for Menu {
         self.current_key = None;
         Ok(())
     }
+
+    fn handle_mouse_input(&mut self, event: MouseInputEvent) -> anyhow::Result<bool> {
+        if event.button() != MouseButton::Left {
+            return Ok(false);
+        }
+        if event.state() == ElementState::Pressed {
+            return Ok(true);
+        }
+        // Left button released
+        let pos_in_window = event.pos_in_window();
+        let contents_base = self.contents_base_mut();
+        let mut found = false;
+        for (_key, child) in contents_base.children_with_keys_mut() {
+            let Some(child_geometry) = child.base().geometry() else {
+                continue;
+            };
+            if child_geometry.rect_in_window().contains(pos_in_window) {
+                child.dispatch(ActivateEvent { _empty: () }.into());
+                found = true;
+            }
+        }
+
+        if found {
+            self.close();
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
 }
 
 pub struct MenuAction {
     base: WidgetBaseOf<Self>,
     text: String,
-    clicked: Callbacks<()>,
+    triggered: Callbacks<()>,
 }
 
 impl MenuAction {
@@ -352,7 +401,7 @@ impl MenuAction {
         MenuAction {
             base,
             text,
-            clicked: Default::default(),
+            triggered: Default::default(),
         }
     }
 
@@ -365,9 +414,13 @@ impl MenuAction {
         self
     }
 
-    pub fn on_clicked(&mut self, callback: Callback<()>) -> &mut Self {
-        self.clicked.add(callback);
+    pub fn on_triggered(&mut self, callback: Callback<()>) -> &mut Self {
+        self.triggered.add(callback);
         self
+    }
+
+    pub fn trigger(&mut self) {
+        self.triggered.invoke((), false);
     }
 }
 
@@ -402,5 +455,10 @@ impl Widget for MenuAction {
         let mut size_hint = default_size_hint_y(self, size_x);
         size_hint.set_fixed(false);
         Ok(size_hint)
+    }
+
+    fn handle_activate(&mut self, _event: ActivateEvent) -> anyhow::Result<()> {
+        self.trigger();
+        Ok(())
     }
 }

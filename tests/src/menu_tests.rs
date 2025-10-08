@@ -18,6 +18,7 @@ const KEY_MENU: u32 = 1;
 
 impl RootWidget {
     fn on_triggered(&mut self, _event: ()) -> anyhow::Result<()> {
+        let callbacks = self.base.callback_creator();
         let button = self.base.find_child(self.button_id)?;
         let rect = button.base().rect_in_window_or_err()?;
         let window = button.base().window_or_err()?;
@@ -30,12 +31,21 @@ impl RootWidget {
             .base
             .set_child(KEY_MENU, Menu::init(global_pos))?
             .contents_mut();
-        menu.set_next_item(MenuAction::init("Item 1".into()))?;
-        menu.set_next_item(MenuAction::init("Item 2".into()))?;
-        menu.set_next_item(MenuAction::init("Long item 3".into()))?;
+        menu.set_next_item(MenuAction::init("Item 1".into()))?
+            .on_triggered(callbacks.create(|this, _| this.set_number(1)));
+        menu.set_next_item(MenuAction::init("Item 2".into()))?
+            .on_triggered(callbacks.create(|this, _| this.set_number(2)));
+        menu.set_next_item(MenuAction::init("Long item 3".into()))?
+            .on_triggered(callbacks.create(|this, _| this.set_number(3)));
         // for i in 4..100 {
         //     menu.base_mut().add_child::<MenuItem>(format!("Item {i}"));
         // }
+        Ok(())
+    }
+
+    fn set_number(&mut self, number: u32) -> anyhow::Result<()> {
+        let button = self.base.find_child_mut(self.button_id)?;
+        button.set_text(format!("#{}", number));
         Ok(())
     }
 }

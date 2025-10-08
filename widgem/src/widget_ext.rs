@@ -61,7 +61,8 @@ pub trait WidgetExt: Widget {
                 | Event::MouseMove(_)
                 | Event::MouseLeave(_)
                 | Event::KeyboardInput(_)
-                | Event::InputMethod(_) => false,
+                | Event::InputMethod(_)
+                | Event::Activate(_) => false,
                 Event::Draw(_)
                 | Event::Layout(_)
                 | Event::FocusIn(_)
@@ -199,7 +200,10 @@ pub trait WidgetExt: Widget {
                     child.dispatch(event.clone().into());
                 }
             }
-            Event::KeyboardInput(_) | Event::InputMethod(_) | Event::AccessibilityAction(_) => {}
+            Event::KeyboardInput(_)
+            | Event::InputMethod(_)
+            | Event::AccessibilityAction(_)
+            | Event::Activate(_) => {}
         }
 
         self.update_accessibility_node();

@@ -3,9 +3,10 @@ use {
     crate::{
         draw::DrawEvent,
         event::{
-            AccessibilityActionEvent, Event, FocusInEvent, FocusOutEvent, InputMethodEvent,
-            KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent, MouseLeaveEvent,
-            MouseMoveEvent, MouseScrollEvent, StyleChangeEvent, WindowFocusChangeEvent,
+            AccessibilityActionEvent, ActivateEvent, Event, FocusInEvent, FocusOutEvent,
+            InputMethodEvent, KeyboardInputEvent, LayoutEvent, MouseEnterEvent, MouseInputEvent,
+            MouseLeaveEvent, MouseMoveEvent, MouseScrollEvent, StyleChangeEvent,
+            WindowFocusChangeEvent,
         },
         layout::{self, default_layout, default_size_hint_y, SizeHint},
         types::PhysicalPixels,
@@ -371,6 +372,11 @@ pub trait Widget: Any {
         Ok(())
     }
 
+    fn handle_activate(&mut self, event: ActivateEvent) -> Result<()> {
+        let _ = event;
+        Ok(())
+    }
+
     fn handle_event(&mut self, event: Event) -> Result<bool> {
         match event {
             Event::MouseInput(e) => self.handle_mouse_input(e),
@@ -387,6 +393,7 @@ pub trait Widget: Any {
             Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
             Event::AccessibilityAction(e) => self.handle_accessibility_action(e).map(|()| true),
             Event::StyleChange(e) => self.handle_style_change(e).map(|()| true),
+            Event::Activate(e) => self.handle_activate(e).map(|()| true),
         }
     }
 
