@@ -1,6 +1,11 @@
 use {
     crate::logic::{Mode, TesterLogic},
-    std::thread,
+    std::{
+        process::Child,
+        sync::{Arc, Mutex},
+        thread::{self, sleep},
+        time::Duration,
+    },
     strum::IntoEnumIterator,
     tracing::{info, warn},
     widgem::{
@@ -20,6 +25,7 @@ pub struct TesterUi {
     tester_logic: TesterLogic,
     coords: String,
     image_scale: f32,
+    run_test_process: Option<Arc<Mutex<Child>>>,
 }
 
 // TODO: translate
@@ -39,6 +45,7 @@ impl TesterUi {
             tester_logic,
             coords: String::new(),
             image_scale: 1.0,
+            run_test_process: None,
         }
     }
 
@@ -81,6 +88,7 @@ impl TesterUi {
     }
 
     fn test_finished(&mut self) -> anyhow::Result<()> {
+        self.run_test_process = None;
         self.tester_logic.refresh()?;
         self.base.update();
         Ok(())
@@ -179,22 +187,48 @@ impl Widget for TesterUi {
         let test_finished = callbacks.create(move |w, _e: ()| w.test_finished());
         row_items
             .set_next_item(Button::init("Run test".into()))?
-            .set_enabled(self.tester_logic.current_test_case_name().is_some())
-            .on_triggered(callbacks.create(move |w, _e| {
-                let mut child = w.tester_logic.run_test()?;
+            .set_enabled(
+                self.tester_logic.current_test_case_name().is_some()
+                    && self.run_test_process.is_none(),
+            )
+            .on_triggered(callbacks.create(move |this, _e| {
+                let child = this.tester_logic.run_test()?;
                 info!("spawned process with pid: {:?}", child.id());
+                let child = Arc::new(Mutex::new(child));
+                let child2 = Arc::clone(&child);
+                this.run_test_process = Some(child);
+                this.base.update();
                 let test_finished = test_finished.clone();
-                thread::spawn(move || {
-                    match child.wait() {
-                        Ok(status) => {
-                            info!("child {:?} finished with status {:?}", child.id(), status);
+                thread::spawn(move || loop {
+                    match child2.lock().unwrap().try_wait() {
+                        Ok(Some(status)) => {
+                            info!("child finished with status {:?}", status);
+                            test_finished.invoke(());
+                            return;
                         }
+                        Ok(None) => {}
                         Err(err) => {
-                            warn!("child {:?} wait error: {:?}", child.id(), err);
+                            warn!("child wait error: {:?}", err);
+                            test_finished.invoke(());
+                            return;
                         }
                     }
-                    test_finished.invoke(());
+                    sleep(Duration::from_millis(100));
                 });
+                Ok(())
+            }));
+
+        row_items
+            .set_next_item(Button::init("Stop".into()))?
+            .set_enabled(self.run_test_process.is_some())
+            .on_triggered(callbacks.create(move |this, _e| {
+                let Some(child) = &this.run_test_process else {
+                    return Ok(());
+                };
+                match child.lock().unwrap().kill() {
+                    Ok(()) => info!("child kill succeeded"),
+                    Err(err) => warn!(?err, "child kill failed"),
+                }
                 Ok(())
             }));
 

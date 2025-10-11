@@ -30,6 +30,9 @@ impl TesterLogic {
         };
         if this.tests.has_unconfirmed_snapshots() {
             this.go_to_next_unconfirmed_snapshot();
+            if this.is_mode_allowed(Mode::New) {
+                this.set_mode(Mode::New);
+            }
         } else {
             this.go_to_next_test_case();
         }
