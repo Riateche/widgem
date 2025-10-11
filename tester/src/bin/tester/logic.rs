@@ -74,6 +74,19 @@ impl TesterLogic {
         }
     }
 
+    pub fn go_to_first_unconfirmed_snapshot_in_test(&mut self) -> bool {
+        let Some(pos) = self.position.as_ref() else {
+            return false;
+        };
+        if let Some(pos) = self.tests.first_unconfirmed_pos_in_test(&pos.test) {
+            self.position = Some(pos);
+            self.adjust_mode();
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn has_previous_test_case(&self) -> bool {
         self.tests.previous_test(self.position.as_ref()).is_some()
     }
@@ -260,10 +273,7 @@ impl TesterLogic {
         Ok(())
     }
 
-    pub fn run_test(&self) -> anyhow::Result<process::Child> {
-        let test_name = self
-            .current_test_case_name()
-            .context("no current test case")?;
+    pub fn run_test(&self, all: bool) -> anyhow::Result<process::Child> {
         let mut command = if let Some(run_script) = &self.tests.config().run_script {
             Command::new(run_script)
         } else {
@@ -272,8 +282,14 @@ impl TesterLogic {
                 .current_dir(&self.tests.config().tests_dir);
             c
         };
+        command.arg("test");
+        if !all {
+            let test_name = self
+                .current_test_case_name()
+                .context("no current test case")?;
+            command.arg(test_name);
+        }
         let child = command
-            .args(["test", test_name])
             .env("NO_COLOR", "1")
             .env("CARGO_TERM_COLOR", "never")
             .stdin(Stdio::null())

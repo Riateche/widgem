@@ -186,6 +186,19 @@ impl Tests {
         self.tests.get(test).map_or(0, |test| test.snapshots.len())
     }
 
+    pub fn first_unconfirmed_pos_in_test(&self, test_name: &str) -> Option<Position> {
+        let test = self.tests.get(test_name)?;
+        for (number, snapshot) in &test.snapshots {
+            if snapshot.unconfirmed.is_some() {
+                return Some(Position {
+                    test: test_name.into(),
+                    snapshot: Some(*number),
+                });
+            }
+        }
+        None
+    }
+
     pub fn next_unconfirmed_pos(&self, from: Option<&Position>) -> Option<Position> {
         if let Some(from) = from {
             if let Some(test) = self.tests.get(&from.test) {

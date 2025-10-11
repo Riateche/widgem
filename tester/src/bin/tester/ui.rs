@@ -96,6 +96,17 @@ impl TesterUi {
     fn test_finished(&mut self) -> anyhow::Result<()> {
         self.run_test_process = None;
         self.tester_logic.refresh()?;
+        println!("test finished");
+        let ok = self.tester_logic.go_to_first_unconfirmed_snapshot_in_test();
+        if !ok && self.tester_logic.tests().has_unconfirmed_snapshots() {
+            self.tester_logic.go_to_first_test_case();
+            self.tester_logic.go_to_next_unconfirmed_snapshot();
+        }
+        if self.tester_logic.is_mode_allowed(Mode::New)
+            && self.tester_logic.mode() == Mode::Confirmed
+        {
+            self.tester_logic.set_mode(Mode::New);
+        }
         self.base.update();
         Ok(())
     }
@@ -109,9 +120,9 @@ impl TesterUi {
         Ok(())
     }
 
-    fn run_test(&mut self) -> anyhow::Result<()> {
+    fn run_test(&mut self, all: bool) -> anyhow::Result<()> {
         self.test_output.clear();
-        let mut child = self.tester_logic.run_test()?;
+        let mut child = self.tester_logic.run_test(all)?;
         self.push_test_output(format!("test started (pid: {:?})", child.id()))?;
         let push_test_output = self.callback(Self::push_test_output);
         let stdout = child.stdout.take().context("missing stdout")?;
@@ -253,7 +264,12 @@ impl Widget for TesterUi {
                 self.tester_logic.current_test_case_name().is_some()
                     && self.run_test_process.is_none(),
             )
-            .on_triggered(callbacks.create(move |this, _e| this.run_test()));
+            .on_triggered(callbacks.create(move |this, _e| this.run_test(false)));
+
+        row_items
+            .set_next_item(Button::init("Run all tests".into()))?
+            .set_enabled(self.run_test_process.is_none())
+            .on_triggered(callbacks.create(move |this, _e| this.run_test(true)));
 
         row_items
             .set_next_item(Button::init("Stop".into()))?
