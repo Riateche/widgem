@@ -580,7 +580,8 @@ impl Text {
                 return TextDirection::LeftToRight;
             };
             if runs.next().is_some() {
-                warn!("multiple layout_runs in single line edit");
+                // TODO: label can have multiple lines
+                //warn!("multiple layout_runs in single line edit");
             }
 
             if run.line_i != 0 {

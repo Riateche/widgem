@@ -34,11 +34,13 @@ if [[ -z $CI ]]; then
     # Build test binary in docker.
     docker run \
         --mount "type=bind,src=$PWD,dst=/app" \
+        --env "NO_COLOR=$NO_COLOR" \
+        --env "CARGO_TERM_COLOR=$CARGO_TERM_COLOR" \
         widgem_builder \
         "command -v rustup || \
-                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-                sh -s -- --default-toolchain 1.87.0 --profile minimal -y
-            cargo build --package widgem_tests --locked $CARGO_ARGS"
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+            sh -s -- --default-toolchain 1.87.0 --profile minimal -y
+        cargo build --package widgem_tests --locked $CARGO_ARGS"
 
     BIN_DIR="/app/target/docker/target/$BUILD_MODE"
 else
@@ -50,10 +52,16 @@ else
 fi
 
 # Run test binaries in the widgem_xfce container.
+DOCKER_TEST_CMD=$(echo \
+    docker exec \
+        --env "NO_COLOR=$NO_COLOR" \
+        --env "CARGO_TERM_COLOR=$CARGO_TERM_COLOR" \
+        widgem_xfce "$BIN_DIR/widgem_tests"
+)
 if [[ $# -gt 0 ]]; then
-    docker exec widgem_xfce "$BIN_DIR/widgem_tests" $*
+    $DOCKER_TEST_CMD $*
 else
-    docker exec widgem_xfce "$BIN_DIR/widgem_tests" test
+    $DOCKER_TEST_CMD test
 
     # Run extra tests (Docker only)
 
@@ -94,7 +102,8 @@ else
     test_work_area left26-bottom48 "[(27, 0, 1573, 851)]"
     test_work_area right26-bottom48 "[(0, 0, 1573, 851)]"
     test_work_area middle-vertical-bottom48 "[(0, 0, 1600, 851)]"
+
+    { set +x; } 2>/dev/null
+    echo "extra tests succeeded"
+    set -x
 fi
-{ set +x; } 2>/dev/null
-echo "extra tests succeeded"
-set -x

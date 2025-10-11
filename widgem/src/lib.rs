@@ -42,6 +42,7 @@ pub use {
         address::WidgetAddress,
         app::App,
         app_builder::{run, AppBuilder},
+        callback::Callback,
         child_key::ChildKey,
         id::{RawWidgetId, WidgetId},
         monitor::MonitorExt,

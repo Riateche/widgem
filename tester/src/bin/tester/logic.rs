@@ -1,7 +1,7 @@
 use {
     crate::data::{Config, Position, Tests},
     anyhow::Context,
-    std::process::{self, Command},
+    std::process::{self, Command, Stdio},
     strum::EnumIter,
     tracing::{info, warn},
     widgem::Pixmap,
@@ -228,7 +228,14 @@ impl TesterLogic {
                 .current_dir(&self.tests.config().tests_dir);
             c
         };
-        let child = command.args(["test", test_name]).spawn()?;
+        let child = command
+            .args(["test", test_name])
+            .env("NO_COLOR", "1")
+            .env("CARGO_TERM_COLOR", "never")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
         Ok(child)
     }
 
