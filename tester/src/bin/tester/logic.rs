@@ -50,6 +50,14 @@ impl TesterLogic {
         }
     }
 
+    pub fn has_previous_test_case(&self) -> bool {
+        self.tests.previous_test(self.position.as_ref()).is_some()
+    }
+
+    pub fn has_next_test_case(&self) -> bool {
+        self.tests.next_test(self.position.as_ref()).is_some()
+    }
+
     pub fn go_to_next_test_case(&mut self) {
         if let Some(pos) = self.tests.next_test(self.position.as_ref()) {
             self.position = Some(pos);
@@ -87,6 +95,18 @@ impl TesterLogic {
             self.position = Some(pos);
             self.adjust_mode();
         }
+    }
+
+    pub fn has_previous_snapshot(&self) -> bool {
+        self.position
+            .as_ref()
+            .is_some_and(|pos| self.tests.previous_snapshot(pos).is_some())
+    }
+
+    pub fn has_next_snapshot(&self) -> bool {
+        self.position
+            .as_ref()
+            .is_some_and(|pos| self.tests.next_snapshot(pos).is_some())
     }
 
     pub fn go_to_previous_snapshot(&mut self) {

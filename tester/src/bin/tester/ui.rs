@@ -195,6 +195,7 @@ impl Widget for TesterUi {
 
         row_items
             .set_next_item(Button::init("First test".into()))?
+            .set_enabled(self.tester_logic.tests().num_tests() > 0)
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_first_test_case();
                 w.base.update();
@@ -203,6 +204,7 @@ impl Widget for TesterUi {
 
         row_items
             .set_next_item(Button::init("Previous test".into()))?
+            .set_enabled(self.tester_logic.has_previous_test_case())
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_previous_test_case();
                 w.base.update();
@@ -210,6 +212,7 @@ impl Widget for TesterUi {
             }));
         row_items
             .set_next_item(Button::init("Next test".into()))?
+            .set_enabled(self.tester_logic.has_next_test_case())
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_next_test_case();
                 w.base.update();
@@ -217,6 +220,7 @@ impl Widget for TesterUi {
             }));
         row_items
             .set_next_item(Button::init("Last test".into()))?
+            .set_enabled(self.tester_logic.tests().num_tests() > 0)
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_last_test_case();
                 w.base.update();
@@ -303,6 +307,7 @@ impl Widget for TesterUi {
 
         row_items
             .set_next_item(Button::init("Previous snapshot".into()))?
+            .set_enabled(self.tester_logic.has_previous_snapshot())
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_previous_snapshot();
                 w.base.update();
@@ -310,6 +315,7 @@ impl Widget for TesterUi {
             }));
         row_items
             .set_next_item(Button::init("Next snapshot".into()))?
+            .set_enabled(self.tester_logic.has_next_snapshot())
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.go_to_next_snapshot();
                 w.base.update();
@@ -372,34 +378,17 @@ impl Widget for TesterUi {
             .contents_mut();
         current_row += 1;
 
-        row_items
-            .set_next_item(Button::init("100%".into()))?
-            .on_triggered(callbacks.create(move |w, _e| {
-                w.image_scale = 1.0;
-                w.base.update();
-                Ok(())
-            }));
-        row_items
-            .set_next_item(Button::init("200%".into()))?
-            .on_triggered(callbacks.create(move |w, _e| {
-                w.image_scale = 2.0;
-                w.base.update();
-                Ok(())
-            }));
-        row_items
-            .set_next_item(Button::init("400%".into()))?
-            .on_triggered(callbacks.create(move |w, _e| {
-                w.image_scale = 4.0;
-                w.base.update();
-                Ok(())
-            }));
-        row_items
-            .set_next_item(Button::init("800%".into()))?
-            .on_triggered(callbacks.create(move |w, _e| {
-                w.image_scale = 8.0;
-                w.base.update();
-                Ok(())
-            }));
+        for scale in [1., 2., 4., 8.] {
+            let star = if self.image_scale == scale { "* " } else { "" };
+            row_items
+                .set_next_item(Button::init(format!("{}{}%", star, scale * 100.)))?
+                .on_triggered(callbacks.create(move |w, _e| {
+                    w.image_scale = scale;
+                    w.base.update();
+                    Ok(())
+                }));
+        }
+
         row_items.set_next_item(Label::init(self.coords.clone()))?;
 
         window_items
