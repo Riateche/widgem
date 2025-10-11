@@ -306,6 +306,9 @@ pub fn discover_snapshots(
             .to_str()
             .with_context(|| format!("non-unicode file name in test case dir: {:?}", entry.path()))?
             .to_string();
+        if full_name.starts_with("full_screen_") {
+            continue;
+        }
         let Some(name_without_png) = full_name.strip_suffix(".png") else {
             continue;
         };

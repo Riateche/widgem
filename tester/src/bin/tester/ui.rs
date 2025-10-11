@@ -404,6 +404,7 @@ impl Widget for TesterUi {
 
         approve_and_skip_items
             .set_next_item(Button::init("Approve".into()))?
+            .set_enabled(self.tester_logic.has_unconfirmed())
             .on_triggered(callbacks.create(move |w, _e| {
                 w.tester_logic.approve()?;
                 w.base_mut().update();
@@ -411,24 +412,27 @@ impl Widget for TesterUi {
             }));
         approve_and_skip_items
             .set_next_item(Button::init("Skip snapshot".into()))?
+            .set_enabled(
+                self.tester_logic.has_unconfirmed()
+                    && self.tester_logic.has_next_unconfirmed_snapshot(),
+            )
             .on_triggered(callbacks.create(move |w, _e| {
-                if !w.tester_logic.go_to_next_unconfirmed_snapshot() {
-                    w.base.app().exit();
-                }
+                w.tester_logic.go_to_next_unconfirmed_snapshot();
                 w.base.update();
                 Ok(())
             }));
         #[allow(clippy::collapsible_if)]
         approve_and_skip_items
             .set_next_item(Button::init("Skip test".into()))?
-            .set_enabled(self.tester_logic.has_unconfirmed())
+            .set_enabled(
+                self.tester_logic.has_unconfirmed()
+                    && self
+                        .tester_logic
+                        .has_next_unconfirmed_snapshot_in_next_tests(),
+            )
             .on_triggered(callbacks.create(move |w, _e| {
-                w.tester_logic.go_to_next_test_case();
-                if !w.tester_logic.has_unconfirmed() {
-                    if !w.tester_logic.go_to_next_unconfirmed_snapshot() {
-                        w.base.app().exit();
-                    }
-                }
+                w.tester_logic
+                    .go_to_next_unconfirmed_snapshot_in_next_tests();
                 w.base.update();
                 Ok(())
             }));

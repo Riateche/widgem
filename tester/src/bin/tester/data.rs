@@ -223,6 +223,11 @@ impl Tests {
         None
     }
 
+    pub fn next_unconfirmed_pos_in_next_tests(&self, from: Option<&Position>) -> Option<Position> {
+        let pos = self.next_test(from)?;
+        self.next_unconfirmed_pos(Some(&pos))
+    }
+
     pub fn next_test(&self, from: Option<&Position>) -> Option<Position> {
         let from_test = if let Some(from) = from {
             Bound::Excluded(&from.test)

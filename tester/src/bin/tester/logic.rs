@@ -39,9 +39,33 @@ impl TesterLogic {
         Ok(this)
     }
 
-    #[allow(clippy::collapsible_if)]
+    pub fn has_next_unconfirmed_snapshot(&self) -> bool {
+        self.tests
+            .next_unconfirmed_pos(self.position.as_ref())
+            .is_some()
+    }
+
     pub fn go_to_next_unconfirmed_snapshot(&mut self) -> bool {
         if let Some(pos) = self.tests.next_unconfirmed_pos(self.position.as_ref()) {
+            self.position = Some(pos);
+            self.adjust_mode();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn has_next_unconfirmed_snapshot_in_next_tests(&self) -> bool {
+        self.tests
+            .next_unconfirmed_pos_in_next_tests(self.position.as_ref())
+            .is_some()
+    }
+
+    pub fn go_to_next_unconfirmed_snapshot_in_next_tests(&mut self) -> bool {
+        if let Some(pos) = self
+            .tests
+            .next_unconfirmed_pos_in_next_tests(self.position.as_ref())
+        {
             self.position = Some(pos);
             self.adjust_mode();
             true
