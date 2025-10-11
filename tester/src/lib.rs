@@ -16,6 +16,7 @@ use {
         thread::sleep,
         time::{Duration, Instant, SystemTime},
     },
+    tracing::warn,
     tracing_subscriber::{filter::LevelFilter, EnvFilter},
     widgem::{App, AppBuilder},
 };
@@ -192,55 +193,95 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 .context("failed to get current executable path")?;
             let uitest_context = uitest::Context::new()?;
             let mut all_fails = Vec::new();
-            let mut num_total = 0;
-            let mut num_failed = 0;
+            let mut num_passed = 0;
             let mode = if check {
                 SnapshotMode::Check
             } else {
                 SnapshotMode::Update
             };
-            for test_name in registry.tests().map(|s| s.to_owned()).collect_vec() {
-                let matches_filter = filter
-                    .as_ref()
-                    .is_none_or(|filter| test_name.contains(filter));
-                if !matches_filter {
-                    continue;
+            let all_tests = registry.tests().map(|s| s.to_owned()).collect_vec();
+            let filtered_tests = all_tests
+                .iter()
+                .filter(|test_name| {
+                    filter
+                        .as_ref()
+                        .is_none_or(|filter| test_name.contains(filter))
+                })
+                .collect_vec();
+            if all_tests.len() == filtered_tests.len() {
+                if let Some(filter) = &filter {
+                    warn!(?filter, "supplied filter matches all tests");
                 }
+                println!("running all {} tests", all_tests.len());
+            } else {
+                println!(
+                    "running {} tests matching the filter (out of all {} tests)",
+                    filtered_tests.len(),
+                    all_tests.len(),
+                );
+            }
+            for (i, test_name) in filtered_tests.iter().copied().enumerate() {
                 uitest_context.mouse_move_global(1, 1)?;
-                println!("running test: {}", test_name);
+                let run_test_line = format!(
+                    "running test {}/{}: {} ...",
+                    i + 1,
+                    filtered_tests.len(),
+                    test_name
+                );
+                println!("{run_test_line}");
                 let mut ctx = Context::new_check(
                     uitest_context.clone(),
                     test_name.clone(),
-                    test_snapshots_dir(&snapshots_dir, &test_name),
+                    test_snapshots_dir(&snapshots_dir, test_name),
                     mode,
                     exe_path.clone(),
                 )?;
-                let fails = run_test_check_and_verify(&mut registry, &test_name, &mut ctx)
+                let fails = run_test_check_and_verify(&mut registry, test_name, &mut ctx)
                     .unwrap_or_else(|err| {
                         let fail = format!("test {:?} failed: {:?}", test_name, err);
                         println!("{fail}");
                         vec![fail]
                     });
-                num_total += 1;
                 if !fails.is_empty() {
-                    num_failed += 1;
+                    println!("{run_test_line} FAILED");
+                    all_fails.push((test_name, fails));
+                } else {
+                    num_passed += 1;
+                    println!("{run_test_line} ok");
                 }
-                all_fails.extend(fails);
-            }
-            println!("-----------");
-            println!("total tests: {}", num_total);
-            if num_failed > 0 {
-                println!("failed tests: {}", num_failed);
-            } else {
-                println!("all tests succeeded");
             }
             if !all_fails.is_empty() {
-                println!("found issues:\n");
-                for fail in all_fails {
-                    println!("{fail}");
+                println!("\nfailures:");
+                for (test_name, fails) in &all_fails {
+                    println!("\n---- {test_name} ----\n");
+                    for fail in fails {
+                        println!("{fail}");
+                    }
                 }
-                std::process::exit(1);
+
+                println!("\nfailures:");
+                for (test_name, _) in &all_fails {
+                    println!("    {test_name}");
+                }
+                println!();
             }
+
+            println!(
+                "test result: {}. {}/{} passed{}{}.",
+                if all_fails.is_empty() { "ok" } else { "ERROR" },
+                num_passed,
+                filtered_tests.len(),
+                if all_fails.is_empty() {
+                    "".to_owned()
+                } else {
+                    format!(", {} failed", all_fails.len())
+                },
+                if all_tests.len() == filtered_tests.len() {
+                    "".to_owned()
+                } else {
+                    format!(", {} filtered out", all_tests.len() - filtered_tests.len())
+                },
+            );
         }
         Args::Run {
             test_case,
