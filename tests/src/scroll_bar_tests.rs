@@ -28,48 +28,45 @@ impl RootWidget {
     }
 
     fn new(mut base: WidgetBaseOf<Self>) -> Self {
-        let on_r = base.callback(|this, _| {
-            this.axis = match this.axis {
-                Axis::X => Axis::Y,
-                Axis::Y => Axis::X,
-            };
-            this.base.update();
-            Ok(())
-        });
-        let on_1 = base.callback(|this, _| {
-            this.range = 0..=10000;
-            this.base.update();
-            Ok(())
-        });
-        let on_f = base.callback(|this, _| {
-            this.focusable = !this.focusable;
-            this.base.update();
-            Ok(())
-        });
-        let on_t = base.callback(|this, _| {
-            this.placeholder_visible = !this.placeholder_visible;
-            this.base.update();
-            Ok(())
-        });
+        let callbacks = base.callback_creator();
         base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("R").unwrap(),
             ShortcutScope::Application,
-            on_r,
+            callbacks.create(|this, _| {
+                this.axis = match this.axis {
+                    Axis::X => Axis::Y,
+                    Axis::Y => Axis::X,
+                };
+                this.base.update();
+                Ok(())
+            }),
         ));
         base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("1; numpad1").unwrap(),
             ShortcutScope::Application,
-            on_1,
+            callbacks.create(|this, _| {
+                this.range = 0..=10000;
+                this.base.update();
+                Ok(())
+            }),
         ));
         base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("f").unwrap(),
             ShortcutScope::Application,
-            on_f,
+            callbacks.create(|this, _| {
+                this.focusable = !this.focusable;
+                this.base.update();
+                Ok(())
+            }),
         ));
         base.add_shortcut(Shortcut::new(
             KeyCombinations::from_str_portable("t").unwrap(),
             ShortcutScope::Application,
-            on_t,
+            callbacks.create(|this, _| {
+                this.placeholder_visible = !this.placeholder_visible;
+                this.base.update();
+                Ok(())
+            }),
         ));
 
         RootWidget {

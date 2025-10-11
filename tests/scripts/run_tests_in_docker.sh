@@ -22,6 +22,14 @@ if [[ -z $(docker ps -q -f name=widgem_xfce) ]]; then
     ./tests/scripts/setup_docker.sh
 fi
 
+ENVS=
+if [[ -n $NO_COLOR ]]; then
+    ENVS=$(echo $ENVS --env "NO_COLOR=$NO_COLOR")
+fi
+if [[ -n $CARGO_TERM_COLOR ]]; then
+    ENVS=$(echo $ENVS --env "CARGO_TERM_COLOR=$CARGO_TERM_COLOR")
+fi
+
 if [[ -z $CI ]]; then
     # Host OS may not be compatible with Docker environment,
     # so we build test binary using widgem_builder Docker image.
@@ -32,10 +40,8 @@ if [[ -z $CI ]]; then
     fi
 
     # Build test binary in docker.
-    docker run \
+    docker run $ENVS \
         --mount "type=bind,src=$PWD,dst=/app" \
-        --env "NO_COLOR=$NO_COLOR" \
-        --env "CARGO_TERM_COLOR=$CARGO_TERM_COLOR" \
         widgem_builder \
         "command -v rustup || \
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
@@ -51,11 +57,10 @@ else
     BIN_DIR="/app/target/$BUILD_MODE"
 fi
 
+
 # Run test binaries in the widgem_xfce container.
 DOCKER_TEST_CMD=$(echo \
-    docker exec \
-        --env "NO_COLOR=$NO_COLOR" \
-        --env "CARGO_TERM_COLOR=$CARGO_TERM_COLOR" \
+    docker exec $ENVS \
         widgem_xfce "$BIN_DIR/widgem_tests"
 )
 if [[ $# -gt 0 ]]; then
