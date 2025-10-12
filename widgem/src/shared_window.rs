@@ -14,6 +14,7 @@ use {
     derivative::Derivative,
     derive_more::From,
     std::{
+        any::Any,
         cell::RefCell,
         cmp::{max, min},
         collections::HashSet,
@@ -22,7 +23,10 @@ use {
         num::NonZeroU32,
         panic::catch_unwind,
         rc::Rc,
-        sync::Mutex,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc, Mutex,
+        },
         time::{Duration, Instant},
     },
     tiny_skia::Pixmap,
@@ -97,6 +101,7 @@ pub struct SharedWindowInner {
     // Mutex provides unwind safety.
     #[derivative(Debug = "ignore")]
     pub accesskit_adapter: Option<Mutex<accesskit_winit::Adapter>>,
+    pub accesskit_adapter_received_initial_tree: bool,
     pub winit_window: Option<Rc<winit::window::Window>>,
     pub min_inner_size: Size,
     pub preferred_inner_size: Size,
@@ -193,6 +198,7 @@ impl SharedWindow {
             surface: None,
             softbuffer_context: None,
             accesskit_adapter: None,
+            accesskit_adapter_received_initial_tree: false,
             winit_window: None,
             input_method_enabled: false,
             ime_cursor_area: Rect::default(),
@@ -882,9 +888,45 @@ impl SharedWindow {
     }
 
     pub(crate) fn push_accessibility_updates(&mut self) {
+        fn format_panic_message(err: Box<dyn Any + Send + 'static>) -> String {
+            err.downcast_ref::<&'static str>()
+                .map(|s| s.to_string())
+                .or_else(|| err.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| format!("{err:?}"))
+        }
+
         let this = &mut *self.0.borrow_mut();
+
         if let Some(adapter) = this.accesskit_adapter.as_ref() {
+            // Check if accesskit adapter is active.
+            let empty_update = if this.accesskit_adapter_received_initial_tree {
+                this.accessibility_nodes.subsequent_empty_update()
+            } else {
+                this.accessibility_nodes.initial_empty_update()
+            };
+            let is_active = Arc::new(AtomicBool::new(false));
+            let is_active2 = Arc::clone(&is_active);
+            //println!("push_accessibility_updates empty {empty_update:?}");
+            let r = catch_unwind(|| {
+                adapter
+                    .lock()
+                    .expect("accesskit adapter mutex is poisoned")
+                    .update_if_active(|| {
+                        is_active2.store(true, Ordering::Relaxed);
+                        empty_update
+                    });
+            });
+            if let Err(err) = r {
+                warn!("accesskit panicked: {}", format_panic_message(err));
+                this.accesskit_adapter = None;
+                return;
+            }
+            if !is_active.load(Ordering::Relaxed) {
+                return;
+            }
+
             let update = this.accessibility_nodes.take_update();
+            //println!("push_accessibility_updates real {update:?}");
             let r = catch_unwind(|| {
                 adapter
                     .lock()
@@ -892,14 +934,11 @@ impl SharedWindow {
                     .update_if_active(|| update);
             });
             if let Err(err) = r {
-                let err_msg = err
-                    .downcast_ref::<&'static str>()
-                    .map(|s| s.to_string())
-                    .or_else(|| err.downcast_ref::<String>().cloned())
-                    .unwrap_or_else(|| format!("{err:?}"));
-                warn!("accesskit panicked: {err_msg}");
+                warn!("accesskit panicked: {}", format_panic_message(err));
                 this.accesskit_adapter = None;
+                return;
             }
+            this.accesskit_adapter_received_initial_tree = true;
         }
     }
 

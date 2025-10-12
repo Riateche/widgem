@@ -6,7 +6,7 @@ use {
         collections::{hash_map::Entry, HashMap, HashSet},
         convert::identity,
     },
-    tracing::warn,
+    tracing::{error, warn},
 };
 
 #[derive(Derivative)]
@@ -114,6 +114,28 @@ impl AccessibilityNodes {
     pub fn set_focus(&mut self, focus: Option<NodeId>) {
         // TODO: what if this node or root are not focused?
         self.focus = focus.unwrap_or(self.root);
+    }
+
+    pub fn initial_empty_update(&self) -> TreeUpdate {
+        let root_node = self.nodes.get(&self.root).cloned().unwrap_or_else(|| {
+            error!("AccessibilityNodes: missing root node");
+            Node::new(Role::Group)
+        });
+        TreeUpdate {
+            nodes: vec![(self.root, root_node)],
+            // TODO: set Tree properties?
+            tree: Some(Tree::new(self.root)),
+            focus: self.root,
+        }
+    }
+
+    pub fn subsequent_empty_update(&self) -> TreeUpdate {
+        TreeUpdate {
+            nodes: Vec::new(),
+            // TODO: set Tree properties?
+            tree: Some(Tree::new(self.root)),
+            focus: self.focus,
+        }
     }
 
     pub fn take_update(&mut self) -> TreeUpdate {
