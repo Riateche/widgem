@@ -61,7 +61,7 @@ const INDEX_GRIP_IN_PAGER: u64 = 1;
 #[impl_with]
 impl ScrollBar {
     fn new(mut base: WidgetBaseOf<Self>, axis: Axis) -> anyhow::Result<Self> {
-        base.set_supports_focus(true).set_focusable(false);
+        base.set_supports_focus(true);
         // TODO: localized name
 
         base.set_child(INDEX_DECREASE, Button::init(names::SCROLL_LEFT.into()))?

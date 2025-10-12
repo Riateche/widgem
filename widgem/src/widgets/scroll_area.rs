@@ -41,9 +41,11 @@ impl ScrollArea {
 
         // TODO: icons, localized name
         base.set_child(INDEX_SCROLL_BAR_X, ScrollBar::init(Axis::X))?
+            .set_focusable(false)
             .set_grid_cell(0, 1)
             .on_value_changed(relayout.clone());
         base.set_child(INDEX_SCROLL_BAR_Y, ScrollBar::init(Axis::Y))?
+            .set_focusable(false)
             .set_grid_cell(1, 0)
             .on_value_changed(relayout);
         base.set_child(INDEX_VIEWPORT, Viewport::init())?
