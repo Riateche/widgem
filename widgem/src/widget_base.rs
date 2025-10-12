@@ -371,7 +371,7 @@ impl WidgetBase {
 
         if let Some(window) = &common.window {
             let root_widget_id = window.root_widget_id();
-            window.remove_accessibility_node(
+            window.add_accessibility_node(
                 if common.id == root_widget_id {
                     None
                 } else if let Some(parent_id) = common.parent_id {
@@ -978,7 +978,7 @@ impl WidgetBase {
     fn remove_accessibility_node(&mut self) {
         if let Some(window) = &self.window {
             let root_widget_id = window.root_widget_id();
-            window.update_accessibility_node(
+            window.remove_accessibility_node(
                 if self.id == root_widget_id {
                     None
                 } else {

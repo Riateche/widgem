@@ -742,6 +742,52 @@ impl Widget for ScrollBar {
             .remove_class("scroll_bar_focused".into());
         Ok(())
     }
+    /*
+    fn handle_accessibility_node_request(&mut self) -> anyhow::Result<Option<accesskit::Node>> {
+        let mut node = accesskit::Node::new(Role::ScrollBar);
+        //node.set_value(self.text_widget().text().as_str());
+        node.set_numeric_value(self.value() as f64);
+        node.set_min_numeric_value(*self.value_range.start() as f64);
+        node.set_max_numeric_value(*self.value_range.end() as f64);
+        node.add_action(accesskit::Action::Focus);
+        node.add_action(accesskit::Action::Increment);
+        node.add_action(accesskit::Action::Decrement);
+        node.add_action(accesskit::Action::SetValue);
+        Ok(Some(node))
+    }
+
+    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
+        println!("ay event {event:?}");
+        match event.action {
+            accesskit::Action::Click => {}
+            accesskit::Action::Focus => {
+                self.base.set_focus(FocusReason::Mouse);
+            }
+            accesskit::Action::Blur => {}
+            accesskit::Action::Collapse => {}
+            accesskit::Action::Expand => {}
+            accesskit::Action::CustomAction => {}
+            accesskit::Action::Decrement => {}
+            accesskit::Action::Increment => {}
+            accesskit::Action::HideTooltip => {}
+            accesskit::Action::ShowTooltip => {}
+            accesskit::Action::ReplaceSelectedText => {}
+            accesskit::Action::ScrollBackward => {}
+            accesskit::Action::ScrollDown => {}
+            accesskit::Action::ScrollForward => {}
+            accesskit::Action::ScrollLeft => {}
+            accesskit::Action::ScrollRight => {}
+            accesskit::Action::ScrollUp => {}
+            accesskit::Action::ScrollIntoView => {}
+            accesskit::Action::ScrollToPoint => {}
+            accesskit::Action::SetScrollOffset => {}
+            accesskit::Action::SetTextSelection => {}
+            accesskit::Action::SetSequentialFocusNavigationStartingPoint => {}
+            accesskit::Action::SetValue => {}
+            accesskit::Action::ShowContextMenu => {}
+        }
+        Ok(())
+    }*/
 }
 
 struct Pager {

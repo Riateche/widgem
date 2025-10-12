@@ -1,8 +1,8 @@
 use {
     crate::{
         event::{
-            FocusInEvent, FocusOutEvent, InputMethodEvent, KeyboardInputEvent, LayoutEvent,
-            StyleChangeEvent,
+            AccessibilityActionEvent, FocusInEvent, FocusOutEvent, InputMethodEvent,
+            KeyboardInputEvent, LayoutEvent, StyleChangeEvent,
         },
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
@@ -215,6 +215,16 @@ impl Widget for TextInput {
         self.adjust_scroll();
 
         Ok(true)
+    }
+
+    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
+        self.text_widget_mut()
+            .handle_host_accessibility_node_request()
+    }
+
+    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
+        self.text_widget_mut()
+            .handle_host_accessibility_action(event)
     }
 }
 

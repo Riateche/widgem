@@ -30,7 +30,7 @@ use {
         RawWidgetId, Widget, WidgetBaseOf, WidgetExt,
     },
     accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
-    anyhow::Result,
+    anyhow::{bail, Context as _, Result},
     cosmic_text::{
         Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Motion,
         Shaping, Wrap,
@@ -145,7 +145,7 @@ impl TextHandler {
             base,
         };
         if let Some(window) = t.base.window() {
-            window.remove_accessibility_node(
+            window.add_accessibility_node(
                 Some(t.base.id().into()),
                 t.line_accessibility_node_id,
                 0.into(),
@@ -650,7 +650,7 @@ impl TextHandler {
         }
     }
 
-    pub fn handle_accessibility_set_selection_action(&mut self, data: TextSelection) {
+    fn handle_accessibility_set_selection_action(&mut self, data: TextSelection) {
         let text = self
             .editor
             .with_buffer(|buffer| buffer.lines[0].text().to_string());
@@ -1040,6 +1040,69 @@ impl TextHandler {
         self.request_scroll();
         Ok(())
     }
+
+    pub fn handle_host_accessibility_action(
+        &mut self,
+        event: AccessibilityActionEvent,
+    ) -> Result<()> {
+        println!("handle_host_accessibility_action {event:?}");
+        match event.action {
+            accesskit::Action::Click | accesskit::Action::Focus => {
+                let host_id = self.host_id.context("TextHandler: missing host_id")?;
+                let window = self.base.window_or_err()?;
+                // TODO: separate reason?
+                self.base
+                    .app()
+                    .set_focus(window.id(), host_id, FocusReason::Mouse);
+            }
+            accesskit::Action::SetTextSelection => {
+                let Some(ActionData::SetTextSelection(data)) = event.data else {
+                    bail!("expected SetTextSelection in data, got {:?}", event.data);
+                };
+                self.handle_accessibility_set_selection_action(data);
+                // TODO: notify parent
+                //self.adjust_scroll();
+                self.base.update();
+                self.reset_blink_timer();
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn handle_host_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
+        let mut line_node = accesskit::Node::new(Role::TextRun);
+        let line = self.accessibility_line();
+        line_node.set_text_direction(line.text_direction);
+        line_node.set_value(line.text);
+        line_node.set_character_lengths(line.character_lengths);
+        line_node.set_character_positions(line.character_positions);
+        line_node.set_character_widths(line.character_widths);
+        line_node.set_word_lengths(line.word_lengths);
+
+        if let Some(rect_in_window) = self.base.rect_in_window() {
+            line_node.set_bounds(rect_in_window.into());
+        }
+
+        let Some(window) = self.base.window() else {
+            return Ok(None);
+        };
+        window.accessibility_node_updated(self.line_accessibility_node_id, Some(line_node));
+
+        // TODO: configurable role
+        let role = if self.is_multiline {
+            Role::TextInput
+        } else {
+            Role::MultilineTextInput
+        };
+        let mut node = accesskit::Node::new(role);
+        // TODO: use label widget and `Node::set_labeled_by`
+        //node.set_label("some input");
+        node.add_action(accesskit::Action::Click);
+        node.add_action(accesskit::Action::Focus);
+        node.set_text_selection(self.selection_accessibility_info(self.line_accessibility_node_id));
+        Ok(Some(node))
+    }
 }
 
 impl Widget for TextHandler {
@@ -1141,61 +1204,6 @@ impl Widget for TextHandler {
         Ok(())
     }
 
-    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
-        match event.action {
-            accesskit::Action::Click => {
-                // TODO: separate reason?
-                self.base.set_focus(FocusReason::Mouse);
-            }
-            accesskit::Action::SetTextSelection => {
-                let Some(ActionData::SetTextSelection(data)) = event.data else {
-                    warn!("expected SetTextSelection in data, got {:?}", event.data);
-                    return Ok(());
-                };
-                self.handle_accessibility_set_selection_action(data);
-                // TODO: notify parent
-                //self.adjust_scroll();
-                self.base.update();
-                self.reset_blink_timer();
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-
-    fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
-        let mut line_node = accesskit::Node::new(Role::TextInput);
-        let line = self.accessibility_line();
-        line_node.set_text_direction(line.text_direction);
-        line_node.set_value(line.text);
-        line_node.set_character_lengths(line.character_lengths);
-        line_node.set_character_positions(line.character_positions);
-        line_node.set_character_widths(line.character_widths);
-        line_node.set_word_lengths(line.word_lengths);
-
-        if let Some(rect_in_window) = self.base.rect_in_window() {
-            line_node.set_bounds(rect_in_window.into());
-        }
-
-        let Some(window) = self.base.window() else {
-            return Ok(None);
-        };
-        window.accessibility_node_updated(self.line_accessibility_node_id, Some(line_node));
-
-        // TODO: configurable role
-        let role = if self.is_multiline {
-            Role::TextInput
-        } else {
-            Role::MultilineTextInput
-        };
-        let mut node = accesskit::Node::new(role);
-        // TODO: use label widget and `Node::set_labeled_by`
-        node.set_label("some input");
-        node.add_action(accesskit::Action::Click);
-        node.set_text_selection(self.selection_accessibility_info(self.line_accessibility_node_id));
-        Ok(Some(node))
-    }
-
     fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         Ok(SizeHint::new_fixed(self.size_x(), self.size_x()))
     }
@@ -1232,7 +1240,7 @@ fn convert_color(color: Color) -> cosmic_text::Color {
 impl Drop for TextHandler {
     fn drop(&mut self) {
         if let Some(window) = self.base.window() {
-            window.update_accessibility_node(
+            window.remove_accessibility_node(
                 Some(self.base.id().into()),
                 self.line_accessibility_node_id,
             );

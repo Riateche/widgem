@@ -2,19 +2,35 @@ use {
     crate::{child_key::ChildKey, RawWidgetId},
     accesskit::{Node, NodeId, Role, Tree, TreeUpdate},
     derivative::Derivative,
-    std::{
-        collections::{hash_map::Entry, HashMap, HashSet},
-        convert::identity,
-    },
+    std::collections::{hash_map::Entry, HashMap, HashSet},
     tracing::{error, warn},
 };
+
+#[derive(Debug)]
+enum NodeKind {
+    Real(Node),
+    Hidden,
+}
+
+impl NodeKind {
+    pub fn is_real(&self) -> bool {
+        matches!(self, Self::Real(_))
+    }
+
+    #[allow(dead_code)]
+    pub fn is_hidden(&self) -> bool {
+        matches!(self, Self::Hidden)
+    }
+}
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct AccessibilityNodes {
-    nodes: HashMap<NodeId, Node>,
+    nodes: HashMap<NodeId, NodeKind>,
     // TODO: BTreeMap? sort by visible row+column?
+    // parent node id -> [(child key, node id)]
     direct_children: HashMap<NodeId, Vec<(ChildKey, NodeId)>>,
+    // child node id -> parent node id
     direct_parents: HashMap<NodeId, NodeId>,
 
     pending_updates: HashSet<NodeId>,
@@ -25,102 +41,170 @@ pub struct AccessibilityNodes {
 impl AccessibilityNodes {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let root = new_accessibility_node_id();
-        let mut this = Self {
-            nodes: Default::default(),
+        let root_id = new_accessibility_node_id();
+        let root_node = Node::new(Role::Group);
+        Self {
+            nodes: [(root_id, NodeKind::Real(root_node))].into(),
             direct_children: Default::default(),
             direct_parents: Default::default(),
-            pending_updates: Default::default(),
-            root,
-            focus: root,
+            pending_updates: [root_id].into(),
+            root: root_id,
+            focus: root_id,
+        }
+    }
+
+    pub fn safe_focus(&self) -> NodeId {
+        let Some(data) = self.nodes.get(&self.focus) else {
+            error!("AccessibilityNodes::safe_focus: unknown node is focused");
+            return self.root;
         };
-        this.clear();
-        this
+        if data.is_real() {
+            self.focus
+        } else {
+            self.root
+        }
     }
 
     pub fn root(&self) -> NodeId {
         self.root
     }
 
-    pub fn clear(&mut self) {
-        self.nodes.clear();
-        self.pending_updates.clear();
-
-        let root_node = Node::new(Role::Group);
-        self.update(self.root, Some(root_node));
-    }
-
-    pub fn remove_node(&mut self, parent: Option<NodeId>, child: NodeId, key_in_parent: ChildKey) {
-        // TODO: stricter checks and warnings
+    pub fn add_node(&mut self, parent: Option<NodeId>, child: NodeId, key_in_parent: ChildKey) {
+        if let Some(parent) = parent {
+            if !self.nodes.contains_key(&parent) {
+                error!("AccessibilityNodes::add_node: parent does not exist");
+                return;
+            }
+        }
+        if self.nodes.contains_key(&child) {
+            error!("AccessibilityNodes::add_node: child already exists");
+            return;
+        }
+        self.nodes.insert(child, NodeKind::Hidden);
         let parent = parent.unwrap_or(self.root);
-        self.direct_parents.insert(child, parent);
+        let old_entry = self.direct_parents.insert(child, parent);
+        if old_entry.is_some() {
+            error!("AccessibilityNodes::add_node: direct_parents had conflicting entry");
+        }
         let children = self.direct_children.entry(parent).or_default();
-        let index = children
-            .binary_search_by_key(&&key_in_parent, |i| &i.0)
-            .unwrap_or_else(identity);
+        let index = match children.binary_search_by_key(&&key_in_parent, |i| &i.0) {
+            Ok(_) => {
+                error!(
+                    "AccessibilityNodes::add_node: direct_children already has a conflicting entry"
+                );
+                return;
+            }
+            Err(index) => index,
+        };
         children.insert(index, (key_in_parent, child));
         self.mark_parent_as_pending(parent);
     }
 
-    pub fn update_node(&mut self, parent: Option<NodeId>, child: NodeId) {
-        // TODO: stricter checks and warnings
-        let parent = parent.unwrap_or(self.root);
-        self.direct_parents.remove(&child);
-        if let Entry::Occupied(mut entry) = self.direct_children.entry(parent) {
-            entry.get_mut().retain(|(_, id)| *id != child);
-            if entry.get_mut().is_empty() {
-                entry.remove();
+    pub fn remove_node(&mut self, parent: Option<NodeId>, child: NodeId) {
+        if let Some(parent) = parent {
+            if !self.nodes.contains_key(&parent) {
+                error!("AccessibilityNodes::remove_node: parent does not exist");
+                return;
             }
+        }
+        if self.nodes.remove(&child).is_none() {
+            error!("AccessibilityNodes::remove_node: child doesn't exist");
+            return;
+        }
+        let parent = parent.unwrap_or(self.root);
+        if self.direct_parents.remove(&child).is_none() {
+            error!("AccessibilityNodes::remove_node: missing direct_parents entry");
+        }
+        if let Entry::Occupied(mut entry) = self.direct_children.entry(parent) {
+            if let Some(index) = entry.get_mut().iter().position(|(_, id)| *id == child) {
+                entry.get_mut().remove(index);
+                if entry.get_mut().is_empty() {
+                    entry.remove();
+                }
+            } else {
+                error!("AccessibilityNodes::remove_node: missing direct_children entry (1)");
+            }
+        } else {
+            error!("AccessibilityNodes::remove_node: missing direct_children entry (2)");
+        }
+        if self.focus == child {
+            self.focus = self.root;
         }
         self.mark_parent_as_pending(parent);
     }
 
     fn mark_parent_as_pending(&mut self, mut parent: NodeId) {
         loop {
-            if self.nodes.contains_key(&parent) {
-                self.pending_updates.insert(parent);
-                break;
-            } else if parent == self.root {
-                warn!("node not found for root");
-                break;
-            } else if let Some(next) = self.direct_parents.get(&parent) {
-                parent = *next;
-            } else {
-                warn!("parent not found for {:?}", parent);
-                break;
+            if let Some(node) = self.nodes.get(&parent) {
+                match node {
+                    NodeKind::Real(_) => {
+                        self.pending_updates.insert(parent);
+                        return;
+                    }
+                    NodeKind::Hidden => {
+                        if parent == self.root {
+                            warn!("mark_parent_as_pending: root cannot be hidden");
+                            self.pending_updates.insert(parent);
+                            return;
+                        }
+                        if let Some(next) = self.direct_parents.get(&parent) {
+                            parent = *next;
+                        } else {
+                            error!("parent not found for {:?}", parent);
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
 
-    pub fn update(&mut self, id: NodeId, node: Option<Node>) {
-        let added_or_removed;
-        if let Some(node) = node {
-            let r = self.nodes.insert(id, node);
-            added_or_removed = r.is_none();
+    pub fn update_node(&mut self, id: NodeId, data: Option<Node>) {
+        let Some(node_data) = self.nodes.get_mut(&id) else {
+            error!("AccessibilityNodes::update: unknown id");
+            return;
+        };
+        let was_real = node_data.is_real();
+        *node_data = if let Some(node) = data {
+            NodeKind::Real(node)
         } else {
-            let r = self.nodes.remove(&id);
-            added_or_removed = r.is_some();
-        }
+            NodeKind::Hidden
+        };
+        let is_real = node_data.is_real();
+
         self.pending_updates.insert(id);
-        if added_or_removed && id != self.root {
+        if was_real != is_real && id != self.root {
             if let Some(parent) = self.direct_parents.get(&id) {
                 self.mark_parent_as_pending(*parent);
             } else {
-                warn!("parent not found for {:?}", id);
+                error!("parent not found for {:?}", id);
             }
         }
     }
 
     pub fn set_focus(&mut self, focus: Option<NodeId>) {
-        // TODO: what if this node or root are not focused?
+        if let Some(focus) = focus {
+            if !self.nodes.contains_key(&focus) {
+                error!("AccessibilityNodes::set_focus: id does not exist");
+                self.focus = self.root;
+                return;
+            }
+        }
         self.focus = focus.unwrap_or(self.root);
     }
 
     pub fn initial_empty_update(&self) -> TreeUpdate {
-        let root_node = self.nodes.get(&self.root).cloned().unwrap_or_else(|| {
-            error!("AccessibilityNodes: missing root node");
-            Node::new(Role::Group)
-        });
+        let root_node = self
+            .nodes
+            .get(&self.root)
+            .and_then(|data| match data {
+                NodeKind::Real(node) => Some(node.clone()),
+                NodeKind::Hidden => None,
+            })
+            .unwrap_or_else(|| {
+                error!("AccessibilityNodes: missing root node");
+                Node::new(Role::Group)
+            });
         TreeUpdate {
             nodes: vec![(self.root, root_node)],
             // TODO: set Tree properties?
@@ -134,14 +218,15 @@ impl AccessibilityNodes {
             nodes: Vec::new(),
             // TODO: set Tree properties?
             tree: Some(Tree::new(self.root)),
-            focus: self.focus,
+            // TODO: this can fail if adapter doesn't have the focused node yet
+            focus: self.safe_focus(),
         }
     }
 
     pub fn take_update(&mut self) -> TreeUpdate {
         let mut nodes = Vec::new();
         for id in self.pending_updates.drain() {
-            if let Some(node) = self.nodes.get(&id) {
+            if let Some(NodeKind::Real(node)) = self.nodes.get(&id) {
                 let mut children = Vec::new();
                 find_children(id, &self.direct_children, &self.nodes, &mut children);
                 let mut node = node.clone();
@@ -153,7 +238,7 @@ impl AccessibilityNodes {
             nodes,
             // TODO: set Tree properties?
             tree: Some(Tree::new(self.root)),
-            focus: self.focus,
+            focus: self.safe_focus(),
         }
     }
 }
@@ -161,15 +246,19 @@ impl AccessibilityNodes {
 fn find_children(
     parent: NodeId,
     direct_children: &HashMap<NodeId, Vec<(ChildKey, NodeId)>>,
-    nodes: &HashMap<NodeId, Node>,
+    nodes: &HashMap<NodeId, NodeKind>,
     out: &mut Vec<NodeId>,
 ) {
     if let Some(children) = direct_children.get(&parent) {
-        for (_, child) in children {
-            if nodes.contains_key(child) {
-                out.push(*child);
+        for (_, child_id) in children {
+            let Some(child_data) = nodes.get(child_id) else {
+                error!("find_children: missing entry in nodes");
+                continue;
+            };
+            if child_data.is_real() {
+                out.push(*child_id);
             } else {
-                find_children(*child, direct_children, nodes, out);
+                find_children(*child_id, direct_children, nodes, out);
             }
         }
     }

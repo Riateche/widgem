@@ -5,6 +5,7 @@ use {
         widget_initializer::{self, WidgetInitializer},
         Widget, WidgetBaseOf,
     },
+    accesskit::Role,
     std::fmt::Display,
 };
 
@@ -44,4 +45,10 @@ impl Label {
 
 impl Widget for Label {
     impl_widget_base!();
+
+    fn handle_accessibility_node_request(&mut self) -> anyhow::Result<Option<accesskit::Node>> {
+        let mut node = accesskit::Node::new(Role::Label);
+        node.set_value(self.text_widget().text().as_str());
+        Ok(Some(node))
+    }
 }

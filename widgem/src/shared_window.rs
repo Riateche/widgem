@@ -442,14 +442,14 @@ impl SharedWindow {
         self.0.borrow().accessibility_nodes.root()
     }
 
-    pub(crate) fn update_accessibility_node(&self, parent: Option<NodeId>, child: NodeId) {
+    pub(crate) fn remove_accessibility_node(&self, parent: Option<NodeId>, child: NodeId) {
         self.0
             .borrow_mut()
             .accessibility_nodes
-            .update_node(parent, child);
+            .remove_node(parent, child);
     }
 
-    pub(crate) fn remove_accessibility_node(
+    pub(crate) fn add_accessibility_node(
         &self,
         parent: Option<NodeId>,
         child: NodeId,
@@ -458,11 +458,14 @@ impl SharedWindow {
         self.0
             .borrow_mut()
             .accessibility_nodes
-            .remove_node(parent, child, key_in_parent);
+            .add_node(parent, child, key_in_parent);
     }
 
     pub(crate) fn accessibility_node_updated(&self, id: NodeId, node: Option<accesskit::Node>) {
-        self.0.borrow_mut().accessibility_nodes.update(id, node);
+        self.0
+            .borrow_mut()
+            .accessibility_nodes
+            .update_node(id, node);
     }
 
     pub fn mouse_grabber_widget(&self) -> Option<RawWidgetId> {
