@@ -56,6 +56,8 @@ use {
     },
 };
 
+const CURSOR_SIZE_X: i32 = 1; // TODO: configurable, scalable
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct TextStyle {
     font_metrics: cosmic_text::Metrics,
@@ -151,6 +153,7 @@ impl Text {
         }
         t.editor.set_cursor_hidden(true);
         t.set_text(text);
+        t.adjust_size();
         t.reset_blink_timer();
         t.request_scroll();
         t
@@ -177,6 +180,7 @@ impl Text {
         if !editable {
             self.set_cursor_hidden(true);
         }
+        self.adjust_size();
         self.reset_blink_timer();
         self.request_scroll();
         self
@@ -943,6 +947,11 @@ impl Text {
         let size = self.base.app().with_font_system(|font_system| {
             self.editor.with_buffer_mut(|buffer| {
                 let new_size = unrestricted_text_size(&mut buffer.borrow_with(font_system));
+                let new_size = if self.is_editable {
+                    Size::new(max(new_size.x(), CURSOR_SIZE_X.ppx()), new_size.y())
+                } else {
+                    new_size
+                };
                 buffer.set_size(
                     font_system,
                     Some(new_size.x().to_i32() as f32),

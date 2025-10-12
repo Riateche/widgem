@@ -111,6 +111,32 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
 }
 
 #[widgem_tester::test]
+pub fn empty(ctx: &mut Context) -> anyhow::Result<()> {
+    ctx.run(|r| {
+        r.base_mut().set_child(0, RootWidget::init())?;
+        Ok(())
+    })?;
+    ctx.set_blinking_expected(true);
+    let window = ctx.wait_for_window_by_pid()?;
+    window.snapshot("window with text input - text Hello world")?;
+
+    let select_all = if cfg!(target_os = "macos") {
+        vec![Key::Meta, Key::Unicode('a')]
+    } else {
+        vec![Key::Control, Key::Unicode('a')]
+    };
+    ctx.ui().key_combination(&select_all)?;
+    ctx.set_blinking_expected(false);
+    window.snapshot("selected all")?;
+
+    ctx.ui().key(Key::Backspace)?;
+    ctx.set_blinking_expected(true);
+    window.snapshot("deleted all")?;
+
+    Ok(())
+}
+
+#[widgem_tester::test]
 pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.run(|r| {
         r.base_mut().set_child(0, RootWidget::init())?;
