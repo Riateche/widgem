@@ -12,7 +12,7 @@ use {
             css::{convert_content_url, convert_zoom, PseudoClass, StyleSelector},
             Styles,
         },
-        text_editor::Text,
+        text::TextHandler,
         timer::TimerId,
         widget_initializer::WidgetInitializer,
         widgets::Image,
@@ -57,12 +57,12 @@ impl Button {
         self.base.get_child_mut::<Image>(0).unwrap()
     }
 
-    fn text_widget(&self) -> &Text {
-        self.base.get_child::<Text>(1).unwrap()
+    fn text_widget(&self) -> &TextHandler {
+        self.base.get_child::<TextHandler>(1).unwrap()
     }
 
-    fn text_widget_mut(&mut self) -> &mut Text {
-        self.base.get_child_mut::<Text>(1).unwrap()
+    fn text_widget_mut(&mut self) -> &mut TextHandler {
+        self.base.get_child_mut::<TextHandler>(1).unwrap()
     }
 
     pub fn set_text(&mut self, text: impl Display) -> &mut Self {
@@ -188,7 +188,7 @@ impl WidgetInitializer for Initializer {
             .set_next_item(Image::init(None))?
             .set_visible(false);
         children
-            .set_next_item(Text::init(self.text, text_style))?
+            .set_next_item(TextHandler::init(self.text, text_style))?
             .set_host_id(id);
         let mut b = Button {
             style: base.compute_style(),

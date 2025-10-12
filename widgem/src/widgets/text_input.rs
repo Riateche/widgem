@@ -13,7 +13,7 @@ use {
             Styles,
         },
         system::OrWarn,
-        text_editor::Text,
+        text::TextHandler,
         types::{PhysicalPixels, Point, PpxSuffix, Rect},
         widget_initializer::{self, WidgetInitializer},
         ScrollToRectRequest, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry,
@@ -45,8 +45,9 @@ impl Widget for Viewport {
     }
 
     fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
-        let size =
-            PhysicalPixels::from_i32(self.base.get_child::<Text>(0).unwrap().line_height() as i32);
+        let size = PhysicalPixels::from_i32(
+            self.base.get_child::<TextHandler>(0).unwrap().line_height() as i32,
+        );
         Ok(SizeHint::new_fixed(size, size))
     }
 }
@@ -68,7 +69,7 @@ impl TextInput {
         viewport.base_mut().set_layout(Layout::ExplicitGrid);
         let editor = viewport
             .base_mut()
-            .set_child(0, Text::init(String::new(), text_style))?
+            .set_child(0, TextHandler::init(String::new(), text_style))?
             .set_multiline(false)
             .set_editable(true)
             .set_host_id(host_id.into());
@@ -84,21 +85,21 @@ impl TextInput {
         widget_initializer::from_fallible_new(Self::new)
     }
 
-    fn text_widget(&self) -> &Text {
+    fn text_widget(&self) -> &TextHandler {
         self.base
             .get_dyn_child(0)
             .unwrap()
             .base()
-            .get_child::<Text>(0)
+            .get_child::<TextHandler>(0)
             .unwrap()
     }
 
-    fn text_widget_mut(&mut self) -> &mut Text {
+    fn text_widget_mut(&mut self) -> &mut TextHandler {
         self.base
             .get_dyn_child_mut(0)
             .unwrap()
             .base_mut()
-            .get_child_mut::<Text>(0)
+            .get_child_mut::<TextHandler>(0)
             .unwrap()
     }
 

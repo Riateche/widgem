@@ -1,6 +1,7 @@
 pub mod action;
 pub mod edit;
 pub mod editor;
+pub mod text_handler;
 
 use {
     cosmic_text::{Attrs, AttrsOwned, Buffer, BufferLine},
@@ -8,6 +9,8 @@ use {
     itertools::Itertools,
     std::{borrow::Cow, ops::Range},
 };
+
+pub use self::text_handler::{TextHandler, TextStyle};
 
 pub fn text_without_preedit(buffer: &Buffer) -> String {
     buffer

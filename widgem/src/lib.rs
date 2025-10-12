@@ -21,7 +21,6 @@ pub mod shortcut;
 pub mod style;
 pub mod system;
 mod text;
-pub mod text_editor;
 pub mod timer;
 pub mod types;
 mod widget_base;

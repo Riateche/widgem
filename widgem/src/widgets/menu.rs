@@ -14,7 +14,7 @@ use {
         shared_window::X11WindowType,
         style::css::PseudoClass,
         system::OrWarn,
-        text_editor::{Text, TextStyle},
+        text::{TextHandler, TextStyle},
         types::{PhysicalPixels, Point},
         widget_initializer::{self, WidgetInitializer},
         widgets::{Column, ScrollArea},
@@ -431,7 +431,7 @@ impl Widget for MenuAction {
         let text_style = self.base.compute_style::<TextStyle>();
         self.base
             .children_mut()
-            .set_next_item(Text::init(self.text.clone(), text_style))?
+            .set_next_item(TextHandler::init(self.text.clone(), text_style))?
             .set_multiline(false);
         Ok(())
     }

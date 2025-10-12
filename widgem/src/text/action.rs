@@ -14,15 +14,13 @@ pub enum Motion {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
     /// Move the cursor with some motion
-    Motion {
-        motion: Motion,
-        select: bool,
-    },
+    Motion { motion: Motion, select: bool },
     /// Clear selection
     ClearSelection,
     /// Select text from start to end
     SelectAll,
     /// Insert character at cursor
+    #[allow(dead_code)]
     Insert(char),
     /// Create new line
     Enter,
@@ -35,34 +33,22 @@ pub enum Action {
     /// Delete text in front of cursor to next word boundary
     DeleteEndOfWord,
     // Indent text (typically Tab)
+    #[allow(dead_code)]
     Indent,
     // Unindent text (typically Shift+Tab)
+    #[allow(dead_code)]
     Unindent,
     /// Mouse click at specified position
-    Click {
-        x: i32,
-        y: i32,
-        select: bool,
-    },
+    Click { x: i32, y: i32, select: bool },
     /// Mouse double click at specified position
-    DoubleClick {
-        x: i32,
-        y: i32,
-    },
+    DoubleClick { x: i32, y: i32 },
     /// Mouse triple click at specified position
-    TripleClick {
-        x: i32,
-        y: i32,
-    },
+    TripleClick { x: i32, y: i32 },
     /// Mouse drag to specified position
-    Drag {
-        x: i32,
-        y: i32,
-    },
+    Drag { x: i32, y: i32 },
     /// Scroll specified number of lines
-    Scroll {
-        lines: i32,
-    },
+    #[allow(dead_code)]
+    Scroll { lines: i32 },
     /// Set preedit text, replacing any previous preedit text
     ///
     /// If `cursor` is specified, it contains a start and end cursor byte positions

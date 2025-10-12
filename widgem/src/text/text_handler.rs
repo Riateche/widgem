@@ -90,7 +90,7 @@ impl ComputedElementStyle for TextStyle {
     }
 }
 
-pub struct Text {
+pub struct TextHandler {
     base: WidgetBaseOf<Self>,
     style: Rc<TextStyle>,
     editor: Editor<'static>,
@@ -123,12 +123,12 @@ pub struct AccessibilityLine {
 }
 
 #[impl_with]
-impl Text {
+impl TextHandler {
     fn new(base: WidgetBaseOf<Self>, text: String, style: Rc<TextStyle>) -> Self {
         let editor = base.app().with_font_system(|font_system| {
             Editor::new(Buffer::new(font_system, style.font_metrics))
         });
-        let mut t = Text {
+        let mut t = TextHandler {
             editor,
             pixmap: None,
             style,
@@ -1042,7 +1042,7 @@ impl Text {
     }
 }
 
-impl Widget for Text {
+impl Widget for TextHandler {
     impl_widget_base!();
 
     fn handle_window_focus_change(&mut self, event: WindowFocusChangeEvent) -> Result<()> {
@@ -1229,7 +1229,7 @@ fn convert_color(color: Color) -> cosmic_text::Color {
     cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
 }
 
-impl Drop for Text {
+impl Drop for TextHandler {
     fn drop(&mut self) {
         if let Some(window) = self.base.window() {
             window.update_accessibility_node(

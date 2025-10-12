@@ -1,7 +1,7 @@
 use {
     crate::{
         impl_widget_base,
-        text_editor::Text,
+        text::TextHandler,
         widget_initializer::{self, WidgetInitializer},
         Widget, WidgetBaseOf,
     },
@@ -16,7 +16,7 @@ impl Label {
     fn new(mut base: WidgetBaseOf<Self>, text: String) -> anyhow::Result<Self> {
         let id = base.id().raw();
         let text_style = base.compute_style();
-        base.set_child(0, Text::init(text, text_style))?
+        base.set_child(0, TextHandler::init(text, text_style))?
             .set_host_id(id);
         Ok(Label { base })
     }
@@ -26,12 +26,12 @@ impl Label {
     }
 
     #[allow(dead_code)]
-    fn text_widget(&self) -> &Text {
-        self.base.get_child::<Text>(0).unwrap()
+    fn text_widget(&self) -> &TextHandler {
+        self.base.get_child::<TextHandler>(0).unwrap()
     }
 
-    fn text_widget_mut(&mut self) -> &mut Text {
-        self.base.get_child_mut::<Text>(0).unwrap()
+    fn text_widget_mut(&mut self) -> &mut TextHandler {
+        self.base.get_child_mut::<TextHandler>(0).unwrap()
     }
 
     pub fn set_text(&mut self, text: impl Display) -> &mut Self {
