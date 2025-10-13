@@ -1,12 +1,14 @@
 use {
     crate::{
+        event::{FocusReason, MouseInputEvent},
         impl_widget_base,
         text::TextHandler,
         widget_initializer::{self, WidgetInitializer},
-        Widget, WidgetBaseOf,
+        RawWidgetId, Widget, WidgetBaseOf,
     },
     accesskit::Role,
     std::fmt::Display,
+    winit::event::{ElementState, MouseButton},
 };
 
 pub struct Label {
@@ -41,6 +43,29 @@ impl Label {
         self.base.update();
         self
     }
+
+    pub fn set_target(&mut self, target_id: RawWidgetId) -> &mut Self {
+        let Some(window) = self.base.window() else {
+            return self;
+        };
+        let id = self.base.id().raw();
+        if let Some(old_target_id) = window.label_to_target(id) {
+            if old_target_id != target_id {
+                window.remove_label_link(id, old_target_id);
+                window.add_label_link(id, target_id);
+                self.base.update(); // TODO: update other widget?
+            }
+        } else {
+            window.add_label_link(id, target_id);
+            self.base.update();
+        }
+        self
+    }
+
+    pub fn target(&self) -> Option<RawWidgetId> {
+        let id = self.base.id().raw();
+        self.base.window()?.label_to_target(id)
+    }
 }
 
 impl Widget for Label {
@@ -49,6 +74,34 @@ impl Widget for Label {
     fn handle_accessibility_node_request(&mut self) -> anyhow::Result<Option<accesskit::Node>> {
         let mut node = accesskit::Node::new(Role::Label);
         node.set_value(self.text_widget().text().as_str());
+        if self.target().is_some() {
+            node.set_hidden();
+        }
         Ok(Some(node))
+    }
+
+    fn handle_mouse_input(&mut self, event: MouseInputEvent) -> anyhow::Result<bool> {
+        if event.button == MouseButton::Left && event.state == ElementState::Pressed {
+            let window = self.base.window_or_err()?;
+            let id = self.base.id().raw();
+            if let Some(target_id) = window.label_to_target(id) {
+                self.base
+                    .app()
+                    .set_focus(window.id(), target_id, FocusReason::Mouse);
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+}
+
+impl Drop for Label {
+    fn drop(&mut self) {
+        if let Some(window) = self.base.window() {
+            let id = self.base.id().raw();
+            if let Some(old_target_id) = window.label_to_target(id) {
+                window.remove_label_link(id, old_target_id);
+            }
+        }
     }
 }

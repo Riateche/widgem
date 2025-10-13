@@ -6,7 +6,7 @@ use {
         style::css::PseudoClass,
         system::{LayoutState, OrWarn},
         types::PhysicalPixels,
-        ScrollToRectRequest, Widget, WidgetGeometry, WidgetId,
+        RawWidgetId, ScrollToRectRequest, Widget, WidgetGeometry, WidgetId,
     },
     anyhow::Result,
     std::borrow::Cow,
@@ -37,6 +37,11 @@ pub trait WidgetExt: Widget {
 
     fn set_style(&mut self, style: &str) -> &mut Self {
         self.base_mut().set_style(style);
+        self
+    }
+
+    fn set_labelled_by(&mut self, label_id: RawWidgetId) -> &mut Self {
+        self.base_mut().set_labelled_by(label_id);
         self
     }
 
@@ -266,6 +271,9 @@ pub trait WidgetExt: Widget {
             }
             if !self.base().is_enabled() {
                 node.set_disabled();
+            }
+            if let Some(label_id) = self.base().labelled_by() {
+                node.set_labelled_by(vec![label_id.into()]);
             }
             node
         });

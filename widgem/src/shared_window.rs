@@ -17,7 +17,7 @@ use {
         any::Any,
         cell::RefCell,
         cmp::{max, min},
-        collections::HashSet,
+        collections::{HashMap, HashSet},
         fmt::Display,
         mem,
         num::NonZeroU32,
@@ -126,6 +126,9 @@ pub struct SharedWindowInner {
 
     pub attributes: Attributes,
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
+
+    pub target_to_label: HashMap<RawWidgetId, RawWidgetId>,
+    pub label_to_target: HashMap<RawWidgetId, RawWidgetId>,
 }
 
 #[derive(Debug, Clone)]
@@ -220,6 +223,8 @@ impl SharedWindow {
             preferred_inner_size: Size::default(),
             attributes: Attributes::default(),
             event_loop_proxy: app.event_loop_proxy(),
+            label_to_target: HashMap::new(),
+            target_to_label: HashMap::new(),
         })))
     }
 
@@ -1157,6 +1162,44 @@ impl SharedWindow {
             }
             this.attributes.skip_windows_taskbar = Some(value);
         }
+    }
+
+    pub fn add_label_link(&self, label: RawWidgetId, target: RawWidgetId) {
+        let this = &mut *self.0.borrow_mut();
+        if this.label_to_target.contains_key(&label) {
+            warn!(?label, ?target, "label_to_target entry already exists");
+            return;
+        }
+        if this.target_to_label.contains_key(&target) {
+            warn!(?label, ?target, "target_to_label entry already exists");
+            return;
+        }
+        this.label_to_target.insert(label, target);
+        this.target_to_label.insert(target, label);
+    }
+
+    pub fn remove_label_link(&self, label: RawWidgetId, target: RawWidgetId) {
+        let this = &mut *self.0.borrow_mut();
+        if this.label_to_target.get(&label) != Some(&target) {
+            warn!(?label, ?target, "label_to_target entry mismatch");
+            return;
+        }
+        if this.target_to_label.get(&target) != Some(&label) {
+            warn!(?label, ?target, "target_to_label entry mismatch");
+            return;
+        }
+        this.label_to_target.remove(&label);
+        this.target_to_label.remove(&target);
+    }
+
+    pub fn label_to_target(&self, label: RawWidgetId) -> Option<RawWidgetId> {
+        let this = self.0.borrow();
+        this.label_to_target.get(&label).copied()
+    }
+
+    pub fn target_to_label(&self, target: RawWidgetId) -> Option<RawWidgetId> {
+        let this = self.0.borrow();
+        this.target_to_label.get(&target).copied()
     }
 }
 

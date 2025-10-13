@@ -17,12 +17,14 @@ fn main(ctx: &mut Context) -> anyhow::Result<()> {
             .contents_mut();
 
         let mut current_cell_y = 0;
-        contents
-            .set_next_item(Label::init("Text input label:".into()))?
-            .set_grid_cell(0, current_cell_y);
+        let user_name_label_id = contents
+            .set_next_item(Label::init("User name:".into()))?
+            .set_grid_cell(0, current_cell_y)
+            .id();
         contents
             .set_next_item(TextInput::init())?
-            .set_grid_cell(1, current_cell_y);
+            .set_grid_cell(1, current_cell_y)
+            .set_labelled_by(user_name_label_id.raw());
 
         current_cell_y += 1;
         contents

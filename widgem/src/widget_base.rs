@@ -261,6 +261,14 @@ impl Drop for WidgetBase {
     fn drop(&mut self) {
         // Drop and unmount children before unmounting self.
         self.children.clear();
+
+        if let Some(window) = self.window() {
+            let id = self.id();
+            if let Some(old_label_id) = window.target_to_label(id) {
+                window.remove_label_link(old_label_id, id);
+            }
+        }
+
         self.remove_accessibility_node();
         self.app.unregister_address(self.id);
         for shortcut in self.shortcuts.values() {
@@ -1050,6 +1058,28 @@ impl WidgetBase {
     pub fn set_cursor_icon(&mut self, cursor_icon: CursorIcon) -> &mut Self {
         self.cursor_icon = cursor_icon;
         self
+    }
+
+    pub fn set_labelled_by(&mut self, label_id: RawWidgetId) -> &mut Self {
+        let Some(window) = &self.window else {
+            return self;
+        };
+        let id = self.id();
+        if let Some(old_label_id) = window.target_to_label(id) {
+            if old_label_id != label_id {
+                window.remove_label_link(old_label_id, id);
+                window.add_label_link(label_id, id);
+                self.update(); // TODO: update other widget?
+            }
+        } else {
+            window.add_label_link(label_id, id);
+            self.update();
+        }
+        self
+    }
+
+    pub fn labelled_by(&self) -> Option<RawWidgetId> {
+        self.window()?.target_to_label(self.id())
     }
 }
 
