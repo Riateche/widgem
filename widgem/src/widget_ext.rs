@@ -62,13 +62,13 @@ pub trait WidgetExt: Widget {
                 | Event::MouseLeave(_)
                 | Event::KeyboardInput(_)
                 | Event::InputMethod(_)
+                | Event::AccessibilityAction(_)
                 | Event::Activate(_) => false,
                 Event::Draw(_)
                 | Event::Layout(_)
                 | Event::FocusIn(_)
                 | Event::FocusOut(_)
                 | Event::WindowFocusChange(_)
-                | Event::AccessibilityAction(_)
                 | Event::StyleChange(_) => true,
             }
         };
@@ -257,6 +257,15 @@ pub trait WidgetExt: Widget {
         let node = node.map(|mut node| {
             if let Some(rect) = rect {
                 node.set_bounds(rect.into());
+            }
+            if self.base().is_focusable() {
+                node.add_action(accesskit::Action::Focus);
+            }
+            if !self.base().is_visible() {
+                node.set_hidden();
+            }
+            if !self.base().is_enabled() {
+                node.set_disabled();
             }
             node
         });

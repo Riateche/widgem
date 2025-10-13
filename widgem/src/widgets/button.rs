@@ -272,22 +272,18 @@ impl Widget for Button {
         Ok(false)
     }
 
-    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
-        match event.action {
-            Action::Click => self.trigger(),
-            Action::Focus => {
-                self.base.set_focus(FocusReason::Mouse);
-            }
-            _ => {}
+    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<bool> {
+        if let Action::Click = event.action {
+            self.trigger();
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 
     fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
         let mut node = accesskit::Node::new(Role::Button);
         node.set_label(self.text_widget().text().as_str());
         node.add_action(Action::Click);
-        node.add_action(Action::Focus);
         Ok(Some(node))
     }
 

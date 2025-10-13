@@ -222,7 +222,7 @@ impl Widget for TextInput {
             .handle_host_accessibility_node_request()
     }
 
-    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
+    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<bool> {
         self.text_widget_mut()
             .handle_host_accessibility_action(event)
     }

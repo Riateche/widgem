@@ -249,6 +249,7 @@ impl LayoutEvent {
 pub enum FocusReason {
     Mouse,
     Tab,
+    Accessibility,
     /// A widget was automatically focused because there was no focused widget previously.
     Auto,
 }

@@ -501,10 +501,17 @@ impl WidgetBase {
                     self.base_style.background.as_ref(),
                 );
             }
+            Event::AccessibilityAction(event) => {
+                if let accesskit::Action::Focus = event.action {
+                    if self.is_focusable() {
+                        self.set_focus(FocusReason::Accessibility);
+                        return true;
+                    }
+                }
+            }
             Event::KeyboardInput(_)
             | Event::InputMethod(_)
             | Event::Layout(_)
-            | Event::AccessibilityAction(_)
             | Event::Activate(_) => {}
         }
 
@@ -1087,6 +1094,10 @@ impl WidgetBase {
             warn!("set_focus: no window");
             return;
         };
+        if !self.is_focusable() {
+            warn!("set_focus: widget is not focusable");
+            return;
+        }
         self.app.set_focus(window.id(), self.id, reason);
     }
 }

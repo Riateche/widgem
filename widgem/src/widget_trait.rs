@@ -14,7 +14,6 @@ use {
     },
     anyhow::Result,
     std::any::Any,
-    tracing::warn,
 };
 
 pub trait Widget: Any {
@@ -342,10 +341,9 @@ pub trait Widget: Any {
     /// You don't need to implement this function if your widget is non-interactive. You also don't need to implement it
     /// if you're only composing or wrapping existing widgets and your widget only relies on the
     /// interactivity provided by those widgets.
-    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<()> {
-        warn!("unhandled event: {event:?}");
+    fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<bool> {
         let _ = event;
-        Ok(())
+        Ok(false)
     }
 
     // TODO: update doc when setter for custom css is added
@@ -391,7 +389,7 @@ pub trait Widget: Any {
             Event::FocusIn(e) => self.handle_focus_in(e).map(|()| true),
             Event::FocusOut(e) => self.handle_focus_out(e).map(|()| true),
             Event::WindowFocusChange(e) => self.handle_window_focus_change(e).map(|()| true),
-            Event::AccessibilityAction(e) => self.handle_accessibility_action(e).map(|()| true),
+            Event::AccessibilityAction(e) => self.handle_accessibility_action(e),
             Event::StyleChange(e) => self.handle_style_change(e).map(|()| true),
             Event::Activate(e) => self.handle_activate(e).map(|()| true),
         }

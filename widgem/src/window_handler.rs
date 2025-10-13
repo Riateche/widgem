@@ -517,13 +517,16 @@ impl<'a> WindowHandler<'a> {
             return;
         }
         if let Ok(widget) = get_widget_by_id_mut(self.root_widget, request.target.into()) {
-            widget.dispatch(
+            let accepted = widget.dispatch(
                 AccessibilityActionEvent {
                     action: request.action,
-                    data: request.data,
+                    data: request.data.clone(),
                 }
                 .into(),
             );
+            if !accepted {
+                warn!(?request, "accessibility action event wasn't accepted");
+            }
         } else {
             warn!("cannot dispatch accessibility request (no such widget): {request:?}");
         }

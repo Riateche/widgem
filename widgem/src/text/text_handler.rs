@@ -1044,16 +1044,16 @@ impl TextHandler {
     pub fn handle_host_accessibility_action(
         &mut self,
         event: AccessibilityActionEvent,
-    ) -> Result<()> {
-        println!("handle_host_accessibility_action {event:?}");
+    ) -> Result<bool> {
         match event.action {
-            accesskit::Action::Click | accesskit::Action::Focus => {
+            accesskit::Action::Click => {
                 let host_id = self.host_id.context("TextHandler: missing host_id")?;
                 let window = self.base.window_or_err()?;
                 // TODO: separate reason?
                 self.base
                     .app()
                     .set_focus(window.id(), host_id, FocusReason::Mouse);
+                Ok(true)
             }
             accesskit::Action::SetTextSelection => {
                 let Some(ActionData::SetTextSelection(data)) = event.data else {
@@ -1064,10 +1064,10 @@ impl TextHandler {
                 //self.adjust_scroll();
                 self.base.update();
                 self.reset_blink_timer();
+                Ok(true)
             }
-            _ => {}
+            _ => Ok(false),
         }
-        Ok(())
     }
 
     pub fn handle_host_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
@@ -1098,8 +1098,11 @@ impl TextHandler {
         let mut node = accesskit::Node::new(role);
         // TODO: use label widget and `Node::set_labeled_by`
         //node.set_label("some input");
+        node.set_value(self.text());
+        if !self.is_editable {
+            node.set_read_only();
+        }
         node.add_action(accesskit::Action::Click);
-        node.add_action(accesskit::Action::Focus);
         node.set_text_selection(self.selection_accessibility_info(self.line_accessibility_node_id));
         Ok(Some(node))
     }
