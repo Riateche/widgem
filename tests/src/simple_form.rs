@@ -99,10 +99,9 @@ mod windows {
             .context("failed to find window by pid")?;
 
         ensure!(uia_window.get_name()? == "widgem_tests::simple_form");
-        println!(
-            "window get_bounding_rectangle {:?}",
-            uia_window.get_bounding_rectangle()?
-        );
+        let window_rect = uia_window.get_bounding_rectangle()?;
+        ensure!(window_rect.get_width() == 270);
+        ensure!(window_rect.get_height() == 191);
         let walker = automation.get_control_view_walker()?;
         let title_bar = walker.get_first_child(&uia_window)?;
         ensure!(title_bar.get_control_type()? == ControlType::TitleBar);
@@ -176,7 +175,7 @@ mod windows {
         );
 
         if level < 1 {
-            if let Ok(child) = walker.get_first_child(&element) {
+            if let Ok(child) = walker.get_first_child(element) {
                 print_element(walker, &child, level + 1)?;
 
                 let mut next = child;
