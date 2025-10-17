@@ -25,12 +25,14 @@ fn init_form(root: &mut RootWidget) -> anyhow::Result<()> {
         .set_labelled_by(user_name_label_id.raw());
 
     current_cell_y += 1;
-    contents
+    let scroll_bar_label_id = contents
         .set_next_item(Label::init("Scroll bar label:".into()))?
-        .set_grid_cell(0, current_cell_y);
+        .set_grid_cell(0, current_cell_y)
+        .id();
     contents
         .set_next_item(ScrollBar::init(Axis::X))?
-        .set_grid_cell(1, current_cell_y);
+        .set_grid_cell(1, current_cell_y)
+        .set_labelled_by(scroll_bar_label_id.raw());
 
     current_cell_y += 1;
     contents
@@ -38,9 +40,14 @@ fn init_form(root: &mut RootWidget) -> anyhow::Result<()> {
         .set_grid_cell(1, current_cell_y);
 
     current_cell_y += 1;
-    contents
+    let submit = contents
         .set_next_item(Button::init("Submit".into()))?
         .set_grid_cell(1, current_cell_y);
+    let on_submit_triggered = submit.callback(|this, ()| {
+        this.set_text("OK!");
+        Ok(())
+    });
+    submit.on_triggered(on_submit_triggered);
 
     Ok(())
 }
@@ -111,19 +118,40 @@ mod windows {
                 .try_into_type::<bool>()?
                 == true
         );
+        let user_name_rect = user_name.get_bounding_rectangle()?;
+        ensure!(user_name_rect.get_width() == 131);
+        ensure!(user_name_rect.get_height() == 27);
 
         user_name_value.set_value("Hello")?;
         window.snapshot("input hello")?;
         ensure!(user_name_value.get_value()? == "Hello");
 
-        let element1 = walker.get_next_sibling(&user_name)?;
-        println!("element1 {:?}", element1);
-        println!("get_name {:?}", element1.get_name()?);
-        println!("get_classname {:?}", element1.get_classname()?);
-        println!(
-            "get_bounding_rectangle {:?}",
-            element1.get_bounding_rectangle()?
-        );
+        let multiline_label = walker.get_next_sibling(&user_name)?;
+        ensure!(multiline_label.get_control_type()? == ControlType::Text);
+        ensure!(multiline_label.get_name()? == "Multiline label\nSecond line");
+        let multiline_label_rect = multiline_label.get_bounding_rectangle()?;
+        ensure!(multiline_label_rect.get_width() == 88);
+        ensure!(multiline_label_rect.get_height() == 37);
+        ensure!(multiline_label_rect.get_left() - user_name_rect.get_left() == 0);
+        ensure!(multiline_label_rect.get_top() - user_name_rect.get_top() == 58);
+
+        let submit_button = walker.get_next_sibling(&multiline_label)?;
+        ensure!(submit_button.get_control_type()? == ControlType::Button);
+        ensure!(submit_button.get_name()? == "Submit");
+        let submit_button_rect = submit_button.get_bounding_rectangle()?;
+        ensure!(submit_button_rect.get_width() == 55);
+        ensure!(submit_button_rect.get_height() == 29);
+        ensure!(submit_button_rect.get_left() - user_name_rect.get_left() == 0);
+        ensure!(submit_button_rect.get_top() - user_name_rect.get_top() == 101);
+
+        submit_button.set_focus()?;
+        ctx.set_blinking_expected(false);
+        window.snapshot("focused submit button")?;
+
+        submit_button.click()?;
+        window.snapshot("clicked submit button")?;
+
+        ensure!(walker.get_next_sibling(&submit_button).is_err());
 
         uia_window.get_pattern::<UIWindowPattern>()?.close()?;
         // print_element(&walker, &root, 0)?;

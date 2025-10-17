@@ -2,7 +2,8 @@ use {
     crate::{
         callback::{Callback, Callbacks},
         event::{
-            Event, FocusInEvent, FocusOutEvent, KeyboardInputEvent, LayoutEvent, MouseScrollEvent,
+            Event, FocusInEvent, FocusOutEvent, FocusReason, KeyboardInputEvent, LayoutEvent,
+            MouseScrollEvent,
         },
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
@@ -153,6 +154,7 @@ impl ScrollBar {
             });
 
         let decrease_callback = this.callback(|this, _| {
+            this.base.set_focus(FocusReason::Mouse);
             this.decrease_internal(false);
             Ok(())
         });
@@ -162,6 +164,7 @@ impl ScrollBar {
             .on_triggered(decrease_callback);
 
         let increase_callback = this.callback(|this, _| {
+            this.base.set_focus(FocusReason::Mouse);
             this.increase_internal(false);
             Ok(())
         });
@@ -302,6 +305,7 @@ impl ScrollBar {
     }
 
     fn slider_pressed(&mut self, (pos_in_window, state): (Point, ElementState)) -> Result<()> {
+        self.base.set_focus(FocusReason::Mouse);
         match state {
             ElementState::Pressed => {
                 self.slider_grab_pos = Some((pos_in_window, self.current_grip_pos));
@@ -351,6 +355,7 @@ impl ScrollBar {
     }
 
     fn pager_pressed(&mut self, pos_in_window: Point) -> Result<()> {
+        self.base.set_focus(FocusReason::Mouse);
         let Some(grip_rect_in_window) = self
             .base
             .get_dyn_child(INDEX_PAGER)

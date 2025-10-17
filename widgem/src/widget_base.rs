@@ -1120,14 +1120,16 @@ impl WidgetBase {
     }
 
     pub fn set_focus(&self, reason: FocusReason) {
+        if self.is_focused() {
+            return;
+        }
+        if !self.is_focusable() {
+            return;
+        }
         let Some(window) = &self.window else {
             warn!("set_focus: no window");
             return;
         };
-        if !self.is_focusable() {
-            warn!("set_focus: widget is not focusable");
-            return;
-        }
         self.app.set_focus(window.id(), self.id, reason);
     }
 }
