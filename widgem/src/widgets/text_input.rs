@@ -1,7 +1,7 @@
 use {
     crate::{
         event::{
-            AccessibilityActionEvent, FocusInEvent, FocusOutEvent, InputMethodEvent,
+            AccessibilityActionEvent, FocusInEvent, FocusOutEvent, FocusReason, InputMethodEvent,
             KeyboardInputEvent, LayoutEvent, StyleChangeEvent,
         },
         impl_widget_base,
@@ -18,7 +18,8 @@ use {
         widget_initializer::{self, WidgetInitializer},
         ScrollToRectRequest, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry,
     },
-    anyhow::Result,
+    accesskit::ActionData,
+    anyhow::{bail, Result},
     std::{cmp::max, fmt::Display, rc::Rc},
     tracing::warn,
     winit::window::CursorIcon,
@@ -223,8 +224,36 @@ impl Widget for TextInput {
     }
 
     fn handle_accessibility_action(&mut self, event: AccessibilityActionEvent) -> Result<bool> {
-        self.text_widget_mut()
-            .handle_host_accessibility_action(event)
+        match event.action {
+            accesskit::Action::Click => {
+                self.base.set_focus(FocusReason::Mouse);
+                Ok(true)
+            }
+            accesskit::Action::SetValue => {
+                let value: String = match event.data {
+                    Some(ActionData::Value(value)) => value.into(),
+                    Some(ActionData::NumericValue(value)) => value.to_string(),
+                    _ => bail!(
+                        "expected Value or NumericValue in data, got {:?}",
+                        event.data
+                    ),
+                };
+                self.set_text(value);
+                Ok(true)
+            }
+            accesskit::Action::SetTextSelection => {
+                let Some(ActionData::SetTextSelection(data)) = event.data else {
+                    bail!("expected SetTextSelection in data, got {:?}", event.data);
+                };
+                self.text_widget_mut()
+                    .handle_accessibility_set_selection_action(data);
+                // TODO: notify parent
+                //self.adjust_scroll();
+
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
     }
 }
 

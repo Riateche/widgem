@@ -3,8 +3,8 @@ use {
         accessibility::new_accessibility_node_id,
         draw::DrawEvent,
         event::{
-            AccessibilityActionEvent, FocusReason, InputMethodEvent, KeyboardInputEvent,
-            MouseInputEvent, MouseMoveEvent, WindowFocusChangeEvent,
+            FocusReason, InputMethodEvent, KeyboardInputEvent, MouseInputEvent, MouseMoveEvent,
+            WindowFocusChangeEvent,
         },
         impl_widget_base,
         layout::SizeHint,
@@ -29,8 +29,8 @@ use {
         widget_initializer::{self, WidgetInitializer},
         RawWidgetId, Widget, WidgetBaseOf, WidgetExt,
     },
-    accesskit::{ActionData, NodeId, Role, TextDirection, TextPosition, TextSelection},
-    anyhow::{bail, Context as _, Result},
+    accesskit::{NodeId, Role, TextDirection, TextPosition, TextSelection},
+    anyhow::Result,
     cosmic_text::{
         Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Motion,
         Shaping, Wrap,
@@ -650,7 +650,7 @@ impl TextHandler {
         }
     }
 
-    fn handle_accessibility_set_selection_action(&mut self, data: TextSelection) {
+    pub fn handle_accessibility_set_selection_action(&mut self, data: TextSelection) {
         let text = self
             .editor
             .with_buffer(|buffer| buffer.lines[0].text().to_string());
@@ -678,6 +678,8 @@ impl TextHandler {
             index,
             affinity: Affinity::Before,
         });
+        self.base.update();
+        self.reset_blink_timer();
     }
 
     fn selection_accessibility_info(&mut self, id: NodeId) -> TextSelection {
@@ -1041,35 +1043,6 @@ impl TextHandler {
         Ok(())
     }
 
-    pub fn handle_host_accessibility_action(
-        &mut self,
-        event: AccessibilityActionEvent,
-    ) -> Result<bool> {
-        match event.action {
-            accesskit::Action::Click => {
-                let host_id = self.host_id.context("TextHandler: missing host_id")?;
-                let window = self.base.window_or_err()?;
-                // TODO: separate reason?
-                self.base
-                    .app()
-                    .set_focus(window.id(), host_id, FocusReason::Mouse);
-                Ok(true)
-            }
-            accesskit::Action::SetTextSelection => {
-                let Some(ActionData::SetTextSelection(data)) = event.data else {
-                    bail!("expected SetTextSelection in data, got {:?}", event.data);
-                };
-                self.handle_accessibility_set_selection_action(data);
-                // TODO: notify parent
-                //self.adjust_scroll();
-                self.base.update();
-                self.reset_blink_timer();
-                Ok(true)
-            }
-            _ => Ok(false),
-        }
-    }
-
     pub fn handle_host_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
         let mut line_node = accesskit::Node::new(Role::TextRun);
         let line = self.accessibility_line();
@@ -1103,6 +1076,7 @@ impl TextHandler {
             node.set_read_only();
         }
         node.add_action(accesskit::Action::Click);
+        node.add_action(accesskit::Action::SetValue);
         node.set_text_selection(self.selection_accessibility_info(self.line_accessibility_node_id));
         Ok(Some(node))
     }

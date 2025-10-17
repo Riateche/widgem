@@ -308,12 +308,16 @@ impl CheckContext {
     }
 
     pub fn wait_for_window_by_pid(&self) -> anyhow::Result<uitest::Window> {
-        let pid = self.pid.context("app has not been run yet")?;
+        let pid = self.pid.context("app has not been started yet")?;
         let mut windows = self.uitest_context.wait_for_windows_by_pid(pid, 1)?;
         if windows.len() != 1 {
             bail!("expected 1 window, got {}", windows.len());
         }
         Ok(windows.remove(0))
+    }
+
+    pub fn pid(&self) -> anyhow::Result<u32> {
+        self.pid.context("app has not been started yet")
     }
 }
 
@@ -423,6 +427,10 @@ impl Context {
             inner,
             context: self.clone(),
         })
+    }
+
+    pub fn pid(&self) -> anyhow::Result<u32> {
+        self.check(|c| c.pid())
     }
 
     pub fn ui(&self) -> uitest::Context {

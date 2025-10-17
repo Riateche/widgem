@@ -21,11 +21,14 @@ icon = [
 widgem = { workspace = true }
 widgem_tester = { workspace = true }
 uitest = { workspace = true }
-chrono = { workspace = true }
 
+chrono = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 fs-err = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
+cadd = { workspace = true }
 
+[target.'cfg(target_os="windows")'.dependencies]
+uiautomation = { workspace = true }

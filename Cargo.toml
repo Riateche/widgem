@@ -15,6 +15,7 @@ anyhow = { version = "1.0.98", features = ["backtrace"] }
 arboard = "3.5.0"
 bitflags = "2.9.1"
 bytemuck = "1.23.0"
+cadd = "0.1.0"
 clap = { version = "4.5.39", features = ["derive"] }
 chrono = { version = "0.4.42" }
 cosmic-text = "0.14.2"
@@ -57,6 +58,7 @@ thiserror = "2.0.12"
 tiny-skia = "0.11.4"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+uiautomation = "0.24.1"
 unicode-segmentation = "1.12.0"
 usvg = { version = "0.45.1", default-features = false }
 windows-sys = { version = "0.59.0" }
