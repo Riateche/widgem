@@ -32,3 +32,6 @@ cadd = { workspace = true }
 
 [target.'cfg(target_os="windows")'.dependencies]
 uiautomation = { workspace = true }
+
+[target.'cfg(target_os="macos")'.dependencies]
+objc2-core-foundation = { workspace = true }

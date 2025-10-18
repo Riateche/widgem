@@ -98,7 +98,9 @@ impl Window {
     }
     /// The window title
     pub fn title(&self) -> anyhow::Result<String> {
-        Ok(attribute(&self.ui_element, "AXTitle")?
+        Ok(self
+            .ui_element
+            .attribute("AXTitle")?
             .context("no AXTitle attribute")?
             .downcast::<CFString>()
             .map_err(|_| anyhow!("title attribute is not string"))?
@@ -157,11 +159,13 @@ impl Window {
     }
 
     fn position(&self) -> anyhow::Result<CGPoint> {
-        let value = attribute(&self.ui_element, "AXPosition")?
+        let value = self
+            .ui_element
+            .attribute("AXPosition")?
             .context("missing position attribute")?
             .downcast::<AXValue>()
             .map_err(|_| anyhow!("position attribute is not AXValue"))?;
-        get_cg_point(&value)
+        value.to_cg_point()
     }
 
     /// The window x coordinate.
@@ -175,11 +179,13 @@ impl Window {
     }
 
     fn outer_size(&self) -> anyhow::Result<CGSize> {
-        let value = attribute(&self.ui_element, "AXSize")?
+        let value = self
+            .ui_element
+            .attribute("AXSize")?
             .context("missing position attribute")?
             .downcast::<AXValue>()
             .map_err(|_| anyhow!("position attribute is not AXValue"))?;
-        get_cg_size(&value)
+        value.to_cg_size()
     }
 
     /// The window inner pixel width.
@@ -227,7 +233,7 @@ impl Window {
 
     pub fn close(&self) -> anyhow::Result<()> {
         unsafe {
-            if let Ok(Some(close_button)) = attribute(&self.ui_element, "AXCloseButton") {
+            if let Ok(Some(close_button)) = self.ui_element.attribute("AXCloseButton") {
                 let r = close_button
                     .downcast::<AXUIElement>()
                     .map_err(|_| anyhow!("AXCloseButton attribute is not AXUIElement"))?
@@ -271,13 +277,17 @@ impl Window {
         }
         Ok(())
     }
+
+    pub fn ui_element(&self) -> CFRetained<AXUIElement> {
+        self.ui_element.clone()
+    }
 }
 
 unsafe fn get_app_windows(pid: i32, context: &crate::Context) -> anyhow::Result<Vec<Window>> {
     unsafe {
         let mut outputs = Vec::new();
         let app = AXUIElement::new_application(pid);
-        let Some(windows) = attribute(&app, "AXWindows")? else {
+        let Some(windows) = app.attribute("AXWindows")? else {
             return Ok(Vec::new());
         };
         let windows = windows
@@ -304,117 +314,226 @@ unsafe fn get_app_windows(pid: i32, context: &crate::Context) -> anyhow::Result<
     }
 }
 
-fn get_cg_point(value: &AXValue) -> anyhow::Result<CGPoint> {
-    unsafe {
-        let mut output = MaybeUninit::<CGPoint>::uninit();
-        let r = value.value(
-            AXValueType::CGPoint,
-            NonNull::new(output.as_mut_ptr() as *mut c_void)
-                .context("stack variable with 0 address")?,
-        );
-        if !r {
-            bail!("value is not CGPoint");
-        }
-        Ok(output.assume_init())
-    }
+pub trait AXValueExt {
+    fn to_cg_point(&self) -> anyhow::Result<CGPoint>;
+    fn to_cg_size(&self) -> anyhow::Result<CGSize>;
 }
 
-fn get_cg_size(value: &AXValue) -> anyhow::Result<CGSize> {
-    unsafe {
-        let mut output = MaybeUninit::<CGSize>::uninit();
-        let r = value.value(
-            AXValueType::CGSize,
-            NonNull::new(output.as_mut_ptr() as *mut c_void)
-                .context("stack variable with 0 address")?,
-        );
-        if !r {
-            bail!("value is not CGSize");
-        }
-        Ok(output.assume_init())
-    }
-}
-
-fn attribute(
-    element: &AXUIElement,
-    name: &'static str,
-) -> anyhow::Result<Option<CFRetained<CFType>>> {
-    unsafe {
-        let mut output = MaybeUninit::<*const CFType>::uninit();
-        let r = element.copy_attribute_value(
-            &CFString::from_static_str(name),
-            NonNull::new(output.as_mut_ptr()).context("stack variable with 0 address")?,
-        );
-        if r != AXError::Success {
-            if r == AXError::NoValue || r == AXError::CannotComplete || r == AXError::APIDisabled {
-                return Ok(None);
-            }
-            bail!("failed to get attribute {}: {}", name, ax_error_text(r));
-        }
-        Ok(Some(CFRetained::<CFType>::retain(
-            NonNull::new(output.assume_init() as *mut CFType)
-                .context("stack variable with 0 address")?,
-        )))
-    }
-}
-
-#[allow(dead_code)]
-fn action_names(element: &AXUIElement) -> anyhow::Result<Vec<String>> {
-    unsafe {
-        let mut output = MaybeUninit::<*const CFArray>::uninit();
-        let r = element.copy_action_names(
-            NonNull::new(output.as_mut_ptr()).context("stack variable with 0 address")?,
-        );
-        if r != AXError::Success {
-            if r == AXError::NoValue || r == AXError::CannotComplete || r == AXError::APIDisabled {
-                return Ok(Vec::new());
-            }
-            bail!("failed to get action names: {}", ax_error_text(r));
-        }
-        let array = CFRetained::<CFArray>::retain(
-            NonNull::new(output.assume_init() as *mut CFArray)
-                .context("stack variable with 0 address")?,
-        );
-
-        let mut output = Vec::new();
-        let count = array.len();
-        for i in 0..count {
-            let name = CFRetained::<CFString>::from_raw(
-                NonNull::new(array.value_at_index(i as isize) as *mut _).unwrap(),
+impl AXValueExt for AXValue {
+    fn to_cg_point(&self) -> anyhow::Result<CGPoint> {
+        unsafe {
+            let mut output = MaybeUninit::<CGPoint>::uninit();
+            let r = self.value(
+                AXValueType::CGPoint,
+                NonNull::new(output.as_mut_ptr() as *mut c_void)
+                    .context("stack variable with 0 address")?,
             );
-            output.push(name.to_string());
+            if !r {
+                bail!("value is not CGPoint");
+            }
+            Ok(output.assume_init())
         }
-        Ok(output)
+    }
+
+    fn to_cg_size(&self) -> anyhow::Result<CGSize> {
+        unsafe {
+            let mut output = MaybeUninit::<CGSize>::uninit();
+            let r = self.value(
+                AXValueType::CGSize,
+                NonNull::new(output.as_mut_ptr() as *mut c_void)
+                    .context("stack variable with 0 address")?,
+            );
+            if !r {
+                bail!("value is not CGSize");
+            }
+            Ok(output.assume_init())
+        }
     }
 }
 
-#[allow(dead_code)]
-fn attribute_names(element: &AXUIElement) -> anyhow::Result<Vec<String>> {
-    unsafe {
-        let mut output = MaybeUninit::<*const CFArray>::uninit();
-        let r = element.copy_attribute_names(
-            NonNull::new(output.as_mut_ptr()).context("stack variable with 0 address")?,
-        );
-        if r != AXError::Success {
-            if r == AXError::NoValue || r == AXError::CannotComplete || r == AXError::APIDisabled {
-                return Ok(Vec::new());
-            }
-            bail!("failed to get attribute names: {}", ax_error_text(r));
-        }
-        let array = CFRetained::<CFArray>::retain(
-            NonNull::new(output.assume_init() as *mut CFArray)
-                .context("stack variable with 0 address")?,
-        );
+pub trait AXUIElementExt {
+    fn is_attribute_settable_safe(&self, name: &str) -> anyhow::Result<bool>;
+    fn set_attribute(&self, name: &str, value: &CFType) -> anyhow::Result<()>;
+    fn role(&self) -> anyhow::Result<String>;
+    fn attribute_names(&self) -> anyhow::Result<Vec<String>>;
+    fn action_names(&self) -> anyhow::Result<Vec<String>>;
+    fn attribute(&self, name: &str) -> anyhow::Result<Option<CFRetained<CFType>>>;
+    fn children(&self) -> anyhow::Result<Vec<CFRetained<AXUIElement>>>;
+    fn print_debug_tree(&self) -> anyhow::Result<()>;
+}
 
-        let mut output = Vec::new();
-        let count = array.len();
-        for i in 0..count {
-            let name = CFRetained::<CFString>::from_raw(
-                NonNull::new(array.value_at_index(i as isize) as *mut _).unwrap(),
+impl AXUIElementExt for AXUIElement {
+    fn attribute(&self, name: &str) -> anyhow::Result<Option<CFRetained<CFType>>> {
+        unsafe {
+            let mut output = MaybeUninit::<*const CFType>::uninit();
+            let r = self.copy_attribute_value(
+                &CFString::from_str(name),
+                NonNull::new(output.as_mut_ptr()).context("stack variable with 0 address")?,
             );
-            output.push(name.to_string());
+            if r != AXError::Success {
+                if r == AXError::NoValue
+                    || r == AXError::CannotComplete
+                    || r == AXError::APIDisabled
+                {
+                    return Ok(None);
+                }
+                bail!("failed to get attribute {}: {}", name, ax_error_text(r));
+            }
+            Ok(Some(CFRetained::<CFType>::retain(
+                NonNull::new(output.assume_init() as *mut CFType)
+                    .context("stack variable with 0 address")?,
+            )))
         }
-        Ok(output)
     }
+
+    fn is_attribute_settable_safe(&self, name: &str) -> anyhow::Result<bool> {
+        let mut settable = 0u8;
+        let r = unsafe {
+            self.is_attribute_settable(
+                &CFString::from_static_str("AXValue"),
+                NonNull::new(&mut settable).unwrap(),
+            )
+        };
+        if r != AXError::Success {
+            bail!(
+                "is_attribute_settable failed for {}: {}",
+                name,
+                ax_error_text(r)
+            );
+        }
+        Ok(settable != 0)
+    }
+
+    fn set_attribute(&self, name: &str, value: &CFType) -> anyhow::Result<()> {
+        unsafe {
+            let r = self.set_attribute_value(&CFString::from_str(name), value);
+            if r != AXError::Success {
+                bail!("failed to set attribute {}: {}", name, ax_error_text(r));
+            }
+        }
+        Ok(())
+    }
+
+    fn action_names(&self) -> anyhow::Result<Vec<String>> {
+        unsafe {
+            let mut output = MaybeUninit::<*const CFArray>::uninit();
+            let r = self.copy_action_names(
+                NonNull::new(output.as_mut_ptr()).context("stack variable with 0 address")?,
+            );
+            if r != AXError::Success {
+                if r == AXError::NoValue
+                    || r == AXError::CannotComplete
+                    || r == AXError::APIDisabled
+                {
+                    return Ok(Vec::new());
+                }
+                bail!("failed to get action names: {}", ax_error_text(r));
+            }
+            let array = CFRetained::<CFArray>::retain(
+                NonNull::new(output.assume_init() as *mut CFArray)
+                    .context("stack variable with 0 address")?,
+            );
+
+            let mut output = Vec::new();
+            let count = array.len();
+            for i in 0..count {
+                let name = CFRetained::<CFString>::from_raw(
+                    NonNull::new(array.value_at_index(i as isize) as *mut _).unwrap(),
+                );
+                output.push(name.to_string());
+            }
+            Ok(output)
+        }
+    }
+
+    fn attribute_names(&self) -> anyhow::Result<Vec<String>> {
+        unsafe {
+            let mut output = MaybeUninit::<*const CFArray>::uninit();
+            let r = self.copy_attribute_names(
+                NonNull::new(output.as_mut_ptr()).context("stack variable with 0 address")?,
+            );
+            if r != AXError::Success {
+                if r == AXError::NoValue
+                    || r == AXError::CannotComplete
+                    || r == AXError::APIDisabled
+                {
+                    return Ok(Vec::new());
+                }
+                bail!("failed to get attribute names: {}", ax_error_text(r));
+            }
+            let array = CFRetained::<CFArray>::retain(
+                NonNull::new(output.assume_init() as *mut CFArray)
+                    .context("stack variable with 0 address")?,
+            );
+
+            let mut output = Vec::new();
+            let count = array.len();
+            for i in 0..count {
+                let name = CFRetained::<CFString>::from_raw(
+                    NonNull::new(array.value_at_index(i as isize) as *mut _).unwrap(),
+                );
+                output.push(name.to_string());
+            }
+            Ok(output)
+        }
+    }
+
+    fn role(&self) -> anyhow::Result<String> {
+        let r = self
+            .attribute("AXRole")?
+            .context("missing AXRole attribute")?
+            .downcast_ref::<CFString>()
+            .context("AXRole is not CFString")?
+            .to_string();
+        Ok(r)
+    }
+
+    fn children(&self) -> anyhow::Result<Vec<CFRetained<AXUIElement>>> {
+        let Some(children) = self.attribute("AXChildren")? else {
+            return Ok(Vec::new());
+        };
+        let children = children
+            .downcast::<CFArray>()
+            .map_err(|_| anyhow!("AXChildren attribute is not array"))?;
+
+        let num_children = children.len();
+        let mut outputs = Vec::new();
+        for i in 0..num_children {
+            let child = unsafe {
+                CFRetained::<AXUIElement>::from_raw(
+                    NonNull::new(children.value_at_index(i as isize) as *mut _)
+                        .context("null pointer in AXChildren")?,
+                )
+            };
+            outputs.push(child);
+        }
+        Ok(outputs)
+    }
+
+    fn print_debug_tree(&self) -> anyhow::Result<()> {
+        walk_element_inner(self, 0)
+    }
+}
+
+fn walk_element_inner(element: &AXUIElement, level: usize) -> anyhow::Result<()> {
+    let offset = " ".repeat(level * 2);
+    println!("{}Actions: {:?}", offset, element.action_names()?);
+    for name in element.attribute_names()? {
+        let Ok(Some(value)) = element.attribute(&name) else {
+            continue;
+        };
+        println!(
+            "{}{} = {}",
+            offset,
+            name,
+            format!("{value:?}").replace('\n', "")
+        );
+    }
+    for (i, child) in element.children()?.into_iter().enumerate() {
+        println!("\n{offset}  #{i}");
+        walk_element_inner(&child, level + 1)?;
+    }
+    Ok(())
 }
 
 // MacOS Accessibility API doesn't expose any IDs.

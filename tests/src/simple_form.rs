@@ -1,4 +1,5 @@
 use {
+    anyhow::Context as _,
     widgem::{
         layout::Layout,
         types::Axis,
@@ -153,7 +154,6 @@ mod windows {
         ensure!(walker.get_next_sibling(&submit_button).is_err());
 
         uia_window.get_pattern::<UIWindowPattern>()?.close()?;
-        // print_element(&walker, &root, 0)?;
 
         Ok(())
     }
@@ -187,6 +187,106 @@ mod windows {
             }
         }
 
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod macos {
+    use {
+        super::*,
+        anyhow::ensure,
+        objc2_core_foundation::{CFBoolean, CFString},
+        uitest::AXUIElementExt,
+    };
+
+    #[widgem_tester::test]
+    fn macos_accessibility(ctx: &mut Context) -> anyhow::Result<()> {
+        ctx.run(init_form)?;
+
+        let window = ctx.wait_for_window_by_pid()?;
+        ctx.set_blinking_expected(true);
+        window.snapshot("form")?;
+        let ax_window = window.ui_element();
+
+        let root_group = ax_window
+            .children()?
+            .first()
+            .context("root group not found")?
+            .clone();
+        ensure!(root_group.role()? == "AXGroup");
+        let mut root_children = root_group.children()?.into_iter();
+
+        let user_name = root_children.next().context("not enough root children")?;
+        ensure!(user_name.role()? == "AXTextArea");
+
+        ensure!(
+            user_name
+                .attribute("AXValue")?
+                .context("missing AXValue attribute")?
+                .downcast_ref::<CFString>()
+                .context("AXRole is not CFString")?
+                .to_string()
+                == ""
+        );
+
+        ensure!(user_name.is_attribute_settable_safe("AXValue")?);
+        user_name.set_attribute("AXValue", &CFString::from_static_str("Hello"))?;
+        window.snapshot("input hello")?;
+        ensure!(
+            user_name
+                .attribute("AXValue")?
+                .context("missing AXValue attribute")?
+                .downcast_ref::<CFString>()
+                .context("AXRole is not CFString")?
+                .to_string()
+                == "Hello"
+        );
+
+        user_name.set_attribute("AXValue", &CFString::from_static_str("Hello мир"))?;
+        window.snapshot("input hello world ru")?;
+        ensure!(
+            user_name
+                .attribute("AXValue")?
+                .context("missing AXValue attribute")?
+                .downcast_ref::<CFString>()
+                .context("AXRole is not CFString")?
+                .to_string()
+                == "Hello мир"
+        );
+
+        let label = root_children.next().context("not enough root children")?;
+        ensure!(label.role()? == "AXStaticText");
+        ensure!(
+            label
+                .attribute("AXValue")?
+                .context("missing AXValue attribute")?
+                .downcast_ref::<CFString>()
+                .context("AXRole is not CFString")?
+                .to_string()
+                == "Multiline label\nSecond line"
+        );
+
+        let submit = root_children.next().context("not enough root children")?;
+        ensure!(submit.role()? == "AXButton");
+        ensure!(
+            submit
+                .attribute("AXTitle")?
+                .context("missing AXTitle attribute")?
+                .downcast_ref::<CFString>()
+                .context("AXTitle is not CFString")?
+                .to_string()
+                == "Submit"
+        );
+        ensure!(submit.action_names()?.iter().any(|s| s == "AXPress"));
+        unsafe { submit.perform_action(&CFString::from_static_str("AXPress")) };
+        window.snapshot("pressed submit")?;
+
+        submit.set_attribute("AXFocused", CFBoolean::new(true))?;
+        ctx.set_blinking_expected(false);
+        window.snapshot("focused submit")?;
+
+        window.close()?;
         Ok(())
     }
 }

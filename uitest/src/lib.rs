@@ -22,7 +22,7 @@ mod xcap_window;
 pub use crate::xcap_window::Window;
 
 #[cfg(target_os = "macos")]
-pub use crate::macos::Window;
+pub use crate::macos::{AXUIElementExt, AXValueExt, Window};
 
 use anyhow::Context as _;
 pub use enigo::{Button, Key};

@@ -20,15 +20,13 @@ checksum = "c71b1793ee61086797f5c80b6efa2b8ffa6d5dd703f118545808a7f2e27f7046"
 
 [[package]]
 name = "accesskit"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e25ae84c0260bdf5df07796d7cc4882460de26a2b406ec0e6c42461a723b271b"
+version = "0.21.1"
+source = "git+https://github.com/AccessKit/accesskit.git?rev=9e07b158#9e07b158c34d6df3a0a08f1cc1ecdd1a0b7a943f"
 
 [[package]]
 name = "accesskit_atspi_common"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29bd41de2e54451a8ca0dd95ebf45b54d349d29ebceb7f20be264eee14e3d477"
+version = "0.14.1"
+source = "git+https://github.com/AccessKit/accesskit.git?rev=9e07b158#9e07b158c34d6df3a0a08f1cc1ecdd1a0b7a943f"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
@@ -40,9 +38,8 @@ dependencies = [
 
 [[package]]
 name = "accesskit_consumer"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bfae7c152994a31dc7d99b8eeac7784a919f71d1b306f4b83217e110fd3824c"
+version = "0.30.1"
+source = "git+https://github.com/AccessKit/accesskit.git?rev=9e07b158#9e07b158c34d6df3a0a08f1cc1ecdd1a0b7a943f"
 dependencies = [
  "accesskit",
  "hashbrown 0.15.3",
@@ -50,9 +47,8 @@ dependencies = [
 
 [[package]]
 name = "accesskit_macos"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "692dd318ff8a7a0ffda67271c4bd10cf32249656f4e49390db0b26ca92b095f2"
+version = "0.22.1"
+source = "git+https://github.com/AccessKit/accesskit.git?rev=9e07b158#9e07b158c34d6df3a0a08f1cc1ecdd1a0b7a943f"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
@@ -64,9 +60,8 @@ dependencies = [
 
 [[package]]
 name = "accesskit_unix"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5f7474c36606d0fe4f438291d667bae7042ea2760f506650ad2366926358fc8"
+version = "0.17.1"
+source = "git+https://github.com/AccessKit/accesskit.git?rev=9e07b158#9e07b158c34d6df3a0a08f1cc1ecdd1a0b7a943f"
 dependencies = [
  "accesskit",
  "accesskit_atspi_common",
@@ -82,9 +77,8 @@ dependencies = [
 
 [[package]]
 name = "accesskit_windows"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70a042b62c9c05bf7b616f015515c17d2813f3ba89978d6f4fc369735d60700a"
+version = "0.29.1"
+source = "git+https://github.com/AccessKit/accesskit.git?rev=9e07b158#9e07b158c34d6df3a0a08f1cc1ecdd1a0b7a943f"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
@@ -96,9 +90,8 @@ dependencies = [
 
 [[package]]
 name = "accesskit_winit"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c1f0d3d13113d8857542a4f8d1a1c24d1dc1527b77aee8426127f4901588708"
+version = "0.29.1"
+source = "git+https://github.com/AccessKit/accesskit.git?rev=9e07b158#9e07b158c34d6df3a0a08f1cc1ecdd1a0b7a943f"
 dependencies = [
  "accesskit",
  "accesskit_macos",
@@ -286,7 +279,7 @@ dependencies = [
  "objc2-app-kit 0.3.1",
  "objc2-core-foundation",
  "objc2-core-graphics",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
  "windows-sys 0.59.0",
@@ -1411,7 +1404,7 @@ dependencies = [
  "nom 8.0.0",
  "objc2 0.6.2",
  "objc2-app-kit 0.3.1",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
  "windows 0.61.1",
  "x11rb",
  "xkbcommon",
@@ -2698,7 +2691,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-core-image 0.3.1",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
  "objc2-quartz-core 0.3.1",
 ]
 
@@ -2714,7 +2707,7 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-core-services",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]
@@ -2732,7 +2725,7 @@ dependencies = [
  "objc2-core-graphics",
  "objc2-core-image 0.3.1",
  "objc2-core-video",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
  "objc2-quartz-core 0.3.1",
 ]
 
@@ -2743,7 +2736,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfc1d11521c211a7ebe17739fc806719da41f56c6b3f949d9861b459188ce910"
 dependencies = [
  "objc2 0.6.2",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]
@@ -2767,7 +2760,7 @@ checksum = "17614fdcd9b411e6ff1117dfb1d0150f908ba83a7df81b1f118005fe0a8ea15d"
 dependencies = [
  "bitflags 2.9.1",
  "objc2 0.6.2",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]
@@ -2823,14 +2816,14 @@ checksum = "291fbbf7d29287518e8686417cf7239c74700fd4b607623140a7d4a3c834329d"
 dependencies = [
  "bitflags 2.9.1",
  "objc2 0.6.2",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]
 name = "objc2-core-foundation"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c10c2894a6fed806ade6027bcd50662746363a9589d3ec9d9bef30a4e4bc166"
+checksum = "2a180dd8642fa45cdb7dd721cd4c11b1cadd4929ce112ebd8b9f5803cc79d536"
 dependencies = [
  "bitflags 2.9.1",
  "block2 0.6.1",
@@ -2874,7 +2867,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79b3dc0cc4386b6ccf21c157591b34a7f44c8e75b064f85502901ab2188c007e"
 dependencies = [
  "objc2 0.6.2",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]
@@ -2953,9 +2946,9 @@ dependencies = [
 
 [[package]]
 name = "objc2-foundation"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "900831247d2fe1a09a683278e5384cfb8c80c79fe6b166f9d14bfdde0ea1b03c"
+checksum = "e3e0adef53c21f888deb4fa59fc59f7eb17404926ee8a6f59f5df0fd7f9f3272"
 dependencies = [
  "bitflags 2.9.1",
  "block2 0.6.1",
@@ -3007,7 +3000,7 @@ checksum = "7f246c183239540aab1782457b35ab2040d4259175bd1d0c58e46ada7b47a874"
 dependencies = [
  "bitflags 2.9.1",
  "objc2 0.6.2",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]
@@ -3031,7 +3024,7 @@ checksum = "90ffb6a0cd5f182dc964334388560b12a57f7b74b3e2dec5e2722aa2dfb2ccd5"
 dependencies = [
  "bitflags 2.9.1",
  "objc2 0.6.2",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
 ]
 
 [[package]]
@@ -5211,6 +5204,7 @@ dependencies = [
  "fs-err",
  "image",
  "itertools 0.14.0",
+ "objc2-core-foundation",
  "uiautomation",
  "uitest",
  "widgem",
@@ -5850,7 +5844,7 @@ dependencies = [
  "objc2-core-graphics",
  "objc2-core-media",
  "objc2-core-video",
- "objc2-foundation 0.3.1",
+ "objc2-foundation 0.3.2",
  "percent-encoding",
  "pipewire",
  "rand 0.9.2",
