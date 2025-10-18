@@ -8,7 +8,6 @@ repository = "https://github.com/Riateche/widgem"
 
 [dependencies]
 xcap = { workspace = true }
-x11rb = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 enigo = { workspace = true }

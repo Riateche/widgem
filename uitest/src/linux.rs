@@ -1,45 +1,32 @@
 use {
-    crate::xcap_window::Window,
     anyhow::{bail, Context as _},
+    image::RgbaImage,
     std::process::Command,
-    x11rb::{
-        protocol::xproto::{Atom, ConnectionExt},
-        rust_connection::RustConnection,
-    },
 };
 
-pub struct Context {
-    #[allow(dead_code)]
-    connection: RustConnection,
-    #[allow(dead_code)]
-    cardinal: Atom,
+#[derive(Clone)]
+pub struct Window {
+    window: xcap::Window,
+    context: crate::Context,
 }
 
-fn get_or_intern_atom(conn: &RustConnection, name: &[u8]) -> Atom {
-    let result = conn
-        .intern_atom(false, name)
-        .expect("Failed to intern atom")
-        .reply()
-        .expect("Failed receive interned atom");
-
-    result.atom
+pub fn all_windows(context: &crate::Context) -> anyhow::Result<Vec<crate::Window>> {
+    Ok(xcap::Window::all()?
+        .into_iter()
+        .map(|window| {
+            crate::Window(Window {
+                window,
+                context: context.clone(),
+            })
+        })
+        .collect())
 }
+
+pub struct Context {}
 
 impl Context {
     pub fn new() -> anyhow::Result<Self> {
-        let (connection, _screen_num) = x11rb::connect(None)?;
-        let cardinal = get_or_intern_atom(&connection, b"CARDINAL");
-        Ok(Self {
-            connection,
-            cardinal,
-        })
-    }
-
-    pub fn all_windows(&self, context: &crate::Context) -> anyhow::Result<Vec<Window>> {
-        xcap::Window::all()?
-            .into_iter()
-            .map(|w| Window::new(context.clone(), w))
-            .collect()
+        Ok(Self {})
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
@@ -52,12 +39,14 @@ impl Context {
         }
         Ok(String::from_utf8(output.stdout)?.trim().parse()?)
     }
+}
 
-    pub fn activate_window(&self, window: &crate::Window) -> anyhow::Result<()> {
+impl Window {
+    pub fn activate(&self) -> anyhow::Result<()> {
         let status = Command::new("xdotool")
             .arg("windowactivate")
             .arg("--sync")
-            .arg(window.id().to_string())
+            .arg(self.id().to_string())
             .status()?;
         if !status.success() {
             bail!("xdotool failed: {:?}", status);
@@ -65,11 +54,11 @@ impl Context {
         Ok(())
     }
 
-    pub fn minimize_window(&self, window: &crate::Window) -> anyhow::Result<()> {
+    pub fn minimize(&self) -> anyhow::Result<()> {
         let status = Command::new("xdotool")
             .arg("windowminimize")
             .arg("--sync")
-            .arg(window.id().to_string())
+            .arg(self.id().to_string())
             .status()?;
         if !status.success() {
             bail!("xdotool failed: {:?}", status);
@@ -77,12 +66,12 @@ impl Context {
         Ok(())
     }
 
-    pub fn close_window(&self, window: &crate::Window) -> anyhow::Result<()> {
+    pub fn close(&self) -> anyhow::Result<()> {
         // `xdotool windowclose` doesn't work properly
         let status = Command::new("wmctrl")
             .arg("-i")
             .arg("-c")
-            .arg(window.id().to_string())
+            .arg(self.id().to_string())
             .status()?;
         if !status.success() {
             bail!("wmctrl failed: {:?}", status);
@@ -90,16 +79,11 @@ impl Context {
         Ok(())
     }
 
-    pub fn resize_window(
-        &self,
-        window: &crate::Window,
-        width: i32,
-        height: i32,
-    ) -> anyhow::Result<()> {
+    pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
         let status = Command::new("xdotool")
             .arg("windowsize")
             .arg("--sync")
-            .arg(window.id().to_string())
+            .arg(self.id().to_string())
             .arg(width.to_string())
             .arg(height.to_string())
             .status()?;
@@ -107,5 +91,56 @@ impl Context {
             bail!("xdotool failed: {:?}", status);
         }
         Ok(())
+    }
+
+    pub fn pid(&self) -> u32 {
+        self.window.pid().unwrap() // TODO: Result in interface
+    }
+
+    /// The window id
+    pub fn id(&self) -> u32 {
+        self.window.id().unwrap() // TODO: Result in interface
+    }
+    /// The window app name
+    pub fn app_name(&self) -> anyhow::Result<String> {
+        self.window.app_name().map_err(Into::into)
+    }
+    /// The window title
+    pub fn title(&self) -> anyhow::Result<String> {
+        self.window.title().map_err(Into::into)
+    }
+    /// The window x coordinate.
+    pub fn x(&self) -> anyhow::Result<i32> {
+        self.window.x().map_err(Into::into)
+    }
+    /// The window x coordinate.
+    pub fn y(&self) -> anyhow::Result<i32> {
+        self.window.y().map_err(Into::into)
+    }
+    /// The window pixel width.
+    pub fn width(&self) -> anyhow::Result<u32> {
+        self.window.width().map_err(Into::into)
+    }
+    /// The window pixel height.
+    pub fn height(&self) -> anyhow::Result<u32> {
+        self.window.height().map_err(Into::into)
+    }
+    /// The window is minimized.
+    pub fn is_minimized(&self) -> anyhow::Result<bool> {
+        self.window.is_minimized().map_err(Into::into)
+    }
+    /// The window is maximized.
+    pub fn is_maximized(&self) -> anyhow::Result<bool> {
+        self.window.is_maximized().map_err(Into::into)
+    }
+
+    pub fn capture_image(&self) -> anyhow::Result<RgbaImage> {
+        Ok(self.window.capture_image()?)
+    }
+
+    pub fn mouse_move(&self, x: i32, y: i32) -> anyhow::Result<()> {
+        let global_x = self.x()? + x;
+        let global_y = self.y()? + y;
+        self.context.mouse_move_global(global_x, global_y)
     }
 }

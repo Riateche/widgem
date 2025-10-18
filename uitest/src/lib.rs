@@ -15,14 +15,8 @@ mod macos;
 #[cfg(target_os = "macos")]
 use crate::macos as imp;
 
-#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
-mod xcap_window;
-
-#[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
-pub use crate::xcap_window::Window;
-
 #[cfg(target_os = "macos")]
-pub use crate::macos::{AXUIElementExt, AXValueExt, Window};
+pub use crate::macos::{AXUIElementExt, AXValueExt, WindowExt};
 
 use anyhow::Context as _;
 pub use enigo::{Button, Key};
@@ -65,7 +59,7 @@ impl Context {
     }
 
     pub fn all_windows(&self) -> anyhow::Result<Vec<Window>> {
-        self.0.imp.all_windows(self)
+        imp::all_windows(self)
     }
 
     pub fn windows_by_pid(&self, pid: u32) -> anyhow::Result<Vec<Window>> {
@@ -234,5 +228,100 @@ impl Context {
             .context("no monitors found")?
             .capture_image()?;
         Ok(image)
+    }
+}
+
+#[derive(Clone)]
+pub struct Window(imp::Window);
+
+impl Window {
+    /// The window id
+    pub fn id(&self) -> u32 {
+        self.0.id()
+    }
+
+    pub fn pid(&self) -> u32 {
+        self.0.pid()
+    }
+
+    /// The window app name
+    pub fn app_name(&self) -> anyhow::Result<String> {
+        self.0.app_name()
+    }
+    /// The window title
+    pub fn title(&self) -> anyhow::Result<String> {
+        self.0.title()
+    }
+
+    /// The window x coordinate.
+    ///
+    /// It returns outer position on MacOS, inner position on Linux and Windows.
+    pub fn pos_x(&self) -> anyhow::Result<i32> {
+        self.0.x()
+    }
+
+    /// The window y coordinate.
+    ///
+    /// It returns outer position on MacOS, inner position on Linux and Windows.
+    pub fn y(&self) -> anyhow::Result<i32> {
+        self.0.y()
+    }
+
+    /// The window pixel width.
+    ///
+    /// It returns outer size on MacOS, inner size on Linux and Windows.
+    pub fn width(&self) -> anyhow::Result<u32> {
+        self.0.width()
+    }
+
+    /// The window pixel height.
+    ///
+    /// It returns outer size on MacOS, inner size on Linux and Windows.
+    pub fn height(&self) -> anyhow::Result<u32> {
+        self.0.height()
+    }
+
+    pub fn is_minimized(&self) -> anyhow::Result<bool> {
+        self.0.is_minimized()
+    }
+
+    pub fn is_maximized(&self) -> anyhow::Result<bool> {
+        self.0.is_maximized()
+    }
+
+    /// Captures a screenshot of the window.
+    ///
+    /// On Macos, the image shows the window with system title and frame.
+    /// On Linux and Windows, the image shows the window's inner area.
+    pub fn capture_image(&self) -> anyhow::Result<RgbaImage> {
+        self.0.capture_image()
+    }
+
+    pub fn activate(&self) -> anyhow::Result<()> {
+        self.0.activate()
+    }
+
+    // TODO: move title height hacks out
+
+    /// Move the mouse pointer to the coordinates specified relative to the window's position.
+    ///
+    /// It uses outer position on MacOS, inner position on Linux and Windows.
+    pub fn mouse_move(&self, x: i32, y: i32) -> anyhow::Result<()> {
+        self.0.mouse_move(x, y)
+    }
+
+    pub fn minimize(&self) -> anyhow::Result<()> {
+        self.0.minimize()
+    }
+
+    pub fn close(&self) -> anyhow::Result<()> {
+        self.0.close()
+    }
+
+    /// Change the window's size to the specified values.
+    ///
+    /// It uses outer size on MacOS, inner position on Linux and Windows.
+    pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
+        self.0.resize(width, height)
     }
 }

@@ -196,7 +196,7 @@ mod macos {
         super::*,
         anyhow::{ensure, Context as _},
         objc2_core_foundation::{CFBoolean, CFString},
-        uitest::AXUIElementExt,
+        uitest::{AXUIElementExt, WindowExt},
     };
 
     #[widgem_tester::test]

@@ -26,6 +26,35 @@ const TITLE_OFFSET_Y: u32 = 28;
 
 pub struct Context {}
 
+// TODO: avoid iterating over all apps if only windows_by_pid is requested.
+pub fn all_windows(context: &crate::Context) -> anyhow::Result<Vec<crate::Window>> {
+    unsafe {
+        // We could get the list of apps using `NSWorkspace::sharedWorkspace().runningApplications()`.
+        // However, this list never updates because we're not running a macos event loop
+        // in this process. The easiest fix is to query the list of apps in a new process.
+        let output = Command::new("osascript")
+            .args([
+                "-e",
+                "tell application \"System Events\" to get the unix id of every process",
+            ])
+            .output()?;
+        ensure!(output.status.success(), "osascript failed: {:?}", output);
+        let output = String::from_utf8(output.stdout).context("invalid osascript output")?;
+        let mut all_windows = Vec::new();
+        for pid in output.trim_ascii().split(", ") {
+            let pid = pid.parse::<i32>().context("pid is not a number")?;
+            match get_app_windows(pid, context) {
+                Ok(windows) => all_windows.extend(windows),
+                Err(err) => {
+                    trace!("failed to get app windows for pid {:?}: {:?}", pid, err);
+                }
+            };
+        }
+
+        Ok(all_windows)
+    }
+}
+
 impl Context {
     pub fn new() -> anyhow::Result<Self> {
         unsafe {
@@ -37,35 +66,6 @@ impl Context {
             }
         }
         Ok(Self {})
-    }
-
-    // TODO: avoid iterating over all apps if only windows_by_pid is requested.
-    pub fn all_windows(&self, context: &crate::Context) -> anyhow::Result<Vec<Window>> {
-        unsafe {
-            // We could get the list of apps using `NSWorkspace::sharedWorkspace().runningApplications()`.
-            // However, this list never updates because we're not running a macos event loop
-            // in this process. The easiest fix is to query the list of apps in a new process.
-            let output = Command::new("osascript")
-                .args([
-                    "-e",
-                    "tell application \"System Events\" to get the unix id of every process",
-                ])
-                .output()?;
-            ensure!(output.status.success(), "osascript failed: {:?}", output);
-            let output = String::from_utf8(output.stdout).context("invalid osascript output")?;
-            let mut all_windows = Vec::new();
-            for pid in output.trim_ascii().split(", ") {
-                let pid = pid.parse::<i32>().context("pid is not a number")?;
-                match get_app_windows(pid, context) {
-                    Ok(windows) => all_windows.extend(windows),
-                    Err(err) => {
-                        trace!("failed to get app windows for pid {:?}: {:?}", pid, err);
-                    }
-                };
-            }
-
-            Ok(all_windows)
-        }
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
@@ -277,13 +277,12 @@ impl Window {
         }
         Ok(())
     }
-
-    pub fn ui_element(&self) -> CFRetained<AXUIElement> {
-        self.ui_element.clone()
-    }
 }
 
-unsafe fn get_app_windows(pid: i32, context: &crate::Context) -> anyhow::Result<Vec<Window>> {
+unsafe fn get_app_windows(
+    pid: i32,
+    context: &crate::Context,
+) -> anyhow::Result<Vec<crate::Window>> {
     unsafe {
         let mut outputs = Vec::new();
         let app = AXUIElement::new_application(pid);
@@ -299,7 +298,7 @@ unsafe fn get_app_windows(pid: i32, context: &crate::Context) -> anyhow::Result<
             let window = CFRetained::<AXUIElement>::from_raw(
                 NonNull::new(windows.value_at_index(i as isize) as *mut _).unwrap(),
             );
-            outputs.push(Window {
+            outputs.push(crate::Window(Window {
                 // New windows are added to the front of the list, so
                 // `num_windows - i` is better than `i`.
                 id: window_id(pid, num_windows - i),
@@ -308,7 +307,7 @@ unsafe fn get_app_windows(pid: i32, context: &crate::Context) -> anyhow::Result<
                 context: context.clone(),
                 has_title: Arc::new(Mutex::new(None)),
                 xcap_window: Arc::new(Mutex::new(None)),
-            });
+            }));
         }
         Ok(outputs)
     }
@@ -611,4 +610,14 @@ fn unpaint_window_frame(mut image: RgbaImage) -> anyhow::Result<RgbaImage> {
     }
 
     Ok(new_image)
+}
+
+pub trait WindowExt {
+    fn ui_element(&self) -> CFRetained<AXUIElement>;
+}
+
+impl WindowExt for crate::Window {
+    fn ui_element(&self) -> CFRetained<AXUIElement> {
+        self.0.ui_element.clone()
+    }
 }

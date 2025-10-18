@@ -16,6 +16,8 @@ use {
     },
 };
 
+pub use crate::xcap_window::Window;
+
 pub struct Context {}
 
 impl Context {
