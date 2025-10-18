@@ -500,7 +500,7 @@ impl AXUIElementExt for AXUIElement {
         let mut outputs = Vec::new();
         for i in 0..num_children {
             let child = unsafe {
-                CFRetained::<AXUIElement>::from_raw(
+                CFRetained::<AXUIElement>::retain(
                     NonNull::new(children.value_at_index(i as isize) as *mut _)
                         .context("null pointer in AXChildren")?,
                 )

@@ -207,19 +207,13 @@ mod macos {
         ctx.set_blinking_expected(true);
         window.snapshot("form")?;
         let ax_window = window.ui_element();
-        ax_window.print_debug_tree()?;
-
-        let root_group = ax_window
-            .children()?
-            .first()
-            .context("root group not found")?
-            .clone();
-        println!("ok1");
+        let _ = ax_window.children()?;
+        let children = ax_window.children()?;
+        let root_group = children.first().context("root group not found")?.clone();
         ensure!(root_group.role()? == "AXGroup");
         let mut root_children = root_group.children()?.into_iter();
 
         let user_name = root_children.next().context("not enough root children")?;
-        println!("ok2");
         ensure!(user_name.role()? == "AXTextArea");
 
         ensure!(
@@ -235,7 +229,6 @@ mod macos {
         ensure!(user_name.is_attribute_settable_safe("AXValue")?);
         user_name.set_attribute("AXValue", &CFString::from_static_str("Hello"))?;
         window.snapshot("input hello")?;
-        println!("ok3");
         ensure!(
             user_name
                 .attribute("AXValue")?
@@ -259,7 +252,6 @@ mod macos {
         );
 
         let label = root_children.next().context("not enough root children")?;
-        println!("ok4");
         ensure!(label.role()? == "AXStaticText");
         ensure!(
             label
@@ -272,7 +264,6 @@ mod macos {
         );
 
         let submit = root_children.next().context("not enough root children")?;
-        println!("ok5");
         ensure!(submit.role()? == "AXButton");
         ensure!(
             submit
