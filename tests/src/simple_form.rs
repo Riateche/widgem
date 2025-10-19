@@ -91,7 +91,7 @@ mod windows {
         let root = automation.get_root_element()?;
         let pid_condition = automation.create_property_condition(
             UIProperty::ProcessId,
-            (ctx.pid()? as i32).into(),
+            (ctx.test_subject_pid()? as i32).into(),
             None,
         )?;
         let uia_window = root
