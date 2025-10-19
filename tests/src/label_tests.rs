@@ -4,7 +4,7 @@ use {
         widgets::{Label, Window},
         Widget, WidgetBaseOf, WidgetInitializer,
     },
-    widgem_tester::context::Context,
+    widgem_tester::Context,
 };
 
 pub struct RootWidget {

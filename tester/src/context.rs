@@ -1,8 +1,7 @@
 use {
-    crate::{discover_snapshots, SingleSnapshotFiles},
+    crate::{discover_snapshots, SingleSnapshotFiles, Window},
     anyhow::{bail, Context as _},
     chrono::Utc,
-    derive_more::Deref,
     fs_err::create_dir_all,
     image::{ImageReader, RgbaImage},
     itertools::Itertools,
@@ -21,9 +20,14 @@ use {
     widgem::{widgets::RootWidget, AppBuilder},
 };
 
+/// Interval between capture attempts for a changed or blinking snapshot.
 const CAPTURE_INTERVAL: Duration = Duration::from_millis(30);
-const MAX_DURATION: Duration = Duration::from_secs(2);
+/// Maximum time for waiting for a changed or blinking snapshot.
+const MAX_CAPTURE_DURATION: Duration = Duration::from_secs(2);
+/// Time required for a window snapshots to be unchanged before the snapshot is accepted.
 const STATIONARY_INTERVAL: Duration = Duration::from_millis(200);
+/// Delay before capturing a snapshot without change detection heuristics.
+const SIMPLE_CAPTURE_DELAY: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SnapshotMode {
@@ -62,7 +66,7 @@ impl Drop for CheckContext {
 }
 
 impl CheckContext {
-    pub fn new(
+    fn new(
         uitest_context: uitest::Context,
         test_name: String,
         test_case_dir: PathBuf,
@@ -90,11 +94,11 @@ impl CheckContext {
         self.child.take()
     }
 
-    pub fn set_blinking_expected(&mut self, value: bool) {
+    fn set_blinking_expected(&mut self, value: bool) {
         self.blinking_expected = value;
     }
 
-    pub fn set_changing_expected(&mut self, value: bool) {
+    fn set_changing_expected(&mut self, value: bool) {
         self.changing_expected = value;
     }
 
@@ -112,7 +116,7 @@ impl CheckContext {
     fn capture_changed(&mut self, window: &Window) -> anyhow::Result<RgbaImage> {
         let mut started = Instant::now();
         let mut image = None;
-        while started.elapsed() < MAX_DURATION {
+        while started.elapsed() < MAX_CAPTURE_DURATION {
             let new_image = window.capture_image()?;
             if self.last_snapshots.get(&window.id()?) != Some(&new_image) {
                 image = Some(new_image);
@@ -142,7 +146,7 @@ impl CheckContext {
         if self.changing_expected {
             self.capture_changed(window)
         } else {
-            sleep(Duration::from_millis(500));
+            sleep(SIMPLE_CAPTURE_DELAY);
             let new_image = window.capture_image()?;
             self.last_snapshots.insert(window.id()?, new_image.clone());
             Ok(new_image)
@@ -152,7 +156,7 @@ impl CheckContext {
     fn capture_blinking(&mut self, window: &Window, file_name: &str) -> anyhow::Result<RgbaImage> {
         let started = Instant::now();
         let mut images = Vec::new();
-        while started.elapsed() < MAX_DURATION || images.is_empty() {
+        while started.elapsed() < MAX_CAPTURE_DURATION || images.is_empty() {
             let new_image = self.capture_changed(window).with_context(|| {
                 if images.is_empty() {
                     "failed to capture the first changed image while blinking was expected"
@@ -191,7 +195,7 @@ impl CheckContext {
         }
     }
 
-    pub fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
+    pub(crate) fn snapshot(&mut self, window: &Window, text: impl Display) -> anyhow::Result<()> {
         if !self.test_case_dir.try_exists()? {
             create_dir_all(&self.test_case_dir)?;
         }
@@ -271,7 +275,7 @@ impl CheckContext {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Vec<String> {
+    fn finish(&mut self) -> Vec<String> {
         let extra_snapshots = self
             .unverified_files
             .values()
@@ -316,7 +320,7 @@ impl CheckContext {
         Ok(windows.remove(0))
     }
 
-    pub fn pid(&self) -> anyhow::Result<u32> {
+    pub fn test_subject_pid(&self) -> anyhow::Result<u32> {
         self.pid.context("app has not been started yet")
     }
 }
@@ -377,6 +381,11 @@ impl Context {
         }
     }
 
+    /// Runs a test subject program in a new process.
+    ///
+    /// The `init` function will be called to initialize the app.
+    ///
+    /// The PID of the spawned process will be available via [Context::test_subject_pid].
     pub fn run(
         &self,
         init: impl FnOnce(&mut RootWidget) -> anyhow::Result<()> + 'static,
@@ -398,10 +407,31 @@ impl Context {
         }
     }
 
+    /// Set blinking detection behavior for subsequent snapshot captures.
+    ///
+    /// If `value` is `true`, snapshot capture functions will try to fetch
+    /// two distinct snapshots of the window. If successful, these two snapshots
+    /// will be combined to product a final snapshot. Use this setting to capture
+    /// snapshots with a blinking text cursor.
+    ///
+    /// If `value` is `false`, only a single snapshot will be captured.
+    ///
+    /// The default is `false`.
     pub fn set_blinking_expected(&self, value: bool) {
         self.check(|c| c.set_blinking_expected(value));
     }
 
+    /// Set change detection behavior for subsequent snapshot captures.
+    ///
+    ///
+    /// If `value` is `true`, snapshot capture functions take the snapshots
+    /// of the window repeatedly until a change has been detected.
+    /// This is recommended in most cases because it makes tests more robust
+    /// in virtual and CI environments.
+    ///
+    /// If `value` is `false`, a single snapshot will be captured after a fixed delay.
+    ///
+    /// The default is `true`.
     pub fn set_changing_expected(&self, value: bool) {
         self.check(|c| c.set_changing_expected(value));
     }
@@ -414,40 +444,25 @@ impl Context {
         let windows = self.check(|c| c.wait_for_windows_by_pid(num_windows))?;
         Ok(windows
             .into_iter()
-            .map(|inner| Window {
-                inner,
-                context: self.clone(),
-            })
+            .map(|inner| Window::new(inner, self.clone()))
             .collect())
     }
 
     pub fn wait_for_window_by_pid(&self) -> anyhow::Result<Window> {
         let inner = self.check(|c| c.wait_for_window_by_pid())?;
-        Ok(Window {
-            inner,
-            context: self.clone(),
-        })
+        Ok(Window::new(inner, self.clone()))
     }
 
-    pub fn pid(&self) -> anyhow::Result<u32> {
-        self.check(|c| c.pid())
+    /// Returns process ID of the process launched by [Context::run].
+    ///
+    /// Returns an error if [Context::run] hasn't been called yet.
+    pub fn test_subject_pid(&self) -> anyhow::Result<u32> {
+        self.check(|c| c.test_subject_pid())
     }
 
-    pub fn ui(&self) -> uitest::Context {
+    // TODO: remove?
+    pub fn ui_context(&self) -> uitest::Context {
         self.check(|c| c.uitest_context.clone())
-    }
-}
-
-#[derive(Clone, Deref)]
-pub struct Window {
-    #[deref]
-    inner: uitest::Window,
-    context: Context,
-}
-
-impl Window {
-    pub fn snapshot(&self, text: impl Display) -> anyhow::Result<()> {
-        self.context.check(|c| c.snapshot(self, text))
     }
 }
 

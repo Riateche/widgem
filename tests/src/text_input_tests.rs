@@ -6,7 +6,7 @@ use {
         widgets::{Label, TextInput, Window},
         Widget, WidgetBaseOf, WidgetExt, WidgetInitializer,
     },
-    widgem_tester::{context::Context, Key},
+    widgem_tester::{Context, Key},
 };
 
 pub struct RootWidget {
@@ -41,15 +41,16 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.set_blinking_expected(true);
     let window = ctx.wait_for_window_by_pid()?;
     window.snapshot("window with text input - text Hello world")?;
-    ctx.ui().key(Key::RightArrow)?;
+    ctx.ui_context().key(Key::RightArrow)?;
     window.snapshot("cursor moved to the right of H")?;
-    ctx.ui().key_combination(&[Key::Shift, Key::RightArrow])?;
+    ctx.ui_context()
+        .key_combination(&[Key::Shift, Key::RightArrow])?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected e")?;
-    ctx.ui().key(Key::RightArrow)?;
+    ctx.ui_context().key(Key::RightArrow)?;
     ctx.set_blinking_expected(true);
     window.snapshot("cleared selection and cursor moved to the right of He")?;
-    ctx.ui().key(Key::LeftArrow)?;
+    ctx.ui_context().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of H")?;
 
     let word_jump_modifier = if cfg!(target_os = "macos") {
@@ -63,47 +64,48 @@ pub fn keys(ctx: &mut Context) -> anyhow::Result<()> {
         vec![Key::End]
     };
 
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::RightArrow])?;
     window.snapshot("cursor moved to the right of Hello")?;
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::RightArrow])?;
     window.snapshot("cursor moved to the end")?;
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
     window.snapshot("cursor moved to the right of Hello after space")?;
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
     window.snapshot("cursor moved to the start")?;
-    ctx.ui().key_combination(&end_of_line)?;
+    ctx.ui_context().key_combination(&end_of_line)?;
     window.snapshot("cursor moved to the end")?;
-    ctx.ui().key_combination(&[Key::Shift, Key::LeftArrow])?;
+    ctx.ui_context()
+        .key_combination(&[Key::Shift, Key::LeftArrow])?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected d")?;
-    ctx.ui().key(Key::LeftArrow)?;
+    ctx.ui_context().key(Key::LeftArrow)?;
     ctx.set_blinking_expected(true);
     window.snapshot("cleared selection and cursor moved to the right of worl")?;
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::Shift, Key::LeftArrow])?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected worl")?;
-    ctx.ui().key_combination(&end_of_line)?;
-    ctx.ui().type_text(" Lorem Ipsum")?;
+    ctx.ui_context().key_combination(&end_of_line)?;
+    ctx.ui_context().type_text(" Lorem Ipsum")?;
     ctx.set_blinking_expected(true);
     window.snapshot("added space Lorem Ipsum to the end")?;
     // Checking horizontal scroll.
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
-    ctx.ui()
+    ctx.ui_context()
         .key_combination(&[word_jump_modifier, Key::LeftArrow])?;
     window.snapshot("cursor moved to the right of Hello after space")?;
-    ctx.ui().key(Key::LeftArrow)?;
+    ctx.ui_context().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of Hello and scrolled")?;
-    ctx.ui().key(Key::LeftArrow)?;
+    ctx.ui_context().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of Hell and scrolled")?;
-    ctx.ui().key(Key::LeftArrow)?;
+    ctx.ui_context().key(Key::LeftArrow)?;
     window.snapshot("cursor moved to the right of Hel and scrolled")?;
 
     window.close()?;
@@ -125,11 +127,11 @@ pub fn empty(ctx: &mut Context) -> anyhow::Result<()> {
     } else {
         vec![Key::Control, Key::Unicode('a')]
     };
-    ctx.ui().key_combination(&select_all)?;
+    ctx.ui_context().key_combination(&select_all)?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected all")?;
 
-    ctx.ui().key(Key::Backspace)?;
+    ctx.ui_context().key(Key::Backspace)?;
     ctx.set_blinking_expected(true);
     window.snapshot("deleted all")?;
 
@@ -146,18 +148,18 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     let window = ctx.wait_for_window_by_pid()?;
     window.snapshot("text input")?;
     window.mouse_move(48, 27)?;
-    ctx.ui().mouse_left_click()?;
+    ctx.ui_context().mouse_left_click()?;
     window.snapshot("cursor moved after hello")?;
     window.mouse_move(73, 29)?;
-    ctx.ui().mouse_left_press()?;
+    ctx.ui_context().mouse_left_press()?;
     window.snapshot("cursor moved after wor")?;
     window.mouse_move(52, 17)?;
-    ctx.ui().mouse_left_release()?;
+    ctx.ui_context().mouse_left_release()?;
     ctx.set_blinking_expected(false);
     window.snapshot("selected wor")?;
     // Click on the border/padding.
     window.mouse_move(48, 14)?;
-    ctx.ui().mouse_left_click()?;
+    ctx.ui_context().mouse_left_click()?;
     ctx.set_blinking_expected(true);
     window.snapshot("cursor moved to beginning")?;
 

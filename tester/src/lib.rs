@@ -1,4 +1,7 @@
-pub mod context;
+mod context;
+mod window;
+
+pub use {crate::context::Context, crate::window::Window};
 
 use {
     crate::context::SnapshotMode,
@@ -25,8 +28,7 @@ use {
 pub use ctor as __ctor;
 
 pub use {
-    crate::context::Context,
-    uitest::{Button, Key, Window},
+    uitest::{Button, Key},
     widgem_macros::test,
 };
 

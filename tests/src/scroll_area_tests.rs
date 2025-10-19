@@ -5,7 +5,7 @@ use widgem::{
     widgets::{Column, Label, ScrollArea},
     Widget, WidgetExt, Window,
 };
-use widgem_tester::{context::Context, Key};
+use widgem_tester::{Context, Key};
 
 #[widgem_tester::test]
 pub fn main(ctx: &mut Context) -> anyhow::Result<()> {
@@ -41,43 +41,43 @@ pub fn main(ctx: &mut Context) -> anyhow::Result<()> {
 
     // Avoid conflict with macos window resizing
     if cfg!(target_os = "macos") {
-        ctx.ui().key(Key::Unicode('r'))?;
+        ctx.ui_context().key(Key::Unicode('r'))?;
     }
     // scroll down button
     window.mouse_move(146, 146)?;
-    ctx.ui().mouse_left_click()?;
+    ctx.ui_context().mouse_left_click()?;
     if cfg!(target_os = "macos") {
-        ctx.ui().key(Key::Unicode('r'))?;
+        ctx.ui_context().key(Key::Unicode('r'))?;
     }
     window.snapshot("step down")?;
-    ctx.ui().mouse_scroll_down()?;
+    ctx.ui_context().mouse_scroll_down()?;
     window.snapshot("scroll down")?;
     window.resize(110, 150)?;
     if cfg!(target_os = "macos") {
-        ctx.ui().key(Key::Unicode('r'))?;
+        ctx.ui_context().key(Key::Unicode('r'))?;
     }
     window.mouse_move(10, 10)?;
     window.mouse_move(-100, -100)?;
     window.snapshot("resized 110x150")?;
     if cfg!(target_os = "macos") {
-        ctx.ui().key(Key::Unicode('r'))?;
+        ctx.ui_context().key(Key::Unicode('r'))?;
         sleep(Duration::from_secs(1));
     }
     window.resize(100, 150)?;
     if cfg!(target_os = "macos") {
-        ctx.ui().key(Key::Unicode('r'))?;
+        ctx.ui_context().key(Key::Unicode('r'))?;
     }
     window.mouse_move(-100, -100)?;
     window.snapshot("resized 100x150")?;
     if cfg!(target_os = "macos") {
-        ctx.ui().key(Key::Unicode('r'))?;
+        ctx.ui_context().key(Key::Unicode('r'))?;
         sleep(Duration::from_secs(1));
     }
     // horizontal scroll slider
     window.mouse_move(30, 145)?;
-    ctx.ui().mouse_left_press()?;
+    ctx.ui_context().mouse_left_press()?;
     window.mouse_move(100, 145)?;
-    ctx.ui().mouse_left_release()?;
+    ctx.ui_context().mouse_left_release()?;
     window.snapshot("scroll right")?;
     window.resize(160, 150)?;
     window.snapshot("resized 160x150")?;

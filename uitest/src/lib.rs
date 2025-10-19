@@ -62,6 +62,7 @@ impl Context {
         imp::all_windows(self)
     }
 
+    /// Returns windows created by the process `pid`.
     pub fn windows_by_pid(&self, pid: u32) -> anyhow::Result<Vec<Window>> {
         let windows = self.all_windows()?;
         Ok(windows
