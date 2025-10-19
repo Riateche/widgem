@@ -114,7 +114,7 @@ impl CheckContext {
         let mut image = None;
         while started.elapsed() < MAX_DURATION {
             let new_image = window.capture_image()?;
-            if self.last_snapshots.get(&window.id()) != Some(&new_image) {
+            if self.last_snapshots.get(&window.id()?) != Some(&new_image) {
                 image = Some(new_image);
                 break;
             }
@@ -134,7 +134,7 @@ impl CheckContext {
             }
             sleep(CAPTURE_INTERVAL);
         }
-        self.last_snapshots.insert(window.id(), image.clone());
+        self.last_snapshots.insert(window.id()?, image.clone());
         Ok(image)
     }
 
@@ -144,7 +144,7 @@ impl CheckContext {
         } else {
             sleep(Duration::from_millis(500));
             let new_image = window.capture_image()?;
-            self.last_snapshots.insert(window.id(), new_image.clone());
+            self.last_snapshots.insert(window.id()?, new_image.clone());
             Ok(new_image)
         }
     }

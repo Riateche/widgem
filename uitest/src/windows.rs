@@ -58,14 +58,14 @@ pub struct Window {
 
 impl Window {
     pub fn activate(&self) -> anyhow::Result<()> {
-        let ret = unsafe { SetForegroundWindow(self.id() as *mut c_void) };
+        let ret = unsafe { SetForegroundWindow(self.id()? as *mut c_void) };
         check_winapi_error(ret != 0)
     }
 
     pub fn minimize(&self) -> anyhow::Result<()> {
         let ret = unsafe {
             PostMessageW(
-                self.id() as *mut c_void,
+                self.id()? as *mut c_void,
                 WM_SYSCOMMAND,
                 SC_MINIMIZE as usize,
                 0,
@@ -76,12 +76,12 @@ impl Window {
 
     pub fn close(&self) -> anyhow::Result<()> {
         // xcap returns HWND pointer as window id.
-        let ret = unsafe { PostMessageW(self.id() as *mut c_void, WM_CLOSE, 0, 0) };
+        let ret = unsafe { PostMessageW(self.id()? as *mut c_void, WM_CLOSE, 0, 0) };
         check_winapi_error(ret != 0)
     }
 
     pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
-        let hwnd = self.id() as *mut c_void;
+        let hwnd = self.id()? as *mut c_void;
         let dpi = unsafe { GetDpiForWindow(hwnd) };
         check_winapi_error(dpi != 0)?;
 
@@ -123,43 +123,42 @@ impl Window {
         check_winapi_error(ret != 0)
     }
 
-    pub fn pid(&self) -> u32 {
-        self.window.pid().unwrap() // TODO: Result in interface
+    pub fn pid(&self) -> anyhow::Result<u32> {
+        self.window.pid().map_err(Into::into)
     }
 
-    /// The window id
-    pub fn id(&self) -> u32 {
-        self.window.id().unwrap() // TODO: Result in interface
+    pub fn id(&self) -> anyhow::Result<u32> {
+        self.window.id().map_err(Into::into)
     }
-    /// The window app name
+
     pub fn app_name(&self) -> anyhow::Result<String> {
         self.window.app_name().map_err(Into::into)
     }
-    /// The window title
+
     pub fn title(&self) -> anyhow::Result<String> {
         self.window.title().map_err(Into::into)
     }
-    /// The window x coordinate.
+
     pub fn x(&self) -> anyhow::Result<i32> {
         self.window.x().map_err(Into::into)
     }
-    /// The window x coordinate.
+
     pub fn y(&self) -> anyhow::Result<i32> {
         self.window.y().map_err(Into::into)
     }
-    /// The window pixel width.
+
     pub fn width(&self) -> anyhow::Result<u32> {
         self.window.width().map_err(Into::into)
     }
-    /// The window pixel height.
+
     pub fn height(&self) -> anyhow::Result<u32> {
         self.window.height().map_err(Into::into)
     }
-    /// The window is minimized.
+
     pub fn is_minimized(&self) -> anyhow::Result<bool> {
         self.window.is_minimized().map_err(Into::into)
     }
-    /// The window is maximized.
+
     pub fn is_maximized(&self) -> anyhow::Result<bool> {
         self.window.is_maximized().map_err(Into::into)
     }

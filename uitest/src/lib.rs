@@ -18,13 +18,13 @@ use crate::macos as imp;
 #[cfg(target_os = "macos")]
 pub use crate::macos::{AXUIElementExt, AXValueExt, WindowExt};
 
-use anyhow::Context as _;
 pub use enigo::{Button, Key};
-use image::{Rgba, RgbaImage};
 
 use {
     anyhow::bail,
+    anyhow::Context as _,
     enigo::{Axis, Direction, Enigo, Keyboard, Mouse},
+    image::{Rgba, RgbaImage},
     std::{
         sync::{Arc, Mutex},
         thread::sleep,
@@ -64,7 +64,10 @@ impl Context {
 
     pub fn windows_by_pid(&self, pid: u32) -> anyhow::Result<Vec<Window>> {
         let windows = self.all_windows()?;
-        Ok(windows.into_iter().filter(|w| w.pid() == pid).collect())
+        Ok(windows
+            .into_iter()
+            .filter(|w| w.pid().ok() == Some(pid))
+            .collect())
     }
 
     pub fn wait_for_windows_by_pid(
@@ -187,8 +190,6 @@ impl Context {
         Ok(())
     }
 
-    // https://wiki.linuxquestions.org/wiki/List_of_keysyms
-    // https://manpages.ubuntu.com/manpages/trusty/man1/xdotool.1.html
     pub fn key(&self, key: Key) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().key(key, Direction::Click)?;
         sleep(Duration::from_millis(200));
@@ -236,11 +237,11 @@ pub struct Window(imp::Window);
 
 impl Window {
     /// The window id
-    pub fn id(&self) -> u32 {
+    pub fn id(&self) -> anyhow::Result<u32> {
         self.0.id()
     }
 
-    pub fn pid(&self) -> u32 {
+    pub fn pid(&self) -> anyhow::Result<u32> {
         self.0.pid()
     }
 

@@ -11,7 +11,6 @@ use {
     },
     std::{
         ffi::c_void,
-        hash::{DefaultHasher, Hash, Hasher},
         mem::MaybeUninit,
         process::Command,
         ptr::NonNull,
@@ -75,7 +74,6 @@ impl Context {
 
 #[derive(Clone)]
 pub struct Window {
-    id: u32,
     pid: u32,
     ui_element: CFRetained<AXUIElement>,
     has_title: Arc<Mutex<Option<bool>>>,
@@ -84,13 +82,13 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn pid(&self) -> u32 {
-        self.pid
+    pub fn pid(&self) -> anyhow::Result<u32> {
+        Ok(self.pid)
     }
 
     /// The window id
-    pub fn id(&self) -> u32 {
-        self.id
+    pub fn id(&self) -> anyhow::Result<u32> {
+        Ok(self.xcap_window()?.id()?)
     }
     /// The window app name
     pub fn app_name(&self) -> anyhow::Result<String> {
@@ -299,9 +297,6 @@ unsafe fn get_app_windows(
                 NonNull::new(windows.value_at_index(i as isize) as *mut _).unwrap(),
             );
             outputs.push(crate::Window(Window {
-                // New windows are added to the front of the list, so
-                // `num_windows - i` is better than `i`.
-                id: window_id(pid, num_windows - i),
                 pid: pid as u32,
                 ui_element: window,
                 context: context.clone(),
@@ -533,13 +528,6 @@ fn walk_element_inner(element: &AXUIElement, level: usize) -> anyhow::Result<()>
         walk_element_inner(&child, level + 1)?;
     }
     Ok(())
-}
-
-// MacOS Accessibility API doesn't expose any IDs.
-fn window_id(window_pid: i32, window_index: usize) -> u32 {
-    let mut s = DefaultHasher::new();
-    (window_pid, window_index).hash(&mut s);
-    s.finish() as u32
 }
 
 fn ax_error_text(error: AXError) -> String {

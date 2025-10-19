@@ -92,12 +92,12 @@ fn main(ctx: &mut Context) -> anyhow::Result<()> {
 
     let windows = ctx.wait_for_windows_by_pid(2)?;
     ensure!(
-        windows.iter().any(|w| w.id() == main_window.id()),
+        windows.iter().any(|w| w.id().ok() == main_window.id().ok()),
         "no main window"
     );
     let menu_window = windows
         .into_iter()
-        .find(|w| w.id() != main_window.id())
+        .find(|w| w.id().ok() != main_window.id().ok())
         .context("no non-main window")?;
     main_window.snapshot("main window after opening menu")?;
     menu_window.snapshot("menu")?;
@@ -106,7 +106,7 @@ fn main(ctx: &mut Context) -> anyhow::Result<()> {
     main_window.mouse_move(1, 1)?;
     ctx.ui().mouse_left_click()?;
     let window2 = ctx.wait_for_window_by_pid()?;
-    ensure!(window2.id() == main_window.id(), "no main window");
+    ensure!(window2.id()? == main_window.id()?, "no main window");
     main_window.snapshot("main window after closing menu")?;
 
     main_window.close()?;

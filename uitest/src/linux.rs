@@ -93,43 +93,42 @@ impl Window {
         Ok(())
     }
 
-    pub fn pid(&self) -> u32 {
-        self.window.pid().unwrap() // TODO: Result in interface
+    pub fn pid(&self) -> anyhow::Result<u32> {
+        self.window.pid().map_err(Into::into)
     }
 
-    /// The window id
-    pub fn id(&self) -> u32 {
-        self.window.id().unwrap() // TODO: Result in interface
+    pub fn id(&self) -> anyhow::Result<u32> {
+        self.window.id().map_err(Into::into)
     }
-    /// The window app name
+
     pub fn app_name(&self) -> anyhow::Result<String> {
         self.window.app_name().map_err(Into::into)
     }
-    /// The window title
+
     pub fn title(&self) -> anyhow::Result<String> {
         self.window.title().map_err(Into::into)
     }
-    /// The window x coordinate.
+
     pub fn x(&self) -> anyhow::Result<i32> {
         self.window.x().map_err(Into::into)
     }
-    /// The window x coordinate.
+
     pub fn y(&self) -> anyhow::Result<i32> {
         self.window.y().map_err(Into::into)
     }
-    /// The window pixel width.
+
     pub fn width(&self) -> anyhow::Result<u32> {
         self.window.width().map_err(Into::into)
     }
-    /// The window pixel height.
+
     pub fn height(&self) -> anyhow::Result<u32> {
         self.window.height().map_err(Into::into)
     }
-    /// The window is minimized.
+
     pub fn is_minimized(&self) -> anyhow::Result<bool> {
         self.window.is_minimized().map_err(Into::into)
     }
-    /// The window is maximized.
+
     pub fn is_maximized(&self) -> anyhow::Result<bool> {
         self.window.is_maximized().map_err(Into::into)
     }
