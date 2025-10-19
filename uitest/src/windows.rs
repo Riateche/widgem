@@ -1,6 +1,6 @@
 use {
-    crate::xcap_window::Window,
     anyhow::bail,
+    image::RgbaImage,
     std::ffi::c_void,
     windows_sys::Win32::{
         Foundation::{GetLastError, RECT},
@@ -16,8 +16,6 @@ use {
     },
 };
 
-pub use crate::xcap_window::Window;
-
 pub struct Context {}
 
 impl Context {
@@ -25,64 +23,72 @@ impl Context {
         Ok(Self {})
     }
 
-    pub fn all_windows(&self, context: &crate::Context) -> anyhow::Result<Vec<Window>> {
-        xcap::Window::all()?
-            .into_iter()
-            .map(|w| Window::new(context.clone(), w))
-            .collect()
-    }
-
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
         let ret = unsafe { GetActiveWindow() };
-        self.check_winapi_error(!ret.is_null())?;
+        check_winapi_error(!ret.is_null())?;
         Ok(ret as u32)
     }
+}
 
-    pub fn activate_window(&self, window: &crate::Window) -> anyhow::Result<()> {
-        let ret = unsafe { SetForegroundWindow(window.id() as *mut c_void) };
-        self.check_winapi_error(ret != 0)
+fn check_winapi_error(success: bool) -> anyhow::Result<()> {
+    if !success {
+        let error = unsafe { GetLastError() };
+        bail!("failed to close window (error code: {})", error);
+    }
+    Ok(())
+}
+
+pub fn all_windows(context: &crate::Context) -> anyhow::Result<Vec<crate::Window>> {
+    Ok(xcap::Window::all()?
+        .into_iter()
+        .map(|window| {
+            crate::Window(Window {
+                window,
+                context: context.clone(),
+            })
+        })
+        .collect())
+}
+
+#[derive(Clone)]
+pub struct Window {
+    window: xcap::Window,
+    context: crate::Context,
+}
+
+impl Window {
+    pub fn activate(&self) -> anyhow::Result<()> {
+        let ret = unsafe { SetForegroundWindow(self.id() as *mut c_void) };
+        check_winapi_error(ret != 0)
     }
 
-    pub fn minimize_window(&self, window: &crate::Window) -> anyhow::Result<()> {
+    pub fn minimize(&self) -> anyhow::Result<()> {
         let ret = unsafe {
             PostMessageW(
-                window.id() as *mut c_void,
+                self.id() as *mut c_void,
                 WM_SYSCOMMAND,
                 SC_MINIMIZE as usize,
                 0,
             )
         };
-        self.check_winapi_error(ret != 0)
+        check_winapi_error(ret != 0)
     }
 
-    fn check_winapi_error(&self, success: bool) -> anyhow::Result<()> {
-        if !success {
-            let error = unsafe { GetLastError() };
-            bail!("failed to close window (error code: {})", error);
-        }
-        Ok(())
-    }
-
-    pub fn close_window(&self, window: &crate::Window) -> anyhow::Result<()> {
+    pub fn close(&self) -> anyhow::Result<()> {
         // xcap returns HWND pointer as window id.
-        let ret = unsafe { PostMessageW(window.id() as *mut c_void, WM_CLOSE, 0, 0) };
-        self.check_winapi_error(ret != 0)
+        let ret = unsafe { PostMessageW(self.id() as *mut c_void, WM_CLOSE, 0, 0) };
+        check_winapi_error(ret != 0)
     }
 
-    pub fn resize_window(
-        &self,
-        window: &crate::Window,
-        width: i32,
-        height: i32,
-    ) -> anyhow::Result<()> {
-        let hwnd = window.id() as *mut c_void;
+    pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
+        let hwnd = self.id() as *mut c_void;
         let dpi = unsafe { GetDpiForWindow(hwnd) };
-        self.check_winapi_error(dpi != 0)?;
+        check_winapi_error(dpi != 0)?;
 
         let style = unsafe { GetWindowLongW(hwnd, GWL_STYLE) };
-        self.check_winapi_error(style != 0)?;
+        check_winapi_error(style != 0)?;
         let ex_style = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) };
-        self.check_winapi_error(ex_style != 0)?;
+        check_winapi_error(ex_style != 0)?;
 
         let menu = unsafe { GetMenu(hwnd) };
 
@@ -101,7 +107,7 @@ impl Context {
                 dpi,
             )
         };
-        self.check_winapi_error(ret != 0)?;
+        check_winapi_error(ret != 0)?;
 
         let ret = unsafe {
             SetWindowPos(
@@ -114,6 +120,57 @@ impl Context {
                 SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER,
             )
         };
-        self.check_winapi_error(ret != 0)
+        check_winapi_error(ret != 0)
+    }
+
+    pub fn pid(&self) -> u32 {
+        self.window.pid().unwrap() // TODO: Result in interface
+    }
+
+    /// The window id
+    pub fn id(&self) -> u32 {
+        self.window.id().unwrap() // TODO: Result in interface
+    }
+    /// The window app name
+    pub fn app_name(&self) -> anyhow::Result<String> {
+        self.window.app_name().map_err(Into::into)
+    }
+    /// The window title
+    pub fn title(&self) -> anyhow::Result<String> {
+        self.window.title().map_err(Into::into)
+    }
+    /// The window x coordinate.
+    pub fn x(&self) -> anyhow::Result<i32> {
+        self.window.x().map_err(Into::into)
+    }
+    /// The window x coordinate.
+    pub fn y(&self) -> anyhow::Result<i32> {
+        self.window.y().map_err(Into::into)
+    }
+    /// The window pixel width.
+    pub fn width(&self) -> anyhow::Result<u32> {
+        self.window.width().map_err(Into::into)
+    }
+    /// The window pixel height.
+    pub fn height(&self) -> anyhow::Result<u32> {
+        self.window.height().map_err(Into::into)
+    }
+    /// The window is minimized.
+    pub fn is_minimized(&self) -> anyhow::Result<bool> {
+        self.window.is_minimized().map_err(Into::into)
+    }
+    /// The window is maximized.
+    pub fn is_maximized(&self) -> anyhow::Result<bool> {
+        self.window.is_maximized().map_err(Into::into)
+    }
+
+    pub fn capture_image(&self) -> anyhow::Result<RgbaImage> {
+        Ok(self.window.capture_image()?)
+    }
+
+    pub fn mouse_move(&self, x: i32, y: i32) -> anyhow::Result<()> {
+        let global_x = self.x()? + x;
+        let global_y = self.y()? + y;
+        self.context.mouse_move_global(global_x, global_y)
     }
 }
