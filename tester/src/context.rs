@@ -28,6 +28,10 @@ const MAX_CAPTURE_DURATION: Duration = Duration::from_secs(2);
 const STATIONARY_INTERVAL: Duration = Duration::from_millis(200);
 /// Delay before capturing a snapshot without change detection heuristics.
 const SIMPLE_CAPTURE_DELAY: Duration = Duration::from_millis(500);
+/// Interval between attempts to find windows by criteria.
+const WAIT_FOR_WINDOWS_INTERVAL: Duration = Duration::from_millis(200);
+/// Maximum time for finding windows by criteria.
+const WAIT_FOR_WINDOWS_DURATION: Duration = Duration::from_secs(15);
 
 pub(crate) struct CheckContext {
     uitest_context: uitest::Context,
@@ -267,14 +271,49 @@ impl CheckContext {
         mem::take(&mut self.fails)
     }
 
-    pub fn wait_for_windows_by_pid(
+    fn wait_for_windows_by_pid_inner(
         &self,
         num_windows: usize,
     ) -> anyhow::Result<Vec<uitest::Window>> {
         let pid = self.pid.context("app has not been run yet")?;
-        let r = self
-            .uitest_context
-            .wait_for_windows_by_pid(pid, num_windows);
+        let started = Instant::now();
+        let mut windows = Vec::new();
+        while started.elapsed() < WAIT_FOR_WINDOWS_DURATION {
+            windows = self.uitest_context.windows_by_pid(pid)?;
+            if windows.len() == num_windows {
+                return Ok(windows);
+            }
+            sleep(WAIT_FOR_WINDOWS_INTERVAL);
+        }
+        if windows.is_empty() {
+            bail!(
+                "couldn't find a window with pid={} after {:?}",
+                pid,
+                WAIT_FOR_WINDOWS_DURATION
+            );
+        } else if windows.len() > num_windows {
+            bail!(
+                "expected to find {} windows with pid={}, but found {} windows",
+                num_windows,
+                pid,
+                windows.len(),
+            );
+        } else {
+            bail!(
+                "expected to find {} windows with pid={}, but found only {} windows after {:?}",
+                num_windows,
+                pid,
+                windows.len(),
+                WAIT_FOR_WINDOWS_DURATION
+            );
+        }
+    }
+
+    pub fn wait_for_windows_by_pid(
+        &self,
+        num_windows: usize,
+    ) -> anyhow::Result<Vec<uitest::Window>> {
+        let r = self.wait_for_windows_by_pid_inner(num_windows);
         if r.is_err() {
             self.capture_full_screen()?;
         }
@@ -282,11 +321,7 @@ impl CheckContext {
     }
 
     pub fn wait_for_window_by_pid(&self) -> anyhow::Result<uitest::Window> {
-        let pid = self.pid.context("app has not been started yet")?;
-        let mut windows = self.uitest_context.wait_for_windows_by_pid(pid, 1)?;
-        if windows.len() != 1 {
-            bail!("expected 1 window, got {}", windows.len());
-        }
+        let mut windows = self.wait_for_windows_by_pid(1)?;
         Ok(windows.remove(0))
     }
 
@@ -348,6 +383,8 @@ impl Context {
     ///
     /// The `init` function will be called to initialize the app.
     ///
+    /// This function can only be called once per test.
+    ///
     /// The PID of the spawned process will be available via [Context::test_subject_pid].
     pub fn run(
         &self,
@@ -355,6 +392,9 @@ impl Context {
     ) -> anyhow::Result<()> {
         match &mut *self.0.lock().unwrap() {
             ContextInner::Check(ctx) => {
+                if ctx.pid.is_some() {
+                    bail!("cannot run multiple test subjects in one test");
+                }
                 let child = Command::new(&ctx.exe_path)
                     .args(["run", &ctx.test_name])
                     .spawn()?;

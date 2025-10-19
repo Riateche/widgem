@@ -21,24 +21,19 @@ pub use crate::macos::{AXUIElementExt, AXValueExt, WindowExt};
 pub use enigo::{Button, Key};
 
 use {
-    anyhow::bail,
     anyhow::Context as _,
     enigo::{Axis, Direction, Enigo, Keyboard, Mouse},
     image::{Rgba, RgbaImage},
     std::{
         sync::{Arc, Mutex},
         thread::sleep,
-        time::{Duration, Instant},
+        time::Duration,
     },
 };
-
-const SINGLE_WAIT_DURATION: Duration = Duration::from_millis(200);
-const DEFAULT_WAIT_DURATION: Duration = Duration::from_secs(15);
 
 struct ContextData {
     imp: imp::Context,
     enigo: Mutex<Enigo>,
-    wait_duration: Duration,
 }
 
 // Placeholder for a pixel value that is not available because it was
@@ -54,7 +49,6 @@ impl Context {
         Ok(Self(Arc::new(ContextData {
             imp: imp::Context::new()?,
             enigo: Mutex::new(Enigo::new(&enigo::Settings::default())?),
-            wait_duration: DEFAULT_WAIT_DURATION,
         })))
     }
 
@@ -69,44 +63,6 @@ impl Context {
             .into_iter()
             .filter(|w| w.pid().ok() == Some(pid))
             .collect())
-    }
-
-    pub fn wait_for_windows_by_pid(
-        &self,
-        pid: u32,
-        num_windows: usize,
-    ) -> anyhow::Result<Vec<Window>> {
-        let started = Instant::now();
-        let mut windows = Vec::new();
-        while started.elapsed() < self.0.wait_duration {
-            windows = self.windows_by_pid(pid)?;
-            if windows.len() == num_windows {
-                return Ok(windows);
-            }
-            sleep(SINGLE_WAIT_DURATION);
-        }
-        if windows.is_empty() {
-            bail!(
-                "couldn't find a window with pid={} after {:?}",
-                pid,
-                self.0.wait_duration
-            );
-        } else if windows.len() > num_windows {
-            bail!(
-                "expected to find {} windows with pid={}, but found {} windows",
-                num_windows,
-                pid,
-                windows.len(),
-            );
-        } else {
-            bail!(
-                "expected to find {} windows with pid={}, but found only {} windows after {:?}",
-                num_windows,
-                pid,
-                windows.len(),
-                self.0.wait_duration
-            );
-        }
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
