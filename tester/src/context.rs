@@ -29,18 +29,11 @@ const STATIONARY_INTERVAL: Duration = Duration::from_millis(200);
 /// Delay before capturing a snapshot without change detection heuristics.
 const SIMPLE_CAPTURE_DELAY: Duration = Duration::from_millis(500);
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SnapshotMode {
-    Update,
-    Check,
-}
-
 pub(crate) struct CheckContext {
     uitest_context: uitest::Context,
     test_name: String,
     test_case_dir: PathBuf,
     last_snapshot_index: u32,
-    snapshot_mode: SnapshotMode,
     exe_path: OsString,
     pid: Option<u32>,
     child: Option<Child>,
@@ -70,7 +63,6 @@ impl CheckContext {
         uitest_context: uitest::Context,
         test_name: String,
         test_case_dir: PathBuf,
-        snapshot_mode: SnapshotMode,
         exe_path: OsString,
     ) -> anyhow::Result<Self> {
         Ok(Self {
@@ -83,7 +75,6 @@ impl CheckContext {
             child: None,
             last_snapshot_index: 0,
             last_snapshots: BTreeMap::new(),
-            snapshot_mode,
             fails: Vec::new(),
             blinking_expected: false,
             changing_expected: true,
@@ -225,15 +216,6 @@ impl CheckContext {
         let files = self.unverified_files.remove(&index).unwrap_or_default();
         if let Some(unconfirmed) = &files.unconfirmed {
             fs_err::remove_file(self.test_case_dir.join(&unconfirmed.full_name))?;
-            if self.snapshot_mode == SnapshotMode::Check {
-                record_fail(
-                    &mut self.fails,
-                    format!(
-                        "unexpected unconfirmed snapshot: {:?}",
-                        &unconfirmed.full_name,
-                    ),
-                );
-            }
         }
         if let Some(confirmed) = &files.confirmed {
             let confirmed_image = load_image(&self.test_case_dir.join(&confirmed.full_name))?;
@@ -251,25 +233,13 @@ impl CheckContext {
                     self.test_case_dir.join(&confirmed.full_name),
                     self.test_case_dir.join(&confirmed_snapshot_name),
                 )?;
-                if self.snapshot_mode == SnapshotMode::Check {
-                    record_fail(
-                        &mut self.fails,
-                        format!(
-                            "confirmed snapshot name mismatch: expected {:?}, got {:?}",
-                            confirmed_snapshot_name, &confirmed.full_name,
-                        ),
-                    );
-                }
             }
         } else {
             let new_path = self.test_case_dir.join(&unconfirmed_snapshot_name);
             new_image
                 .save(&new_path)
                 .with_context(|| format!("failed to save image {:?}", &new_path))?;
-            let fail = match self.snapshot_mode {
-                SnapshotMode::Update => format!("new snapshot at {:?}", unconfirmed_snapshot_name),
-                SnapshotMode::Check => format!("missing snapshot at {:?}", confirmed_snapshot_name),
-            };
+            let fail = format!("new snapshot at {:?}", unconfirmed_snapshot_name);
             record_fail(&mut self.fails, fail);
         }
         Ok(())
@@ -353,17 +323,10 @@ impl Context {
         uitest_context: uitest::Context,
         test_name: String,
         test_case_dir: PathBuf,
-        snapshot_mode: SnapshotMode,
         exe_path: OsString,
     ) -> anyhow::Result<Self> {
         Ok(Context(Arc::new(Mutex::new(ContextInner::Check(
-            CheckContext::new(
-                uitest_context,
-                test_name,
-                test_case_dir,
-                snapshot_mode,
-                exe_path,
-            )?,
+            CheckContext::new(uitest_context, test_name, test_case_dir, exe_path)?,
         )))))
     }
 
@@ -436,7 +399,7 @@ impl Context {
         self.check(|c| c.set_changing_expected(value));
     }
 
-    pub fn finish(&self) -> Vec<String> {
+    pub(crate) fn finish(&self) -> Vec<String> {
         self.check(|c| c.finish())
     }
 

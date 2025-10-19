@@ -4,7 +4,6 @@ mod window;
 pub use {crate::context::Context, crate::window::Window};
 
 use {
-    crate::context::SnapshotMode,
     anyhow::{bail, Context as _},
     clap::Parser,
     fs_err::read_dir,
@@ -159,8 +158,6 @@ pub fn test_snapshots_dir(snapshots_dir: &Path, test_name: &str) -> PathBuf {
 enum Args {
     Test {
         filter: Option<String>,
-        #[clap(long)]
-        check: bool,
     },
     Run {
         test_case: String,
@@ -189,18 +186,13 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
     let mut registry = default_registry().lock().unwrap();
 
     match args {
-        Args::Test { check, filter } => {
+        Args::Test { filter } => {
             let exe_path = env::args_os()
                 .next()
                 .context("failed to get current executable path")?;
             let uitest_context = uitest::Context::new()?;
             let mut all_fails = Vec::new();
             let mut num_passed = 0;
-            let mode = if check {
-                SnapshotMode::Check
-            } else {
-                SnapshotMode::Update
-            };
             let all_tests = registry.tests().map(|s| s.to_owned()).collect_vec();
             let filtered_tests = all_tests
                 .iter()
@@ -235,7 +227,6 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                     uitest_context.clone(),
                     test_name.clone(),
                     test_snapshots_dir(&snapshots_dir, test_name),
-                    mode,
                     exe_path.clone(),
                 )?;
                 let fails = run_test_check_and_verify(&mut registry, test_name, &mut ctx)
