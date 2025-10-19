@@ -46,7 +46,7 @@ impl Window {
         let status = Command::new("xdotool")
             .arg("windowactivate")
             .arg("--sync")
-            .arg(self.id().to_string())
+            .arg(self.id()?.to_string())
             .status()?;
         if !status.success() {
             bail!("xdotool failed: {:?}", status);
@@ -58,7 +58,7 @@ impl Window {
         let status = Command::new("xdotool")
             .arg("windowminimize")
             .arg("--sync")
-            .arg(self.id().to_string())
+            .arg(self.id()?.to_string())
             .status()?;
         if !status.success() {
             bail!("xdotool failed: {:?}", status);
@@ -71,7 +71,7 @@ impl Window {
         let status = Command::new("wmctrl")
             .arg("-i")
             .arg("-c")
-            .arg(self.id().to_string())
+            .arg(self.id()?.to_string())
             .status()?;
         if !status.success() {
             bail!("wmctrl failed: {:?}", status);
@@ -83,7 +83,7 @@ impl Window {
         let status = Command::new("xdotool")
             .arg("windowsize")
             .arg("--sync")
-            .arg(self.id().to_string())
+            .arg(self.id()?.to_string())
             .arg(width.to_string())
             .arg(height.to_string())
             .status()?;
