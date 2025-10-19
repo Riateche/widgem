@@ -24,11 +24,7 @@ use {
     anyhow::Context as _,
     enigo::{Axis, Direction, Enigo, Keyboard, Mouse},
     image::{Rgba, RgbaImage},
-    std::{
-        sync::{Arc, Mutex},
-        thread::sleep,
-        time::Duration,
-    },
+    std::sync::{Arc, Mutex},
 };
 
 struct ContextData {
@@ -69,13 +65,21 @@ impl Context {
         self.0.imp.active_window_id()
     }
 
+    pub fn mouse_move_global(&self, x: i32, y: i32) -> anyhow::Result<()> {
+        self.0
+            .enigo
+            .lock()
+            .unwrap()
+            .move_mouse(x, y, enigo::Coordinate::Abs)?;
+        Ok(())
+    }
+
     pub fn mouse_click(&self, button: Button) -> anyhow::Result<()> {
         self.0
             .enigo
             .lock()
             .unwrap()
             .button(button, Direction::Click)?;
-        sleep(Duration::from_millis(200));
         Ok(())
     }
 
@@ -83,100 +87,68 @@ impl Context {
         self.mouse_click(Button::Left)
     }
 
-    pub fn mouse_scroll_up(&self) -> anyhow::Result<()> {
-        self.0.enigo.lock().unwrap().scroll(-1, Axis::Vertical)?;
-        sleep(Duration::from_millis(200));
-        Ok(())
-    }
-
-    pub fn mouse_scroll_down(&self) -> anyhow::Result<()> {
-        self.0.enigo.lock().unwrap().scroll(1, Axis::Vertical)?;
-        sleep(Duration::from_millis(200));
-        Ok(())
-    }
-
-    pub fn mouse_scroll_left(&self) -> anyhow::Result<()> {
-        self.0.enigo.lock().unwrap().scroll(-1, Axis::Horizontal)?;
-        sleep(Duration::from_millis(200));
-        Ok(())
-    }
-
-    pub fn mouse_scroll_right(&self) -> anyhow::Result<()> {
-        self.0.enigo.lock().unwrap().scroll(1, Axis::Horizontal)?;
-        sleep(Duration::from_millis(200));
-        Ok(())
-    }
-
-    pub fn mouse_down(&self, button: Button) -> anyhow::Result<()> {
+    pub fn mouse_press(&self, button: Button) -> anyhow::Result<()> {
         self.0
             .enigo
             .lock()
             .unwrap()
             .button(button, Direction::Press)?;
-        sleep(Duration::from_millis(200));
         Ok(())
     }
 
-    pub fn mouse_up(&self, button: Button) -> anyhow::Result<()> {
+    pub fn mouse_release(&self, button: Button) -> anyhow::Result<()> {
         self.0
             .enigo
             .lock()
             .unwrap()
             .button(button, Direction::Release)?;
-        sleep(Duration::from_millis(200));
         Ok(())
     }
 
     pub fn mouse_left_press(&self) -> anyhow::Result<()> {
-        self.0
-            .enigo
-            .lock()
-            .unwrap()
-            .button(Button::Left, Direction::Press)?;
-        sleep(Duration::from_millis(200));
-        Ok(())
+        self.mouse_press(Button::Left)
     }
 
     pub fn mouse_left_release(&self) -> anyhow::Result<()> {
-        self.0
-            .enigo
-            .lock()
-            .unwrap()
-            .button(Button::Left, Direction::Release)?;
-        sleep(Duration::from_millis(200));
+        self.mouse_release(Button::Left)
+    }
+
+    pub fn mouse_scroll_up(&self) -> anyhow::Result<()> {
+        self.0.enigo.lock().unwrap().scroll(-1, Axis::Vertical)?;
         Ok(())
     }
 
-    pub fn key(&self, key: Key) -> anyhow::Result<()> {
+    pub fn mouse_scroll_down(&self) -> anyhow::Result<()> {
+        self.0.enigo.lock().unwrap().scroll(1, Axis::Vertical)?;
+        Ok(())
+    }
+
+    pub fn mouse_scroll_left(&self) -> anyhow::Result<()> {
+        self.0.enigo.lock().unwrap().scroll(-1, Axis::Horizontal)?;
+        Ok(())
+    }
+
+    pub fn mouse_scroll_right(&self) -> anyhow::Result<()> {
+        self.0.enigo.lock().unwrap().scroll(1, Axis::Horizontal)?;
+        Ok(())
+    }
+    pub fn input_key(&self, key: Key) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().key(key, Direction::Click)?;
-        sleep(Duration::from_millis(200));
         Ok(())
     }
 
-    pub fn key_combination(&self, keys: &[Key]) -> anyhow::Result<()> {
+    pub fn input_key_combination(&self, keys: &[Key]) -> anyhow::Result<()> {
         for key in keys {
             self.0.enigo.lock().unwrap().key(*key, Direction::Press)?;
         }
         for key in keys.iter().rev() {
             self.0.enigo.lock().unwrap().key(*key, Direction::Release)?;
         }
-        sleep(Duration::from_millis(200));
         Ok(())
     }
 
-    pub fn type_text(&self, text: &str) -> anyhow::Result<()> {
+    pub fn input_text(&self, text: &str) -> anyhow::Result<()> {
         self.0.enigo.lock().unwrap().text(text)?;
-        sleep(Duration::from_millis(200));
-        Ok(())
-    }
-
-    pub fn mouse_move_global(&self, x: i32, y: i32) -> anyhow::Result<()> {
-        self.0
-            .enigo
-            .lock()
-            .unwrap()
-            .move_mouse(x, y, enigo::Coordinate::Abs)?;
-        sleep(Duration::from_millis(200));
         Ok(())
     }
 

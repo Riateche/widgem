@@ -16,7 +16,7 @@ use {
         thread::sleep,
         time::{Duration, Instant},
     },
-    uitest::IGNORED_PIXEL,
+    uitest::{Button, Key, IGNORED_PIXEL},
     widgem::{widgets::RootWidget, AppBuilder},
 };
 
@@ -32,6 +32,8 @@ const SIMPLE_CAPTURE_DELAY: Duration = Duration::from_millis(500);
 const WAIT_FOR_WINDOWS_INTERVAL: Duration = Duration::from_millis(200);
 /// Maximum time for finding windows by criteria.
 const WAIT_FOR_WINDOWS_DURATION: Duration = Duration::from_secs(15);
+/// Sleep duration after emitting mouse or keyboard inputs.
+const DELAY_AFTER_INPUT: Duration = Duration::from_millis(200);
 
 pub(crate) struct CheckContext {
     uitest_context: uitest::Context,
@@ -410,6 +412,13 @@ impl Context {
         }
     }
 
+    /// Returns process ID of the process launched by [Context::run].
+    ///
+    /// Returns an error if [Context::run] hasn't been called yet.
+    pub fn test_subject_pid(&self) -> anyhow::Result<u32> {
+        self.check(|c| c.test_subject_pid())
+    }
+
     /// Set blinking detection behavior for subsequent snapshot captures.
     ///
     /// If `value` is `true`, snapshot capture functions will try to fetch
@@ -443,6 +452,13 @@ impl Context {
         self.check(|c| c.finish())
     }
 
+    fn ui<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut uitest::Context) -> R,
+    {
+        self.check(|c| f(&mut c.uitest_context))
+    }
+
     pub fn wait_for_windows_by_pid(&self, num_windows: usize) -> anyhow::Result<Vec<Window>> {
         let windows = self.check(|c| c.wait_for_windows_by_pid(num_windows))?;
         Ok(windows
@@ -456,16 +472,92 @@ impl Context {
         Ok(Window::new(inner, self.clone()))
     }
 
-    /// Returns process ID of the process launched by [Context::run].
-    ///
-    /// Returns an error if [Context::run] hasn't been called yet.
-    pub fn test_subject_pid(&self) -> anyhow::Result<u32> {
-        self.check(|c| c.test_subject_pid())
+    pub fn active_window_id(&self) -> anyhow::Result<u32> {
+        self.ui(|c| c.active_window_id())
     }
 
-    // TODO: remove?
-    pub fn ui_context(&self) -> uitest::Context {
-        self.check(|c| c.uitest_context.clone())
+    pub fn mouse_move_global(&self, x: i32, y: i32) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_move_global(x, y))?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_click(&self, button: Button) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_click(button))?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_left_click(&self) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_left_click())?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_press(&self, button: Button) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_press(button))?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_release(&self, button: Button) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_release(button))?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_left_press(&self) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_left_press())?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_left_release(&self) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_left_release())?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_scroll_up(&self) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_scroll_up())?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_scroll_down(&self) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_scroll_down())?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_scroll_left(&self) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_scroll_left())?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn mouse_scroll_right(&self) -> anyhow::Result<()> {
+        self.ui(|c| c.mouse_scroll_right())?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn input_key(&self, key: Key) -> anyhow::Result<()> {
+        self.ui(|c| c.input_key(key))?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn input_key_combination(&self, keys: &[Key]) -> anyhow::Result<()> {
+        self.ui(|c| c.input_key_combination(keys))?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
+    }
+
+    pub fn input_text(&self, text: &str) -> anyhow::Result<()> {
+        self.ui(|c| c.input_text(text))?;
+        sleep(DELAY_AFTER_INPUT);
+        Ok(())
     }
 }
 

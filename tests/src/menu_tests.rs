@@ -81,7 +81,7 @@ fn main(ctx: &mut Context) -> anyhow::Result<()> {
     let main_window = ctx.wait_for_window_by_pid()?;
     main_window.snapshot("main window")?;
     main_window.mouse_move(50, 30)?;
-    ctx.ui_context().mouse_left_click()?;
+    ctx.mouse_left_click()?;
 
     // Mouse events for a new window don't arrive until the mouse is moved.
     #[cfg(target_os = "macos")]
@@ -104,7 +104,7 @@ fn main(ctx: &mut Context) -> anyhow::Result<()> {
     menu_window.mouse_move(60, 50)?;
     menu_window.snapshot("select second item")?;
     main_window.mouse_move(1, 1)?;
-    ctx.ui_context().mouse_left_click()?;
+    ctx.mouse_left_click()?;
     let window2 = ctx.wait_for_window_by_pid()?;
     ensure!(window2.id()? == main_window.id()?, "no main window");
     main_window.snapshot("main window after closing menu")?;
