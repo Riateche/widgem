@@ -4,6 +4,7 @@ mod menu_tests;
 mod scroll_area_tests;
 mod scroll_bar_tests;
 mod simple_form;
+mod text_area_tests;
 mod text_input_tests;
 
 use std::{

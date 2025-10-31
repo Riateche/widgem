@@ -8,6 +8,7 @@ mod row;
 mod scroll_area;
 mod scroll_bar;
 mod stack;
+mod text_area;
 mod text_input;
 mod window;
 
@@ -21,6 +22,7 @@ pub use self::{
     row::Row,
     scroll_area::{ScrollArea, ScrollBarPolicy},
     scroll_bar::ScrollBar,
+    text_area::TextArea,
     text_input::TextInput,
     window::Window,
 };

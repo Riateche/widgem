@@ -307,6 +307,26 @@ impl TextHandler {
                 motion: Motion::Previous.into(),
                 select: false,
             });
+        } else if self.is_multiline && shortcuts.move_to_next_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Down.into(),
+                select: false,
+            });
+        } else if self.is_multiline && shortcuts.move_to_previous_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Up.into(),
+                select: false,
+            });
+        } else if self.is_multiline && shortcuts.move_to_next_page.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::PageDown.into(),
+                select: false,
+            });
+        } else if self.is_multiline && shortcuts.move_to_previous_page.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::PageUp.into(),
+                select: false,
+            });
         } else if shortcuts.delete.matches(&event) {
             self.action(Action::Delete);
         } else if shortcuts.backspace.matches(&event) {
@@ -350,6 +370,26 @@ impl TextHandler {
                 motion: Motion::End.into(),
                 select: false,
             });
+        } else if self.is_multiline && shortcuts.move_to_start_of_paragraph.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::ParagraphStart.into(),
+                select: false,
+            });
+        } else if self.is_multiline && shortcuts.move_to_end_of_paragraph.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::ParagraphEnd.into(),
+                select: false,
+            });
+        } else if self.is_multiline && shortcuts.move_to_start_of_document.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::BufferStart.into(),
+                select: false,
+            });
+        } else if self.is_multiline && shortcuts.move_to_end_of_document.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::BufferEnd.into(),
+                select: false,
+            });
         } else if shortcuts.select_next_char.matches(&event) {
             self.action(Action::Motion {
                 motion: Motion::Next.into(),
@@ -358,6 +398,26 @@ impl TextHandler {
         } else if shortcuts.select_previous_char.matches(&event) {
             self.action(Action::Motion {
                 motion: Motion::Previous.into(),
+                select: true,
+            });
+        } else if self.is_multiline && shortcuts.select_next_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Down.into(),
+                select: true,
+            });
+        } else if self.is_multiline && shortcuts.select_previous_line.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::Up.into(),
+                select: true,
+            });
+        } else if self.is_multiline && shortcuts.select_next_page.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::PageDown.into(),
+                select: true,
+            });
+        } else if self.is_multiline && shortcuts.select_previous_page.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::PageUp.into(),
                 select: true,
             });
         } else if shortcuts.select_next_word.matches(&event) {
@@ -380,10 +440,32 @@ impl TextHandler {
                 motion: Motion::End.into(),
                 select: true,
             });
+        } else if self.is_multiline && shortcuts.select_start_of_paragraph.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::ParagraphStart.into(),
+                select: true,
+            });
+        } else if self.is_multiline && shortcuts.select_end_of_paragraph.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::ParagraphEnd.into(),
+                select: true,
+            });
+        } else if self.is_multiline && shortcuts.select_start_of_document.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::BufferStart.into(),
+                select: true,
+            });
+        } else if self.is_multiline && shortcuts.select_end_of_document.matches(&event) {
+            self.action(Action::Motion {
+                motion: Motion::BufferEnd.into(),
+                select: true,
+            });
         } else if shortcuts.delete_start_of_word.matches(&event) {
             self.action(Action::DeleteStartOfWord);
         } else if shortcuts.delete_end_of_word.matches(&event) {
             self.action(Action::DeleteEndOfWord);
+        } else if self.is_multiline && shortcuts.insert_paragraph_separator.matches(&event) {
+            self.action(Action::Enter);
         } else if let Some(text) = &event.info.text {
             if let Key::Named(key) = &event.info.logical_key {
                 if [NamedKey::Tab, NamedKey::Enter, NamedKey::Escape].contains(key) {

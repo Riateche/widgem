@@ -2,7 +2,7 @@ use {
     widgem::{
         layout::Layout,
         types::Axis,
-        widgets::{Button, Label, RootWidget, ScrollBar, TextInput},
+        widgets::{Button, Label, RootWidget, ScrollBar, TextArea, TextInput},
         WidgetExt, Window,
     },
     widgem_tester::Context,
@@ -38,6 +38,16 @@ fn init_form(root: &mut RootWidget) -> anyhow::Result<()> {
     contents
         .set_next_item(Label::init("Multiline label\nSecond line".into()))?
         .set_grid_cell(1, current_cell_y);
+
+    current_cell_y += 1;
+    let text_area_label_id = contents
+        .set_next_item(Label::init("Long text:".into()))?
+        .set_grid_cell(0, current_cell_y)
+        .id();
+    contents
+        .set_next_item(TextArea::init())?
+        .set_grid_cell(1, current_cell_y)
+        .set_labelled_by(text_area_label_id.raw());
 
     current_cell_y += 1;
     let submit = contents

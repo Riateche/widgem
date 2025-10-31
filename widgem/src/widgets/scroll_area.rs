@@ -93,10 +93,16 @@ impl ScrollArea {
 
     pub fn content<T: Widget>(&self) -> anyhow::Result<&T> {
         self.base
-            .get_dyn_child(INDEX_VIEWPORT)
-            .unwrap()
+            .get_dyn_child(INDEX_VIEWPORT)?
             .base()
             .get_child(KEY_CONTENT_IN_VIEWPORT)
+    }
+
+    pub fn content_mut<T: Widget>(&mut self) -> anyhow::Result<&mut T> {
+        self.base
+            .get_dyn_child_mut(INDEX_VIEWPORT)?
+            .base_mut()
+            .get_child_mut(KEY_CONTENT_IN_VIEWPORT)
     }
 
     pub fn dyn_content(&self) -> anyhow::Result<&dyn Widget> {

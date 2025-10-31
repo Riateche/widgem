@@ -38,10 +38,6 @@ use {
     winit::window::CursorIcon,
 };
 
-fn main_key() -> ChildKey {
-    "__main".into()
-}
-
 fn default_scale(app: &App) -> f32 {
     if let Some(scale) = app.config().fixed_scale {
         return scale;
@@ -1692,7 +1688,7 @@ impl<W> WidgetBaseOf<W> {
         &mut self,
         initializer: WI,
     ) -> anyhow::Result<&mut WI::Output> {
-        self.set_child(main_key(), initializer)
+        self.set_child(ChildKey::main(), initializer)
     }
 
     /// Report the widget as supporting (or not supporting) focus.

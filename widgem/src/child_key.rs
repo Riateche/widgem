@@ -15,6 +15,12 @@ pub struct ChildKey {
     debug: Rc<str>,
 }
 
+impl ChildKey {
+    pub fn main() -> ChildKey {
+        "__main".into()
+    }
+}
+
 pub trait ChildKeyData: Debug {
     fn sort_key(&self, out: impl Write);
 }

@@ -14,10 +14,14 @@ use {
     winit::keyboard::{KeyCode, ModifiersState, NamedKey},
 };
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Default)]
 pub struct KeyCombinations(pub Vec<KeyCombination>);
 
 impl KeyCombinations {
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
     pub fn new(modifiers: Modifiers, key: impl Into<ShortcutKey>) -> Self {
         Self(vec![KeyCombination::new(modifiers, key)])
     }
@@ -43,6 +47,19 @@ impl KeyCombinations {
             bail!("no shortcut specified");
         }
         Ok(Self(r))
+    }
+
+    fn with_shift(&self) -> Self {
+        Self(
+            self.0
+                .iter()
+                .map(|item| {
+                    let mut item = item.clone();
+                    item.modifiers.insert(Modifiers::SHIFT);
+                    item
+                })
+                .collect(),
+        )
     }
 }
 
@@ -166,6 +183,10 @@ impl From<ModifiersState> for Modifiers {
 pub struct StandardShortcuts {
     pub move_to_next_char: KeyCombinations,
     pub move_to_previous_char: KeyCombinations,
+    pub move_to_next_line: KeyCombinations,
+    pub move_to_previous_line: KeyCombinations,
+    pub move_to_next_page: KeyCombinations,
+    pub move_to_previous_page: KeyCombinations,
     pub delete: KeyCombinations,
     pub backspace: KeyCombinations,
     pub cut: KeyCombinations,
@@ -182,12 +203,24 @@ pub struct StandardShortcuts {
     pub move_to_previous_word: KeyCombinations,
     pub move_to_start_of_line: KeyCombinations,
     pub move_to_end_of_line: KeyCombinations,
+    pub move_to_start_of_paragraph: KeyCombinations,
+    pub move_to_end_of_paragraph: KeyCombinations,
+    pub move_to_start_of_document: KeyCombinations,
+    pub move_to_end_of_document: KeyCombinations,
     pub select_next_char: KeyCombinations,
     pub select_previous_char: KeyCombinations,
+    pub select_next_line: KeyCombinations,
+    pub select_previous_line: KeyCombinations,
+    pub select_next_page: KeyCombinations,
+    pub select_previous_page: KeyCombinations,
     pub select_next_word: KeyCombinations,
     pub select_previous_word: KeyCombinations,
     pub select_start_of_line: KeyCombinations,
     pub select_end_of_line: KeyCombinations,
+    pub select_start_of_paragraph: KeyCombinations,
+    pub select_end_of_paragraph: KeyCombinations,
+    pub select_start_of_document: KeyCombinations,
+    pub select_end_of_document: KeyCombinations,
     pub delete_start_of_word: KeyCombinations,
     pub delete_end_of_word: KeyCombinations,
     pub insert_paragraph_separator: KeyCombinations,
@@ -196,48 +229,128 @@ pub struct StandardShortcuts {
 impl StandardShortcuts {
     pub fn new() -> Self {
         let s = |text| KeyCombinations::from_str_portable(text).unwrap();
-        Self {
-            #[cfg(not(target_os = "macos"))]
-            move_to_next_char: s("Right"),
-            #[cfg(target_os = "macos")]
-            move_to_next_char: s("Right; MetaOrMacCtrl+F"),
+        let move_to_next_char = if cfg!(target_os = "macos") {
+            s("Right; MetaOrMacCtrl+F")
+        } else {
+            s("Right")
+        };
+        let move_to_previous_char = if cfg!(target_os = "macos") {
+            s("Left; MetaOrMacCtrl+B")
+        } else {
+            s("Left")
+        };
+        let move_to_next_line = if cfg!(target_os = "macos") {
+            s("Down; MetaOrMacCtrl+N")
+        } else {
+            s("Down")
+        };
+        let move_to_previous_line = if cfg!(target_os = "macos") {
+            s("Up; MetaOrMacCtrl+P")
+        } else {
+            s("Up")
+        };
+        let move_to_next_page = s("PageDown");
+        let move_to_previous_page = s("PageUp");
 
-            #[cfg(not(target_os = "macos"))]
-            move_to_previous_char: s("Left"),
-            #[cfg(target_os = "macos")]
-            move_to_previous_char: s("Left; MetaOrMacCtrl+B"),
+        let move_to_next_word = if cfg!(target_os = "macos") {
+            s("Alt+Right")
+        } else {
+            s("Ctrl+Right")
+        };
+        let move_to_previous_word = if cfg!(target_os = "macos") {
+            s("Alt+Left")
+        } else {
+            s("Ctrl+Left")
+        };
+        let move_to_start_of_line = if cfg!(target_os = "macos") {
+            s("CtrlOrMacCmd+Left; MetaOrMacCtrl+Left")
+        } else {
+            s("Home")
+        };
+        let move_to_end_of_line = if cfg!(target_os = "macos") {
+            s("CtrlOrMacCmd+Right; MetaOrMacCtrl+Right")
+        } else {
+            s("End; Ctrl+E")
+        };
+
+        // TODO: check for extra hotkeys on all platforms
+        let move_to_start_of_paragraph = if cfg!(target_os = "macos") {
+            s("MetaOrMacCtrl+A")
+        } else {
+            s("CtrlOrMacCmd+Up")
+        };
+        let move_to_end_of_paragraph = if cfg!(target_os = "macos") {
+            s("MetaOrMacCtrl+E")
+        } else {
+            s("CtrlOrMacCmd+Down")
+        };
+        let move_to_start_of_document = if cfg!(target_os = "macos") {
+            s("CtrlOrMacCmd+Up")
+        } else {
+            s("CtrlOrMacCmd+Home")
+        };
+        let move_to_end_of_document = if cfg!(target_os = "macos") {
+            s("CtrlOrMacCmd+Down")
+        } else {
+            s("CtrlOrMacCmd+End")
+        };
+        Self {
+            select_next_char: move_to_next_char.with_shift(),
+            select_previous_char: move_to_previous_char.with_shift(),
+            select_next_line: move_to_next_line.with_shift(),
+            select_previous_line: move_to_previous_line.with_shift(),
+            select_next_page: move_to_next_page.with_shift(),
+            select_previous_page: move_to_previous_page.with_shift(),
+            select_next_word: move_to_next_word.with_shift(),
+            select_previous_word: move_to_previous_word.with_shift(),
+            select_start_of_line: move_to_start_of_line.with_shift(),
+            select_end_of_line: move_to_end_of_line.with_shift(),
+            select_start_of_paragraph: move_to_start_of_paragraph.with_shift(),
+            select_end_of_paragraph: move_to_end_of_paragraph.with_shift(),
+            select_start_of_document: move_to_start_of_document.with_shift(),
+            select_end_of_document: move_to_end_of_document.with_shift(),
+
+            move_to_next_char,
+            move_to_previous_char,
+
+            // TODO: check for extra hotkeys on all platforms
+            move_to_next_line,
+            move_to_previous_line,
+            move_to_next_page,
+            move_to_previous_page,
 
             delete: s("Delete; MetaOrMacCtrl+D"),
 
-            #[cfg(not(target_os = "macos"))]
-            backspace: s("Backspace"),
-            #[cfg(target_os = "macos")]
-            backspace: s("Backspace; MetaOrMacCtrl+H"),
-
-            #[cfg(not(target_os = "macos"))]
-            cut: s("Ctrl+X; Shift+Delete; F20"),
-            #[cfg(target_os = "macos")]
-            cut: s("CtrlOrMacCmd+X; MetaOrMacCtrl+K"),
-
-            #[cfg(not(target_os = "macos"))]
-            copy: s("Ctrl+C; Ctrl+Insert; F16"),
-            #[cfg(target_os = "macos")]
-            copy: s("CtrlOrMacCmd+C"),
-
-            #[cfg(not(target_os = "macos"))]
-            paste: s("Ctrl+V; Shift+Insert; F18"),
-            #[cfg(target_os = "macos")]
-            paste: s("CtrlOrMacCmd+V; MetaOrMacCtrl+Y"),
-
-            #[cfg(not(target_os = "macos"))]
-            undo: s("Ctrl+Z; Alt+Backspace; F14"),
-            #[cfg(target_os = "macos")]
-            undo: s("CtrlOrMacCmd+Z"),
-
-            #[cfg(not(target_os = "macos"))]
-            redo: s("Ctrl+Y; Shift+Ctrl+Z; Alt+Shift+Backspace"),
-            #[cfg(target_os = "macos")]
-            redo: s("Shift+CtrlOrMacCmd+Z"),
+            backspace: if cfg!(target_os = "macos") {
+                s("Backspace; MetaOrMacCtrl+H")
+            } else {
+                s("Backspace")
+            },
+            cut: if cfg!(target_os = "macos") {
+                s("CtrlOrMacCmd+X; MetaOrMacCtrl+K")
+            } else {
+                s("Ctrl+X; Shift+Delete; F20")
+            },
+            copy: if cfg!(target_os = "macos") {
+                s("CtrlOrMacCmd+C")
+            } else {
+                s("Ctrl+C; Ctrl+Insert; F16")
+            },
+            paste: if cfg!(target_os = "macos") {
+                s("CtrlOrMacCmd+V; MetaOrMacCtrl+Y")
+            } else {
+                s("Ctrl+V; Shift+Insert; F18")
+            },
+            undo: if cfg!(target_os = "macos") {
+                s("CtrlOrMacCmd+Z")
+            } else {
+                s("Ctrl+Z; Alt+Backspace; F14")
+            },
+            redo: if cfg!(target_os = "macos") {
+                s("Shift+CtrlOrMacCmd+Z")
+            } else {
+                s("Ctrl+Y; Shift+Ctrl+Z; Alt+Shift+Backspace")
+            },
 
             select_all: s("CtrlOrMacCmd+A"),
 
@@ -248,56 +361,20 @@ impl StandardShortcuts {
             italic: s("CtrlOrMacCmd+I"),
 
             underline: s("CtrlOrMacCmd+U"),
+            move_to_next_word,
+            move_to_previous_word,
+            move_to_start_of_line,
+            move_to_end_of_line,
+            move_to_start_of_paragraph,
+            move_to_end_of_paragraph,
+            move_to_start_of_document,
+            move_to_end_of_document,
 
-            #[cfg(not(target_os = "macos"))]
-            move_to_next_word: s("Ctrl+Right"),
-            #[cfg(target_os = "macos")]
-            move_to_next_word: s("Alt+Right"),
-
-            #[cfg(not(target_os = "macos"))]
-            move_to_previous_word: s("Ctrl+Left"),
-            #[cfg(target_os = "macos")]
-            move_to_previous_word: s("Alt+Left"),
-
-            #[cfg(not(target_os = "macos"))]
-            move_to_start_of_line: s("Home"),
-            #[cfg(target_os = "macos")]
-            move_to_start_of_line: s("CtrlOrMacCmd+Left; MetaOrMacCtrl+Left"),
-
-            #[cfg(not(target_os = "macos"))]
-            move_to_end_of_line: s("End; Ctrl+E"),
-            #[cfg(target_os = "macos")]
-            move_to_end_of_line: s("CtrlOrMacCmd+Right; MetaOrMacCtrl+Right"),
-
-            select_next_char: s("Shift+Right"),
-
-            select_previous_char: s("Shift+Left"),
-
-            #[cfg(not(target_os = "macos"))]
-            select_next_word: s("Ctrl+Shift+Right"),
-            #[cfg(target_os = "macos")]
-            select_next_word: s("Alt+Shift+Right"),
-
-            #[cfg(not(target_os = "macos"))]
-            select_previous_word: s("Ctrl+Shift+Left"),
-            #[cfg(target_os = "macos")]
-            select_previous_word: s("Alt+Shift+Left"),
-
-            #[cfg(not(target_os = "macos"))]
-            select_start_of_line: s("Shift+Home"),
-            #[cfg(target_os = "macos")]
-            select_start_of_line: s("CtrlOrMacCmd+Shift+Left"),
-
-            #[cfg(not(target_os = "macos"))]
-            select_end_of_line: s("Shift+End"),
-            #[cfg(target_os = "macos")]
-            select_end_of_line: s("CtrlOrMacCmd+Shift+Right"),
-
-            #[cfg(not(target_os = "macos"))]
-            delete_start_of_word: s("Ctrl+Backspace"),
-            #[cfg(target_os = "macos")]
-            delete_start_of_word: s("Alt+Backspace"),
-
+            delete_start_of_word: if cfg!(target_os = "macos") {
+                s("Alt+Backspace")
+            } else {
+                s("Ctrl+Backspace")
+            },
             delete_end_of_word: s("CtrlOrMacCmd+Delete"),
 
             insert_paragraph_separator: s("Enter"),

@@ -369,6 +369,27 @@ pub fn convert_width(
     Ok(width.map(|width| width.to_physical(scale)))
 }
 
+pub fn convert_height(
+    properties: &[&Property<'static>],
+    scale: f32,
+    font_size: LogicalPixels,
+) -> Result<Option<PhysicalPixels>> {
+    let mut height = None;
+    for property in properties {
+        match property {
+            Property::Height(value) => match value {
+                Size::Auto => {}
+                Size::LengthPercentage(value) => {
+                    height = Some(convert_dimension_percentage(value, None, Some(font_size))?);
+                }
+                _ => warn!("unsupported height value: {value:?}"),
+            },
+            _ => {}
+        }
+    }
+    Ok(height.map(|height| height.to_physical(scale)))
+}
+
 fn convert_border_width(width: &BorderSideWidth) -> Result<LogicalPixels> {
     if let BorderSideWidth::Length(width) = width {
         match width {

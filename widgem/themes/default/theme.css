@@ -35,6 +35,24 @@ TextInput:focus {
     border-color: #6464ff;
 }
 
+TextArea {
+    border: 1px solid #c8c8c8;
+    border-radius: 2px;
+    width: 10em;
+    height: 6.2em;
+    padding: 0;
+}
+TextArea:min {
+    width: 2em;
+    height: 1em;
+}
+TextInput:focus, TextArea:focus {
+    border-color: #6464ff;
+}
+Row.text_area_text_wrapper {
+    padding: 3px;
+}
+
 Button {
     text-align: center;
     vertical-align: middle;
