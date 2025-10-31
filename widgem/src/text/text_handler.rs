@@ -282,7 +282,7 @@ impl TextHandler {
                 PhysicalPixels::from_i32(self.line_height().ceil() as i32),
             ),
         );
-        if visible_rect.intersect(rect).is_empty() {
+        if !visible_rect.contains_rect(rect) {
             self.base.ensure_rect_visible(rect);
         }
     }
@@ -569,7 +569,6 @@ impl TextHandler {
                 .set_linux_primary_selection(&self.selected_text)
                 .or_warn();
         }
-        self.request_scroll();
     }
 
     #[cfg(all(
@@ -814,7 +813,6 @@ impl TextHandler {
         self.base
             .app()
             .with_font_system(|font_system| self.editor.shape_as_needed(font_system, false));
-        self.request_scroll();
     }
 
     pub fn needs_redraw(&mut self) -> bool {
@@ -1105,6 +1103,7 @@ impl TextHandler {
                 // as real text and cancel IME preedit.
                 self.interrupt_preedit();
                 self.shape_as_needed();
+                self.request_scroll();
                 let x = event.pos.x().to_i32();
                 let y = event.pos.y().to_i32();
                 let window = self.base.window_or_err()?;

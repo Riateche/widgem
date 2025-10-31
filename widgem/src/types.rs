@@ -340,6 +340,10 @@ impl Rect {
         self.top_left.x <= pos.x && pos.x < br.x && self.top_left.y <= pos.y && pos.y < br.y
     }
 
+    pub fn contains_rect(&self, rect: Rect) -> bool {
+        self.contains(rect.top_left()) && self.contains(rect.bottom_right())
+    }
+
     #[must_use]
     pub fn intersect(&self, other: Self) -> Self {
         let top_left = Point {

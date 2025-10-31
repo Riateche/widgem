@@ -17,7 +17,7 @@ use {
         types::PhysicalPixels,
         widget_initializer::{self, WidgetInitializer},
         widgets::{Row, ScrollArea},
-        ChildKey, ScrollToRectRequest, Widget, WidgetBaseOf, WidgetExt,
+        ChildKey, Widget, WidgetBaseOf, WidgetExt,
     },
     accesskit::ActionData,
     anyhow::{bail, Result},
@@ -65,13 +65,13 @@ impl TextArea {
         widget_initializer::from_fallible_new(Self::new)
     }
 
-    fn text_handler(&self) -> anyhow::Result<&TextHandler> {
-        self.base
-            .get_child::<ScrollArea>(ChildKey::main())?
-            .content::<Row>()?
-            .base()
-            .get_child(0u32)
-    }
+    // fn text_handler(&self) -> anyhow::Result<&TextHandler> {
+    //     self.base
+    //         .get_child::<ScrollArea>(ChildKey::main())?
+    //         .content::<Row>()?
+    //         .base()
+    //         .get_child(0u32)
+    // }
 
     fn text_handler_mut(&mut self) -> anyhow::Result<&mut TextHandler> {
         self.base
@@ -154,15 +154,6 @@ impl Widget for TextArea {
 
     fn handle_input_method(&mut self, event: InputMethodEvent) -> Result<bool> {
         self.text_handler_mut()?.handle_host_ime(event)
-    }
-
-    fn handle_scroll_to_rect_request(&mut self, event: ScrollToRectRequest) -> Result<bool> {
-        if self.text_handler()?.base().id() != event.address.widget_id() {
-            warn!("TextInput received unexpected ScrollToRectEvent");
-            return Ok(false);
-        }
-
-        Ok(true)
     }
 
     fn handle_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {

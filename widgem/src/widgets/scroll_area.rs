@@ -6,9 +6,9 @@ use {
         types::{Axis, PhysicalPixels, PpxSuffix, Rect},
         widget_initializer::{self, WidgetInitializer},
         widgets::ScrollBar,
-        Widget, WidgetBaseOf, WidgetExt, WidgetGeometry,
+        ScrollToRectRequest, Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry,
     },
-    anyhow::Result,
+    anyhow::{ensure, Context as _, Result},
     std::cmp::{max, min},
     widgem_macros::impl_with,
 };
@@ -520,6 +520,71 @@ impl Widget for ScrollArea {
         self.base.update();
         Ok(true)
     }
+
+    fn handle_scroll_to_rect_request(&mut self, request: ScrollToRectRequest) -> Result<bool> {
+        let viewport = self.base.get_dyn_child(INDEX_VIEWPORT)?;
+        let requested_rect = map_from_child_pos(viewport, &request.address, request.rect)?;
+        let full_rect = viewport.base().rect_in_self_or_err()?;
+        let dx = if requested_rect.right() > full_rect.right() {
+            requested_rect.right() - full_rect.right()
+        } else if requested_rect.left() < full_rect.left() {
+            requested_rect.left() - full_rect.left()
+        } else {
+            0.ppx()
+        };
+
+        let dy = if requested_rect.bottom() > full_rect.bottom() {
+            requested_rect.bottom() - full_rect.bottom()
+        } else if requested_rect.top() < full_rect.top() {
+            requested_rect.top() - full_rect.top()
+        } else {
+            0.ppx()
+        };
+
+        if dx.to_i32() != 0 {
+            let scroll_bar_x = self.base.get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?;
+            scroll_bar_x.set_value(scroll_bar_x.value() + dx.to_i32());
+        }
+
+        if dy.to_i32() != 0 {
+            let scroll_bar_y = self.base.get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?;
+            scroll_bar_y.set_value(scroll_bar_y.value() + dy.to_i32());
+        }
+
+        if dx.to_i32() != 0 || dy.to_i32() != 0 {
+            self.relayout()?;
+        }
+
+        Ok(true)
+    }
+}
+
+fn map_from_child_pos(
+    parent: &dyn Widget,
+    child_address: &WidgetAddress,
+    rect: Rect,
+) -> Result<Rect> {
+    ensure!(
+        parent.base().address().len() <= child_address.len(),
+        "map_from_child_pos: parent doesn't contain child"
+    );
+    if parent.base().address().len() == child_address.len() {
+        ensure!(
+            parent.base().id() == child_address.widget_id(),
+            "map_from_child_pos: id mismatch"
+        );
+        return Ok(rect);
+    }
+    let (key, _) = child_address
+        .item_at(parent.base().address().len())
+        .context("unexpected address item out of bounds")?;
+
+    let child = parent
+        .base()
+        .get_dyn_child(key)
+        .context("map_from_child_pos: widget not found")?;
+    let child_rect = map_from_child_pos(child, child_address, rect)?;
+    Ok(child_rect.translate(child.base().rect_in_parent_or_err()?.top_left()))
 }
 
 pub struct Viewport {
