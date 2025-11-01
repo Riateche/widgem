@@ -30,7 +30,7 @@ use {
         RawWidgetId, Widget, WidgetBaseOf, WidgetExt,
     },
     accesskit::{NodeId, Role, TextDirection, TextPosition, TextSelection},
-    anyhow::Result,
+    anyhow::{Context as _, Result},
     cosmic_text::{
         Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Motion,
         Shaping, Wrap,
@@ -104,23 +104,11 @@ pub struct TextHandler {
     forbid_mouse_interaction: bool,
     blink_timer: Option<TimerId>,
     selected_text: String,
-    line_accessibility_node_id: NodeId,
+    accessibility_text_run_ids: Vec<NodeId>,
 }
 
 // TODO: get system setting
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
-
-#[derive(Debug)]
-pub struct AccessibilityLine {
-    pub text: String,
-    pub text_direction: TextDirection,
-    pub character_lengths: Vec<u8>,
-    pub character_positions: Vec<f32>,
-    pub character_widths: Vec<f32>,
-    pub word_lengths: Vec<u8>,
-    // pub line_top: f32,
-    // pub line_bottom: f32,
-}
 
 #[impl_with]
 impl TextHandler {
@@ -141,16 +129,9 @@ impl TextHandler {
             forbid_mouse_interaction: false,
             blink_timer: None,
             selected_text: String::new(),
-            line_accessibility_node_id: new_accessibility_node_id(),
+            accessibility_text_run_ids: Vec::new(),
             base,
         };
-        if let Some(window) = t.base.window() {
-            window.add_accessibility_node(
-                Some(t.base.id().into()),
-                t.line_accessibility_node_id,
-                0.into(),
-            );
-        }
         t.editor.set_cursor_hidden(true);
         t.set_text(text);
         t.adjust_size();
@@ -616,7 +597,7 @@ impl TextHandler {
         Ok(())
     }
 
-    fn accessibility_line(&mut self) -> AccessibilityLine {
+    fn accessibility_text_runs(&mut self) -> Vec<accesskit::Node> {
         #[derive(Debug)]
         struct CharStats {
             bytes: Range<usize>,
@@ -624,111 +605,109 @@ impl TextHandler {
         }
 
         self.shape_as_needed();
-        // TODO: extend for multiline
-        // TODO: take ref
-        let text = self
-            .editor
-            .with_buffer(|buffer| buffer.lines[0].text().to_owned());
 
-        let mut character_lengths = Vec::new();
-        let mut character_stats = Vec::new();
-        for (i, c) in text.grapheme_indices(true) {
-            character_lengths.push(c.len() as u8);
-            character_stats.push(CharStats {
-                bytes: i..i + c.len(),
-                pixels: None,
-            });
-        }
-        let mut word_lengths = Vec::new();
-        // TODO: expose from cosmic-text
-        let mut prev_index_in_chars = None;
-        let mut total_chars_in_words = 0;
-        for (i, word) in text.unicode_word_indices() {
-            let end_i = i + word.len();
-            let index_in_chars = character_stats
-                .iter()
-                .take_while(|s| s.bytes.start < end_i)
-                .count();
-            // TODO: checked_sub?
-            let len_in_chars = index_in_chars - prev_index_in_chars.unwrap_or(0);
-            word_lengths.push(len_in_chars as u8);
-            prev_index_in_chars = Some(index_in_chars);
-            total_chars_in_words += len_in_chars;
-        }
-        if total_chars_in_words < character_stats.len() {
-            word_lengths.push((character_stats.len() - total_chars_in_words) as u8);
-        }
-        let text_direction = self.editor.with_buffer(|buffer| {
-            let mut runs = buffer.layout_runs();
-            let Some(run) = runs.next() else {
-                // No runs is expected if the text is empty.
-                return TextDirection::LeftToRight;
-            };
-            if runs.next().is_some() {
-                // TODO: label can have multiple lines
-                //warn!("multiple layout_runs in single line edit");
-            }
-
-            if run.line_i != 0 {
-                warn!("invalid line_i in single line layout_runs");
-            }
-            for glyph in run.glyphs {
-                if let Some(stats) = character_stats
-                    .iter_mut()
-                    .find(|s| s.bytes.does_intersect(&(glyph.start..glyph.end)))
-                {
-                    let new_start = FiniteF32::new(glyph.x).unwrap();
-                    let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
-                    if let Some(pixels) = &mut stats.pixels {
-                        pixels.start = min(pixels.start, new_start);
-                        pixels.end = max(pixels.end, new_end);
-                    } else {
-                        stats.pixels = Some(new_start..new_end);
-                    }
-                } else {
-                    warn!("no char found for glyph: {glyph:?}");
+        self.editor.with_buffer(|buffer| {
+            // TODO: separate text runs based on attributes and text direction? how to handle preedit?
+            let mut output = Vec::new();
+            let mut layout_runs = buffer.layout_runs().peekable();
+            while let Some(layout_run) = layout_runs.next() {
+                let mut text = layout_run.text.to_owned();
+                let mut character_lengths = Vec::new();
+                let mut character_stats = Vec::new();
+                for (i, c) in text.grapheme_indices(true) {
+                    character_lengths.push(c.len() as u8);
+                    character_stats.push(CharStats {
+                        bytes: i..i + c.len(),
+                        pixels: None,
+                    });
                 }
-            }
-            if run.rtl {
-                TextDirection::RightToLeft
-            } else {
-                TextDirection::LeftToRight
-            }
-        });
+                let mut word_lengths = Vec::new();
+                // TODO: expose from cosmic-text
+                let mut prev_index_in_chars = None;
+                let mut total_chars_in_words = 0;
+                for (i, word) in text.unicode_word_indices() {
+                    let end_i = i + word.len();
+                    let index_in_chars = character_stats
+                        .iter()
+                        .take_while(|s| s.bytes.start < end_i)
+                        .count();
+                    // TODO: checked_sub?
+                    let len_in_chars = index_in_chars - prev_index_in_chars.unwrap_or(0);
+                    word_lengths.push(len_in_chars as u8);
+                    prev_index_in_chars = Some(index_in_chars);
+                    total_chars_in_words += len_in_chars;
+                }
+                if total_chars_in_words < character_stats.len() {
+                    word_lengths.push((character_stats.len() - total_chars_in_words) as u8);
+                }
+                for glyph in layout_run.glyphs {
+                    if let Some(stats) = character_stats
+                        .iter_mut()
+                        .find(|s| s.bytes.does_intersect(&(glyph.start..glyph.end)))
+                    {
+                        let new_start = FiniteF32::new(glyph.x).unwrap();
+                        let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
+                        if let Some(pixels) = &mut stats.pixels {
+                            pixels.start = min(pixels.start, new_start);
+                            pixels.end = max(pixels.end, new_end);
+                        } else {
+                            stats.pixels = Some(new_start..new_end);
+                        }
+                    } else {
+                        warn!("no char found for glyph: {glyph:?}");
+                    }
+                }
+                let mut character_positions = character_stats
+                    .iter()
+                    .map(|s| {
+                        s.pixels.as_ref().map_or_else(
+                            || {
+                                warn!("glyph for char not found");
+                                0.0
+                            },
+                            |range| range.start.get(),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let mut character_widths = character_stats
+                    .iter()
+                    .map(|s| {
+                        s.pixels.as_ref().map_or_else(
+                            || {
+                                warn!("glyph for char not found");
+                                0.0
+                            },
+                            |range| range.end.get() - range.start.get(),
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                if layout_runs.peek().is_some() {
+                    text.push('\n');
+                    character_lengths.push(1);
+                    character_widths.push(0.);
+                    character_positions.push(character_positions.last().copied().unwrap_or(0.));
+                }
 
-        AccessibilityLine {
-            text_direction,
-            // line_top: run.line_top,
-            // line_bottom: run.line_top + self.editor.buffer().metrics().line_height,
-            text,
-            character_lengths,
-            character_positions: character_stats
-                .iter()
-                .map(|s| {
-                    s.pixels.as_ref().map_or_else(
-                        || {
-                            warn!("glyph for char not found");
-                            0.0
-                        },
-                        |range| range.start.get(),
-                    )
-                })
-                .collect(),
-            character_widths: character_stats
-                .iter()
-                .map(|s| {
-                    s.pixels.as_ref().map_or_else(
-                        || {
-                            warn!("glyph for char not found;");
-                            0.0
-                        },
-                        |range| range.end.get() - range.start.get(),
-                    )
-                })
-                .collect(),
-            // TODO: real words
-            word_lengths,
-        }
+                let mut line_node = accesskit::Node::new(Role::TextRun);
+                line_node.set_text_direction(if layout_run.rtl {
+                    TextDirection::RightToLeft
+                } else {
+                    TextDirection::LeftToRight
+                });
+                line_node.set_value(text);
+                line_node.set_character_lengths(character_lengths);
+                line_node.set_character_positions(character_positions);
+                line_node.set_character_widths(character_widths);
+                line_node.set_word_lengths(word_lengths);
+                if let Some(rect_in_window) = self.base.rect_in_window() {
+                    // TODO: real line bounds
+                    line_node.set_bounds(rect_in_window.into());
+                }
+                //println!("text: {:?}, line node {:?}", text, line_node);
+                output.push(line_node);
+            }
+            output
+        })
     }
 
     pub fn handle_accessibility_set_selection_action(&mut self, data: TextSelection) {
@@ -763,28 +742,43 @@ impl TextHandler {
         self.reset_blink_timer();
     }
 
-    fn selection_accessibility_info(&mut self, id: NodeId) -> TextSelection {
-        let text = self
-            .editor
-            .with_buffer(|buffer| buffer.lines[0].text().to_string());
-        let byte_to_char_index = |byte_index| {
-            text.grapheme_indices(true)
-                .take_while(|(i, _)| *i < byte_index)
-                .count()
-        };
-        let focus = TextPosition {
-            node: id,
-            character_index: byte_to_char_index(self.cursor().index),
-        };
+    fn accessibility_text_position(&self, cursor: Cursor) -> anyhow::Result<TextPosition> {
+        self.editor.with_buffer(|buffer| {
+            let line_text = buffer
+                .lines
+                .get(cursor.line)
+                .context("invalid cursor line")?
+                .text();
+            // Convert byte index to char index:
+            let character_index = line_text
+                .grapheme_indices(true)
+                .take_while(|(i, _)| *i < cursor.index)
+                .count();
+            let node = *self
+                .accessibility_text_run_ids
+                .get(cursor.line)
+                .with_context(|| {
+                    format!(
+                        "missing accessibility text run id for cursor {:?}, ids.len() = {}",
+                        cursor,
+                        self.accessibility_text_run_ids.len()
+                    )
+                })?;
+            Ok(TextPosition {
+                node,
+                character_index,
+            })
+        })
+    }
+
+    fn selection_accessibility_info(&mut self) -> anyhow::Result<TextSelection> {
+        let focus = self.accessibility_text_position(self.cursor())?;
         let anchor = if let Some(select) = self.select_opt() {
-            TextPosition {
-                node: id,
-                character_index: byte_to_char_index(select.index),
-            }
+            self.accessibility_text_position(select)?
         } else {
             focus
         };
-        TextSelection { anchor, focus }
+        Ok(TextSelection { anchor, focus })
     }
 
     pub fn insert_string(&mut self, text: &str, attrs_list: Option<AttrsList>) {
@@ -1125,25 +1119,27 @@ impl TextHandler {
     }
 
     pub fn handle_host_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
-        let mut line_node = accesskit::Node::new(Role::TextRun);
-        let line = self.accessibility_line();
-        line_node.set_text_direction(line.text_direction);
-        line_node.set_value(line.text);
-        line_node.set_character_lengths(line.character_lengths);
-        line_node.set_character_positions(line.character_positions);
-        line_node.set_character_widths(line.character_widths);
-        line_node.set_word_lengths(line.word_lengths);
-
-        if let Some(rect_in_window) = self.base.rect_in_window() {
-            line_node.set_bounds(rect_in_window.into());
-        }
-
+        let text_runs = self.accessibility_text_runs();
         let Some(window) = self.base.window() else {
             return Ok(None);
         };
-        window.accessibility_node_updated(self.line_accessibility_node_id, Some(line_node));
+        while self.accessibility_text_run_ids.len() < text_runs.len() {
+            let id = new_accessibility_node_id();
+            let key = self.accessibility_text_run_ids.len() as u32;
+            window.add_accessibility_node(Some(self.base.id().into()), id, key.into());
+            self.accessibility_text_run_ids.push(id);
+        }
+        while self.accessibility_text_run_ids.len() > text_runs.len() {
+            let id = self
+                .accessibility_text_run_ids
+                .pop()
+                .context("unexpected empty self.accessibility_text_run_ids")?;
+            window.remove_accessibility_node(Some(self.base.id().into()), id);
+        }
+        for (id, node) in self.accessibility_text_run_ids.iter().zip(text_runs) {
+            window.accessibility_node_updated(*id, Some(node));
+        }
 
-        // TODO: configurable role
         let role = if self.is_multiline {
             Role::TextInput
         } else {
@@ -1158,7 +1154,7 @@ impl TextHandler {
         }
         node.add_action(accesskit::Action::Click);
         node.add_action(accesskit::Action::SetValue);
-        node.set_text_selection(self.selection_accessibility_info(self.line_accessibility_node_id));
+        node.set_text_selection(self.selection_accessibility_info()?);
         Ok(Some(node))
     }
 }
@@ -1272,6 +1268,16 @@ impl Widget for TextHandler {
     }
 }
 
+impl Drop for TextHandler {
+    fn drop(&mut self) {
+        if let Some(window) = self.base.window() {
+            while let Some(id) = self.accessibility_text_run_ids.pop() {
+                window.remove_accessibility_node(Some(self.base.id().into()), id);
+            }
+        }
+    }
+}
+
 const MEASURE_MAX_SIZE: f32 = 10_000.;
 
 fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Size {
@@ -1293,15 +1299,4 @@ fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Si
 fn convert_color(color: Color) -> cosmic_text::Color {
     let c = color.to_color_u8();
     cosmic_text::Color::rgba(c.red(), c.green(), c.blue(), c.alpha())
-}
-
-impl Drop for TextHandler {
-    fn drop(&mut self) {
-        if let Some(window) = self.base.window() {
-            window.remove_accessibility_node(
-                Some(self.base.id().into()),
-                self.line_accessibility_node_id,
-            );
-        }
-    }
 }
