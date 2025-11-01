@@ -3,7 +3,7 @@ use {
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
-        types::{Axis, PhysicalPixels, PpxSuffix, Rect},
+        types::{Axis, LpxSuffix, PhysicalPixels, PpxSuffix, Rect},
         widget_initializer::{self, WidgetInitializer},
         widgets::ScrollBar,
         ScrollToRectRequest, Widget, WidgetAddress, WidgetBaseOf, WidgetExt, WidgetGeometry,
@@ -268,15 +268,17 @@ impl ScrollArea {
                 .unwrap()
                 .value();
 
-            let Some(viewport_rect) = self
+            let Some(viewport_geometry) = self
                 .base
-                .get_dyn_child_mut(INDEX_VIEWPORT)
+                .get_dyn_child(INDEX_VIEWPORT)
                 .unwrap()
-                .base_mut()
-                .rect_in_parent()
+                .base()
+                .geometry()
+                .cloned()
             else {
                 return Ok(());
             };
+            let viewport_rect = viewport_geometry.rect_in_parent();
             let content_size_hint_x = self
                 .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
@@ -319,7 +321,7 @@ impl ScrollArea {
                 .base_mut()
                 .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
                 .unwrap()
-                .set_geometry(Some(WidgetGeometry::new(&geometry, content_rect)));
+                .set_geometry(Some(WidgetGeometry::new(&viewport_geometry, content_rect)));
 
             let max_value_x = max(0.ppx(), content_size_x - viewport_rect.size_x());
             let max_value_y = max(0.ppx(), content_size_y - viewport_rect.size_y());
@@ -530,7 +532,15 @@ impl Widget for ScrollArea {
         Ok(true)
     }
 
-    fn handle_scroll_to_rect_request(&mut self, request: ScrollToRectRequest) -> Result<bool> {
+    fn handle_scroll_to_rect_request(&mut self, mut request: ScrollToRectRequest) -> Result<bool> {
+        // TMP!
+        let padding = 3f32.lpx().to_physical(self.base.scale());
+        request.rect = Rect::from_x1y1x2y2(
+            request.rect.left() - padding,
+            request.rect.top() - padding,
+            request.rect.right() + padding,
+            request.rect.bottom() + padding,
+        );
         let viewport = self.base.get_dyn_child(INDEX_VIEWPORT)?;
         let requested_rect = map_from_child_pos(viewport, &request.address, request.rect)?;
         let full_rect = viewport.base().rect_in_self_or_err()?;

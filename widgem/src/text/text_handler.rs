@@ -257,6 +257,9 @@ impl TextHandler {
         let Some(visible_rect) = self.base.visible_rect_in_self() else {
             return;
         };
+        // let Some(geometry) = self.base.geometry() else {
+        //     return;
+        // };
         // TODO: cursor width?
         let rect = Rect::from_pos_size(
             cursor_position,
@@ -265,8 +268,19 @@ impl TextHandler {
                 PhysicalPixels::from_i32(self.line_height().ceil() as i32),
             ),
         );
+        // println!("\nrect_in_parent = {:?}", geometry.rect_in_parent());
+        // println!("rect_in_self = {:?}", geometry.rect_in_self());
+        // println!(
+        //     "parent_visible_rect_in_parent = {:?}",
+        //     geometry.parent_visible_rect_in_parent
+        // );
+        // println!("visible_rect = {visible_rect:?}");
+        //println!("rect = {rect:?}");
         if !visible_rect.contains_rect(rect) {
+            //println!("request scroll!");
             self.base.ensure_rect_visible(rect);
+        } else {
+            //println!("already visible");
         }
     }
 
