@@ -14,7 +14,7 @@ use {
         },
         system::OrWarn,
         text::TextHandler,
-        types::{PhysicalPixels, Point, PpxSuffix, Rect},
+        types::{PhysicalPixels, Point, PpxSuffix, Rect, Size},
         widget_initializer::{self, WidgetInitializer},
         ScrollToRectRequest, Widget, WidgetBaseOf, WidgetExt, WidgetGeometry,
     },
@@ -39,13 +39,13 @@ impl Widget for Viewport {
     impl_widget_base!();
 
     fn handle_size_hint_x_request(
-        &self,
+        &mut self,
         _size_y: Option<PhysicalPixels>,
     ) -> Result<crate::layout::SizeHint> {
         Ok(SizeHint::new_expanding(0.ppx(), 0.ppx()))
     }
 
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHint> {
         let size = PhysicalPixels::from_i32(
             self.base.get_child::<TextHandler>(0).unwrap().line_height() as i32,
         );
@@ -114,7 +114,9 @@ impl TextInput {
         else {
             return;
         };
-        let text_size = self.text_widget().size();
+        let text_size_x = self.text_widget_mut().size_hint_x(None).preferred();
+        let text_size_y = self.text_widget_mut().size_hint_y(text_size_x).preferred();
+        let text_size = Size::new(text_size_x, text_size_y);
         let cursor_position = self.text_widget().cursor_position();
         let mut scroll_x = self
             .base
@@ -192,7 +194,7 @@ impl Widget for TextInput {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&mut self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         Ok(SizeHint::new_expanding(
             self.style.min_width,
             self.style.preferred_width,

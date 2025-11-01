@@ -400,7 +400,7 @@ fn size_hint(
 }
 
 pub fn default_size_hint_x(
-    widget: &(impl Widget + ?Sized),
+    widget: &mut (impl Widget + ?Sized),
     size_y: Option<PhysicalPixels>,
 ) -> SizeHint {
     let options = widget.base().base_style().grid.clone();
@@ -411,7 +411,7 @@ pub fn default_size_hint_x(
 const UNRESTRICTED: PhysicalPixels = PhysicalPixels::from_i32(100_000);
 
 pub(crate) fn size_hint_x(
-    widget: &(impl Widget + ?Sized),
+    widget: &mut (impl Widget + ?Sized),
     size_y: Option<PhysicalPixels>,
     options: &GridOptions,
     rows_and_columns: &RowsAndColumns,
@@ -426,7 +426,7 @@ pub(crate) fn size_hint_x(
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
-    for item in widget.base().children() {
+    for item in widget.base_mut().children_mut() {
         let Some(pos_in_grid) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -457,14 +457,17 @@ pub(crate) fn size_hint_x(
     }
 }
 
-pub fn default_size_hint_y(widget: &(impl Widget + ?Sized), size_x: PhysicalPixels) -> SizeHint {
+pub fn default_size_hint_y(
+    widget: &mut (impl Widget + ?Sized),
+    size_x: PhysicalPixels,
+) -> SizeHint {
     let options = widget.base().base_style().grid.clone();
     let rows_and_columns = assign_rows_and_columns(widget);
     size_hint_y(widget, &options, size_x, &rows_and_columns)
 }
 
 pub(crate) fn size_hint_y(
-    widget: &(impl Widget + ?Sized),
+    widget: &mut (impl Widget + ?Sized),
     options: &GridOptions,
     size_x: PhysicalPixels,
     rows_and_columns: &RowsAndColumns,
@@ -473,7 +476,7 @@ pub(crate) fn size_hint_y(
     let mut min_items = Vec::new();
     let mut preferred_items = Vec::new();
     let mut all_fixed = true;
-    for item in widget.base().children() {
+    for item in widget.base_mut().children_mut() {
         let Some(item_size_x) = x_layout.child_sizes.get(&item.base().id()) else {
             continue;
         };
@@ -511,14 +514,14 @@ struct XLayout {
 }
 
 fn x_layout(
-    widget: &(impl Widget + ?Sized),
+    widget: &mut (impl Widget + ?Sized),
     rows_and_columns: &RowsAndColumns,
     options: &GridAxisOptions,
     size_x: PhysicalPixels,
     first_pass: Option<HashMap<RawWidgetId, Option<WidgetGeometry>>>,
 ) -> XLayout {
     let mut hints_per_column = BTreeMap::new();
-    for item in widget.base().children() {
+    for item in widget.base_mut().children_mut() {
         let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -548,7 +551,7 @@ fn x_layout(
     let output = solve_layout(&layout_items, size_x, options);
     let column_sizes: BTreeMap<_, _> = hints_per_column.keys().copied().zip(output.sizes).collect();
     let mut child_sizes = HashMap::new();
-    for item in widget.base().children() {
+    for item in widget.base_mut().children_mut() {
         let Some(pos) = rows_and_columns.id_to_x.get(&item.base().id()).cloned() else {
             continue;
         };
@@ -668,7 +671,7 @@ pub(crate) fn assign_rows_and_columns<W: Widget + ?Sized>(widget: &W) -> RowsAnd
 }
 
 fn default_layout_pass<W: Widget + ?Sized>(
-    widget: &W,
+    widget: &mut W,
     for_size: Option<Size>,
     rows_and_columns: &RowsAndColumns,
     first_pass: Option<HashMap<RawWidgetId, Option<WidgetGeometry>>>,
@@ -690,7 +693,7 @@ fn default_layout_pass<W: Widget + ?Sized>(
         first_pass,
     );
     let mut hints_per_row = BTreeMap::new();
-    for item in widget.base().children() {
+    for item in widget.base_mut().children_mut() {
         // TODO: problem with is_self_visible
         let Some(pos) = rows_and_columns.id_to_y.get(&item.base().id()).cloned() else {
             continue;
@@ -734,7 +737,7 @@ fn default_layout_pass<W: Widget + ?Sized>(
         options.y.alignment,
     );
     let mut output = HashMap::new();
-    for item in widget.base().children() {
+    for item in widget.base_mut().children_mut() {
         if item.base().is_window_root() {
             continue;
         }

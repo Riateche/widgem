@@ -287,7 +287,7 @@ pub trait WidgetExt: Widget {
         self.handle_declare_children_request().or_warn();
     }
 
-    fn size_hint_x(&self, size_y: Option<PhysicalPixels>) -> SizeHint {
+    fn size_hint_x(&mut self, size_y: Option<PhysicalPixels>) -> SizeHint {
         if let Some(cached) = self.base().size_hint_x_cache(size_y) {
             cached
         } else {
@@ -300,7 +300,7 @@ pub trait WidgetExt: Widget {
         }
     }
 
-    fn size_hint_y(&self, size_x: PhysicalPixels) -> SizeHint {
+    fn size_hint_y(&mut self, size_x: PhysicalPixels) -> SizeHint {
         if let Some(cached) = self.base().size_hint_y_cache(size_x) {
             cached
         } else {

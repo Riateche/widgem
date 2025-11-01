@@ -3,8 +3,8 @@ use {
         accessibility::new_accessibility_node_id,
         draw::DrawEvent,
         event::{
-            FocusReason, InputMethodEvent, KeyboardInputEvent, MouseInputEvent, MouseMoveEvent,
-            WindowFocusChangeEvent,
+            FocusReason, InputMethodEvent, KeyboardInputEvent, LayoutEvent, MouseInputEvent,
+            MouseMoveEvent, WindowFocusChangeEvent,
         },
         impl_widget_base,
         layout::SizeHint,
@@ -95,7 +95,6 @@ pub struct TextHandler {
     style: Rc<TextStyle>,
     editor: Editor<'static>,
     pixmap: Option<Pixmap>,
-    size: Size,
     is_multiline: bool,
     is_editable: bool,
     is_cursor_hidden: bool,
@@ -120,7 +119,6 @@ impl TextHandler {
             editor,
             pixmap: None,
             style,
-            size: Size::default(),
             is_multiline: true,
             is_editable: false,
             is_cursor_hidden: true,
@@ -135,6 +133,7 @@ impl TextHandler {
         t.editor.set_cursor_hidden(true);
         t.set_text(text);
         t.adjust_size();
+        t.base.size_hint_changed();
         t.reset_blink_timer();
         t.request_scroll();
         t
@@ -162,6 +161,7 @@ impl TextHandler {
             self.set_cursor_hidden(true);
         }
         self.adjust_size();
+        self.base.size_hint_changed();
         self.reset_blink_timer();
         self.request_scroll();
         self
@@ -211,6 +211,7 @@ impl TextHandler {
             });
         });
         self.adjust_size();
+        self.base.size_hint_changed();
         self.request_scroll();
     }
 
@@ -224,6 +225,7 @@ impl TextHandler {
                 .with_buffer_mut(|buffer| buffer.set_wrap(font_system, wrap));
         });
         self.adjust_size();
+        self.base.size_hint_changed();
         self.request_scroll();
     }
 
@@ -505,6 +507,7 @@ impl TextHandler {
             });
         });
         self.adjust_size();
+        self.base.size_hint_changed();
         self.after_change();
         self.reset_blink_timer();
         self.base.update();
@@ -604,9 +607,11 @@ impl TextHandler {
             pixels: Option<Range<FiniteF32>>,
         }
 
-        self.shape_as_needed();
-
-        self.editor.with_buffer(|buffer| {
+        self.editor.with_buffer_mut(|buffer| {
+            // self.base.app().with_font_system(|font_system| {
+            //     buffer.set_scroll(cosmic_text::Scroll::default());
+            //     buffer.shape_until_scroll(font_system, false);
+            // });
             // TODO: separate text runs based on attributes and text direction? how to handle preedit?
             let mut output = Vec::new();
             let mut layout_runs = buffer.layout_runs().peekable();
@@ -641,19 +646,22 @@ impl TextHandler {
                     word_lengths.push((character_stats.len() - total_chars_in_words) as u8);
                 }
                 for glyph in layout_run.glyphs {
-                    if let Some(stats) = character_stats
-                        .iter_mut()
-                        .find(|s| s.bytes.does_intersect(&(glyph.start..glyph.end)))
-                    {
-                        let new_start = FiniteF32::new(glyph.x).unwrap();
-                        let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
-                        if let Some(pixels) = &mut stats.pixels {
-                            pixels.start = min(pixels.start, new_start);
-                            pixels.end = max(pixels.end, new_end);
-                        } else {
-                            stats.pixels = Some(new_start..new_end);
+                    let mut found = false;
+                    // TODO: optimize
+                    for stats in &mut character_stats {
+                        if stats.bytes.does_intersect(&(glyph.start..glyph.end)) {
+                            found = true;
+                            let new_start = FiniteF32::new(glyph.x).unwrap();
+                            let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
+                            if let Some(pixels) = &mut stats.pixels {
+                                pixels.start = min(pixels.start, new_start);
+                                pixels.end = max(pixels.end, new_end);
+                            } else {
+                                stats.pixels = Some(new_start..new_end);
+                            }
                         }
-                    } else {
+                    }
+                    if !found {
                         warn!("no char found for glyph: {glyph:?}");
                     }
                 }
@@ -703,7 +711,6 @@ impl TextHandler {
                     // TODO: real line bounds
                     line_node.set_bounds(rect_in_window.into());
                 }
-                //println!("text: {:?}, line node {:?}", text, line_node);
                 output.push(line_node);
             }
             output
@@ -787,20 +794,9 @@ impl TextHandler {
         }
         self.editor.insert_string(text, attrs_list);
         self.adjust_size();
+        self.base.size_hint_changed();
         self.base.update();
         self.request_scroll();
-    }
-
-    pub fn size(&self) -> Size {
-        self.size
-    }
-
-    pub fn size_x(&self) -> PhysicalPixels {
-        self.size.x()
-    }
-
-    pub fn size_y(&self) -> PhysicalPixels {
-        self.size.y()
     }
 
     pub fn shape_as_needed(&mut self) {
@@ -959,6 +955,7 @@ impl TextHandler {
             .app()
             .with_font_system(|font_system| self.editor.action(font_system, action));
         self.adjust_size();
+        self.base.size_hint_changed();
         self.base.update();
         self.request_scroll();
     }
@@ -1019,28 +1016,44 @@ impl TextHandler {
         })
     }
 
-    fn adjust_size(&mut self) {
-        let size = self.base.app().with_font_system(|font_system| {
+    fn unrestricted_text_size(&mut self, width: Option<PhysicalPixels>) -> Size {
+        let new_size = self.base.app().with_font_system(|font_system| {
             self.editor.with_buffer_mut(|buffer| {
-                let new_size = unrestricted_text_size(&mut buffer.borrow_with(font_system));
-                let new_size = if self.is_editable {
-                    Size::new(max(new_size.x(), CURSOR_SIZE_X.ppx()), new_size.y())
-                } else {
-                    new_size
+                let width_hint = match buffer.wrap() {
+                    Wrap::None => None,
+                    _ => width.map(|size| size.to_i32() as f32),
                 };
-                buffer.set_size(
-                    font_system,
-                    Some(new_size.x().to_i32() as f32),
-                    Some(new_size.y().to_i32() as f32),
-                );
-                new_size
+                unrestricted_text_size(&mut buffer.borrow_with(font_system), width_hint)
             })
         });
-        if size != self.size {
-            self.size = size;
-            self.base.size_hint_changed();
-            self.request_scroll();
+        if self.is_editable {
+            Size::new(max(new_size.x(), CURSOR_SIZE_X.ppx()), new_size.y())
+        } else {
+            new_size
         }
+        //println!("unrestricted_text_size({width:?}) = {s:?}");
+    }
+
+    fn adjust_size(&mut self) {
+        let Some(size) = self.base.size() else {
+            return;
+        };
+        let text_size = self.unrestricted_text_size(None);
+        self.base.app().with_font_system(|font_system| {
+            self.editor.with_buffer_mut(|buffer| {
+                buffer.set_scroll(cosmic_text::Scroll::default());
+                // println!(
+                //     "adjust_size {:?} {:?}",
+                //     max(text_size.x(), size.x()),
+                //     text_size.y()
+                // );
+                buffer.set_size(
+                    font_system,
+                    Some(max(text_size.x(), size.x()).to_i32() as f32),
+                    Some(text_size.y().to_i32() as f32),
+                )
+            });
+        });
     }
 
     pub fn set_cursor_hidden(&mut self, hidden: bool) {
@@ -1119,6 +1132,7 @@ impl TextHandler {
     }
 
     pub fn handle_host_accessibility_node_request(&mut self) -> Result<Option<accesskit::Node>> {
+        //self.adjust_size();
         let text_runs = self.accessibility_text_runs();
         let Some(window) = self.base.window() else {
             return Ok(None);
@@ -1230,9 +1244,9 @@ impl Widget for TextHandler {
                 // TODO: notify parent?
                 //self.adjust_scroll();
                 self.base.update();
+                self.request_scroll();
             }
         }
-        self.request_scroll();
         Ok(true)
     }
 
@@ -1258,13 +1272,21 @@ impl Widget for TextHandler {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
-        Ok(SizeHint::new_fixed(self.size_x(), self.size_x()))
+    fn handle_size_hint_x_request(&mut self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+        let size = self.unrestricted_text_size(None);
+        // TODO: calculate min size?
+        Ok(SizeHint::new_fixed(size.x(), size.x()))
     }
 
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
-        // TODO: use size_x, handle multiple lines
-        Ok(SizeHint::new_fixed(self.size_y(), self.size_y()))
+    fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHint> {
+        let size = self.unrestricted_text_size(Some(size_x));
+
+        Ok(SizeHint::new_fixed(size.y(), size.y()))
+    }
+
+    fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
+        self.adjust_size();
+        Ok(())
     }
 }
 
@@ -1280,8 +1302,16 @@ impl Drop for TextHandler {
 
 const MEASURE_MAX_SIZE: f32 = 10_000.;
 
-fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Size {
-    buffer.set_size(Some(MEASURE_MAX_SIZE), Some(MEASURE_MAX_SIZE));
+fn unrestricted_text_size(
+    buffer: &mut BorrowedWithFontSystem<'_, Buffer>,
+    width: Option<f32>,
+) -> Size {
+    let old_size = buffer.size();
+    buffer.set_size(
+        Some(width.unwrap_or(MEASURE_MAX_SIZE)),
+        Some(MEASURE_MAX_SIZE),
+    );
+    buffer.set_scroll(cosmic_text::Scroll::default());
     buffer.shape_until_scroll(false);
     let height = (buffer.lines.len() as f32 * buffer.metrics().line_height).ceil() as i32;
     let width = buffer
@@ -1289,6 +1319,7 @@ fn unrestricted_text_size(buffer: &mut BorrowedWithFontSystem<'_, Buffer>) -> Si
         .map(|run| run.line_w.ceil() as i32)
         .max()
         .unwrap_or(0);
+    buffer.set_size(old_size.0, old_size.1);
 
     Size::new(
         PhysicalPixels::from_i32(width),

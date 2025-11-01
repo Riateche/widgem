@@ -50,6 +50,7 @@ pub use {
         widget_ext::WidgetExt,
         widget_trait::Widget,
     },
+    cosmic_text::Wrap,
     widget_initializer::WidgetInitializer,
     widgets::{WidgetNotFound, Window},
 };

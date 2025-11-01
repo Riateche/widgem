@@ -101,7 +101,7 @@ impl Widget for Image {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&mut self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         let scale = self.total_scale();
         let size = self
             .pixmap
@@ -111,7 +111,7 @@ impl Widget for Image {
         Ok(SizeHint::new_fixed(size, size))
     }
 
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHint> {
         let scale = self.total_scale();
         let size = self
             .pixmap

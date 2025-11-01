@@ -3,7 +3,7 @@ use {
         layout::Layout,
         types::Axis,
         widgets::{Button, Label, RootWidget, ScrollBar, TextArea, TextInput},
-        WidgetExt, Window,
+        WidgetExt, Window, Wrap,
     },
     widgem_tester::Context,
 };
@@ -47,7 +47,9 @@ fn init_form(root: &mut RootWidget) -> anyhow::Result<()> {
     contents
         .set_next_item(TextArea::init())?
         .set_grid_cell(1, current_cell_y)
-        .set_labelled_by(text_area_label_id.raw());
+        .set_labelled_by(text_area_label_id.raw())
+        //.set_expand_to_fit_content(true)
+        .set_wrap(Wrap::Word);
 
     current_cell_y += 1;
     let submit = contents

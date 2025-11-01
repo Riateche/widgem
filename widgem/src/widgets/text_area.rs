@@ -21,6 +21,7 @@ use {
     },
     accesskit::ActionData,
     anyhow::{bail, Result},
+    cosmic_text::Wrap,
     std::{fmt::Display, rc::Rc},
     tracing::warn,
     winit::window::CursorIcon,
@@ -108,6 +109,14 @@ impl TextArea {
         self.set_expand_to_fit_content_x(value)
             .set_expand_to_fit_content_y(value)
     }
+
+    pub fn set_wrap(&mut self, wrap: Wrap) -> &mut Self {
+        let Some(handler) = self.text_handler_mut().or_warn() else {
+            return self;
+        };
+        handler.set_wrap(wrap);
+        self
+    }
 }
 
 impl Widget for TextArea {
@@ -126,7 +135,7 @@ impl Widget for TextArea {
         Ok(())
     }
 
-    fn handle_size_hint_x_request(&self, size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&mut self, size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         if self.expand_to_fit_content_x {
             Ok(default_size_hint_x(self, size_y))
         } else {
@@ -137,7 +146,7 @@ impl Widget for TextArea {
         }
     }
 
-    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
+    fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHint> {
         if self.expand_to_fit_content_y {
             Ok(default_size_hint_y(self, size_x))
         } else {

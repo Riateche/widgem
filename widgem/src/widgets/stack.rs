@@ -58,7 +58,7 @@ impl Widget for Stack {
         Ok(SizeHint::new_fixed(max, max))
     }
 
-    fn handle_size_hint_y_request(&self, _size_x: PhysicalPixels) -> Result<SizeHint> {
+    fn handle_size_hint_y_request(&mut self, _size_x: PhysicalPixels) -> Result<SizeHint> {
         let max = self
             .base
             .children()

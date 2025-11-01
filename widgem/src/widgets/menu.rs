@@ -440,7 +440,7 @@ impl Widget for MenuAction {
     // However, the menu's OS window is sometimes slightly larger than requested.
     // In that case we want menu items to take all available space.
     fn handle_size_hint_x_request(
-        &self,
+        &mut self,
         size_y: Option<PhysicalPixels>,
     ) -> anyhow::Result<crate::layout::SizeHint> {
         let mut size_hint = default_size_hint_x(self, size_y);
@@ -449,7 +449,7 @@ impl Widget for MenuAction {
     }
 
     fn handle_size_hint_y_request(
-        &self,
+        &mut self,
         size_x: crate::types::PhysicalPixels,
     ) -> anyhow::Result<crate::layout::SizeHint> {
         let mut size_hint = default_size_hint_y(self, size_x);

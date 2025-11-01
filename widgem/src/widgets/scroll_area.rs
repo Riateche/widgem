@@ -173,20 +173,20 @@ impl ScrollArea {
 
         let scroll_x_hint_x = self
             .base
-            .get_child::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
             .size_hint_x(None);
         let scroll_y_hint_x = self
             .base
-            .get_child::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
+            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
             .size_hint_x(None);
 
         let content_hint_x;
         let content_hint_y;
         if let Ok(content) = self
             .base
-            .get_dyn_child(INDEX_VIEWPORT)?
-            .base()
-            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .get_dyn_child_mut(INDEX_VIEWPORT)?
+            .base_mut()
+            .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
         {
             content_hint_x = content.size_hint_x(None);
             content_hint_y = content.size_hint_y(content_hint_x.preferred());
@@ -203,7 +203,7 @@ impl ScrollArea {
                         ScrollBarPolicy::AlwaysOn => {
                             let scroll_x_size_y = self
                                 .base
-                                .get_child::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+                                .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
                                 .size_hint_y(scroll_x_hint_x.preferred())
                                 .preferred();
                             min(0.ppx(), geometry.size_y() - scroll_x_size_y)
@@ -223,7 +223,7 @@ impl ScrollArea {
                         // Assuming X scrollbar visible, is Y scrollbar needed?
                         let scroll_x_size_y = self
                             .base
-                            .get_child::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+                            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
                             .size_hint_y(scroll_x_hint_x.preferred())
                             .preferred();
                         let available_size_y = max(0.ppx(), geometry.size_y() - scroll_x_size_y);
@@ -339,36 +339,36 @@ impl ScrollArea {
 impl Widget for ScrollArea {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&self, size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&mut self, size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         let content_hint_x = self
             .base
-            .get_dyn_child(INDEX_VIEWPORT)?
-            .base()
-            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .get_dyn_child_mut(INDEX_VIEWPORT)?
+            .base_mut()
+            .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
             .map(|content| content.size_hint_x(None))
             .unwrap_or_else(|_| SizeHint::new_fixed(0.ppx(), 0.ppx()));
 
         let content_hint_y_preferred = self
             .base
-            .get_dyn_child(INDEX_VIEWPORT)?
-            .base()
-            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .get_dyn_child_mut(INDEX_VIEWPORT)?
+            .base_mut()
+            .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
             .map(|content| content.size_hint_y(content_hint_x.preferred()).preferred())
             .unwrap_or_else(|_| 0.ppx());
 
         let scroll_x_hint_x = self
             .base
-            .get_child::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
             .size_hint_x(None);
         let scroll_x_hint_y_preferred = self
             .base
-            .get_child::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
             .size_hint_y(scroll_x_hint_x.preferred())
             .preferred();
 
         let scroll_y_hint_x = self
             .base
-            .get_child::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
+            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
             .size_hint_x(None);
 
         let scroll_x_min_x = match self.x_policy {
@@ -414,23 +414,30 @@ impl Widget for ScrollArea {
         Ok(SizeHint::new_fixed(min, preferred))
     }
 
-    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
-        let scroll_x = self.base.get_child::<ScrollBar>(INDEX_SCROLL_BAR_X)?;
-        let scroll_x_hint_x = scroll_x.size_hint_x(None);
-
-        let scroll_y = self.base.get_child::<ScrollBar>(INDEX_SCROLL_BAR_Y)?;
-        let scroll_y_hint_x = scroll_y.size_hint_x(None);
+    fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHint> {
+        let scroll_x_hint_x = self
+            .base
+            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+            .size_hint_x(None);
+        let scroll_y_hint_x = self
+            .base
+            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
+            .size_hint_x(None);
 
         let scroll_x_min = match self.x_policy {
-            ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOn => {
-                scroll_x.size_hint_y(scroll_x_hint_x.min()).min()
-            }
+            ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOn => self
+                .base
+                .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+                .size_hint_y(scroll_x_hint_x.min())
+                .min(),
             ScrollBarPolicy::AlwaysOff => 0.ppx(),
         };
         let scroll_y_min = match self.y_policy {
-            ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOn => {
-                scroll_y.size_hint_y(scroll_y_hint_x.min()).min()
-            }
+            ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOn => self
+                .base
+                .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
+                .size_hint_y(scroll_y_hint_x.min())
+                .min(),
             ScrollBarPolicy::AlwaysOff => 0.ppx(),
         };
         let min = scroll_x_min + scroll_y_min;
@@ -439,9 +446,9 @@ impl Widget for ScrollArea {
         let content_hint_y;
         if let Ok(content) = self
             .base
-            .get_dyn_child(INDEX_VIEWPORT)?
-            .base()
-            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .get_dyn_child_mut(INDEX_VIEWPORT)?
+            .base_mut()
+            .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
         {
             content_hint_x = content.size_hint_x(None);
             content_hint_y = content.size_hint_y(content_hint_x.preferred());
@@ -470,7 +477,8 @@ impl Widget for ScrollArea {
         let preferred_row1 = if scroll_y_visible {
             max(
                 content_hint_y.preferred(),
-                scroll_y
+                self.base
+                    .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
                     .size_hint_y(scroll_y_hint_x.preferred())
                     .preferred(),
             )
@@ -479,7 +487,8 @@ impl Widget for ScrollArea {
         };
 
         let preferred_row2 = if scroll_x_visible {
-            scroll_x
+            self.base
+                .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
                 .size_hint_y(scroll_x_hint_x.preferred())
                 .preferred()
         } else {
@@ -600,19 +609,19 @@ impl Viewport {
 impl Widget for Viewport {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+    fn handle_size_hint_x_request(&mut self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
         let preferred = self
             .base
-            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
             .ok()
             .map(|content| content.size_hint_x(None).preferred())
             .unwrap_or(0.ppx());
         Ok(SizeHint::new_expanding(0.ppx(), preferred))
     }
-    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
+    fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHint> {
         let preferred = self
             .base
-            .get_dyn_child(KEY_CONTENT_IN_VIEWPORT)
+            .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
             .ok()
             .map(|content| content.size_hint_y(size_x).preferred())
             .unwrap_or(0.ppx());

@@ -823,8 +823,8 @@ const PAGER_SIZE_HINT_MULTIPLIER: i32 = 2;
 impl Widget for Pager {
     impl_widget_base!();
 
-    fn handle_size_hint_x_request(&self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
-        let grip = self.base.get_dyn_child(INDEX_GRIP_IN_PAGER).unwrap();
+    fn handle_size_hint_x_request(&mut self, _size_y: Option<PhysicalPixels>) -> Result<SizeHint> {
+        let grip = self.base.get_dyn_child_mut(INDEX_GRIP_IN_PAGER).unwrap();
         let grip_hint = grip.size_hint_x(None);
         let min_size = match self.axis {
             Axis::X => grip_hint.min() * PAGER_SIZE_HINT_MULTIPLIER,
@@ -840,10 +840,10 @@ impl Widget for Pager {
             self.axis == Axis::Y,
         ))
     }
-    fn handle_size_hint_y_request(&self, size_x: PhysicalPixels) -> Result<SizeHint> {
+    fn handle_size_hint_y_request(&mut self, size_x: PhysicalPixels) -> Result<SizeHint> {
         let grip_hint = self
             .base
-            .get_dyn_child(INDEX_GRIP_IN_PAGER)
+            .get_dyn_child_mut(INDEX_GRIP_IN_PAGER)
             .unwrap()
             .size_hint_y(size_x);
         let min_size = match self.axis {
