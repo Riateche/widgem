@@ -44,12 +44,14 @@ impl TextArea {
         base.set_main_child(ScrollArea::init())?
             .set_size_x_fixed(Some(false))
             .set_size_y_fixed(Some(false))
+            .set_allow_expand_x(false)
             .set_content(Row::init())?
             .add_class("text_area_text_wrapper".into())
             .contents_mut()
             .set_next_item(TextHandler::init(String::new(), text_style))?
             .set_multiline(true)
             .set_editable(true)
+            .set_wrap(Wrap::WordOrGlyph)
             .set_host_id(host_id.into())
             .set_size_x_fixed(Some(false))
             .set_size_y_fixed(Some(false));
@@ -111,10 +113,16 @@ impl TextArea {
     }
 
     pub fn set_wrap(&mut self, wrap: Wrap) -> &mut Self {
-        let Some(handler) = self.text_handler_mut().or_warn() else {
-            return self;
-        };
-        handler.set_wrap(wrap);
+        if let Some(scroll_area) = self
+            .base
+            .get_child_mut::<ScrollArea>(ChildKey::main())
+            .or_warn()
+        {
+            scroll_area.set_allow_expand_x(wrap == Wrap::None);
+        }
+        if let Some(handler) = self.text_handler_mut().or_warn() {
+            handler.set_wrap(wrap);
+        }
         self
     }
 }

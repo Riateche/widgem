@@ -30,7 +30,7 @@ use {
         RawWidgetId, Widget, WidgetBaseOf, WidgetExt,
     },
     accesskit::{NodeId, Role, TextDirection, TextPosition, TextSelection},
-    anyhow::{Context as _, Result},
+    anyhow::{bail, Context as _, Result},
     cosmic_text::{
         Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Motion,
         Shaping, Wrap,
@@ -64,6 +64,25 @@ pub struct TextStyle {
     pub(crate) text_color: Color,
     selected_text_color: Color,
     selected_text_background: Color,
+}
+
+#[derive(Debug, Clone)]
+struct TextRunInfo {
+    line_i: usize,
+    text_start: usize,
+    text_end: usize,
+    text: String,
+}
+
+impl TextRunInfo {
+    fn dummy() -> Self {
+        Self {
+            line_i: 0,
+            text_start: 0,
+            text_end: 0,
+            text: "".into(),
+        }
+    }
 }
 
 impl ComputedElementStyle for TextStyle {
@@ -103,7 +122,8 @@ pub struct TextHandler {
     forbid_mouse_interaction: bool,
     blink_timer: Option<TimerId>,
     selected_text: String,
-    accessibility_text_run_ids: Vec<NodeId>,
+    accessibility_text_run_ids: Vec<(NodeId, TextRunInfo)>,
+    old_size: Size,
 }
 
 // TODO: get system setting
@@ -129,6 +149,7 @@ impl TextHandler {
             selected_text: String::new(),
             accessibility_text_run_ids: Vec::new(),
             base,
+            old_size: Size::default(),
         };
         t.editor.set_cursor_hidden(true);
         t.set_text(text);
@@ -215,9 +236,9 @@ impl TextHandler {
         self.request_scroll();
     }
 
-    pub fn set_wrap(&mut self, wrap: Wrap) {
+    pub fn set_wrap(&mut self, wrap: Wrap) -> &mut Self {
         if self.editor.with_buffer(|buffer| buffer.wrap() == wrap) {
-            return;
+            return self;
         }
 
         self.base.app().with_font_system(|font_system| {
@@ -227,6 +248,7 @@ impl TextHandler {
         self.adjust_size();
         self.base.size_hint_changed();
         self.request_scroll();
+        self
     }
 
     pub fn handle_host_focus_in(&mut self, reason: FocusReason) -> Result<()> {
@@ -614,7 +636,7 @@ impl TextHandler {
         Ok(())
     }
 
-    fn accessibility_text_runs(&mut self) -> Vec<accesskit::Node> {
+    fn accessibility_text_runs(&mut self) -> Vec<(accesskit::Node, TextRunInfo)> {
         #[derive(Debug)]
         struct CharStats {
             bytes: Range<usize>,
@@ -622,15 +644,30 @@ impl TextHandler {
         }
 
         self.editor.with_buffer_mut(|buffer| {
-            // self.base.app().with_font_system(|font_system| {
-            //     buffer.set_scroll(cosmic_text::Scroll::default());
-            //     buffer.shape_until_scroll(font_system, false);
-            // });
+            self.base.app().with_font_system(|font_system| {
+                buffer.set_scroll(cosmic_text::Scroll::default());
+                buffer.shape_until_scroll(font_system, false);
+            });
             // TODO: separate text runs based on attributes and text direction? how to handle preedit?
             let mut output = Vec::new();
+
             let mut layout_runs = buffer.layout_runs().peekable();
             while let Some(layout_run) = layout_runs.next() {
-                let mut text = layout_run.text.to_owned();
+                let text = &layout_run.text;
+                let mut text_start = text.len();
+                let mut text_end = 0;
+                for glyph in layout_run.glyphs {
+                    text_start = min(text_start, glyph.start);
+                    text_end = max(text_end, glyph.end);
+                }
+                //println!("text={text:?}, text_start={text_start:?}, text_end={text_end:?}");
+                let mut text = if let Some(part) = text.get(text_start..max(text_start, text_end)) {
+                    part.to_owned()
+                } else {
+                    warn!("invalid index while fetching text corresponding to glyphs");
+                    "".to_owned()
+                };
+
                 let mut character_lengths = Vec::new();
                 let mut character_stats = Vec::new();
                 for (i, c) in text.grapheme_indices(true) {
@@ -659,11 +696,15 @@ impl TextHandler {
                 if total_chars_in_words < character_stats.len() {
                     word_lengths.push((character_stats.len() - total_chars_in_words) as u8);
                 }
+
                 for glyph in layout_run.glyphs {
                     let mut found = false;
                     // TODO: optimize
                     for stats in &mut character_stats {
-                        if stats.bytes.does_intersect(&(glyph.start..glyph.end)) {
+                        if stats
+                            .bytes
+                            .does_intersect(&(glyph.start - text_start..glyph.end - text_start))
+                        {
                             found = true;
                             let new_start = FiniteF32::new(glyph.x).unwrap();
                             let new_end = FiniteF32::new(glyph.x + glyph.w).unwrap();
@@ -679,12 +720,18 @@ impl TextHandler {
                         warn!("no char found for glyph: {glyph:?}");
                     }
                 }
+                //println!("character_stats={character_stats:?}");
+                //println!("text={text:?}");
                 let mut character_positions = character_stats
                     .iter()
                     .map(|s| {
                         s.pixels.as_ref().map_or_else(
                             || {
-                                warn!("glyph for char not found");
+                                warn!(
+                                    "glyph for char not found: range={:?}, c={:?}",
+                                    s.bytes,
+                                    &text[s.bytes.clone()]
+                                );
                                 0.0
                             },
                             |range| range.start.get(),
@@ -704,7 +751,11 @@ impl TextHandler {
                     })
                     .collect::<Vec<_>>();
                 if layout_runs.peek().is_some() {
-                    text.push('\n');
+                    text.push(if text_end < layout_run.text.len() {
+                        ' '
+                    } else {
+                        '\n'
+                    });
                     character_lengths.push(1);
                     character_widths.push(0.);
                     character_positions.push(character_positions.last().copied().unwrap_or(0.));
@@ -716,17 +767,29 @@ impl TextHandler {
                 } else {
                     TextDirection::LeftToRight
                 });
-                line_node.set_value(text);
+                line_node.set_value(text.clone());
                 line_node.set_character_lengths(character_lengths);
                 line_node.set_character_positions(character_positions);
                 line_node.set_character_widths(character_widths);
                 line_node.set_word_lengths(word_lengths);
                 if let Some(rect_in_window) = self.base.rect_in_window() {
-                    // TODO: real line bounds
-                    line_node.set_bounds(rect_in_window.into());
+                    let top = PhysicalPixels::from_i32(layout_run.line_top.round() as i32);
+                    let height = PhysicalPixels::from_i32(layout_run.line_height.round() as i32);
+                    let bounds = Rect::from_pos_size(
+                        Point::new(rect_in_window.left(), top),
+                        Size::new(rect_in_window.size_x(), height),
+                    );
+                    line_node.set_bounds(bounds.into());
                 }
-                output.push(line_node);
+                let info = TextRunInfo {
+                    line_i: layout_run.line_i,
+                    text_start,
+                    text_end,
+                    text,
+                };
+                output.push((line_node, info));
             }
+            //println!("text runs: {:?}", output);
             output
         })
     }
@@ -764,41 +827,45 @@ impl TextHandler {
     }
 
     fn accessibility_text_position(&self, cursor: Cursor) -> anyhow::Result<TextPosition> {
-        self.editor.with_buffer(|buffer| {
-            let line_text = buffer
-                .lines
-                .get(cursor.line)
-                .context("invalid cursor line")?
-                .text();
-            // Convert byte index to char index:
-            let character_index = line_text
-                .grapheme_indices(true)
-                .take_while(|(i, _)| *i < cursor.index)
-                .count();
-            let node = *self
-                .accessibility_text_run_ids
-                .get(cursor.line)
-                .with_context(|| {
-                    format!(
-                        "missing accessibility text run id for cursor {:?}, ids.len() = {}",
-                        cursor,
-                        self.accessibility_text_run_ids.len()
-                    )
-                })?;
-            Ok(TextPosition {
-                node,
-                character_index,
-            })
+        let Some((id, info)) = self.accessibility_text_run_ids.iter().find(|(_, info)| {
+            info.line_i == cursor.line
+                && cursor.index >= info.text_start
+                && cursor.index <= info.text_end
+        }) else {
+            bail!("no text run info corresponds to cursor {:?}", cursor);
+        };
+
+        // Convert byte index to char index:
+        let character_index = info
+            .text
+            .grapheme_indices(true)
+            .take_while(|(i, _)| *i < cursor.index - info.text_start)
+            .count();
+
+        Ok(TextPosition {
+            node: *id,
+            character_index,
         })
     }
 
     fn selection_accessibility_info(&mut self) -> anyhow::Result<TextSelection> {
-        let focus = self.accessibility_text_position(self.cursor())?;
+        let focus = if let Ok(v) = self.accessibility_text_position(self.cursor()) {
+            v
+        } else if let Some((id, _)) = self.accessibility_text_run_ids.first() {
+            TextPosition {
+                node: *id,
+                character_index: 0,
+            }
+        } else {
+            bail!("no text runs");
+        };
+
         let anchor = if let Some(select) = self.select_opt() {
-            self.accessibility_text_position(select)?
+            self.accessibility_text_position(select).unwrap_or(focus)
         } else {
             focus
         };
+        // println!("anchor={anchor:?}, focus={focus:?}");
         Ok(TextSelection { anchor, focus })
     }
 
@@ -1033,11 +1100,10 @@ impl TextHandler {
     fn unrestricted_text_size(&mut self, width: Option<PhysicalPixels>) -> Size {
         let new_size = self.base.app().with_font_system(|font_system| {
             self.editor.with_buffer_mut(|buffer| {
-                let width_hint = match buffer.wrap() {
-                    Wrap::None => None,
-                    _ => width.map(|size| size.to_i32() as f32),
-                };
-                unrestricted_text_size(&mut buffer.borrow_with(font_system), width_hint)
+                unrestricted_text_size(
+                    &mut buffer.borrow_with(font_system),
+                    width.map(|size| size.to_i32() as f32),
+                )
             })
         });
         if self.is_editable {
@@ -1049,25 +1115,25 @@ impl TextHandler {
     }
 
     fn adjust_size(&mut self) {
-        let Some(size) = self.base.size() else {
-            return;
-        };
-        let text_size = self.unrestricted_text_size(None);
-        self.base.app().with_font_system(|font_system| {
-            self.editor.with_buffer_mut(|buffer| {
-                buffer.set_scroll(cosmic_text::Scroll::default());
-                // println!(
-                //     "adjust_size {:?} {:?}",
-                //     max(text_size.x(), size.x()),
-                //     text_size.y()
-                // );
-                buffer.set_size(
-                    font_system,
-                    Some(max(text_size.x(), size.x()).to_i32() as f32),
-                    Some(text_size.y().to_i32() as f32),
-                )
-            });
-        });
+        // let Some(size) = self.base.size() else {
+        //     return;
+        // };
+        // let text_size = self.unrestricted_text_size(None);
+        // self.base.app().with_font_system(|font_system| {
+        //     self.editor.with_buffer_mut(|buffer| {
+        //         buffer.set_scroll(cosmic_text::Scroll::default());
+        //         // println!(
+        //         //     "adjust_size {:?} {:?}",
+        //         //     max(text_size.x(), size.x()),
+        //         //     text_size.y()
+        //         // );
+        //         buffer.set_size(
+        //             font_system,
+        //             Some(max(text_size.x(), size.x()).to_i32() as f32),
+        //             Some(text_size.y().to_i32() as f32),
+        //         )
+        //     });
+        // });
     }
 
     pub fn set_cursor_hidden(&mut self, hidden: bool) {
@@ -1155,17 +1221,22 @@ impl TextHandler {
             let id = new_accessibility_node_id();
             let key = self.accessibility_text_run_ids.len() as u32;
             window.add_accessibility_node(Some(self.base.id().into()), id, key.into());
-            self.accessibility_text_run_ids.push(id);
+            // real TextRunInfo will be stored immediately below.
+            self.accessibility_text_run_ids
+                .push((id, TextRunInfo::dummy()));
         }
         while self.accessibility_text_run_ids.len() > text_runs.len() {
-            let id = self
+            let (id, _) = self
                 .accessibility_text_run_ids
                 .pop()
                 .context("unexpected empty self.accessibility_text_run_ids")?;
             window.remove_accessibility_node(Some(self.base.id().into()), id);
         }
-        for (id, node) in self.accessibility_text_run_ids.iter().zip(text_runs) {
+        for ((id, id_info), (node, info)) in
+            self.accessibility_text_run_ids.iter_mut().zip(text_runs)
+        {
             window.accessibility_node_updated(*id, Some(node));
+            *id_info = info;
         }
 
         let role = if self.is_multiline {
@@ -1183,6 +1254,9 @@ impl TextHandler {
         node.add_action(accesskit::Action::Click);
         node.add_action(accesskit::Action::SetValue);
         node.set_text_selection(self.selection_accessibility_info()?);
+        // println!("text handler id {:?}", self.base.id());
+        // println!("text handler host id {:?}", self.host_id);
+        // println!("text node {node:?}");
         Ok(Some(node))
     }
 }
@@ -1299,7 +1373,29 @@ impl Widget for TextHandler {
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
-        self.adjust_size();
+        let Some(size) = self.base.size() else {
+            return Ok(());
+        };
+        if self.old_size != size {
+            self.base.app().with_font_system(|font_system| {
+                self.editor.with_buffer_mut(|buffer| {
+                    buffer.set_scroll(cosmic_text::Scroll::default());
+                    // println!(
+                    //     "adjust_size {:?} {:?}",
+                    //     max(text_size.x(), size.x()),
+                    //     text_size.y()
+                    // );
+                    buffer.set_size(
+                        font_system,
+                        Some(size.x().to_i32() as f32),
+                        Some(size.y().to_i32() as f32),
+                    )
+                });
+            });
+            self.request_scroll();
+            self.old_size = size;
+        }
+
         Ok(())
     }
 }
@@ -1307,7 +1403,7 @@ impl Widget for TextHandler {
 impl Drop for TextHandler {
     fn drop(&mut self) {
         if let Some(window) = self.base.window() {
-            while let Some(id) = self.accessibility_text_run_ids.pop() {
+            while let Some((id, _)) = self.accessibility_text_run_ids.pop() {
                 window.remove_accessibility_node(Some(self.base.id().into()), id);
             }
         }
@@ -1327,18 +1423,22 @@ fn unrestricted_text_size(
     );
     buffer.set_scroll(cosmic_text::Scroll::default());
     buffer.shape_until_scroll(false);
-    let height = (buffer.lines.len() as f32 * buffer.metrics().line_height).ceil() as i32;
-    let width = buffer
-        .layout_runs()
-        .map(|run| run.line_w.ceil() as i32)
-        .max()
-        .unwrap_or(0);
+    let mut width = 0.ppx();
+    let mut height = 0.ppx();
+    for layout_run in buffer.layout_runs() {
+        width = max(
+            width,
+            PhysicalPixels::from_i32(layout_run.line_w.ceil() as i32),
+        );
+        height = max(
+            height,
+            PhysicalPixels::from_i32((layout_run.line_top + layout_run.line_height).ceil() as i32),
+        );
+    }
+    buffer.set_scroll(cosmic_text::Scroll::default());
     buffer.set_size(old_size.0, old_size.1);
 
-    Size::new(
-        PhysicalPixels::from_i32(width),
-        PhysicalPixels::from_i32(height),
-    )
+    Size::new(width, height)
 }
 
 fn convert_color(color: Color) -> cosmic_text::Color {

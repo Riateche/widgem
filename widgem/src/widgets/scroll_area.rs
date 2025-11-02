@@ -3,6 +3,7 @@ use {
         event::{LayoutEvent, MouseScrollEvent},
         impl_widget_base,
         layout::{default_layout, Layout, SizeHint},
+        system::OrWarn,
         types::{Axis, LpxSuffix, PhysicalPixels, PpxSuffix, Rect},
         widget_initializer::{self, WidgetInitializer},
         widgets::ScrollBar,
@@ -25,6 +26,7 @@ pub struct ScrollArea {
     base: WidgetBaseOf<Self>,
     x_policy: ScrollBarPolicy,
     y_policy: ScrollBarPolicy,
+    allow_expand_x: bool,
 }
 
 const INDEX_SCROLL_BAR_X: u64 = 0;
@@ -55,6 +57,7 @@ impl ScrollArea {
             base,
             x_policy: ScrollBarPolicy::default(),
             y_policy: ScrollBarPolicy::default(),
+            allow_expand_x: true,
         })
     }
 
@@ -121,6 +124,17 @@ impl ScrollArea {
             .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
     }
 
+    pub fn set_allow_expand_x(&mut self, value: bool) -> &mut Self {
+        if self.allow_expand_x == value {
+            return self;
+        }
+        self.allow_expand_x = value;
+        if self.base.geometry().is_some() {
+            self.relayout().or_warn();
+        }
+        self
+    }
+
     // pub fn set_content(&mut self, content: Box<dyn Widget>) {
     //     if self.has_content() {
     //         self.common.children[INDEX_VIEWPORT]
@@ -180,68 +194,107 @@ impl ScrollArea {
             .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
             .size_hint_x(None);
 
-        let content_hint_x;
-        let content_hint_y;
+        // Content size assuming no scroll bars.
+        let content_size_hint_x;
+        let content_size_x_fixed;
+        let mut content_size_x;
+        let content_size_y;
         if let Ok(content) = self
             .base
             .get_dyn_child_mut(INDEX_VIEWPORT)?
             .base_mut()
             .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
         {
-            content_hint_x = content.size_hint_x(None);
-            content_hint_y = content.size_hint_y(content_hint_x.preferred());
+            content_size_hint_x = content.size_hint_x(None);
+            content_size_x_fixed = content
+                .base()
+                .layout_item_options()
+                .x()
+                .is_fixed()
+                .unwrap_or(content_size_hint_x.is_fixed());
+            content_size_x = if content_size_x_fixed {
+                content_size_hint_x.preferred()
+            } else {
+                max(content_size_hint_x.preferred(), geometry.size_x())
+            };
+            if !self.allow_expand_x {
+                content_size_x = min(content_size_x, geometry.size_x());
+            }
+            content_size_y = content.size_hint_y(content_size_x).preferred();
         } else {
-            content_hint_x = SizeHint::new_fixed(0.ppx(), 0.ppx());
-            content_hint_y = SizeHint::new_fixed(0.ppx(), 0.ppx());
+            content_size_hint_x = SizeHint::new_fixed(0.ppx(), 0.ppx());
+            content_size_x_fixed = true;
+            content_size_x = 0.ppx();
+            content_size_y = 0.ppx();
         };
 
+        let effective_x_policy = if self.allow_expand_x {
+            self.x_policy
+        } else {
+            match self.x_policy {
+                ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOff => {
+                    ScrollBarPolicy::AlwaysOff
+                }
+                ScrollBarPolicy::AlwaysOn => ScrollBarPolicy::AlwaysOn,
+            }
+        };
         let scroll_y_visible = match self.y_policy {
-            ScrollBarPolicy::AsNeeded => match self.x_policy {
-                ScrollBarPolicy::AlwaysOn | ScrollBarPolicy::AlwaysOff => {
-                    let available_size_y = match self.x_policy {
-                        ScrollBarPolicy::AsNeeded => unreachable!(),
-                        ScrollBarPolicy::AlwaysOn => {
+            ScrollBarPolicy::AsNeeded => {
+                match effective_x_policy {
+                    ScrollBarPolicy::AlwaysOn | ScrollBarPolicy::AlwaysOff => {
+                        // Scroll Y visibility is as needed, scroll X is always on or off.
+                        let available_size_y = match effective_x_policy {
+                            ScrollBarPolicy::AsNeeded => unreachable!(),
+                            ScrollBarPolicy::AlwaysOn => {
+                                let scroll_x_size_y = self
+                                    .base
+                                    .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
+                                    .size_hint_y(scroll_x_hint_x.preferred())
+                                    .preferred();
+                                // println!("scroll_x_size_y={scroll_x_size_y:?}");
+                                max(0.ppx(), geometry.size_y() - scroll_x_size_y)
+                            }
+                            ScrollBarPolicy::AlwaysOff => geometry.size_y(),
+                        };
+
+                        // Try to fit content assuming scroll Y is hidden and check if it fits
+                        // vertically.
+                        // println!("ok2 content_size_y={content_size_y:?} available_size_y={available_size_y:?} geometry={geometry:?}");
+                        content_size_y > available_size_y
+                    }
+                    // both x and y are `AsNeeded`
+                    ScrollBarPolicy::AsNeeded => {
+                        // If it fits in both axes, no scroll bars are needed.
+                        // println!("ok1 content_size_x={content_size_x:?}, content_size_y={content_size_y:?}, geometry={geometry:?}");
+                        if content_size_x <= geometry.size_x()
+                            && content_size_y <= geometry.size_y()
+                        {
+                            false
+                        } else {
+                            // Assuming X scrollbar visible, is Y scrollbar needed?
                             let scroll_x_size_y = self
                                 .base
                                 .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
                                 .size_hint_y(scroll_x_hint_x.preferred())
                                 .preferred();
-                            min(0.ppx(), geometry.size_y() - scroll_x_size_y)
+                            let available_size_y =
+                                max(0.ppx(), geometry.size_y() - scroll_x_size_y);
+                            content_size_y > available_size_y
                         }
-                        ScrollBarPolicy::AlwaysOff => 0.ppx(),
-                    };
-                    content_hint_y.preferred() > available_size_y
-                }
-                // both x and y are `AsNeeded`
-                ScrollBarPolicy::AsNeeded => {
-                    // If it fits in both axes, no scroll bars are needed.
-                    if content_hint_x.preferred() <= geometry.size_x()
-                        && content_hint_y.preferred() <= geometry.size_y()
-                    {
-                        false
-                    } else {
-                        // Assuming X scrollbar visible, is Y scrollbar needed?
-                        let scroll_x_size_y = self
-                            .base
-                            .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
-                            .size_hint_y(scroll_x_hint_x.preferred())
-                            .preferred();
-                        let available_size_y = max(0.ppx(), geometry.size_y() - scroll_x_size_y);
-                        content_hint_y.preferred() > available_size_y
                     }
                 }
-            },
+            }
             ScrollBarPolicy::AlwaysOff => false,
             ScrollBarPolicy::AlwaysOn => true,
         };
-        let scroll_x_visible = match self.x_policy {
+        let scroll_x_visible = match effective_x_policy {
             ScrollBarPolicy::AsNeeded => {
                 let available_size_x = if scroll_y_visible {
                     max(0.ppx(), geometry.size_x() - scroll_y_hint_x.preferred())
                 } else {
                     geometry.size_x()
                 };
-                content_hint_x.preferred() > available_size_x
+                content_size_x > available_size_x
             }
             ScrollBarPolicy::AlwaysOn => true,
             ScrollBarPolicy::AlwaysOff => false,
@@ -279,21 +332,16 @@ impl ScrollArea {
                 return Ok(());
             };
             let viewport_rect = viewport_geometry.rect_in_parent();
-            let content_size_hint_x = self
-                .base
-                .get_dyn_child_mut(INDEX_VIEWPORT)
-                .unwrap()
-                .base_mut()
-                .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
-                .unwrap()
-                .size_hint_x(None);
-            let content_size_x = if !content_size_hint_x.is_fixed()
-                && viewport_rect.size_x() > content_size_hint_x.preferred()
-            {
-                viewport_rect.size_x()
-            } else {
+
+            content_size_x = if content_size_x_fixed {
                 content_size_hint_x.preferred()
+            } else {
+                max(content_size_hint_x.preferred(), viewport_rect.size_x())
             };
+            if !self.allow_expand_x {
+                content_size_x = min(content_size_x, viewport_rect.size_x());
+            }
+
             let content_size_hint_y = self
                 .base
                 .get_dyn_child_mut(INDEX_VIEWPORT)
@@ -373,7 +421,17 @@ impl Widget for ScrollArea {
             .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
             .size_hint_x(None);
 
-        let scroll_x_min_x = match self.x_policy {
+        let effective_x_policy = if self.allow_expand_x {
+            self.x_policy
+        } else {
+            match self.x_policy {
+                ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOff => {
+                    ScrollBarPolicy::AlwaysOff
+                }
+                ScrollBarPolicy::AlwaysOn => ScrollBarPolicy::AlwaysOn,
+            }
+        };
+        let scroll_x_min_x = match effective_x_policy {
             ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOn => scroll_x_hint_x.min(),
             ScrollBarPolicy::AlwaysOff => 0.ppx(),
         };
@@ -384,14 +442,14 @@ impl Widget for ScrollArea {
 
         let min = scroll_x_min_x + scroll_y_min_x;
 
-        let scroll_x_preferred_x = match self.x_policy {
+        let scroll_x_preferred_x = match effective_x_policy {
             ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOff => 0.ppx(),
             ScrollBarPolicy::AlwaysOn => scroll_x_hint_x.preferred(),
         };
         let scroll_y_preferred_x = match self.y_policy {
             ScrollBarPolicy::AsNeeded => {
                 if let Some(size_y) = size_y {
-                    let scroll_x_preferred_y = match self.x_policy {
+                    let scroll_x_preferred_y = match effective_x_policy {
                         ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOff => 0.ppx(),
                         ScrollBarPolicy::AlwaysOn => scroll_x_hint_y_preferred,
                     };
@@ -426,7 +484,18 @@ impl Widget for ScrollArea {
             .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_Y)?
             .size_hint_x(None);
 
-        let scroll_x_min = match self.x_policy {
+        let effective_x_policy = if self.allow_expand_x {
+            self.x_policy
+        } else {
+            match self.x_policy {
+                ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOff => {
+                    ScrollBarPolicy::AlwaysOff
+                }
+                ScrollBarPolicy::AlwaysOn => ScrollBarPolicy::AlwaysOn,
+            }
+        };
+
+        let scroll_x_min = match effective_x_policy {
             ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOn => self
                 .base
                 .get_child_mut::<ScrollBar>(INDEX_SCROLL_BAR_X)?
@@ -442,9 +511,9 @@ impl Widget for ScrollArea {
                 .min(),
             ScrollBarPolicy::AlwaysOff => 0.ppx(),
         };
-        let min = scroll_x_min + scroll_y_min;
+        let all_min = scroll_x_min + scroll_y_min;
 
-        let content_hint_x;
+        let mut content_size_x;
         let content_hint_y;
         if let Ok(content) = self
             .base
@@ -452,10 +521,25 @@ impl Widget for ScrollArea {
             .base_mut()
             .get_dyn_child_mut(KEY_CONTENT_IN_VIEWPORT)
         {
-            content_hint_x = content.size_hint_x(None);
-            content_hint_y = content.size_hint_y(content_hint_x.preferred());
+            let content_size_hint_x = content.size_hint_x(None);
+            let content_size_x_fixed = content
+                .base()
+                .layout_item_options()
+                .x()
+                .is_fixed()
+                .unwrap_or(content_size_hint_x.is_fixed());
+
+            content_size_x = if content_size_x_fixed {
+                content_size_hint_x.preferred()
+            } else {
+                max(content_size_hint_x.preferred(), size_x)
+            };
+            if !self.allow_expand_x {
+                content_size_x = min(content_size_x, size_x);
+            }
+            content_hint_y = content.size_hint_y(content_size_x);
         } else {
-            content_hint_x = SizeHint::new_fixed(0.ppx(), 0.ppx());
+            content_size_x = 0.ppx();
             content_hint_y = SizeHint::new_fixed(0.ppx(), 0.ppx());
         };
 
@@ -463,14 +547,14 @@ impl Widget for ScrollArea {
             ScrollBarPolicy::AsNeeded | ScrollBarPolicy::AlwaysOff => false,
             ScrollBarPolicy::AlwaysOn => true,
         };
-        let scroll_x_visible = match self.x_policy {
+        let scroll_x_visible = match effective_x_policy {
             ScrollBarPolicy::AsNeeded => {
                 let available_size_x = if scroll_y_visible {
                     max(0.ppx(), size_x - scroll_y_hint_x.preferred())
                 } else {
                     size_x
                 };
-                content_hint_x.preferred() > available_size_x
+                content_size_x > available_size_x
             }
             ScrollBarPolicy::AlwaysOn => true,
             ScrollBarPolicy::AlwaysOff => false,
@@ -498,7 +582,7 @@ impl Widget for ScrollArea {
         };
         let preferred = preferred_row1 + preferred_row2;
 
-        Ok(SizeHint::new_fixed(min, preferred))
+        Ok(SizeHint::new_fixed(all_min, preferred))
     }
 
     fn handle_layout(&mut self, _event: LayoutEvent) -> Result<()> {
