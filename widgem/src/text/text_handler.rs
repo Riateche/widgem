@@ -776,7 +776,7 @@ impl TextHandler {
                     let top = PhysicalPixels::from_i32(layout_run.line_top.round() as i32);
                     let height = PhysicalPixels::from_i32(layout_run.line_height.round() as i32);
                     let bounds = Rect::from_pos_size(
-                        Point::new(rect_in_window.left(), top),
+                        Point::new(rect_in_window.left(), rect_in_window.top() + top),
                         Size::new(rect_in_window.size_x(), height),
                     );
                     line_node.set_bounds(bounds.into());
