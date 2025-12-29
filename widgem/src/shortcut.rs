@@ -461,7 +461,10 @@ fn test_standard_shortcuts() {
             shortcut1, shortcuts.redo
         );
 
-        let shortcut3 = KeyCombinations(vec![KeyCombination::new(Modifiers::SHIFT, NamedKey::End)]);
+        let shortcut3 = KeyCombinations(vec![
+            KeyCombination::new(Modifiers::SHIFT, NamedKey::End),
+            KeyCombination::new(Modifiers::CTRL_OR_MAC_CMD | Modifiers::SHIFT, KeyCode::KeyE),
+        ]);
         assert_eq!(
             shortcuts.select_end_of_line, shortcut3,
             "standard_shortcuts: expected {:?}, got {:?}",
@@ -491,10 +494,16 @@ fn test_standard_shortcuts() {
             shortcut1, shortcuts.redo
         );
 
-        let shortcut3 = KeyCombinations(vec![KeyCombination::new(
-            Modifiers::SHIFT | Modifiers::CTRL_OR_MAC_CMD,
-            NamedKey::ArrowRight,
-        )]);
+        let shortcut3 = KeyCombinations(vec![
+            KeyCombination::new(
+                Modifiers::SHIFT | Modifiers::CTRL_OR_MAC_CMD,
+                NamedKey::ArrowRight,
+            ),
+            KeyCombination::new(
+                Modifiers::SHIFT | Modifiers::META_OR_MAC_CTRL,
+                NamedKey::ArrowRight,
+            ),
+        ]);
         assert_eq!(
             shortcuts.select_end_of_line, shortcut3,
             "standard_shortcuts: expected {:?}, got {:?}",
