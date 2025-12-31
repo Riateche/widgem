@@ -376,6 +376,10 @@ impl<'a> WindowHandler<'a> {
             warn!("set_focus: widget not found");
         }
 
+        if self.window.focused_widget() == Some(widget_addr_id.1) {
+            return;
+        }
+
         if let Some(old_widget_id) = self.window.unset_focus() {
             if let Ok(old_widget) = get_widget_by_id_mut(self.root_widget, old_widget_id.1) {
                 old_widget.dispatch(FocusOutEvent { _empty: () }.into());

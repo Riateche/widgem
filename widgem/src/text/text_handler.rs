@@ -32,7 +32,8 @@ use {
     accesskit::{NodeId, Role, TextDirection, TextPosition, TextSelection},
     anyhow::{bail, Context as _, Result},
     cosmic_text::{
-        Affinity, Attrs, AttrsList, BorrowedWithFontSystem, Buffer, Cursor, Motion, Shaping, Wrap,
+        Affinity, Attrs, AttrsList, BorrowedWithFontSystem, Buffer, Cursor, Motion, Selection,
+        Shaping, Wrap,
     },
     line_straddler::{GlyphStyle, LineGenerator, LineType},
     range_ext::intersect::Intersect,
@@ -798,13 +799,13 @@ impl TextHandler {
         let char_to_byte_index =
             |char_index| text.grapheme_indices(true).nth(char_index).map(|(i, _)| i);
         if data.anchor == data.focus {
-            self.set_select_opt(None);
+            self.set_selection(Selection::None);
         } else {
             let Some(index) = char_to_byte_index(data.anchor.character_index) else {
                 warn!("char index is too large");
                 return;
             };
-            self.set_select_opt(Some(Cursor {
+            self.set_selection(Selection::Normal(Cursor {
                 line: 0,
                 index,
                 affinity: Affinity::Before,
@@ -846,7 +847,19 @@ impl TextHandler {
     }
 
     fn selection_accessibility_info(&mut self) -> anyhow::Result<TextSelection> {
-        let focus = if let Ok(v) = self.accessibility_text_position(self.cursor()) {
+        let (focus, anchor) = match self.selection() {
+            Selection::None => (self.cursor(), self.cursor()),
+            Selection::Normal(selection_cursor) => (self.cursor(), selection_cursor),
+            Selection::Line(_) | Selection::Word(_) => {
+                if let Some((start, end)) = self.selection_bounds() {
+                    (start, end)
+                } else {
+                    (self.cursor(), self.cursor())
+                }
+            }
+        };
+
+        let focus = if let Ok(v) = self.accessibility_text_position(focus) {
             v
         } else if let Some((id, _)) = self.accessibility_text_run_ids.first() {
             TextPosition {
@@ -857,12 +870,8 @@ impl TextHandler {
             bail!("no text runs");
         };
 
-        let anchor = if let Some(select) = self.select_opt() {
-            self.accessibility_text_position(select).unwrap_or(focus)
-        } else {
-            focus
-        };
-        // println!("anchor={anchor:?}, focus={focus:?}");
+        let anchor = self.accessibility_text_position(anchor).unwrap_or(focus);
+
         Ok(TextSelection { anchor, focus })
     }
 
@@ -1047,21 +1056,16 @@ impl TextHandler {
         self.editor.has_selection()
     }
 
-    // TODO: update API
-    pub fn select_opt(&self) -> Option<Cursor> {
-        if let cosmic_text::Selection::Normal(value) = self.editor.selection() {
-            Some(value)
-        } else {
-            None
-        }
+    pub fn selection_bounds(&self) -> Option<(Cursor, Cursor)> {
+        self.editor.selection_bounds()
     }
 
-    pub fn set_select_opt(&mut self, select_opt: Option<Cursor>) {
-        self.editor.set_selection(if let Some(cursor) = select_opt {
-            cosmic_text::Selection::Normal(cursor)
-        } else {
-            cosmic_text::Selection::None
-        });
+    pub fn selection(&self) -> Selection {
+        self.editor.selection()
+    }
+
+    pub fn set_selection(&mut self, selection: Selection) {
+        self.editor.set_selection(selection);
         self.request_scroll();
     }
 
@@ -1135,14 +1139,6 @@ impl TextHandler {
         self.base.update();
     }
 
-    pub fn selection_bounds(&self) -> Option<(Cursor, Cursor)> {
-        if self.editor.has_selection() {
-            self.editor.selection_bounds()
-        } else {
-            None
-        }
-    }
-
     pub fn selected_text(&mut self) -> Option<String> {
         self.editor.copy_selection().filter(|s| !s.is_empty())
     }
@@ -1153,7 +1149,7 @@ impl TextHandler {
         }
         let window = self.base.window_or_err()?;
 
-        if !self.base.is_focused() {
+        if !self.is_host_focused {
             if let Some(host_id) = self.host_id {
                 self.base
                     .app()
@@ -1311,15 +1307,13 @@ impl Widget for TextHandler {
         }
         let window = self.base.window_or_err()?;
         if window.is_mouse_button_pressed(MouseButton::Left) {
-            let old_selection = (self.select_opt(), self.editor.cursor());
+            let old_selection = self.selection_bounds();
             self.action(Action::Drag {
                 x: event.pos.x().to_i32(),
                 y: event.pos.y().to_i32(),
             });
-            let new_selection = (self.select_opt(), self.editor.cursor());
+            let new_selection = self.selection_bounds();
             if old_selection != new_selection {
-                // TODO: notify parent?
-                //self.adjust_scroll();
                 self.base.update();
                 self.request_scroll();
             }
