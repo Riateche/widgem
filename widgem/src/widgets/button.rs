@@ -22,7 +22,6 @@ use {
     anyhow::Result,
     std::{fmt::Display, rc::Rc},
     tracing::warn,
-    widgem_macros::impl_with,
     winit::{
         event::MouseButton,
         keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
@@ -42,7 +41,6 @@ pub struct Button {
     style: Rc<ComputedButtonStyle>,
 }
 
-#[impl_with]
 impl Button {
     pub fn init(text: String) -> impl WidgetInitializer<Output = Self> {
         Initializer { text }

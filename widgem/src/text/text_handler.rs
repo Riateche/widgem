@@ -32,8 +32,7 @@ use {
     accesskit::{NodeId, Role, TextDirection, TextPosition, TextSelection},
     anyhow::{bail, Context as _, Result},
     cosmic_text::{
-        Affinity, Attrs, AttrsList, AttrsOwned, BorrowedWithFontSystem, Buffer, Cursor, Motion,
-        Shaping, Wrap,
+        Affinity, Attrs, AttrsList, BorrowedWithFontSystem, Buffer, Cursor, Motion, Shaping, Wrap,
     },
     line_straddler::{GlyphStyle, LineGenerator, LineType},
     range_ext::intersect::Intersect,
@@ -48,7 +47,6 @@ use {
     tiny_skia::{Color, Paint, PathBuilder, Pixmap, Shader, Stroke, Transform},
     tracing::warn,
     unicode_segmentation::UnicodeSegmentation,
-    widgem_macros::impl_with,
     winit::{
         event::{ElementState, Ime, MouseButton},
         keyboard::{Key, NamedKey},
@@ -129,7 +127,6 @@ pub struct TextHandler {
 // TODO: get system setting
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
-#[impl_with]
 impl TextHandler {
     fn new(base: WidgetBaseOf<Self>, text: String, style: Rc<TextStyle>) -> Self {
         let editor = base.app().with_font_system(|font_system| {
@@ -891,10 +888,6 @@ impl TextHandler {
         self.editor.redraw()
     }
 
-    pub fn is_mouse_interaction_forbidden(&self) -> bool {
-        self.forbid_mouse_interaction
-    }
-
     // TODO: private
     pub fn pixmap(&mut self) -> &Pixmap {
         if self.pixmap.is_none() || self.needs_redraw() {
@@ -1089,13 +1082,13 @@ impl TextHandler {
         }
     }
 
-    pub fn attrs_at_cursor(&self) -> AttrsOwned {
-        // TODO: use lines.get() everywhere to be safe
-        self.editor.with_buffer(|buffer| {
-            let line = &buffer.lines[self.editor.cursor().line];
-            AttrsOwned::new(&line.attrs_list().get_span(self.editor.cursor().index))
-        })
-    }
+    // pub fn attrs_at_cursor(&self) -> AttrsOwned {
+    //     // TODO: use lines.get() everywhere to be safe
+    //     self.editor.with_buffer(|buffer| {
+    //         let line = &buffer.lines[self.editor.cursor().line];
+    //         AttrsOwned::new(&line.attrs_list().get_span(self.editor.cursor().index))
+    //     })
+    // }
 
     fn unrestricted_text_size(&mut self, width: Option<PhysicalPixels>) -> Size {
         let new_size = self.base.app().with_font_system(|font_system| {
@@ -1140,10 +1133,6 @@ impl TextHandler {
         self.editor.set_cursor_hidden(hidden);
         self.is_cursor_hidden = hidden;
         self.base.update();
-    }
-
-    pub fn is_cursor_hidden(&self) -> bool {
-        self.is_cursor_hidden
     }
 
     pub fn selection_bounds(&self) -> Option<(Cursor, Cursor)> {

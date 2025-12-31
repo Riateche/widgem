@@ -10,7 +10,6 @@ use {
     anyhow::Result,
     std::path::Path,
     usvg::Transform,
-    widgem_macros::impl_with,
 };
 
 pub struct Image {
@@ -21,7 +20,6 @@ pub struct Image {
     is_prescaled: bool,
 }
 
-#[impl_with]
 impl Image {
     fn new(base: WidgetBaseOf<Self>, pixmap: Option<Pixmap>) -> Self {
         Image {

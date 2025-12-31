@@ -20,7 +20,6 @@ use {
         ops::RangeInclusive,
     },
     tracing::warn,
-    widgem_macros::impl_with,
     winit::{
         event::{ElementState, MouseButton},
         keyboard::{Key, NamedKey},
@@ -59,7 +58,6 @@ const INDEX_BUTTON_IN_PAGER: u64 = 0;
 const INDEX_GRIP_IN_PAGER: u64 = 1;
 
 // TODO: support other value types
-#[impl_with]
 impl ScrollBar {
     fn new(mut base: WidgetBaseOf<Self>, axis: Axis) -> anyhow::Result<Self> {
         base.set_supports_focus(true);

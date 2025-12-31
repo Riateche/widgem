@@ -11,7 +11,6 @@ use {
     },
     anyhow::{ensure, Context as _, Result},
     std::cmp::{max, min},
-    widgem_macros::impl_with,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -35,7 +34,6 @@ const INDEX_VIEWPORT: u64 = 2;
 
 const KEY_CONTENT_IN_VIEWPORT: u64 = 0;
 
-#[impl_with]
 impl ScrollArea {
     fn new(mut base: WidgetBaseOf<Self>) -> anyhow::Result<Self> {
         let relayout = base.callback(|this, _| this.relayout());

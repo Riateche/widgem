@@ -21,7 +21,7 @@ use {
     },
     accesskit::ActionData,
     anyhow::{bail, Result},
-    cosmic_text::Wrap,
+    cosmic_text::{Cursor, Wrap},
     std::{fmt::Display, rc::Rc},
     tracing::warn,
     winit::window::CursorIcon,
@@ -76,6 +76,14 @@ impl TextArea {
     //         .get_child(0u32)
     // }
 
+    fn text_handler(&self) -> anyhow::Result<&TextHandler> {
+        self.base
+            .get_child::<ScrollArea>(ChildKey::main())?
+            .content::<Row>()?
+            .base()
+            .get_child(0u32)
+    }
+
     fn text_handler_mut(&mut self) -> anyhow::Result<&mut TextHandler> {
         self.base
             .get_child_mut::<ScrollArea>(ChildKey::main())?
@@ -124,6 +132,14 @@ impl TextArea {
             handler.set_wrap(wrap);
         }
         self
+    }
+
+    pub fn has_selection(&self) -> bool {
+        self.text_handler().unwrap().has_selection()
+    }
+
+    pub fn selection_bounds(&self) -> Option<(Cursor, Cursor)> {
+        self.text_handler().unwrap().selection_bounds()
     }
 }
 
