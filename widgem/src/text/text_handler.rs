@@ -594,7 +594,7 @@ impl TextHandler {
         not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))
     ))]
     fn paste_selection(&mut self) {
-        if self.is_mouse_interaction_forbidden() {
+        if self.forbid_mouse_interaction {
             return;
         }
         let text = self.base.app().linux_primary_selection().or_warn();
