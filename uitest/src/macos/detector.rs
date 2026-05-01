@@ -1,11 +1,14 @@
 use {
-    anyhow::Context,
+    image::RgbaImage,
     std::{
         cmp::min,
+        collections::{BTreeMap, HashMap},
+        convert::identity,
         num::NonZeroU32,
         rc::Rc,
         time::{Duration, Instant},
     },
+    tracing::trace,
     winit::{
         application::ApplicationHandler,
         dpi::PhysicalSize,
@@ -28,6 +31,10 @@ struct Handler {
 const WIDTH: u32 = 100;
 const HEIGHT: u32 = 100;
 const TITLE: &str = "__UITEST_DETECTOR";
+
+const RG_SCALE: u32 = 2;
+const BLUE_VALUE: u32 = 252;
+const THRESHOLD: f32 = 0.5;
 
 impl ApplicationHandler for Handler {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -68,7 +75,7 @@ impl ApplicationHandler for Handler {
                 for y in 0..min(HEIGHT, size.height) {
                     for x in 0..min(WIDTH, size.width) {
                         buffer[(y * size.width + x) as usize] =
-                            ((x * 2) << 16) | ((y * 2) << 8) | 255;
+                            ((x * RG_SCALE) << 16) | ((y * RG_SCALE) << 8) | BLUE_VALUE;
                     }
                 }
 
@@ -99,6 +106,7 @@ impl ApplicationHandler for Handler {
                 .expect("detector window not found");
             let image = window.0.capture_image_without_unpaint().unwrap();
             println!("ok! {}x{}", image.width(), image.height());
+            analyze(image);
 
             self.take_screenshot_at = None;
             event_loop.exit();
@@ -117,4 +125,42 @@ pub fn run(context: crate::Context) -> anyhow::Result<()> {
     };
     event_loop.run_app(&mut handler)?;
     Ok(())
+}
+
+fn analyze(image: RgbaImage) {
+    image.save("/tmp/1.png").unwrap();
+    let mut y_diffs = Vec::new();
+    for y in 0..image.height() {
+        let mut greens = HashMap::<u8, usize>::new();
+        let mut blues = HashMap::<u8, usize>::new();
+        for x in 0..image.width() {
+            let pixel = image.get_pixel(x, y);
+            //let red = pixel.0[1];
+            let green = pixel.0[1];
+            let blue = pixel.0[2];
+            *greens.entry(green).or_default() += 1;
+            *blues.entry(blue).or_default() += 1;
+        }
+        let (green_value, green_count) = greens.iter().max_by_key(|v| v.1).unwrap();
+        let (blue_value, blue_count) = blues.iter().max_by_key(|v| v.1).unwrap();
+        if *blue_value as u32 == BLUE_VALUE
+            && *green_count as f32 >= WIDTH as f32 * THRESHOLD
+            && *blue_count as f32 >= WIDTH as f32 * THRESHOLD
+        {
+            let real_y = *green_value as u32 / RG_SCALE;
+            let y_diff = y - real_y;
+            println!("y={y} y_diff={y_diff}");
+            y_diffs.push(Some(y_diff));
+        } else {
+            y_diffs.push(None);
+            println!("y={y} undetected");
+        }
+        trace!("y={} reds={:?} blues={:?}", y, greens, blues);
+    }
+    let y_diff = y_diffs.iter().copied().flatten().max().unwrap();
+    if (y_diffs.iter().filter(|v| **v == Some(y_diff)).count() as f32) < HEIGHT as f32 * THRESHOLD {
+        panic!("no consistent y_diff found");
+    }
+
+    std::process::exit(22);
 }
