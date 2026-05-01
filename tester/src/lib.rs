@@ -275,6 +275,9 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                     format!(", {} filtered out", all_tests.len() - filtered_tests.len())
                 },
             );
+            if !all_fails.is_empty() {
+                process::exit(1);
+            }
         }
         Args::Run {
             test_case,
