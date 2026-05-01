@@ -41,3 +41,6 @@ tiny-skia = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 derive_more = { workspace = true }
+
+[lints]
+workspace = true

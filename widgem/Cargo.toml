@@ -57,3 +57,6 @@ objc2-app-kit = { workspace = true }
 
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true
