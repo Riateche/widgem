@@ -19,6 +19,8 @@ use {
     tracing::{trace, warn},
 };
 
+mod detector;
+
 // Offset between the window's outer and inner position.
 // TODO: allow overriding it with an env var or determine it automatically.
 const TITLE_OFFSET_Y: u32 = 28;
@@ -64,6 +66,7 @@ impl Context {
                 bail!("process is not trusted");
             }
         }
+        detector::run()?;
         Ok(Self {})
     }
 

@@ -20,6 +20,8 @@ windows-sys = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Input_
 objc2-app-kit = { workspace = true, features = ["NSWorkspace"] }
 objc2-application-services = { workspace = true }
 objc2-core-foundation = { workspace = true }
+winit = { workspace = true }
+softbuffer = { workspace = true }
 
 [lints]
 workspace = true
