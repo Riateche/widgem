@@ -19,7 +19,7 @@ use {
     tracing::{trace, warn},
 };
 
-mod detector;
+pub mod detector;
 
 // Offset between the window's outer and inner position.
 // TODO: allow overriding it with an env var or determine it automatically.
@@ -66,7 +66,6 @@ impl Context {
                 bail!("process is not trusted");
             }
         }
-        detector::run()?;
         Ok(Self {})
     }
 
@@ -209,9 +208,13 @@ impl Window {
     }
 
     pub fn capture_image(&self) -> anyhow::Result<RgbaImage> {
-        let window = self.xcap_window()?;
-        let image = window.capture_image()?;
+        let image = self.capture_image_without_unpaint()?;
         unpaint_window_frame(image)
+    }
+
+    fn capture_image_without_unpaint(&self) -> anyhow::Result<RgbaImage> {
+        let window = self.xcap_window()?;
+        Ok(window.capture_image()?)
     }
 
     pub fn activate(&self) -> anyhow::Result<()> {

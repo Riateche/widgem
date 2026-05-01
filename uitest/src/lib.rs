@@ -42,10 +42,15 @@ pub struct Context(Arc<ContextData>);
 impl Context {
     #[allow(clippy::new_without_default)]
     pub fn new() -> anyhow::Result<Self> {
-        Ok(Self(Arc::new(ContextData {
+        let ctx = Self(Arc::new(ContextData {
             imp: imp::Context::new()?,
             enigo: Mutex::new(Enigo::new(&enigo::Settings::default())?),
-        })))
+        }));
+        #[cfg(target_os = "macos")]
+        {
+            macos::detector::run(ctx.clone())?;
+        }
+        Ok(ctx)
     }
 
     pub fn all_windows(&self) -> anyhow::Result<Vec<Window>> {
