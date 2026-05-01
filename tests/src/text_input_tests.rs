@@ -1,4 +1,5 @@
 use {
+    std::{thread::sleep, time::Duration},
     widgem::{
         impl_widget_base,
         layout::Layout,
@@ -139,18 +140,23 @@ pub fn mouse(ctx: &mut Context) -> anyhow::Result<()> {
     window.snapshot("text input")?;
     window.mouse_move(48, 27)?;
     ctx.mouse_left_click()?;
+    // TODO: wait for screenshot change while capturing with blinking
+    sleep(Duration::from_secs(1));
     window.snapshot("cursor moved after hello")?;
     window.mouse_move(73, 29)?;
     ctx.mouse_left_press()?;
+    sleep(Duration::from_secs(1));
     window.snapshot("cursor moved after wor")?;
     window.mouse_move(52, 17)?;
     ctx.mouse_left_release()?;
     ctx.set_blinking_expected(false);
+    sleep(Duration::from_secs(1));
     window.snapshot("selected wor")?;
     // Click on the border/padding.
     window.mouse_move(48, 14)?;
     ctx.mouse_left_click()?;
     ctx.set_blinking_expected(true);
+    sleep(Duration::from_secs(1));
     window.snapshot("cursor moved to beginning")?;
 
     window.close()?;

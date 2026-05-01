@@ -234,6 +234,7 @@ impl CheckContext {
                     &mut self.fails,
                     format!("snapshot mismatch at {:?}", unconfirmed_snapshot_name),
                 );
+                self.capture_full_screen()?;
             } else if confirmed.full_name != confirmed_snapshot_name {
                 fs_err::rename(
                     self.test_case_dir.join(&confirmed.full_name),

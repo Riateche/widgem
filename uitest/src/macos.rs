@@ -1,7 +1,7 @@
 use {
-    crate::IGNORED_PIXEL,
+    crate::macos::calibration::CalibrationInfo,
     anyhow::{anyhow, bail, ensure, Context as _},
-    image::{Rgba, RgbaImage},
+    image::RgbaImage,
     objc2_application_services::{
         kAXTrustedCheckOptionPrompt, AXError, AXIsProcessTrustedWithOptions, AXUIElement, AXValue,
         AXValueType,
@@ -19,13 +19,15 @@ use {
     tracing::{trace, warn},
 };
 
-pub mod detector;
+pub mod calibration;
 
 // Offset between the window's outer and inner position.
 // TODO: allow overriding it with an env var or determine it automatically.
 const TITLE_OFFSET_Y: u32 = 28;
 
-pub struct Context {}
+pub struct Context {
+    calibration: Arc<Mutex<Option<CalibrationInfo>>>,
+}
 
 // TODO: avoid iterating over all apps if only windows_by_pid is requested.
 pub fn all_windows(context: &crate::Context) -> anyhow::Result<Vec<crate::Window>> {
@@ -66,7 +68,9 @@ impl Context {
                 bail!("process is not trusted");
             }
         }
-        Ok(Self {})
+        Ok(Self {
+            calibration: Arc::new(Mutex::new(None)),
+        })
     }
 
     pub fn active_window_id(&self) -> anyhow::Result<u32> {
@@ -208,11 +212,11 @@ impl Window {
     }
 
     pub fn capture_image(&self) -> anyhow::Result<RgbaImage> {
-        let image = self.capture_image_without_unpaint()?;
-        unpaint_window_frame(image)
+        let image = self.capture_image_without_calibration()?;
+        calibration::adjust_image(&self.context, image)
     }
 
-    fn capture_image_without_unpaint(&self) -> anyhow::Result<RgbaImage> {
+    fn capture_image_without_calibration(&self) -> anyhow::Result<RgbaImage> {
         let window = self.xcap_window()?;
         Ok(window.capture_image()?)
     }
@@ -556,54 +560,6 @@ fn ax_error_text(error: AXError) -> String {
         AXError::Success => "Success".into(),
         _ => format!("unknown error {}", error.0),
     }
-}
-
-// Window screenshots contain a system window frame, but we only need the content.
-fn unpaint_window_frame(mut image: RgbaImage) -> anyhow::Result<RgbaImage> {
-    let background = Rgba([255, 255, 255, 255]);
-    let width = image.width();
-    let height = image.height();
-
-    // Heuristic: the window has a system frame if the corners are transparent.
-    if image.get_pixel(0, 0).0[3] == 255 {
-        return Ok(image);
-    }
-
-    ensure!(width > 0 && height > 0);
-
-    // Ignore rounded corners at the bottom.
-    for x in 0..width {
-        for y in (0..height).rev() {
-            const CORNER_RADIUS_SQ: u32 = 13 * 13;
-            let dist_sq1 = x * x + (height - y) * (height - y);
-            let dist_sq2 = (width - x) * (width - x) + (height - y) * (height - y);
-            if dist_sq1 < CORNER_RADIUS_SQ || dist_sq2 < CORNER_RADIUS_SQ {
-                image.put_pixel(x, y, IGNORED_PIXEL);
-            }
-        }
-    }
-
-    // Ignore semi-transparent border pixels.
-    for x in [0, width - 1] {
-        for y in 0..height {
-            image.put_pixel(x, y, IGNORED_PIXEL);
-        }
-    }
-
-    // Remove window title.
-    let new_height = height - TITLE_OFFSET_Y;
-    let mut new_image = RgbaImage::from_pixel(width, new_height, background);
-    let stride = new_image.sample_layout().height_stride;
-    (*new_image).copy_from_slice(&(*image)[TITLE_OFFSET_Y as usize * stride..]);
-
-    // Ignore title shadow and semi-transparent border pixels.
-    for y in [0, new_height - 1] {
-        for x in 0..width {
-            new_image.put_pixel(x, y, IGNORED_PIXEL);
-        }
-    }
-
-    Ok(new_image)
 }
 
 pub trait WindowExt {

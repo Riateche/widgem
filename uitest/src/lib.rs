@@ -48,7 +48,7 @@ impl Context {
         }));
         #[cfg(target_os = "macos")]
         {
-            macos::detector::run(ctx.clone())?;
+            macos::calibration::run(ctx.clone())?;
         }
         Ok(ctx)
     }
