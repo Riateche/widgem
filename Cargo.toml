@@ -62,7 +62,7 @@ uiautomation = "0.24.1"
 unicode-segmentation = "1.12.0"
 usvg = { version = "0.45.1", default-features = false }
 windows-sys = { version = "0.59.0" }
-winit = "0.30.11"
+winit = "0.30.13"
 x11rb = { version = "0.13.1", features = ["res"] }
 xcap = "0.7.1"
 
@@ -83,7 +83,7 @@ codegen-units = 16
 
 [patch.crates-io]
 # fixes problem with double mouse scroll events
-winit = { git = "https://github.com/Riateche/winit.git", rev = "25c76cdf" }
+winit = { git = "https://github.com/Riateche/winit.git", rev = "b2c3c495" }
 
 # fixes SetValue on macos
 accesskit = { git = "https://github.com/AccessKit/accesskit.git", rev = "9e07b158" }

@@ -45,7 +45,7 @@ if [[ -z $CI ]]; then
         widgem_builder \
         "command -v rustup || \
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-            sh -s -- --default-toolchain 1.87.0 --profile minimal -y
+            sh -s -- --default-toolchain 1.95.0 --profile minimal -y
         cargo build --package widgem_tests --locked $CARGO_ARGS"
 
     BIN_DIR="/app/target/docker/target/$BUILD_MODE"
