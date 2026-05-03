@@ -276,6 +276,9 @@ mod macos {
                 == "Multiline label\nSecond line"
         );
 
+        let text_area = root_children.next().context("not enough root children")?;
+        ensure!(text_area.role()? == "AXTextField");
+
         let submit = root_children.next().context("not enough root children")?;
         ensure!(submit.role()? == "AXButton");
         ensure!(
