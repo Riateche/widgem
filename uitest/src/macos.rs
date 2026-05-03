@@ -15,18 +15,16 @@ use {
         process::Command,
         ptr::NonNull,
         sync::{Arc, Mutex},
+        thread::sleep,
+        time::Duration,
     },
     tracing::{trace, warn},
 };
 
 pub mod calibration;
 
-// Offset between the window's outer and inner position.
-// TODO: allow overriding it with an env var or determine it automatically.
-const TITLE_OFFSET_Y: u32 = 28;
-
 pub struct Context {
-    calibration: Arc<Mutex<Option<CalibrationInfo>>>,
+    calibration: Option<CalibrationInfo>,
 }
 
 // TODO: avoid iterating over all apps if only windows_by_pid is requested.
@@ -69,7 +67,7 @@ impl Context {
             }
         }
         Ok(Self {
-            calibration: Arc::new(Mutex::new(None)),
+            calibration: calibration::load()?,
         })
     }
 
@@ -133,33 +131,36 @@ impl Window {
         let y = self.y()?;
         let size_with_frame = self.outer_size()?;
         let mut matching_windows = Vec::new();
-        for window in xcap::Window::all()? {
-            if x == window.x()?
-                && y == window.y()?
-                && size_with_frame.width as u32 == window.width()?
-                && size_with_frame.height as u32 == window.height()?
-            {
-                matching_windows.push(window);
+        for _attempt in 0..10 {
+            for window in xcap::Window::all()? {
+                if x == window.x()?
+                    && y == window.y()?
+                    && size_with_frame.width as u32 == window.width()?
+                    && size_with_frame.height as u32 == window.height()?
+                {
+                    matching_windows.push(window);
+                }
             }
-        }
 
-        if matching_windows.len() == 1 {
-            let window = matching_windows.remove(0);
-            *self.xcap_window.lock().unwrap() = Some(window.clone());
-            Ok(window)
-        } else if matching_windows.is_empty() {
-            bail!("no matching CG windows found");
-        } else {
-            for window in matching_windows {
-                warn!(
-                    "matching window: {:?} title={:?} app={:?}",
-                    window.id(),
-                    window.title(),
-                    window.app_name()
-                );
+            if matching_windows.len() == 1 {
+                let window = matching_windows.remove(0);
+                *self.xcap_window.lock().unwrap() = Some(window.clone());
+                return Ok(window);
+            } else if matching_windows.is_empty() {
+                sleep(Duration::from_millis(100));
+            } else {
+                for window in matching_windows {
+                    warn!(
+                        "matching window: {:?} title={:?} app={:?}",
+                        window.id(),
+                        window.title(),
+                        window.app_name()
+                    );
+                }
+                bail!("multiple matching CG windows found");
             }
-            bail!("multiple matching CG windows found");
         }
+        bail!("no matching CG windows found");
     }
 
     fn position(&self) -> anyhow::Result<CGPoint> {
@@ -199,8 +200,22 @@ impl Window {
 
     /// The window inner pixel height.
     pub fn height(&self) -> anyhow::Result<u32> {
-        let title_offset_y = if self.has_title()? { TITLE_OFFSET_Y } else { 0 };
+        let title_offset_y = self.title_offset_y()?;
         Ok((self.outer_size()?.height as u32).saturating_sub(title_offset_y))
+    }
+
+    fn title_offset_y(&self) -> anyhow::Result<u32> {
+        let value = if self.has_title()? {
+            self.context
+                .0
+                .imp
+                .calibration
+                .as_ref()
+                .map_or(0, |info| info.y.skip)
+        } else {
+            0
+        };
+        Ok(value)
     }
 
     pub fn is_minimized(&self) -> anyhow::Result<bool> {
@@ -227,7 +242,7 @@ impl Window {
 
     /// Move the mouse pointer to the coordinates specified relative to the window's inner position.
     pub fn mouse_move(&self, x: i32, y: i32) -> anyhow::Result<()> {
-        let title_offset_y = if self.has_title()? { TITLE_OFFSET_Y } else { 0 };
+        let title_offset_y = self.title_offset_y()?;
         let position = self.position()?;
         self.context.mouse_move_global(
             x + position.x as i32,
@@ -264,7 +279,7 @@ impl Window {
 
     /// Change the window's inner size to the specified values.
     pub fn resize(&self, width: i32, height: i32) -> anyhow::Result<()> {
-        let title_offset_y = if self.has_title()? { TITLE_OFFSET_Y } else { 0 };
+        let title_offset_y = self.title_offset_y()?;
         unsafe {
             let mut new_size = CGSize {
                 width: width as CGFloat,

@@ -24,7 +24,11 @@ use {
     anyhow::Context as _,
     enigo::{Axis, Direction, Enigo, Keyboard, Mouse},
     image::{Rgba, RgbaImage},
-    std::sync::{Arc, Mutex},
+    std::{
+        sync::{Arc, Mutex},
+        thread::sleep,
+        time::Duration,
+    },
 };
 
 struct ContextData {
@@ -42,15 +46,15 @@ pub struct Context(Arc<ContextData>);
 impl Context {
     #[allow(clippy::new_without_default)]
     pub fn new() -> anyhow::Result<Self> {
-        let ctx = Self(Arc::new(ContextData {
+        Ok(Self(Arc::new(ContextData {
             imp: imp::Context::new()?,
             enigo: Mutex::new(Enigo::new(&enigo::Settings::default())?),
-        }));
-        #[cfg(target_os = "macos")]
-        {
-            macos::calibration::run(ctx.clone())?;
-        }
-        Ok(ctx)
+        })))
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn calibrate(&self) -> anyhow::Result<()> {
+        macos::calibration::run(self.clone())
     }
 
     pub fn all_windows(&self) -> anyhow::Result<Vec<Window>> {
@@ -76,6 +80,7 @@ impl Context {
             .lock()
             .unwrap()
             .move_mouse(x, y, enigo::Coordinate::Abs)?;
+        sleep(Duration::from_millis(100));
         Ok(())
     }
 

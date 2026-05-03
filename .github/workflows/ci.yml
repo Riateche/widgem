@@ -33,6 +33,17 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ""
+      - name: UI tests
+        run: |
+          if [[ $RUNNER_OS == "Linux" ]]; then
+            ./tests/scripts/run_tests_in_docker.sh
+          else
+            if [[ $RUNNER_OS == "macOS" ]]; then
+              cargo run --locked --bin fix_macos_ci
+              cargo run --locked --bin widgem_tests -- calibrate
+            fi
+            cargo run --locked --bin widgem_tests -- test
+          fi
       - name: Unit tests
         run: cargo test
       - name: Clippy
@@ -41,16 +52,6 @@ jobs:
         run: RUSTDOCFLAGS="--deny warnings" cargo doc
       - name: Formatting
         uses: actions-rust-lang/rustfmt@v1
-      - name: UI tests
-        run: |
-          if [[ $RUNNER_OS == "Linux" ]]; then
-            ./tests/scripts/run_tests_in_docker.sh
-          else
-            if [[ $RUNNER_OS == "macOS" ]]; then
-              cargo run --locked --bin fix_macos_ci
-            fi
-            cargo run --locked --bin widgem_tests -- test
-          fi
       - name: Upload test snapshots on failure
         if: failure()
         uses: actions/upload-artifact@v4

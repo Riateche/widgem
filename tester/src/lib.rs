@@ -167,6 +167,8 @@ enum Args {
     Query {
         query: String,
     },
+    #[cfg(target_os = "macos")]
+    Calibrate,
 }
 
 pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
@@ -303,6 +305,11 @@ pub fn run(snapshots_dir: impl AsRef<Path>) -> anyhow::Result<()> {
                 test_cases: registry.tests().map(|s| s.to_owned()).collect(),
             };
             println!("{}", serde_json::to_string_pretty(&data)?);
+        }
+        #[cfg(target_os = "macos")]
+        Args::Calibrate => {
+            let uitest_context = uitest::Context::new()?;
+            uitest_context.calibrate()?;
         }
     }
 

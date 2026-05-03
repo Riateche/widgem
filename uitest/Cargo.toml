@@ -13,6 +13,10 @@ tracing = { workspace = true }
 enigo = { workspace = true }
 image = { workspace = true }
 cadd = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+dirs = { workspace = true }
+fs-err = { workspace = true }
 
 [target.'cfg(target_os="windows")'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse"] }

@@ -6,14 +6,17 @@ use {
         prelude::{Cinto, IntoType},
     },
     image::{imageops::crop_imm, RgbaImage},
+    serde::{Deserialize, Serialize},
     std::{
         cmp::min,
         collections::HashMap,
+        io::ErrorKind,
         num::NonZeroU32,
+        path::PathBuf,
         rc::Rc,
         time::{Duration, Instant},
     },
-    tracing::{error, info, trace},
+    tracing::{error, info, trace, warn},
     winit::{
         application::ApplicationHandler,
         dpi::PhysicalSize,
@@ -110,12 +113,8 @@ impl ApplicationHandler for CalibrationApp {
                 .find(|w| w.title().is_ok_and(|t| t == TITLE))
                 .expect("detector window not found");
             let image = window.0.capture_image_without_calibration().unwrap();
-            match analyze(image) {
-                Ok(info) => {
-                    info!(?info, "macos screenshot calibration success");
-                    *self.context.0.imp.calibration.lock().unwrap() = Some(info);
-                }
-                Err(error) => error!(?error, "failed to calibrate macos screenshot"),
+            if let Err(error) = calibrate(image) {
+                error!(?error, "failed to calibrate macos screenshot")
             }
 
             self.take_screenshot_at = None;
@@ -134,14 +133,33 @@ pub fn run(context: crate::Context) -> anyhow::Result<()> {
         take_screenshot_at: None,
     };
     event_loop.run_app(&mut handler)?;
+
     Ok(())
 }
 
-fn analyze(image: RgbaImage) -> anyhow::Result<CalibrationInfo> {
-    //image.save("/tmp/1.png").unwrap();
+pub fn load() -> anyhow::Result<Option<CalibrationInfo>> {
+    let path = calibration_file_path()?;
+    match fs_err::read_to_string(path) {
+        Ok(data) => Ok(Some(serde_json::from_str(&data)?)),
+        Err(err) => {
+            if err.kind() == ErrorKind::NotFound {
+                warn!("no calibration file found! run calibration first to ensure correct window screenshot capture");
+                Ok(None)
+            } else {
+                Err(err.into())
+            }
+        }
+    }
+}
+
+fn calibrate(image: RgbaImage) -> anyhow::Result<()> {
     let x = analyze_axis(&image, Axis::X)?;
     let y = analyze_axis(&image, Axis::Y)?;
-    Ok(CalibrationInfo { x, y })
+    let info = CalibrationInfo { x, y };
+    info!(?info, "macos screenshot calibration success");
+    let path = calibration_file_path()?;
+    fs_err::write(path, serde_json::to_string_pretty(&info)?)?;
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -150,17 +168,17 @@ enum Axis {
     Y,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalibrationInfo {
-    x: AxisCalibrationInfo,
-    y: AxisCalibrationInfo,
+    pub x: AxisCalibrationInfo,
+    pub y: AxisCalibrationInfo,
 }
 
-#[derive(Debug, Clone)]
-struct AxisCalibrationInfo {
-    skip: u32,
-    ignore_start: u32,
-    ignore_end: u32,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AxisCalibrationInfo {
+    pub skip: u32,
+    pub ignore_start: u32,
+    pub ignore_end: u32,
 }
 
 fn analyze_axis(image: &RgbaImage, axis: Axis) -> anyhow::Result<AxisCalibrationInfo> {
@@ -287,7 +305,8 @@ pub fn adjust_image(ctx: &Context, mut image: RgbaImage) -> anyhow::Result<RgbaI
     // Ignore rounded corners at the bottom.
     for x in 0..width {
         for y in (0..height).rev() {
-            const CORNER_RADIUS_SQ: u32 = 13 * 13;
+            const CORNER_RADIUS: u32 = 19;
+            const CORNER_RADIUS_SQ: u32 = CORNER_RADIUS * CORNER_RADIUS;
             let dist_sq1 = x * x + (height - y) * (height - y);
             let dist_sq2 = (width - x) * (width - x) + (height - y) * (height - y);
             if dist_sq1 < CORNER_RADIUS_SQ || dist_sq2 < CORNER_RADIUS_SQ {
@@ -296,7 +315,7 @@ pub fn adjust_image(ctx: &Context, mut image: RgbaImage) -> anyhow::Result<RgbaI
         }
     }
 
-    let Some(info) = ctx.0.imp.calibration.lock().unwrap().clone() else {
+    let Some(info) = &ctx.0.imp.calibration else {
         return Ok(image);
     };
 
@@ -339,4 +358,9 @@ pub fn adjust_image(ctx: &Context, mut image: RgbaImage) -> anyhow::Result<RgbaI
     }
 
     Ok(image)
+}
+
+fn calibration_file_path() -> anyhow::Result<PathBuf> {
+    let config_dir = dirs::config_dir().context("could not determine config dif path")?;
+    Ok(config_dir.join("uitest_calibration.json"))
 }
