@@ -126,6 +126,7 @@ pub fn empty(ctx: &mut Context) -> anyhow::Result<()> {
     ctx.set_blinking_expected(true);
     window.snapshot("deleted all")?;
 
+    window.close()?;
     Ok(())
 }
 

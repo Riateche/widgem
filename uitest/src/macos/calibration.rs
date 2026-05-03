@@ -5,7 +5,7 @@ use {
         ops::{Cadd, CsignedDiff, Csub},
         prelude::{Cinto, IntoType},
     },
-    image::{imageops::crop_imm, RgbaImage},
+    image::{imageops::crop_imm, ImageError, RgbaImage},
     serde::{Deserialize, Serialize},
     std::{
         cmp::min,
@@ -137,19 +137,32 @@ pub fn run(context: crate::Context) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn load() -> anyhow::Result<Option<CalibrationInfo>> {
-    let path = calibration_file_path()?;
-    match fs_err::read_to_string(path) {
-        Ok(data) => Ok(Some(serde_json::from_str(&data)?)),
-        Err(err) => {
-            if err.kind() == ErrorKind::NotFound {
-                warn!("no calibration file found! run calibration first to ensure correct window screenshot capture");
-                Ok(None)
+pub fn load() -> anyhow::Result<Option<CalibrationData>> {
+    let json_path = calibration_json_path()?;
+    let info = match fs_err::read_to_string(&json_path) {
+        Ok(data) => serde_json::from_str(&data)?,
+        Err(error) => {
+            if error.kind() == ErrorKind::NotFound {
+                warn!("no calibration json file found at {json_path:?}!\nrun calibration first to ensure correct window screenshot capture");
+                return Ok(None);
             } else {
-                Err(err.into())
+                return Err(error.into());
             }
         }
-    }
+    };
+    let png_path = calibration_png_path()?;
+    let image = match image::open(&png_path) {
+        Ok(image) => image,
+        Err(ImageError::IoError(error)) if error.kind() == ErrorKind::NotFound => {
+            warn!("no calibration png file found at {png_path:?}!\nrun calibration first to ensure correct window screenshot capture");
+            return Ok(None);
+        }
+        Err(error) => return Err(error.into()),
+    };
+    Ok(Some(CalibrationData {
+        info,
+        image: image.into(),
+    }))
 }
 
 fn calibrate(image: RgbaImage) -> anyhow::Result<()> {
@@ -157,8 +170,18 @@ fn calibrate(image: RgbaImage) -> anyhow::Result<()> {
     let y = analyze_axis(&image, Axis::Y)?;
     let info = CalibrationInfo { x, y };
     info!(?info, "macos screenshot calibration success");
-    let path = calibration_file_path()?;
-    fs_err::write(path, serde_json::to_string_pretty(&info)?)?;
+    let json_path = calibration_json_path()?;
+    fs_err::write(json_path, serde_json::to_string_pretty(&info)?)?;
+
+    let cropped_image = crop_imm(
+        &image,
+        info.x.skip,
+        info.y.skip,
+        image.width() - info.x.skip,
+        image.height() - info.y.skip,
+    );
+    let png_path = calibration_png_path()?;
+    cropped_image.to_image().save(&png_path)?;
     Ok(())
 }
 
@@ -166,6 +189,61 @@ fn calibrate(image: RgbaImage) -> anyhow::Result<()> {
 enum Axis {
     X,
     Y,
+}
+
+#[derive(Debug, Clone)]
+pub struct CalibrationData {
+    pub info: CalibrationInfo,
+    pub image: RgbaImage,
+}
+
+impl CalibrationData {
+    fn is_visible(&self, x: u32, y: u32, width: u32, height: u32) -> bool {
+        let test_x = Self::calc_test_coordinate(Axis::X, x, width);
+        let test_y = Self::calc_test_coordinate(Axis::Y, y, height);
+
+        const OFFSET: u32 = 2;
+
+        let test_x_start = test_x.saturating_sub(OFFSET);
+        let test_y_start = test_y.saturating_sub(OFFSET);
+        let test_x_end = min(test_x + OFFSET, self.image.width() - 1);
+        let test_y_end = min(test_y + OFFSET, self.image.height() - 1);
+        for y in test_y_start..=test_y_end {
+            for x in test_x_start..=test_x_end {
+                if !self.test_pixel(x, y) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    fn test_pixel(&self, test_x: u32, test_y: u32) -> bool {
+        let pixel = self.image.get_pixel(test_x, test_y);
+        let red: u32 = pixel.0[0].into();
+        let green: u32 = pixel.0[1].into();
+        let blue: u32 = pixel.0[2].into();
+        trace!("test pixel: ({test_x}, {test_y}): (r={red}, g={green}, b={blue})");
+        test_x * RG_SCALE == red && test_y * RG_SCALE == green && blue == BLUE_VALUE
+    }
+
+    fn calc_test_coordinate(axis: Axis, pos: u32, size: u32) -> u32 {
+        let calibration_size = match axis {
+            Axis::X => WIDTH,
+            Axis::Y => HEIGHT,
+        };
+        let verifiable_margin = min(calibration_size, size) / 2;
+        if pos < verifiable_margin {
+            // left or top edge
+            pos
+        } else if pos > size - verifiable_margin {
+            // right or bottom edge
+            calibration_size - (size - pos)
+        } else {
+            // no edge, use middle
+            verifiable_margin
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -302,22 +380,10 @@ pub fn adjust_image(ctx: &Context, mut image: RgbaImage) -> anyhow::Result<RgbaI
 
     ensure!(width > 0 && height > 0);
 
-    // Ignore rounded corners at the bottom.
-    for x in 0..width {
-        for y in (0..height).rev() {
-            const CORNER_RADIUS: u32 = 19;
-            const CORNER_RADIUS_SQ: u32 = CORNER_RADIUS * CORNER_RADIUS;
-            let dist_sq1 = x * x + (height - y) * (height - y);
-            let dist_sq2 = (width - x) * (width - x) + (height - y) * (height - y);
-            if dist_sq1 < CORNER_RADIUS_SQ || dist_sq2 < CORNER_RADIUS_SQ {
-                image.put_pixel(x, y, IGNORED_PIXEL);
-            }
-        }
-    }
-
-    let Some(info) = &ctx.0.imp.calibration else {
+    let Some(data) = &ctx.0.imp.calibration else {
         return Ok(image);
     };
+    let info = &data.info;
 
     if info.x.skip > 0 || info.y.skip > 0 {
         image = crop_imm(
@@ -332,35 +398,23 @@ pub fn adjust_image(ctx: &Context, mut image: RgbaImage) -> anyhow::Result<RgbaI
 
     let width = image.width();
     let height = image.height();
-
-    for x in 0..info.x.ignore_start {
-        for y in 0..height {
-            image.put_pixel(x, y, IGNORED_PIXEL);
-        }
-    }
-
-    for x in (width - info.x.ignore_end)..width {
-        for y in 0..height {
-            image.put_pixel(x, y, IGNORED_PIXEL);
-        }
-    }
-
-    for y in 0..info.y.ignore_start {
+    for y in 0..height {
         for x in 0..width {
-            image.put_pixel(x, y, IGNORED_PIXEL);
-        }
-    }
-
-    for y in (height - info.y.ignore_end)..height {
-        for x in 0..width {
-            image.put_pixel(x, y, IGNORED_PIXEL);
+            if !data.is_visible(x, y, width, height) {
+                image.put_pixel(x, y, IGNORED_PIXEL);
+            }
         }
     }
 
     Ok(image)
 }
 
-fn calibration_file_path() -> anyhow::Result<PathBuf> {
+fn calibration_json_path() -> anyhow::Result<PathBuf> {
     let config_dir = dirs::config_dir().context("could not determine config dif path")?;
-    Ok(config_dir.join("uitest_calibration.json"))
+    Ok(config_dir.join("uitest_calibration_v1.json"))
+}
+
+fn calibration_png_path() -> anyhow::Result<PathBuf> {
+    let config_dir = dirs::config_dir().context("could not determine config dif path")?;
+    Ok(config_dir.join("uitest_calibration_v1.png"))
 }

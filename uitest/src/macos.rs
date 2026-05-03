@@ -1,5 +1,5 @@
 use {
-    crate::macos::calibration::CalibrationInfo,
+    crate::macos::calibration::CalibrationData,
     anyhow::{anyhow, bail, ensure, Context as _},
     image::RgbaImage,
     objc2_application_services::{
@@ -24,7 +24,7 @@ use {
 pub mod calibration;
 
 pub struct Context {
-    calibration: Option<CalibrationInfo>,
+    calibration: Option<CalibrationData>,
 }
 
 // TODO: avoid iterating over all apps if only windows_by_pid is requested.
@@ -211,7 +211,7 @@ impl Window {
                 .imp
                 .calibration
                 .as_ref()
-                .map_or(0, |info| info.y.skip)
+                .map_or(0, |data| data.info.y.skip)
         } else {
             0
         };
@@ -298,6 +298,7 @@ impl Window {
                 bail!("failed to set AXSize: {}", ax_error_text(r));
             }
         }
+        sleep(Duration::from_millis(100));
         Ok(())
     }
 }

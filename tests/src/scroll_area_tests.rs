@@ -44,8 +44,10 @@ pub fn main(ctx: &mut Context) -> anyhow::Result<()> {
         ctx.input_key(Key::Unicode('r'))?;
     }
     // scroll down button
-    window.mouse_move(146, 146)?;
+    window.mouse_move(144, 144)?;
+    sleep(Duration::from_secs(1));
     ctx.mouse_left_click()?;
+    sleep(Duration::from_secs(1));
     if cfg!(target_os = "macos") {
         ctx.input_key(Key::Unicode('r'))?;
     }
