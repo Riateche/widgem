@@ -114,7 +114,7 @@ mod windows {
         ensure!(uia_window.get_name()? == "widgem_tests::simple_form");
         let window_rect = uia_window.get_bounding_rectangle()?;
         ensure!(window_rect.get_width() == 270);
-        ensure!(window_rect.get_height() == 191);
+        ensure!(window_rect.get_height() == 279);
         let walker = automation.get_control_view_walker()?;
         let title_bar = walker.get_first_child(&uia_window)?;
         ensure!(title_bar.get_control_type()? == ControlType::TitleBar);
@@ -147,14 +147,17 @@ mod windows {
         ensure!(multiline_label_rect.get_left() - user_name_rect.get_left() == 0);
         ensure!(multiline_label_rect.get_top() - user_name_rect.get_top() == 58);
 
-        let submit_button = walker.get_next_sibling(&multiline_label)?;
+        let text_area = walker.get_next_sibling(&multiline_label)?;
+        ensure!(text_area.get_control_type()? == ControlType::Edit);
+
+        let submit_button = walker.get_next_sibling(&text_area)?;
         ensure!(submit_button.get_control_type()? == ControlType::Button);
         ensure!(submit_button.get_name()? == "Submit");
         let submit_button_rect = submit_button.get_bounding_rectangle()?;
         ensure!(submit_button_rect.get_width() == 55);
         ensure!(submit_button_rect.get_height() == 29);
         ensure!(submit_button_rect.get_left() - user_name_rect.get_left() == 0);
-        ensure!(submit_button_rect.get_top() - user_name_rect.get_top() == 101);
+        ensure!(submit_button_rect.get_top() - user_name_rect.get_top() == 189);
 
         submit_button.set_focus()?;
         ctx.set_blinking_expected(false);
