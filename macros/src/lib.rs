@@ -16,7 +16,24 @@ pub fn attribute_setters(input: TokenStream) -> TokenStream {
 }
 
 fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::TokenStream> {
-    let ident = &input.ident;
+    let struct_ident = &input.ident;
+    let struct_vis = &input.vis;
+
+    let mut extension_trait_ident = None;
+    for attr in &input.attrs {
+        if attr.path().is_ident("widgem_attr") {
+            // Handles e.g. #[widgem_attr(rename = "foo", skip)]
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("extension_trait") {
+                    let value = meta.value()?;
+                    extension_trait_ident = Some(value.parse::<syn::Ident>()?);
+                } else {
+                    return Err(meta.error("unknown attribute option"));
+                }
+                Ok(())
+            })?;
+        }
+    }
 
     let fields = match &mut input.fields {
         syn::Fields::Named(fields) => fields,
@@ -34,10 +51,14 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
     let mut constructor_args = Vec::new();
     let mut constructor_initializers = Vec::new();
     let mut setters = Vec::new();
+    let mut extension_trait_declaration_fns = Vec::new();
+    let mut extends = Vec::new();
+    // let mut extension_trait_impl_fns = Vec::new();
 
     for field in fields.named.iter_mut() {
         let mut is_constructor_arg = false;
         let mut is_private = false;
+        let mut extend = None;
         let mut default_value = None;
         for attr in &field.attrs {
             if attr.path().is_ident("widgem_attr") {
@@ -50,6 +71,9 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
                         // let rename = lit.value();
                     } else if meta.path.is_ident("private") {
                         is_private = true;
+                    } else if meta.path.is_ident("extend") {
+                        let value = meta.value()?;
+                        extend = Some(value.parse::<syn::Path>()?);
                     } else if meta.path.is_ident("default") {
                         let value = meta.value()?;
                         default_value = Some(value.parse::<syn::Expr>()?);
@@ -66,34 +90,61 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
                 "a field cannot be marked as constructor argument and private at the same time",
             ));
         }
-        let ident = &field.ident;
-        let ty = &field.ty;
+        let field_ident = &field.ident;
+        let field_ty = &field.ty;
         if is_constructor_arg {
             constructor_args.push(quote! {
-                #ident: #ty,
+                #field_ident: #field_ty,
             });
-            constructor_initializers.push(quote! { #ident, });
+            constructor_initializers.push(quote! { #field_ident, });
         } else {
             let default_value = if let Some(default_value) = default_value {
                 quote! { #default_value }
             } else {
                 quote! { ::std::default::Default::default() }
             };
-            constructor_initializers.push(quote! { #ident: #default_value, });
-            if !is_private {
+            constructor_initializers.push(quote! { #field_ident: #default_value, });
+            if !is_private && extend.is_none() {
                 setters.push(quote! {
-                    pub fn #ident(mut self, #ident: #ty) -> Self {
-                        self.#ident = #ident;
+                    pub fn #field_ident(mut self, #field_ident: #field_ty) -> Self {
+                        self.#field_ident = #field_ident;
                         self
                     }
                 });
+                if extension_trait_ident.is_some() {
+                    extension_trait_declaration_fns.push(quote! {
+                        fn #field_ident(mut self, #field_ident: #field_ty) -> Self {
+                            let inner = ::std::convert::AsMut::as_mut(&mut self);
+                            inner.#field_ident = #field_ident;
+                            self
+                        }
+                    });
+                    // extension_trait_impl_fns.push(quote! {
+                    //     fn #field_ident(mut self, #field_ident: #ty) -> Self {
+                    //         let inner = ::std::convert::AsMut::as_mut(&mut self);
+                    //         inner.#field_ident = #field_ident;
+                    //         self
+                    //     }
+                    // });
+                }
             }
+        }
+        if let Some(trait_path) = extend {
+            extends.push(quote! {
+                impl ::std::convert::AsMut<#field_ty> for #struct_ident {
+                    fn as_mut(&mut self) -> &mut #field_ty {
+                        &mut self.#field_ident
+                    }
+                }
+
+                impl #trait_path for #struct_ident {}
+            });
         }
     }
 
     let impl_default = if constructor_args.is_empty() {
         quote! {
-            impl ::std::default::Default for #ident {
+            impl ::std::default::Default for #struct_ident {
                 fn default() -> Self {
                     Self::new()
                 }
@@ -103,8 +154,21 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
         quote! {}
     };
 
+    let extension_trait = if let Some(trait_ident) = extension_trait_ident {
+        quote! {
+            #struct_vis trait #trait_ident: ::std::convert::AsMut<#struct_ident> + ::std::marker::Sized {
+                #(#extension_trait_declaration_fns)*
+            }
+            // impl<T: ::std::convert::AsMut<#ident>> #trait_ident for T {
+            //     #(#extension_trait_impl_fns)*
+            // }
+        }
+    } else {
+        quote! {}
+    };
+
     Ok(quote! {
-        impl #ident {
+        impl #struct_ident {
             pub fn new(#(#constructor_args)*) -> Self {
                 Self { #(#constructor_initializers)* }
             }
@@ -113,6 +177,8 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
         }
 
         #impl_default
+        #extension_trait
+        #(#extends)*
     })
 }
 

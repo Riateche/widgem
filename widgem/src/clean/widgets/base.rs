@@ -6,12 +6,12 @@ pub struct WidgetBase {
     /// CSS properties.
     style: Option<String>,
     #[widgem_attr(default = true)]
-    is_enabled: bool,
+    enabled: bool,
     #[widgem_attr(default = true)]
-    is_visible: bool,
+    visible: bool,
     /// This attribute is ignored for widgets that do not expose an accessibility node.
     #[widgem_attr(default = true)]
-    is_accessibility_node_enabled: bool,
+    accessibility_node_enabled: bool,
     // effective icon is attrs.cursor_icon OR default widget icon OR parent icon
     cursor_icon: Option<CursorIcon>,
     scale: Option<FiniteF32>,
