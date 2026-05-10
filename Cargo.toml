@@ -41,6 +41,7 @@ ordered-float = { version = "5.0.0", features = ["serde"] }
 png = "0.17.16"
 priority-queue = "2.4.0"
 quote = "1.0.40"
+proc-macro2 = "1.0.101"
 rand = "0.9.2"
 range-ext = "0.3.0"
 regex = "1.11.2"

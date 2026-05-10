@@ -30,6 +30,8 @@ mod widget_trait;
 pub mod widgets;
 mod window_handler;
 
+pub mod clean;
+
 use {
     crate::types::{Point, Rect, Size},
     winit::monitor::MonitorHandle,

@@ -3,9 +3,93 @@ use {
     quote::quote,
     syn::{
         parse_macro_input, parse_quote, spanned::Spanned, FnArg, Ident, ImplItem, ItemFn, ItemImpl,
-        Pat, ReturnType, Visibility,
+        ItemStruct, Pat, ReturnType, Visibility,
     },
 };
+
+#[proc_macro_derive(AttributeSetters, attributes(widgem_attr))]
+pub fn attribute_setters(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as ItemStruct);
+    try_attribute_setters(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::TokenStream> {
+    let ident = &input.ident;
+
+    let fields = match &mut input.fields {
+        syn::Fields::Named(fields) => fields,
+        syn::Fields::Unnamed(fields) => {
+            return Err(syn::Error::new(
+                fields.span(),
+                "unnamed fields are unsupported",
+            ))
+        }
+        syn::Fields::Unit => {
+            return Err(syn::Error::new(input.span(), "unit struct is unsupported"));
+        }
+    };
+
+    let mut constructor_args = Vec::new();
+    let mut constructor_initializers = Vec::new();
+    let mut setters = Vec::new();
+
+    for field in fields.named.iter_mut() {
+        let mut is_constructor_arg = false;
+        let mut default_value = None;
+        for attr in &field.attrs {
+            if attr.path().is_ident("widgem_attr") {
+                // Handles e.g. #[my_attr(rename = "foo", skip)]
+                attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("constructor") {
+                        is_constructor_arg = true;
+                        // let value = meta.value()?;
+                        // let lit: syn::LitStr = value.parse()?;
+                        // let rename = lit.value();
+                    } else if meta.path.is_ident("default") {
+                        let value = meta.value()?;
+                        default_value = Some(value.parse::<syn::Expr>()?);
+                    } else {
+                        return Err(meta.error("unknown attribute option"));
+                    }
+                    Ok(())
+                })?;
+            }
+        }
+        let ident = &field.ident;
+        let ty = &field.ty;
+        if is_constructor_arg {
+            constructor_args.push(quote! {
+                #ident: #ty,
+            });
+            constructor_initializers.push(quote! { #ident, });
+        } else {
+            let default_value = if let Some(default_value) = default_value {
+                quote! { #default_value }
+            } else {
+                quote! { std::default::Default::default() }
+            };
+            constructor_initializers.push(quote! { #ident: #default_value, });
+            setters.push(quote! {
+                pub fn #ident(mut self, #ident: #ty) -> Self {
+                    self.#ident = #ident;
+                    self
+                }
+            });
+        }
+    }
+
+    Ok(quote! {
+        impl #ident {
+            pub fn new(#(#constructor_args)*) -> Self {
+                Self { #(#constructor_initializers)* }
+            }
+
+            #(#setters)*
+        }
+    })
+}
 
 #[proc_macro_attribute]
 pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {

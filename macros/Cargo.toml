@@ -10,6 +10,7 @@ repository = "https://github.com/Riateche/widgem"
 proc-macro = true
 
 [dependencies]
+proc-macro2 = { workspace = true }
 syn = { workspace = true }
 quote = { workspace = true }
 
