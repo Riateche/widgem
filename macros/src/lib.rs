@@ -37,6 +37,7 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
 
     for field in fields.named.iter_mut() {
         let mut is_constructor_arg = false;
+        let mut is_private = false;
         let mut default_value = None;
         for attr in &field.attrs {
             if attr.path().is_ident("widgem_attr") {
@@ -47,6 +48,8 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
                         // let value = meta.value()?;
                         // let lit: syn::LitStr = value.parse()?;
                         // let rename = lit.value();
+                    } else if meta.path.is_ident("private") {
+                        is_private = true;
                     } else if meta.path.is_ident("default") {
                         let value = meta.value()?;
                         default_value = Some(value.parse::<syn::Expr>()?);
@@ -56,6 +59,12 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
                     Ok(())
                 })?;
             }
+        }
+        if is_constructor_arg && is_private {
+            return Err(syn::Error::new(
+                field.span(),
+                "a field cannot be marked as constructor argument and private at the same time",
+            ));
         }
         let ident = &field.ident;
         let ty = &field.ty;
@@ -68,17 +77,31 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
             let default_value = if let Some(default_value) = default_value {
                 quote! { #default_value }
             } else {
-                quote! { std::default::Default::default() }
+                quote! { ::std::default::Default::default() }
             };
             constructor_initializers.push(quote! { #ident: #default_value, });
-            setters.push(quote! {
-                pub fn #ident(mut self, #ident: #ty) -> Self {
-                    self.#ident = #ident;
-                    self
-                }
-            });
+            if !is_private {
+                setters.push(quote! {
+                    pub fn #ident(mut self, #ident: #ty) -> Self {
+                        self.#ident = #ident;
+                        self
+                    }
+                });
+            }
         }
     }
+
+    let impl_default = if constructor_args.is_empty() {
+        quote! {
+            impl ::std::default::Default for #ident {
+                fn default() -> Self {
+                    Self::new()
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
 
     Ok(quote! {
         impl #ident {
@@ -88,6 +111,8 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
 
             #(#setters)*
         }
+
+        #impl_default
     })
 }
 

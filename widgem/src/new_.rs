@@ -11,6 +11,26 @@ use {
     winit::window::CursorIcon,
 };
 
+/*
+Widget:
+fn render(&self, ctx: RenderContext) -> BoxWidget {}
+
+fn handle(&mut self, event: Event) -> Result<()> {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+*/
+
 pub struct WidgetStyle;
 pub struct KeyEvent;
 pub struct MouseEvent;

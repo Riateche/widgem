@@ -1,8 +1,13 @@
-use widgem_macros::AttributeSetters;
+use {
+    crate::clean::widgets::{base::WidgetBase, focusable::FocusableAttrs},
+    widgem_macros::AttributeSetters,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, AttributeSetters)]
 pub struct Button {
-    // TODO: widget: CommonWidgetAttributes,
+    base: WidgetBase,
+
+    focusable: FocusableAttrs,
     // TODO: focusable: FocusableAttributes,
     #[widgem_attr(constructor)]
     text: String,
@@ -12,6 +17,11 @@ pub struct Button {
     is_mouse_leave_sensitive: bool,
     #[widgem_attr(default = true)]
     trigger_on_press: bool,
+
+    #[widgem_attr(private)]
+    is_pressed: bool,
+    #[widgem_attr(private)]
+    was_pressed_but_moved_out: bool,
 }
 
 #[test]
