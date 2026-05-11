@@ -1,7 +1,10 @@
 use {
-    crate::clean::widgets::{
-        base::{WidgetBase, WidgetBaseExt},
-        focusable::{FocusableAttrs, FocusableExt},
+    crate::clean::{
+        widgets::{
+            base::{WidgetBase, WidgetBaseExt},
+            focusable::{FocusableAttrs, FocusableExt},
+        },
+        Widget,
     },
     widgem_macros::AttributeSetters,
 };
@@ -28,8 +31,12 @@ pub struct Button {
     was_pressed_but_moved_out: bool,
 }
 
+impl Widget for Button {
+    //...
+}
+
 #[test]
-fn t1() {
+fn test_button_attrs() {
     Button::new("abc".into())
         .auto_repeat(false)
         .enabled(false)
