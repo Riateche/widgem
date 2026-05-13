@@ -1,5 +1,10 @@
-pub trait Widget: 'static {}
+use {crate::clean::render::WidgetRenderContext, std::fmt::Debug};
 
+pub trait Widget: 'static + Debug {
+    fn render(&self, ctx: WidgetRenderContext) -> BoxWidget;
+}
+
+#[derive(Debug)]
 pub struct BoxWidget(pub(crate) Box<dyn Widget>);
 
 impl std::hash::Hash for BoxWidget {
@@ -22,9 +27,9 @@ impl Clone for BoxWidget {
     }
 }
 
-impl std::fmt::Debug for BoxWidget {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: actual impl
-        f.debug_tuple("BoxWidget").finish_non_exhaustive()
-    }
-}
+// impl Debug for BoxWidget {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         // TODO: actual impl
+//         f.debug_tuple("BoxWidget").finish_non_exhaustive()
+//     }
+// }

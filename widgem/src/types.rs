@@ -217,7 +217,7 @@ impl From<winit::dpi::PhysicalPosition<i32>> for Point {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct Size {
     x: PhysicalPixels,
     y: PhysicalPixels,

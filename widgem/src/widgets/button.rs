@@ -296,7 +296,7 @@ impl Widget for Button {
 }
 
 #[derive(Debug, Clone, Default)]
-struct ComputedButtonStyle {
+pub(crate) struct ComputedButtonStyle {
     pub icon: Option<Pixmap>,
 }
 

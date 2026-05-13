@@ -96,12 +96,28 @@ pub enum StyleSource {
 
 type CacheKey = (StyleSelector, OrderedFloat<f32>, TypeId);
 
-#[derive(Debug, Clone)]
-pub struct Style {
-    pub css: Rc<StyleSheet<'static, 'static>>,
-    pub source: Rc<StyleSource>,
+#[derive(Debug)]
+struct StyleInner {
+    css: StyleSheet<'static, 'static>,
+    source: StyleSource,
+    cache: RefCell<HashMap<CacheKey, Box<dyn Any>>>,
+}
 
-    cache: Rc<RefCell<HashMap<CacheKey, Box<dyn Any>>>>,
+#[derive(Debug, Clone)]
+pub struct Style(Rc<StyleInner>);
+
+impl Eq for Style {}
+
+impl Hash for Style {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Rc::as_ptr(&self.0).hash(state);
+    }
+}
+
+impl PartialEq for Style {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 fn find_rules<'a>(
@@ -147,28 +163,28 @@ impl Style {
         css: &str,
         files: impl IntoIterator<Item = (&'static str, &'static [u8])>,
     ) -> Result<Self> {
-        Ok(Self {
-            css: Rc::new(load_css(css)?),
-            source: Rc::new(StyleSource::Bundle {
+        Ok(Self(Rc::new(StyleInner {
+            css: load_css(css)?,
+            source: StyleSource::Bundle {
                 files: files.into_iter().collect(),
-            }),
+            },
             cache: Default::default(),
-        })
+        })))
     }
 
     pub fn load_from_file(css_path: &Path) -> Result<Style> {
         let css = fs_err::read_to_string(css_path)?;
 
-        Ok(Self {
-            css: Rc::new(load_css(&css)?),
-            source: Rc::new(StyleSource::File {
+        Ok(Self(Rc::new(StyleInner {
+            css: load_css(&css)?,
+            source: StyleSource::File {
                 parent_dir: css_path
                     .parent()
                     .context("invalid css path (couldn't get parent)")?
                     .into(),
-            }),
+            },
             cache: Default::default(),
-        })
+        })))
     }
 
     pub fn find_rules_for_element(&self, element: &StyleSelector) -> Vec<&Property<'static>> {
@@ -179,7 +195,7 @@ impl Style {
         &self,
         check_selector: impl Fn(&Selector<'static>) -> bool,
     ) -> Vec<&Property<'static>> {
-        find_rules(&self.css, check_selector)
+        find_rules(&self.0.css, check_selector)
     }
 
     // TODO: cache?
@@ -202,7 +218,7 @@ impl Style {
     }
 
     pub fn load_resource(&self, path: &str) -> Result<Cow<'static, [u8]>> {
-        match &*self.source {
+        match &self.0.source {
             // TODO: forbid "../", allow only simple paths
             StyleSource::File { parent_dir } => {
                 let path = parent_dir.join(path);
@@ -238,7 +254,7 @@ impl Style {
     }
 
     pub fn get<T: ComputedElementStyle>(
-        &mut self,
+        &self,
         element: &StyleSelector,
         scale: f32,
         custom_style: Option<&StyleSheet<'static, 'static>>,
@@ -254,7 +270,7 @@ impl Style {
         let type_id = TypeId::of::<T>();
         let key = (element.clone(), OrderedFloat(scale), type_id);
         {
-            if let Some(data) = self.cache.borrow().get(&key) {
+            if let Some(data) = self.0.cache.borrow().get(&key) {
                 return data
                     .downcast_ref::<Rc<T>>()
                     .expect("style cache type mismatch")
@@ -270,7 +286,7 @@ impl Style {
             scale,
         ));
         let style_clone = style.clone();
-        self.cache.borrow_mut().insert(key, Box::new(style));
+        self.0.cache.borrow_mut().insert(key, Box::new(style));
         style_clone
     }
 }

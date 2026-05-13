@@ -197,10 +197,31 @@ struct Cache {
     size_hint_y: HashMap<PhysicalPixels, SizeHint>,
 }
 
-#[derive(Debug)]
-struct CustomStyle {
+#[derive(Debug, Clone)]
+pub struct CustomStyle {
     code: String,
-    style_sheet: StyleSheet<'static, 'static>,
+    style_sheet: Rc<StyleSheet<'static, 'static>>,
+}
+
+impl CustomStyle {
+    pub(crate) fn style_sheet(&self) -> &StyleSheet<'static, 'static> {
+        &self.style_sheet
+    }
+}
+
+impl std::hash::Hash for CustomStyle {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.code.hash(state);
+        Rc::as_ptr(&self.style_sheet).hash(state);
+    }
+}
+
+impl Eq for CustomStyle {}
+
+impl PartialEq for CustomStyle {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code && Rc::ptr_eq(&self.style_sheet, &other.style_sheet)
+    }
 }
 
 /// The first building block of a widget.
@@ -299,7 +320,7 @@ fn get_computed_style<T: ComputedElementStyle>(
     custom_style: Option<&CustomStyle>,
 ) -> Rc<T> {
     app.style()
-        .get(element, scale, custom_style.map(|s| &s.style_sheet))
+        .get(element, scale, custom_style.map(|s| &*s.style_sheet))
 }
 
 // Various private impls.
@@ -686,7 +707,7 @@ impl WidgetBase {
 
         // TODO: return error
         self.style = load_css(style).or_warn().map(|style_sheet| CustomStyle {
-            style_sheet,
+            style_sheet: Rc::new(style_sheet),
             code: style.into(),
         });
         self.request_style_change_event();
@@ -760,7 +781,7 @@ impl WidgetBase {
         self.app.style().get(
             &self.style_selector,
             self.scale(),
-            self.style.as_ref().map(|s| &s.style_sheet),
+            self.style.as_ref().map(|s| &*s.style_sheet),
         )
     }
 

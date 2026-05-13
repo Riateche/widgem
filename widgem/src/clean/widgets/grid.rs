@@ -1,8 +1,9 @@
 use {
     crate::{
         clean::{
+            render::WidgetRenderContext,
             widgets::{WidgetBase, WidgetBaseExt},
-            BoxWidget,
+            BoxWidget, Widget,
         },
         layout::LayoutItemOptions,
         ChildKey,
@@ -11,29 +12,29 @@ use {
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct ColumnItem {
+struct GridItem {
     key: ChildKey,
-    // TODO: separate options type for row and column
+    // TODO: rename to GridItemOptions
     options: LayoutItemOptions,
     widget: BoxWidget,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, AttributeSetters)]
-pub struct Column {
+pub struct Grid {
     #[widgem_attr(extend = WidgetBaseExt)]
     base: WidgetBase,
     #[widgem_attr(private)]
-    items: Vec<ColumnItem>,
+    items: Vec<GridItem>,
 }
 
-impl Column {
+impl Grid {
     pub fn item(
         mut self,
         key: impl Into<ChildKey>,
         options: LayoutItemOptions,
         widget: BoxWidget,
     ) -> Self {
-        self.items.push(ColumnItem {
+        self.items.push(GridItem {
             key: key.into(),
             options,
             widget,
@@ -42,26 +43,8 @@ impl Column {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{
-        clean::{
-            widgets::{column::Column, Button, FocusableExt, WidgetBaseExt},
-            WidgetExt,
-        },
-        layout::LayoutItemOptions,
-    };
-
-    #[test]
-    fn test_column_attrs() {
-        Column::new().item(
-            "abc",
-            LayoutItemOptions::default(),
-            Button::new("abc".into())
-                .auto_repeat(false)
-                .enabled(false)
-                .focusable(true)
-                .boxed(),
-        );
+impl Widget for Grid {
+    fn render(&self, _ctx: WidgetRenderContext) -> BoxWidget {
+        todo!()
     }
 }

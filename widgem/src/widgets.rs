@@ -1,4 +1,4 @@
-mod button;
+pub(crate) mod button;
 mod column;
 mod image;
 mod label;

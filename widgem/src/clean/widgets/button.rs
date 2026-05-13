@@ -1,10 +1,17 @@
 use {
-    crate::clean::{
-        widgets::{
-            base::{WidgetBase, WidgetBaseExt},
-            focusable::{FocusableAttrs, FocusableExt},
+    crate::{
+        clean::{
+            render::WidgetRenderContext,
+            widgets::{
+                base::{WidgetBase, WidgetBaseExt},
+                focusable::{FocusableAttrs, FocusableExt},
+                text::Text,
+                Grid,
+            },
+            Widget, WidgetExt,
         },
-        Widget,
+        layout::LayoutItemOptions,
+        widgets::button::ComputedButtonStyle,
     },
     widgem_macros::AttributeSetters,
 };
@@ -15,7 +22,6 @@ pub struct Button {
     base: WidgetBase,
     #[widgem_attr(extend = FocusableExt)]
     focusable: FocusableAttrs,
-    // TODO: focusable: FocusableAttributes,
     #[widgem_attr(constructor)]
     text: String,
     #[widgem_attr(default = true)]
@@ -32,13 +38,50 @@ pub struct Button {
 }
 
 impl Widget for Button {
+    fn render(&self, ctx: WidgetRenderContext) -> crate::clean::BoxWidget {
+        let style = ctx.compute_style::<ComputedButtonStyle>();
+        Grid::new()
+            .item(
+                "text",
+                LayoutItemOptions::default(),
+                Text::new(self.text.clone()).boxed(),
+            )
+            .boxed()
+    }
     //...
 }
 
-#[test]
-fn test_button_attrs() {
-    Button::new("abc".into())
-        .auto_repeat(false)
-        .enabled(false)
-        .focusable(true);
+#[cfg(test)]
+mod tests {
+    use {
+        crate::{
+            clean::{
+                render::WidgetRenderContext,
+                widgets::{Button, FocusableExt, WidgetBaseExt},
+                Widget,
+            },
+            style::{css::StyleSelector, defaults::default_style},
+        },
+        strict_num::FiniteF32,
+    };
+
+    #[test]
+    fn test_button_attrs() {
+        let button = Button::new("abc".into())
+            .auto_repeat(false)
+            .enabled(false)
+            .focusable(true);
+        let rendered = button.render(WidgetRenderContext {
+            size: None,
+            is_focused: false,
+            is_under_mouse: false,
+            is_effectively_enabled: true,
+            is_effectively_visible: true,
+            system_style: default_style(),
+            custom_style: None,
+            style_selector: StyleSelector::new("Button".into()),
+            effective_scale: FiniteF32::new(1.0).unwrap(),
+        });
+        println!("OK {rendered:?}");
+    }
 }

@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+mod render;
 mod widget_ext;
 mod widget_trait;
 pub mod widgets;

@@ -22,7 +22,6 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
     let mut extension_trait_ident = None;
     for attr in &input.attrs {
         if attr.path().is_ident("widgem_attr") {
-            // Handles e.g. #[widgem_attr(rename = "foo", skip)]
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident("extension_trait") {
                     let value = meta.value()?;
@@ -119,13 +118,6 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
                             self
                         }
                     });
-                    // extension_trait_impl_fns.push(quote! {
-                    //     fn #field_ident(mut self, #field_ident: #ty) -> Self {
-                    //         let inner = ::std::convert::AsMut::as_mut(&mut self);
-                    //         inner.#field_ident = #field_ident;
-                    //         self
-                    //     }
-                    // });
                 }
             }
         }
@@ -159,9 +151,6 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
             #struct_vis trait #trait_ident: ::std::convert::AsMut<#struct_ident> + ::std::marker::Sized {
                 #(#extension_trait_declaration_fns)*
             }
-            // impl<T: ::std::convert::AsMut<#ident>> #trait_ident for T {
-            //     #(#extension_trait_impl_fns)*
-            // }
         }
     } else {
         quote! {}
@@ -232,7 +221,6 @@ pub fn impl_with(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
             new_fn.sig.output = parse_quote! { -> Self };
             new_fn.sig.inputs = parse_quote! { #(#new_inputs),* };
-            // *new_fn.sig.inputs.first_mut().unwrap() = parse_quote! { mut self };
             new_fn.block = parse_quote! { {
                 self.#old_name(#(#arg_names,)*);
                 self
