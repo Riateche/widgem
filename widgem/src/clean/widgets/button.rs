@@ -1,17 +1,14 @@
 use {
-    crate::{
-        clean::{
-            render::WidgetRenderContext,
-            widgets::{
-                base::{WidgetBase, WidgetBaseExt},
-                focusable::{FocusableAttrs, FocusableExt},
-                text::Text,
-                Grid,
-            },
-            Widget, WidgetExt,
+    crate::clean::{
+        render::WidgetRenderContext,
+        widgets::{
+            base::{WidgetBase, WidgetBaseExt},
+            focusable::{FocusableAttrs, FocusableExt},
+            grid::GridItemOptions,
+            text::Text,
+            Grid,
         },
-        layout::LayoutItemOptions,
-        widgets::button::ComputedButtonStyle,
+        Widget, WidgetExt,
     },
     widgem_macros::AttributeSetters,
 };
@@ -38,12 +35,13 @@ pub struct Button {
 }
 
 impl Widget for Button {
-    fn render(&self, ctx: WidgetRenderContext) -> crate::clean::BoxWidget {
-        let style = ctx.compute_style::<ComputedButtonStyle>();
+    fn render(&self, _ctx: WidgetRenderContext) -> crate::clean::BoxWidget {
+        // let style = ctx.compute_style::<ComputedButtonStyle>();
+        // TODO: add icon
         Grid::new()
             .item(
                 "text",
-                LayoutItemOptions::default(),
+                GridItemOptions::new(0, 0),
                 Text::new(self.text.clone()).boxed(),
             )
             .boxed()
