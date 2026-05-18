@@ -1,5 +1,6 @@
 mod base;
 mod button;
+mod collection;
 mod column;
 mod empty;
 mod focusable;
@@ -14,6 +15,7 @@ pub use self::{
     focusable::{FocusableAttrs, FocusableExt},
     grid::Grid,
     window::Window,
+    collection::Collection,
 };
 
 // MVP:

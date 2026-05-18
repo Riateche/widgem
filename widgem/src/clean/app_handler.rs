@@ -1,23 +1,44 @@
 use {
     crate::{
-        clean::{App, BoxWidget},
+        clean::{App, BoxWidget, WidgetContext, WidgetRenderContext, WidgetTreeItem},
         event_loop::UserEvent,
+        style::{css::StyleSelector, defaults::default_style},
+        widget_base::last_path_part,
     },
     winit::event_loop::ActiveEventLoop,
 };
 
 pub(crate) struct AppHandler {
     app: App,
-    root: BoxWidget,
+    root: WidgetTreeItem,
+}
+
+fn render_widget(item: &mut WidgetTreeItem, app: &App, event_loop: &ActiveEventLoop) {
+    let output = item.render();
 }
 
 impl AppHandler {
     pub(crate) fn new(app: App, root: BoxWidget) -> Self {
-        Self { app, root }
+        let root_ctx = WidgetContext {
+            is_in_window: false,
+            is_focused: false,
+            is_under_mouse: false,
+            is_effectively_enabled: true,
+            is_effectively_visible: true,
+            // TODO: allow overriding style
+            system_style: default_style(),
+            custom_style: None,
+            style_selector: StyleSelector::new(last_path_part((*root).type_name()).into()),
+            effective_scale: None,
+        };
+        Self {
+            app,
+            root: WidgetTreeItem::new(root, root_ctx),
+        }
     }
 
-    fn render(&mut self, _event_loop: &ActiveEventLoop) {
-        todo!()
+    fn render(&mut self, event_loop: &ActiveEventLoop) {
+        render_widget(&mut self.root, &self.app, event_loop);
     }
 }
 

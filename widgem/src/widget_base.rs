@@ -307,7 +307,7 @@ impl Drop for WidgetBase {
     }
 }
 
-fn last_path_part(str: &str) -> &str {
+pub(crate) fn last_path_part(str: &str) -> &str {
     str.rsplit("::")
         .next()
         .expect("rsplit always returns at least one element")

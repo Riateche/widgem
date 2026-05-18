@@ -4,13 +4,15 @@ use {
         event_loop::UserEvent,
     },
     std::{path::PathBuf, time::Duration},
-    winit::event_loop::EventLoop,
+    strict_num::FiniteF32,
+    tracing::warn,
+    winit::event_loop::{ActiveEventLoop, EventLoop},
 };
 
 pub struct App {
     system_fonts: bool,
     custom_font_paths: Vec<PathBuf>,
-    fixed_scale: Option<f32>,
+    fixed_scale: Option<FiniteF32>,
     auto_repeat_delay: Option<Duration>,
     auto_repeat_interval: Option<Duration>,
 }
@@ -42,7 +44,7 @@ impl App {
         self
     }
 
-    pub fn scale(mut self, scale: f32) -> App {
+    pub fn scale(mut self, scale: FiniteF32) -> App {
         self.fixed_scale = Some(scale);
         self
     }
@@ -62,6 +64,24 @@ impl App {
         let mut handler = AppHandler::new(self, root);
         event_loop.run_app(&mut handler)?;
         Ok(())
+    }
+
+    pub(crate) fn default_scale(&self, event_loop: ActiveEventLoop) -> FiniteF32 {
+        if let Some(scale) = self.fixed_scale {
+            return scale;
+        }
+        let monitor = event_loop
+            .primary_monitor()
+            .or_else(|| event_loop.available_monitors().next());
+        if let Some(monitor) = monitor {
+            FiniteF32::new(monitor.scale_factor() as f32).unwrap_or_else(|| {
+                warn!("monitor scale is not finite");
+                FiniteF32::new(1.0).unwrap()
+            })
+        } else {
+            warn!("unable to find any monitors");
+            FiniteF32::new(1.0).unwrap()
+        }
     }
 }
 

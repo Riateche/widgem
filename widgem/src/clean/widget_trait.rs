@@ -1,6 +1,17 @@
-use {crate::clean::render::WidgetRenderContext, std::fmt::Debug};
+use {
+    crate::clean::render::WidgetRenderContext,
+    std::{
+        any::Any,
+        fmt::Debug,
+        ops::{Deref, DerefMut},
+    },
+};
 
-pub trait Widget: 'static + Debug {
+pub trait WidgetAuto: 'static + Debug + Any {
+    fn type_name(&self) -> &'static str;
+}
+
+pub trait Widget: WidgetAuto {
     fn render(&self, ctx: WidgetRenderContext) -> BoxWidget;
 }
 
@@ -24,6 +35,20 @@ impl PartialEq for BoxWidget {
 impl Clone for BoxWidget {
     fn clone(&self) -> Self {
         todo!()
+    }
+}
+
+impl Deref for BoxWidget {
+    type Target = dyn Widget;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl DerefMut for BoxWidget {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.0
     }
 }
 

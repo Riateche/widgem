@@ -168,6 +168,12 @@ fn try_attribute_setters(mut input: ItemStruct) -> syn::Result<proc_macro2::Toke
         #impl_default
         #extension_trait
         #(#extends)*
+
+        impl ::widgem::clean::WidgetAuto for #struct_ident {
+            fn type_name(&self) -> &'static str {
+                ::std::any::type_name::<Self>()
+            }
+        }
     })
 }
 

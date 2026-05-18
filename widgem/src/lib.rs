@@ -33,6 +33,9 @@ mod window_handler;
 pub mod clean;
 //mod new_;
 
+#[doc(hidden)]
+extern crate self as widgem;
+
 use {
     crate::types::{Point, Rect, Size},
     winit::monitor::MonitorHandle,

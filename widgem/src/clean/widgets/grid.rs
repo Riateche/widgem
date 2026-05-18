@@ -2,8 +2,8 @@ use {
     crate::{
         clean::{
             render::WidgetRenderContext,
-            widgets::{WidgetBase, WidgetBaseExt},
-            BoxWidget, Widget,
+            widgets::{Collection, WidgetBase, WidgetBaseExt},
+            BoxWidget, Widget, WidgetExt,
         },
         layout::Alignment,
         ChildKey,
@@ -101,6 +101,12 @@ impl Grid {
 
 impl Widget for Grid {
     fn render(&self, _ctx: WidgetRenderContext) -> BoxWidget {
-        todo!()
+        Collection::new()
+            .items(
+                self.items
+                    .iter()
+                    .map(|item| (item.key.clone(), item.widget.clone())),
+            )
+            .boxed()
     }
 }

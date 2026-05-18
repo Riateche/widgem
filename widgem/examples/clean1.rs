@@ -1,10 +1,13 @@
-use widgem::clean::{
-    widgets::{Button, Window},
-    BoxWidget, Widget, WidgetExt, WidgetRenderContext,
+use {
+    widgem::clean::{
+        widgets::{Button, Window},
+        BoxWidget, Widget, WidgetExt, WidgetRenderContext,
+    },
+    widgem_macros::AttributeSetters,
 };
 
-#[derive(Debug)]
-struct Root;
+#[derive(Debug, AttributeSetters)]
+struct Root {}
 
 impl Widget for Root {
     fn render(&self, _ctx: WidgetRenderContext) -> BoxWidget {
@@ -15,5 +18,5 @@ impl Widget for Root {
 }
 
 fn main() -> anyhow::Result<()> {
-    widgem::clean::run(Root.boxed())
+    widgem::clean::run(Root::new().boxed())
 }

@@ -56,7 +56,7 @@ mod tests {
             clean::{
                 render::WidgetRenderContext,
                 widgets::{Button, FocusableExt, WidgetBaseExt},
-                Widget,
+                Widget, WidgetContext,
             },
             style::{css::StyleSelector, defaults::default_style},
         },
@@ -70,15 +70,18 @@ mod tests {
             .enabled(false)
             .focusable(true);
         let rendered = button.render(WidgetRenderContext {
-            size: None,
-            is_focused: false,
-            is_under_mouse: false,
-            is_effectively_enabled: true,
-            is_effectively_visible: true,
-            system_style: default_style(),
-            custom_style: None,
-            style_selector: StyleSelector::new("Button".into()),
-            effective_scale: FiniteF32::new(1.0).unwrap(),
+            widget_context: WidgetContext {
+                is_in_window: true,
+                //size: None,
+                is_focused: false,
+                is_under_mouse: false,
+                is_effectively_enabled: true,
+                is_effectively_visible: true,
+                system_style: default_style(),
+                custom_style: None,
+                style_selector: StyleSelector::new("Button".into()),
+                effective_scale: Some(FiniteF32::new(1.0).unwrap()),
+            },
         });
         println!("OK {rendered:?}");
     }
